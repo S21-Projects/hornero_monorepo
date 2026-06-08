@@ -1,0 +1,19 @@
+meta {
+  name: Logout
+  type: http
+  seq: 5
+}
+
+post {
+  url: {{bffUrl}}/auth/logout
+  body: none
+  auth: none
+}
+
+script:post-response {
+  bru.setEnvVar('accessToken', '');
+}
+
+docs {
+  Public. Clears the auth cookies and wipes the local accessToken env var.
+}

@@ -1,0 +1,45 @@
+meta {
+  name: Login
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{bffUrl}}/auth/login
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "email": "ana@example.com",
+    "password": "secret123"
+  }
+}
+
+script:post-response {
+  // The BFF returns only `{ user }`. The JWT is set as the `access_token`
+  // cookie (httpOnly: false). Parse it from Set-Cookie and store it so the
+  // protected requests can send it explicitly via the Cookie header.
+  let raw = res.headers['set-cookie'] || res.headers['Set-Cookie'] || [];
+  if (!Array.isArray(raw)) raw = [raw];
+  const token = raw
+    .map((c) => (c.match(/access_token=([^;]+)/) || [])[1])
+    .find(Boolean);
+  if (token) {
+    bru.setEnvVar('accessToken', token);
+    console.log('access_token captured from login');
+  } else {
+    console.warn('No access_token cookie in login response');
+  }
+}
+
+docs {
+  Public. Authenticates against the MS and sets the auth cookies. Run this
+  FIRST — it populates the `accessToken` env var that every protected request
+  below depends on. Login as an ADMIN user to use the admin-only endpoints.
+}

@@ -1,0 +1,25 @@
+meta {
+  name: Validar organizacion
+  type: http
+  seq: 5
+}
+
+patch {
+  url: {{bffUrl}}/organizaciones/{{orgId}}/validar
+  body: none
+  auth: none
+}
+
+headers {
+  Cookie: access_token={{accessToken}}
+}
+
+vars:pre-request {
+  orgId: 1
+}
+
+docs {
+  Protected — admin only. Validates the organization with the given id.
+  Set `orgId` (in this request's Vars tab, or as an env var) to a real
+  pending organization id. Login as an ADMIN user first.
+}

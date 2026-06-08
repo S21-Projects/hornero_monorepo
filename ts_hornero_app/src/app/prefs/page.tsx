@@ -1,0 +1,184 @@
+import { Sms, Notification, Heart, Box, TickCircle } from "iconsax-reactjs";
+import { TopBar } from "@/components/ui/top-bar";
+import { Card } from "@/components/ui/card";
+import { Pill } from "@/components/ui/pill";
+import { Button } from "@/components/ui/button";
+import { MapPlaceholder } from "@/components/ui/map-placeholder";
+import { Toast } from "@/components/ui/toast";
+
+const FOOD_PREFS = [
+  { icon: <svg width={21} height={21} viewBox="0 0 24 24" fill="none" stroke="var(--horn)" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M12 13c2.5 0 4-2 4-4.5S14.5 4 12 4 8 6 8 8.5 9.5 13 12 13zM12 13v7" /></svg>, title: "Almuerzo",   sub: "Comedores que sirven el mediodía",         on: true },
+  { icon: <svg width={21} height={21} viewBox="0 0 24 24" fill="none" stroke="var(--horn)" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M5 10a4 4 0 0 1 4-4h6a4 4 0 0 1 0 8H9a4 4 0 0 1-4-4z" /><path d="M9 6v8M13 6v8" /></svg>, title: "Desayuno",   sub: "Copa de leche y desayunos",                on: true },
+  { icon: <Heart size={21} color="var(--horn)" />, title: "Merienda",   sub: "Meriendas y copa de leche de la tarde",   on: false },
+  { icon: <Box size={21} color="var(--horn)" />,   title: "Mercadería", sub: "Donaciones de alimentos no perecederos", on: true },
+];
+
+const CHANNEL_PREFS = [
+  { icon: <Sms size={21} color="var(--horn)" />,          title: "Email",                  sub: "mb.rios@correo.ar",               on: true },
+  { icon: <Notification size={21} color="var(--horn)" />, title: "Notificaciones push",    sub: "En tu teléfono y navegador",     on: true },
+];
+
+const ZONES = ["Alberdi", "San Vicente", "General Paz", "Nueva Córdoba", "Yofre", "Centro"];
+const ACTIVE_ZONES = new Set([0, 1, 3]);
+
+const MAP_PINS = [
+  { x: "30%", y: "40%", active: true },
+  { x: "60%", y: "55%", active: true },
+  { x: "70%", y: "30%", active: true },
+];
+
+function Toggle({ on }: { on: boolean }) {
+  return (
+    <span
+      style={{
+        width: 46,
+        height: 27,
+        borderRadius: 999,
+        background: on ? "var(--sky)" : "var(--line)",
+        display: "inline-flex",
+        alignItems: "center",
+        padding: 3,
+        flexShrink: 0,
+        justifyContent: on ? "flex-end" : "flex-start",
+        transition: "background .15s",
+      }}
+    >
+      <span
+        style={{
+          width: 21,
+          height: 21,
+          borderRadius: "50%",
+          background: "#fff",
+          boxShadow: "0 1px 3px rgba(0,0,0,.25)",
+        }}
+      />
+    </span>
+  );
+}
+
+function PrefRow({ icon, title, sub, on }: { icon: React.ReactNode; title: string; sub: string; on: boolean }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 14, padding: "15px 0", borderBottom: "1px solid var(--line-soft)" }}>
+      <div
+        style={{
+          width: 42,
+          height: 42,
+          borderRadius: 12,
+          background: "var(--card-2)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          flexShrink: 0,
+        }}
+      >
+        {icon}
+      </div>
+      <div style={{ flex: 1 }}>
+        <div style={{ fontWeight: 800, fontSize: 15 }}>{title}</div>
+        <div style={{ color: "var(--ink-2)", fontSize: 13, fontWeight: 600, marginTop: 2 }}>{sub}</div>
+      </div>
+      <Toggle on={on} />
+    </div>
+  );
+}
+
+export default function PrefsPage() {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", height: "100vh" }}>
+      <TopBar active="Preferencias" />
+      <div style={{ flex: 1, overflow: "auto", padding: "28px 40px" }}>
+        <div style={{ marginBottom: 24 }}>
+          <h1 style={{ fontSize: 28, fontWeight: 900 }}>Preferencias de notificación</h1>
+          <p style={{ color: "var(--ink-2)", fontSize: 15, marginTop: 5, fontWeight: 600 }}>
+            Elegí qué necesidades y zonas te avisamos. Recibí alertas solo de lo que te importa.
+          </p>
+        </div>
+
+        <div style={{ display: "flex", gap: 28, alignItems: "flex-start" }}>
+          {/* left */}
+          <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 22, minWidth: 0 }}>
+            <Card style={{ padding: "20px 24px 8px" }}>
+              <h3 style={{ fontSize: 17, fontWeight: 900, marginBottom: 4 }}>Categorías de alimento</h3>
+              {FOOD_PREFS.map((p) => (
+                <PrefRow key={p.title} {...p} />
+              ))}
+            </Card>
+
+            <Card style={{ padding: "20px 24px" }}>
+              <h3 style={{ fontSize: 17, fontWeight: 900, marginBottom: 6 }}>Canales</h3>
+              {CHANNEL_PREFS.map((p) => (
+                <PrefRow key={p.title} {...p} />
+              ))}
+            </Card>
+          </div>
+
+          {/* right */}
+          <div style={{ width: 380, flexShrink: 0, display: "flex", flexDirection: "column", gap: 22 }}>
+            <Card style={{ padding: 20 }}>
+              <h3 style={{ fontSize: 17, fontWeight: 900, marginBottom: 4 }}>Zonas de interés</h3>
+              <p style={{ color: "var(--ink-2)", fontSize: 13, fontWeight: 600, marginBottom: 14 }}>
+                Tocá los barrios donde querés ayudar.
+              </p>
+              <div style={{ borderRadius: 14, overflow: "hidden", height: 190, position: "relative", marginBottom: 14 }}>
+                <MapPlaceholder pins={MAP_PINS} />
+              </div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                {ZONES.map((z, i) => {
+                  const active = ACTIVE_ZONES.has(i);
+                  return (
+                    <span
+                      key={z}
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 6,
+                        padding: "8px 13px",
+                        borderRadius: 999,
+                        fontWeight: 800,
+                        fontSize: 13,
+                        cursor: "pointer",
+                        background: active ? "var(--sky-bg)" : "var(--card-2)",
+                        color: active ? "#1C6E96" : "var(--ink-2)",
+                      }}
+                    >
+                      {active && <TickCircle size={13} color="#1C6E96" variant="Bold" />} {z}
+                    </span>
+                  );
+                })}
+              </div>
+            </Card>
+
+            {/* notification preview */}
+            <div>
+              <div style={{ fontSize: 12.5, fontWeight: 800, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: ".04em", marginBottom: 10 }}>
+                Vista previa de la alerta
+              </div>
+              <Toast
+                icon={<Notification size={20} color="var(--horn)" />}
+                title="Nueva necesidad cerca tuyo"
+                body={
+                  <>
+                    <b style={{ color: "var(--ink)" }}>Comedor Los Hornitos</b> (Alberdi) necesita{" "}
+                    <b style={{ color: "var(--ink)" }}>leche en polvo</b> para la merienda.
+                  </>
+                }
+                action={
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <Pill variant="urgent" style={{ fontSize: 10.5, padding: "4px 8px" }}>Urgente</Pill>
+                    <a href="/needs" style={{ fontSize: 13, color: "var(--sky)", fontWeight: 700, textDecoration: "none" }}>
+                      Ver necesidad →
+                    </a>
+                  </div>
+                }
+              />
+            </div>
+
+            <Button variant="primary" block style={{ fontSize: 16 }}>
+              Guardar preferencias
+            </Button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

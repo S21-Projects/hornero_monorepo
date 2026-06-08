@@ -1,0 +1,33 @@
+meta {
+  name: Crear organizacion
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{bffUrl}}/organizaciones
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+  Cookie: access_token={{accessToken}}
+}
+
+body:json {
+  {
+    "nombre": "Comedor La Esperanza",
+    "tipo": "COMEDOR",
+    "descripcion": "Comedor comunitario en el barrio norte",
+    "direccion": "Av. Siempreviva 742",
+    "latitud": -34.6037,
+    "longitud": -58.3816
+  }
+}
+
+docs {
+  Protected — referente only. Proposes a new organization (created as
+  not-yet-validated). `descripcion` and `direccion` are optional; `latitud`
+  and `longitud` are required numbers.
+}

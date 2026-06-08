@@ -1,0 +1,44 @@
+meta {
+  name: Register
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{bffUrl}}/auth/register
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "nombre": "Ana Referente",
+    "email": "ana@example.com",
+    "password": "secret123",
+    "tipo": "REFERENTE"
+  }
+}
+
+script:post-response {
+  // Register also sets the auth cookies. Capture access_token so the
+  // protected requests can reuse it without depending on the cookie jar.
+  let raw = res.headers['set-cookie'] || res.headers['Set-Cookie'] || [];
+  if (!Array.isArray(raw)) raw = [raw];
+  const token = raw
+    .map((c) => (c.match(/access_token=([^;]+)/) || [])[1])
+    .find(Boolean);
+  if (token) {
+    bru.setEnvVar('accessToken', token);
+    console.log('access_token captured from register');
+  }
+}
+
+docs {
+  Public. Creates a referente or donante account on the MS and sets the
+  access_token / refresh_token cookies. `tipo` is optional (defaults to
+  REFERENTE). Returns `{ user }` only — the JWT lives in the cookie, not the body.
+}

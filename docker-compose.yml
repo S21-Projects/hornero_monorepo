@@ -1,0 +1,53 @@
+services:
+  ms:
+    build:
+      context: ./jar_hornero_ms
+    ports:
+      - "${SERVER_PORT:-8081}:8081"
+    environment:
+      SERVER_PORT: "${SERVER_PORT:-8081}"
+      JWT_SECRET: "${JWT_SECRET}"
+    networks:
+      - hornero
+    healthcheck:
+      # springdoc's OpenAPI JSON is public (permitAll) and 200s once the app is up.
+      # Avoids needing spring-boot-starter-actuator just for a liveness probe.
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8081/v3/api-docs || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  bff:
+    build:
+      context: ./ts_hornero_bff
+    ports:
+      - "${BFF_PORT:-3001}:3001"
+    environment:
+      PORT: "3001"
+      JAVA_MS_URL: "http://ms:8081"
+      FRONTEND_URL: "${FRONTEND_URL:-http://localhost:3000}"
+      NODE_ENV: "production"
+    depends_on:
+      ms:
+        condition: service_healthy
+    networks:
+      - hornero
+
+  app:
+    build:
+      context: ./ts_hornero_app
+      args:
+        NEXT_PUBLIC_BFF_URL: "${NEXT_PUBLIC_BFF_URL:-http://localhost:3001}"
+    ports:
+      - "${APP_PORT:-3000}:3000"
+    environment:
+      NODE_ENV: "production"
+    depends_on:
+      - bff
+    networks:
+      - hornero
+
+networks:
+  hornero:
+    driver: bridge

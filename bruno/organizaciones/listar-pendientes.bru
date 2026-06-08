@@ -1,0 +1,19 @@
+meta {
+  name: Listar pendientes
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{bffUrl}}/organizaciones/pendientes
+  auth: none
+}
+
+headers {
+  Cookie: access_token={{accessToken}}
+}
+
+docs {
+  Protected — admin only. Lists organizations awaiting validation.
+  Login as an ADMIN user first or this returns 403.
+}
