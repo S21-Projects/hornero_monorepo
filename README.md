@@ -79,45 +79,33 @@ docker compose down -v
 
 ## Path B — Local Dev (no Docker)
 
-Open **three terminals**, one per service.
+### Prerequisites
+- Java 17, Maven, Node 20
 
-### Terminal 1 — Spring Boot MS
-
-```bash
-cd jar_hornero_ms
-
-# Required environment variables
-export SERVER_PORT=8081
-export JWT_SECRET=change-me-use-a-long-random-secret-min-32-chars
-
-mvn spring-boot:run
-```
-
-> The MS uses an H2 in-memory database — no external DB required.
-
-### Terminal 2 — NestJS BFF
+### Setup (once)
 
 ```bash
-cd ts_hornero_bff
-
-# Copy and fill the env file (JAVA_MS_URL, PORT, FRONTEND_URL)
 cp .env.example .env
-
-npm install
-npm run start:dev
+# Edit .env: set a real JWT_SECRET (at least 32 random chars)
 ```
 
-### Terminal 3 — Next.js Frontend
+All variables for the three services live in the root `.env`.
+The Makefile loads it automatically before starting each service.
+
+> **Database**: The MS uses H2 in-memory — no external DB required.
+> Data is seeded on every startup and lost on shutdown.
+
+### Start (3 terminals)
 
 ```bash
-cd ts_hornero_app
+# Terminal 1
+make dev-ms
 
-# NEXT_PUBLIC_BFF_URL is baked into the bundle at build time.
-# For local dev, Next.js reads it from .env.local:
-echo "NEXT_PUBLIC_BFF_URL=http://localhost:3001" > .env.local
+# Terminal 2
+make dev-bff
 
-npm install
-npm run dev
+# Terminal 3
+make dev-app
 ```
 
 ---
