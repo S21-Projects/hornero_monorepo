@@ -1,0 +1,18 @@
+meta {
+  name: Listar validadas
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{bffUrl}}/organizaciones
+  auth: none
+}
+
+headers {
+  Cookie: access_token={{accessToken}}
+}
+
+docs {
+  Protected. Lists organizations that have already been validated.
+}

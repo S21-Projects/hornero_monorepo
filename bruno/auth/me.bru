@@ -1,0 +1,22 @@
+meta {
+  name: Me
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{bffUrl}}/auth/me
+  auth: none
+}
+
+headers {
+  Cookie: access_token={{accessToken}}
+}
+
+docs {
+  Protected. Returns the current user payload from the JWT.
+
+  IMPORTANT: the BFF reads the token ONLY from the `access_token` cookie
+  (see JwtStrategy). The Bearer scheme shown in the BFF Swagger does NOT work
+  here. Run Login first so {{accessToken}} is populated.
+}

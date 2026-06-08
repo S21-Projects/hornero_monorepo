@@ -1,0 +1,30 @@
+meta {
+  name: Refresh
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{bffUrl}}/auth/refresh
+  body: none
+  auth: none
+}
+
+script:post-response {
+  // Refresh issues a new access_token cookie. Re-capture it.
+  let raw = res.headers['set-cookie'] || res.headers['Set-Cookie'] || [];
+  if (!Array.isArray(raw)) raw = [raw];
+  const token = raw
+    .map((c) => (c.match(/access_token=([^;]+)/) || [])[1])
+    .find(Boolean);
+  if (token) {
+    bru.setEnvVar('accessToken', token);
+    console.log('access_token refreshed');
+  }
+}
+
+docs {
+  Public route, but needs the `refresh_token` cookie (httpOnly) from a prior
+  login. Enable Bruno's cookie jar (Preferences > General) so the refresh_token
+  is sent automatically — it is httpOnly and cannot be captured by a script.
+}

@@ -1,0 +1,65 @@
+package org.example.auth;
+
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+import org.example.auth.dto.AuthResponse;
+import org.example.auth.dto.LoginRequest;
+import org.example.auth.dto.RefreshRequest;
+import org.example.auth.dto.RegisterRequest;
+import org.example.auth.dto.UserResponse;
+import org.example.user.Usuario;
+import org.example.user.UsuarioRepository;
+import org.springframework.http.HttpStatus;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
+
+@Tag(name = "Auth", description = "Authentication and token management")
+@RestController
+@RequestMapping("/api/auth")
+@RequiredArgsConstructor
+public class AuthController {
+
+    private final AuthService authService;
+    private final UsuarioRepository usuarioRepository;
+
+    @Operation(summary = "Register a new referente or donante account")
+    @PostMapping("/register")
+    public AuthResponse register(@Valid @RequestBody RegisterRequest request) {
+        return authService.register(request);
+    }
+
+    @Operation(summary = "Login with credentials and obtain JWT tokens")
+    @PostMapping("/login")
+    public AuthResponse login(@Valid @RequestBody LoginRequest request) {
+        return authService.login(request);
+    }
+
+    @Operation(summary = "Refresh access token using a valid refresh token")
+    @PostMapping("/refresh")
+    public AuthResponse refresh(@RequestBody RefreshRequest request) {
+        return authService.refresh(request.getRefreshToken());
+    }
+
+    @Operation(summary = "Get the currently authenticated user's profile")
+    @GetMapping("/me")
+    public UserResponse me() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated()) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Not authenticated");
+        }
+
+        Long userId = (Long) authentication.getPrincipal();
+        Usuario usuario = usuarioRepository.findById(userId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Usuario no encontrado"));
+
+        jakarta.persistence.DiscriminatorValue annotation =
+                usuario.getClass().getAnnotation(jakarta.persistence.DiscriminatorValue.class);
+        String tipo = annotation != null ? annotation.value() : usuario.getClass().getSimpleName().toUpperCase();
+
+        return new UserResponse(usuario.getId(), usuario.getNombre(), usuario.getEmail(), tipo);
+    }
+}

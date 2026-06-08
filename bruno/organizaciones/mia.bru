@@ -1,0 +1,18 @@
+meta {
+  name: Mi organizacion
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{bffUrl}}/organizaciones/mia
+  auth: none
+}
+
+headers {
+  Cookie: access_token={{accessToken}}
+}
+
+docs {
+  Protected. Returns the organization owned by the authenticated referente.
+}
