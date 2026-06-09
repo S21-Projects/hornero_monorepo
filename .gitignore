@@ -2,9 +2,10 @@
 .DS_Store
 Thumbs.db
 
-# Env files
+# Env files — only *.example files are committed
 .env
 .env.local
+.env.desa
 .env.*.local
 
 # AI / tooling internals
