@@ -1,4 +1,21 @@
 services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: "${DB_NAME:-hornero}"
+      POSTGRES_USER: "${DB_USERNAME:-hornero}"
+      POSTGRES_PASSWORD: "${DB_PASSWORD:-hornero}"
+    volumes:
+      - hornero_pgdata:/var/lib/postgresql/data
+    networks:
+      - hornero
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-hornero} -d ${DB_NAME:-hornero}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
   ms:
     build:
       context: ./jar_hornero_ms
@@ -7,6 +24,14 @@ services:
     environment:
       SERVER_PORT: "${SERVER_PORT:-8081}"
       JWT_SECRET: "${JWT_SECRET}"
+      DB_HOST: "postgres"
+      DB_PORT: "5432"
+      DB_NAME: "${DB_NAME:-hornero}"
+      DB_USERNAME: "${DB_USERNAME:-hornero}"
+      DB_PASSWORD: "${DB_PASSWORD:-hornero}"
+    depends_on:
+      postgres:
+        condition: service_healthy
     networks:
       - hornero
     healthcheck:
@@ -51,3 +76,6 @@ services:
 networks:
   hornero:
     driver: bridge
+
+volumes:
+  hornero_pgdata:
