@@ -220,7 +220,7 @@ export default async function HomePage() {
               <span style={{ color: "var(--horn)" }}>{orgs.length} lugares</span>
             </h2>
             <a
-              href="/needs"
+              href="/organizaciones"
               style={{
                 fontSize: 14,
                 display: "inline-flex",
