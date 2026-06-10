@@ -10,15 +10,7 @@ export function Skeleton({
   borderRadius = 8,
 }: SkeletonProps) {
   return (
-    <>
-      <style>{`
-        @keyframes skeleton-pulse {
-          0%   { opacity: 0.5; }
-          50%  { opacity: 1; }
-          100% { opacity: 0.5; }
-        }
-      `}</style>
-      <div
+    <div
         style={{
           width,
           height,
@@ -27,8 +19,7 @@ export function Skeleton({
           animation: "skeleton-pulse 1.6s ease-in-out infinite",
           flexShrink: 0,
         }}
-      />
-    </>
+    />
   );
 }
 

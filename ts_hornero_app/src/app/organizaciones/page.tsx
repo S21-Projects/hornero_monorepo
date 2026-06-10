@@ -108,7 +108,7 @@ export default async function OrganizacionesPage() {
         </div>
 
         {orgs.length === 0 ? (
-          <EmptyState variant="no-donaciones" />
+          <EmptyState variant="no-comedores" />
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
             {orgs.map((org) => (
