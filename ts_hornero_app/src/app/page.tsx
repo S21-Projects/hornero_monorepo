@@ -239,7 +239,7 @@ export default function HomePage() {
               <ArrowRight size={15} color="var(--sky)" />
             </a>
           </div>
-          <div style={{ display: "flex", gap: 16, overflow: "hidden" }}>
+          <div style={{ display: "flex", gap: 16, overflowX: "auto", scrollSnapType: "x mandatory", paddingBottom: 4, scrollbarWidth: "none" }}>
             {isPending ? (
               Array.from({ length: 3 }, (_, i) => <OrgCardSkeleton key={i} />)
             ) : isError ? (

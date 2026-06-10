@@ -37,7 +37,7 @@ dev-bff:
 	cd ts_hornero_bff && npm install && npm run start:dev
 
 dev-app:
-	cd ts_hornero_app && npm install && npm run dev
+	cd ts_hornero_app && npm install && PORT=$(APP_PORT) npm run dev
 
 ## Local dev — local Postgres via Docker (.env.local)
 

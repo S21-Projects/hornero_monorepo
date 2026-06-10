@@ -89,6 +89,14 @@ public class OrganizacionService {
     }
 
     @Transactional(readOnly = true)
+    public OrganizacionResponse findBySlugPublic(String slug) {
+        return organizacionRepository.findBySlug(slug)
+                .filter(o -> Boolean.TRUE.equals(o.getValidada()))
+                .map(this::toResponse)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Organización no encontrada"));
+    }
+
+    @Transactional(readOnly = true)
     public OrganizacionResponse findByReferente(Long referenteId) {
         return organizacionRepository.findByReferente_Id(referenteId)
                 .map(this::toResponse)
