@@ -13,6 +13,7 @@ public class OrganizacionResponse {
 
     private Long id;
     private String nombre;
+    private String slug;
     private String tipo;
     private String descripcion;
     private String direccion;

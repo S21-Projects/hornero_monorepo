@@ -11,8 +11,10 @@ import org.example.user.Usuario;
 import org.example.user.UsuarioRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.text.Normalizer;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -23,6 +25,7 @@ public class OrganizacionService {
     private final OrganizacionRepository organizacionRepository;
     private final UsuarioRepository usuarioRepository;
 
+    @Transactional
     public OrganizacionResponse crear(CrearOrganizacionRequest request, Long referenteUserId) {
         Usuario usuario = usuarioRepository.findById(referenteUserId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Usuario no encontrado"));
@@ -33,6 +36,7 @@ public class OrganizacionService {
 
         Organizacion organizacion = new Organizacion();
         organizacion.setNombre(request.getNombre());
+        organizacion.setSlug(generateSlug(request.getNombre()));
         organizacion.setTipo(request.getTipo());
         organizacion.setDescripcion(request.getDescripcion());
         organizacion.setDireccion(request.getDireccion());
@@ -45,6 +49,7 @@ public class OrganizacionService {
         return toResponse(saved);
     }
 
+    @Transactional(readOnly = true)
     public List<OrganizacionResponse> listarValidadas() {
         return organizacionRepository.findByValidada(true)
                 .stream()
@@ -52,6 +57,7 @@ public class OrganizacionService {
                 .collect(Collectors.toList());
     }
 
+    @Transactional(readOnly = true)
     public List<OrganizacionResponse> listarPendientes() {
         return organizacionRepository.findByValidada(false)
                 .stream()
@@ -59,6 +65,7 @@ public class OrganizacionService {
                 .collect(Collectors.toList());
     }
 
+    @Transactional
     public OrganizacionResponse validar(Long orgId, Long adminUserId) {
         Organizacion organizacion = organizacionRepository.findById(orgId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Organización no encontrada"));
@@ -81,10 +88,30 @@ public class OrganizacionService {
         return toResponse(saved);
     }
 
+    @Transactional(readOnly = true)
     public OrganizacionResponse findByReferente(Long referenteId) {
         return organizacionRepository.findByReferente_Id(referenteId)
                 .map(this::toResponse)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "No se encontró organización para este referente"));
+    }
+
+    @Transactional(readOnly = true)
+    public OrganizacionResponse findBySlug(String slug, Long requestingUserId, String requestingRole) {
+        Organizacion org = organizacionRepository.findBySlug(slug)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Organización no encontrada"));
+
+        if (Boolean.TRUE.equals(org.getValidada())) {
+            return toResponse(org);
+        }
+
+        boolean isAdmin = "ROLE_ADMINISTRADOR".equals(requestingRole);
+        boolean isOwner = org.getReferente() != null && org.getReferente().getId().equals(requestingUserId);
+
+        if (isAdmin || isOwner) {
+            return toResponse(org);
+        }
+
+        throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Acceso denegado");
     }
 
     public OrganizacionResponse toResponse(Organizacion organizacion) {
@@ -95,6 +122,7 @@ public class OrganizacionService {
         return new OrganizacionResponse(
                 organizacion.getId(),
                 organizacion.getNombre(),
+                organizacion.getSlug(),
                 organizacion.getTipo(),
                 organizacion.getDescripcion(),
                 organizacion.getDireccion(),
@@ -105,5 +133,17 @@ public class OrganizacionService {
                 referenteEmail,
                 validadoPorNombre
         );
+    }
+
+    private String generateSlug(String nombre) {
+        if (nombre == null) return null;
+        String normalized = Normalizer.normalize(nombre, Normalizer.Form.NFD)
+                .replaceAll("\\p{InCombiningDiacriticalMarks}", "");
+        return normalized.toLowerCase()
+                .replaceAll("[^a-z0-9\\s-]", "")
+                .trim()
+                .replaceAll("[\\s]+", "-")
+                .replaceAll("-{2,}", "-")
+                .replaceAll("^-|-$", "");
     }
 }
