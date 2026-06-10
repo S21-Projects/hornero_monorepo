@@ -23,6 +23,9 @@ public class Organizacion {
     @Column(nullable = false)
     private String nombre;
 
+    @Column(unique = true)
+    private String slug;
+
     @Column(length = 1000)
     private String descripcion;
 

@@ -3,6 +3,10 @@ package org.example.domain;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
+
 @Repository
 public interface NecesidadRepository extends JpaRepository<Necesidad, Long> {
+
+    List<Necesidad> findByOrganizacion_Id(Long organizacionId);
 }

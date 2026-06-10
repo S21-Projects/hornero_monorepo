@@ -231,4 +231,81 @@ class OrganizacionServiceTest {
                 .isInstanceOf(ResponseStatusException.class)
                 .hasMessageContaining("403");
     }
+
+    // --- findBySlug ---
+
+    @Test
+    void findBySlug_validatedOrg_returnsOrgForAnyUser() {
+        Organizacion org = new Organizacion();
+        org.setId(10L);
+        org.setNombre("Comedor Validado");
+        org.setSlug("comedor-validado");
+        org.setValidada(true);
+        org.setReferente(referente);
+
+        when(organizacionRepository.findBySlug("comedor-validado")).thenReturn(Optional.of(org));
+
+        OrganizacionResponse response = organizacionService.findBySlug("comedor-validado", 99L, "ROLE_DONANTE");
+
+        assertThat(response.getId()).isEqualTo(10L);
+        assertThat(response.getValidada()).isTrue();
+    }
+
+    @Test
+    void findBySlug_nonValidatedOrg_wrongRole_throwsForbidden() {
+        Organizacion org = new Organizacion();
+        org.setId(11L);
+        org.setNombre("Pendiente");
+        org.setSlug("pendiente");
+        org.setValidada(false);
+        org.setReferente(referente); // referente.id = 1L
+
+        when(organizacionRepository.findBySlug("pendiente")).thenReturn(Optional.of(org));
+
+        assertThatThrownBy(() -> organizacionService.findBySlug("pendiente", 99L, "ROLE_DONANTE"))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("403");
+    }
+
+    @Test
+    void findBySlug_nonValidatedOrg_administrador_returnsOrg() {
+        Organizacion org = new Organizacion();
+        org.setId(12L);
+        org.setNombre("Pendiente Admin");
+        org.setSlug("pendiente-admin");
+        org.setValidada(false);
+        org.setReferente(referente);
+
+        when(organizacionRepository.findBySlug("pendiente-admin")).thenReturn(Optional.of(org));
+
+        OrganizacionResponse response = organizacionService.findBySlug("pendiente-admin", 2L, "ROLE_ADMINISTRADOR");
+
+        assertThat(response.getId()).isEqualTo(12L);
+        assertThat(response.getValidada()).isFalse();
+    }
+
+    @Test
+    void findBySlug_nonValidatedOrg_owningReferente_returnsOrg() {
+        Organizacion org = new Organizacion();
+        org.setId(13L);
+        org.setNombre("Mi Org");
+        org.setSlug("mi-org");
+        org.setValidada(false);
+        org.setReferente(referente); // referente.id = 1L
+
+        when(organizacionRepository.findBySlug("mi-org")).thenReturn(Optional.of(org));
+
+        OrganizacionResponse response = organizacionService.findBySlug("mi-org", 1L, "ROLE_REFERENTE");
+
+        assertThat(response.getId()).isEqualTo(13L);
+    }
+
+    @Test
+    void findBySlug_orgNotFound_throws404() {
+        when(organizacionRepository.findBySlug("no-existe")).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> organizacionService.findBySlug("no-existe", 1L, "ROLE_REFERENTE"))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("404");
+    }
 }
