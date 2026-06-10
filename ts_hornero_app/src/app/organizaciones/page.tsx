@@ -1,3 +1,5 @@
+'use client';
+
 import Link from "next/link";
 import { Location } from "iconsax-reactjs";
 import { TopBar } from "@/components/ui/top-bar";
@@ -5,10 +7,10 @@ import { Card } from "@/components/ui/card";
 import { Pill } from "@/components/ui/pill";
 import { Avatar } from "@/components/ui/avatar";
 import { EmptyState } from "@/components/ui/empty-state";
-import { getValidatedOrganizaciones } from "@/lib/api/organizaciones.server";
+import { ErrorState } from "@/components/ui/error-state";
+import { OrgCardSkeleton } from "@/components/ui/skeleton";
+import { useValidatedOrganizaciones } from "@/lib/hooks/useValidatedOrganizaciones";
 import type { OrganizacionResponse } from "@/lib/api/organizaciones";
-
-export const revalidate = 60;
 
 const TIPOS = ["Todos", "Comedor", "Merendero", "Ropero"];
 
@@ -66,13 +68,10 @@ function OrgRow({ org }: { org: OrganizacionResponse }) {
   );
 }
 
-export default async function OrganizacionesPage() {
-  let orgs: OrganizacionResponse[] = [];
-  try {
-    orgs = await getValidatedOrganizaciones();
-  } catch {
-    // show empty state below
-  }
+export default function OrganizacionesPage() {
+  const { data: orgs, isPending, isError, refetch } = useValidatedOrganizaciones();
+
+  const count = orgs?.length ?? 0;
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100vh" }}>
@@ -82,7 +81,9 @@ export default async function OrganizacionesPage() {
           <div>
             <h1 style={{ fontSize: 28, fontWeight: 900 }}>Organizaciones</h1>
             <p style={{ color: "var(--ink-2)", fontSize: 15, marginTop: 5, fontWeight: 600 }}>
-              {orgs.length} {orgs.length === 1 ? "organización validada" : "organizaciones validadas"} en Córdoba
+              {isPending
+                ? "Cargando..."
+                : `${count} ${count === 1 ? "organización validada" : "organizaciones validadas"} en Córdoba`}
             </p>
           </div>
         </div>
@@ -107,11 +108,17 @@ export default async function OrganizacionesPage() {
           ))}
         </div>
 
-        {orgs.length === 0 ? (
+        {isPending ? (
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            {Array.from({ length: 4 }, (_, i) => <OrgCardSkeleton key={i} />)}
+          </div>
+        ) : isError ? (
+          <ErrorState onRetry={() => refetch()} message="No pudimos cargar las organizaciones. Intentá de nuevo." />
+        ) : count === 0 ? (
           <EmptyState variant="no-comedores" />
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-            {orgs.map((org) => (
+            {orgs!.map((org) => (
               <OrgRow key={org.id} org={org} />
             ))}
           </div>
