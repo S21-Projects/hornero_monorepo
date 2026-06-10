@@ -1,3 +1,4 @@
+import { notFound } from "next/navigation";
 import { Clock, Sms, Location, Heart, Routing, Shield, Truck } from "iconsax-reactjs";
 import { TopBar } from "@/components/ui/top-bar";
 import { Card } from "@/components/ui/card";
@@ -8,6 +9,9 @@ import { Progress } from "@/components/ui/progress";
 import { Avatar } from "@/components/ui/avatar";
 import { MapPlaceholder } from "@/components/ui/map-placeholder";
 import { Box } from "iconsax-reactjs";
+import { getOrganizacionBySlug } from "@/lib/api/organizaciones.server";
+
+export const revalidate = 60;
 
 const NEEDS = [
   { title: "Leche en polvo",   sub: "Para la copa de leche de la tarde",     priority: "urgent" as const, progress: [18, 40] as const },
@@ -31,7 +35,20 @@ const STATUS_MAP = {
   delivered: { variant: "open", label: "Entregado",  icon: <Shield size={13} /> },
 } as const;
 
-export default function OrgDetailPage() {
+export default async function OrgDetailPage({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}) {
+  const { slug } = await params;
+
+  let org;
+  try {
+    org = await getOrganizacionBySlug(slug);
+  } catch {
+    notFound();
+  }
+
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100vh" }}>
       <TopBar active="Mapa" />
@@ -79,13 +96,16 @@ export default function OrgDetailPage() {
             <div style={{ flex: 1, color: "#fff", paddingBottom: 4 }}>
               <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
                 <Pill variant="open" dot>Abierto · cierra 15:00</Pill>
-                <Pill variant="solid" style={{ background: "rgba(255,255,255,.22)" }}>Validado</Pill>
+                <Pill variant="cat">{org.tipo}</Pill>
+                <Pill variant="solid" style={{ background: "rgba(255,255,255,.22)" }}>
+                  {org.validada ? "Validado" : "Pendiente"}
+                </Pill>
               </div>
-              <h1 style={{ color: "#fff", fontSize: 32, fontWeight: 900 }}>Comedor Los Hornitos</h1>
+              <h1 style={{ color: "#fff", fontSize: 32, fontWeight: 900 }}>{org.nombre}</h1>
               <div style={{ display: "flex", alignItems: "center", gap: 16, marginTop: 8, fontWeight: 700, fontSize: 14.5, opacity: 0.95 }}>
                 <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
                   <Location size={16} color="#fff" />
-                  Av. Colón 1240, B° Alberdi
+                  {org.direccion ?? "Sin dirección"}
                 </span>
                 <Stars value={4.8} showNum />
               </div>
@@ -100,8 +120,7 @@ export default function OrgDetailPage() {
             <Card style={{ padding: 24 }}>
               <h3 style={{ fontSize: 18, fontWeight: 900, marginBottom: 6 }}>Sobre el comedor</h3>
               <p style={{ color: "var(--ink-2)", fontSize: 15, lineHeight: 1.6, fontWeight: 600 }}>
-                Atendemos a más de 180 familias del barrio Alberdi con almuerzo diario y copa de leche por la tarde.
-                Funcionamos hace 12 años gracias a vecinos y donantes de toda Córdoba.
+                {org.descripcion ?? ""}
               </p>
               <div style={{ display: "flex", gap: 28, marginTop: 18, flexWrap: "wrap" }}>
                 {[

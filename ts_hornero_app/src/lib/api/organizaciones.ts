@@ -11,6 +11,7 @@ export interface CreateOrganizacionPayload {
 
 export interface OrganizacionResponse {
   id: number;
+  slug: string;
   nombre: string;
   tipo: string;
   descripcion?: string;

@@ -25,7 +25,7 @@ const PINS = [
 
 function OrgCard({ org }: { org: OrganizacionResponse }) {
   return (
-    <Link href={`/org/${org.id}`} style={{ textDecoration: "none", color: "inherit", flexShrink: 0 }}>
+    <Link href={`/org/${org.slug}`} style={{ textDecoration: "none", color: "inherit", flexShrink: 0 }}>
     <Card
       style={{
         width: 290,
