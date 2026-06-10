@@ -1,3 +1,5 @@
+'use client';
+
 import Link from "next/link";
 import { SearchNormal1, Add, ArrowRight } from "iconsax-reactjs";
 import { TopBar } from "@/components/ui/top-bar";
@@ -8,10 +10,11 @@ import { Button } from "@/components/ui/button";
 import { MapPlaceholder } from "@/components/ui/map-placeholder";
 import { Avatar } from "@/components/ui/avatar";
 import { Location, Routing } from "iconsax-reactjs";
-import { getValidatedOrganizaciones } from "@/lib/api/organizaciones.server";
 import type { OrganizacionResponse } from "@/lib/api/organizaciones";
-
-export const revalidate = 60;
+import { useValidatedOrganizaciones } from "@/lib/hooks/useValidatedOrganizaciones";
+import { OrgCardSkeleton } from "@/components/ui/skeleton";
+import { ErrorState } from "@/components/ui/error-state";
+import { EmptyState } from "@/components/ui/empty-state";
 
 const FILTERS = ["Todos", "Almuerzo", "Merienda", "Desayuno", "Donaciones", "Abierto ahora"];
 
@@ -74,13 +77,9 @@ function OrgCard({ org }: { org: OrganizacionResponse }) {
   );
 }
 
-export default async function HomePage() {
-  let orgs: OrganizacionResponse[] = [];
-  try {
-    orgs = await getValidatedOrganizaciones();
-  } catch {
-    // Fail silently — show empty list with map still visible
-  }
+export default function HomePage() {
+  const { data: orgs, isPending, isError, refetch } = useValidatedOrganizaciones();
+
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100vh" }}>
       <TopBar active="Mapa" />
@@ -216,8 +215,13 @@ export default async function HomePage() {
             }}
           >
             <h2 style={{ fontSize: 19, fontWeight: 900 }}>
-              Cerca tuyo ·{" "}
-              <span style={{ color: "var(--horn)" }}>{orgs.length} lugares</span>
+              Cerca tuyo
+              {!isPending && orgs && orgs.length > 0 && (
+                <>
+                  {" "}·{" "}
+                  <span style={{ color: "var(--horn)" }}>{orgs.length} lugares</span>
+                </>
+              )}
             </h2>
             <a
               href="/organizaciones"
@@ -236,9 +240,18 @@ export default async function HomePage() {
             </a>
           </div>
           <div style={{ display: "flex", gap: 16, overflow: "hidden" }}>
-            {orgs.map((org) => (
-              <OrgCard key={org.id} org={org} />
-            ))}
+            {isPending ? (
+              Array.from({ length: 3 }, (_, i) => <OrgCardSkeleton key={i} />)
+            ) : isError ? (
+              <ErrorState
+                onRetry={() => refetch()}
+                message="No pudimos cargar los lugares. Intentá de nuevo."
+              />
+            ) : !orgs || orgs.length === 0 ? (
+              <EmptyState variant="no-comedores" />
+            ) : (
+              orgs.map((org) => <OrgCard key={org.id} org={org} />)
+            )}
           </div>
         </div>
       </div>

@@ -44,3 +44,10 @@ export async function getPendingOrganizaciones(): Promise<OrganizacionResponse[]
 export async function validateOrganizacion(id: number): Promise<void> {
   await api.patch(`/organizaciones/${id}/validar`);
 }
+
+export async function fetchValidatedOrganizaciones(): Promise<OrganizacionResponse[]> {
+  const base = process.env.NEXT_PUBLIC_BFF_URL ?? '';
+  const res = await fetch(`${base}/organizaciones`, { credentials: 'include' });
+  if (!res.ok) throw new Error(`fetchValidatedOrganizaciones failed: ${res.status}`);
+  return res.json() as Promise<OrganizacionResponse[]>;
+}
