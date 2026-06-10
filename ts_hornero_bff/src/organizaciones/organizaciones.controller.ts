@@ -11,6 +11,7 @@ import {
 } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { Request } from 'express';
+import { Public } from '../auth/decorators/public.decorator.js';
 import { OrganizacionesService } from './organizaciones.service.js';
 import { CrearOrganizacionDto } from './dto/crear-organizacion.dto.js';
 
@@ -37,10 +38,12 @@ export class OrganizacionesController {
     return this.organizacionesService.miOrganizacion(this.getToken(req));
   }
 
+  @Public()
   @Get()
   @ApiOperation({ summary: 'List validated organizations' })
   listarValidadas(@Req() req: Request) {
-    return this.organizacionesService.listarValidadas(this.getToken(req));
+    const token = (req as any).cookies?.['access_token'] as string | undefined;
+    return this.organizacionesService.listarValidadas(token);
   }
 
   @Get('pendientes')
@@ -53,5 +56,12 @@ export class OrganizacionesController {
   @ApiOperation({ summary: 'Validate an organization (admin only)' })
   validar(@Param('id', ParseIntPipe) id: number, @Req() req: Request) {
     return this.organizacionesService.validar(id, this.getToken(req));
+  }
+
+  @Public()
+  @Get(':slug')
+  @ApiOperation({ summary: 'Get organization by slug (public)' })
+  findBySlug(@Param('slug') slug: string) {
+    return this.organizacionesService.findBySlug(slug);
   }
 }

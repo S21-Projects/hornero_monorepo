@@ -5,6 +5,8 @@ services:
       POSTGRES_DB: "${DB_NAME:-hornero}"
       POSTGRES_USER: "${DB_USERNAME:-hornero}"
       POSTGRES_PASSWORD: "${DB_PASSWORD:-hornero}"
+    ports:
+      - "${DB_PORT:-5432}:5432"
     volumes:
       - hornero_pgdata:/var/lib/postgresql/data
     networks:

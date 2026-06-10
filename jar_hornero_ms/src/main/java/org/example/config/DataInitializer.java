@@ -87,6 +87,16 @@ public class DataInitializer {
             usuarioRepository.save(donante);
             log.info("Seeded donante@hornero.ar");
         }
+
+        if (usuarioRepository.findByEmail("donante2@hornero.ar").isEmpty()) {
+            Donante donante2 = new Donante();
+            donante2.setNombre("María Belén Ríos");
+            donante2.setEmail("donante2@hornero.ar");
+            donante2.setPassword(passwordEncoder.encode("Don123!"));
+            donante2.setActivo(true);
+            usuarioRepository.save(donante2);
+            log.info("Seeded donante2@hornero.ar");
+        }
     }
 
     private void seedOrganizaciones() {
@@ -152,6 +162,7 @@ public class DataInitializer {
         List<Organizacion> orgs = organizacionRepository.findAll();
         if (orgs.size() < 3) return;
 
+        // Org 0 — Comedor La Esperanza (3 needs)
         Necesidad n1 = new Necesidad();
         n1.setDescripcion("Leche entera para la copa de leche");
         n1.setPrioridad(PrioridadNecesidad.URGENTE);
@@ -160,13 +171,45 @@ public class DataInitializer {
         n1.setFechaVencimiento(LocalDate.now().plusDays(14));
         n1.setOrganizacion(orgs.get(0));
 
+        Necesidad n1b = new Necesidad();
+        n1b.setDescripcion("Aceite y harina para el almuerzo diario");
+        n1b.setPrioridad(PrioridadNecesidad.MEDIA);
+        n1b.setEstado(EstadoNecesidad.ABIERTA);
+        n1b.setFechaPublicacion(LocalDate.now().minusDays(3));
+        n1b.setFechaVencimiento(LocalDate.now().plusDays(20));
+        n1b.setOrganizacion(orgs.get(0));
+
+        Necesidad n1c = new Necesidad();
+        n1c.setDescripcion("Utensilios de cocina y tablas de corte");
+        n1c.setPrioridad(PrioridadNecesidad.NORMAL);
+        n1c.setEstado(EstadoNecesidad.ABIERTA);
+        n1c.setFechaPublicacion(LocalDate.now().minusDays(7));
+        n1c.setOrganizacion(orgs.get(0));
+
+        // Org 1 — Merendero Corazón Solidario (3 needs)
         Necesidad n2 = new Necesidad();
         n2.setDescripcion("Ropa de invierno para niños talle 4-8");
-        n2.setPrioridad(PrioridadNecesidad.MEDIA);
-        n2.setEstado(EstadoNecesidad.EN_PROGRESO);
+        n2.setPrioridad(PrioridadNecesidad.URGENTE);
+        n2.setEstado(EstadoNecesidad.ABIERTA);
         n2.setFechaPublicacion(LocalDate.now().minusDays(5));
+        n2.setFechaVencimiento(LocalDate.now().plusDays(10));
         n2.setOrganizacion(orgs.get(1));
 
+        Necesidad n2b = new Necesidad();
+        n2b.setDescripcion("Útiles escolares para apoyo educativo");
+        n2b.setPrioridad(PrioridadNecesidad.MEDIA);
+        n2b.setEstado(EstadoNecesidad.EN_PROGRESO);
+        n2b.setFechaPublicacion(LocalDate.now().minusDays(10));
+        n2b.setOrganizacion(orgs.get(1));
+
+        Necesidad n2c = new Necesidad();
+        n2c.setDescripcion("Mesas y sillas plegables para el salón");
+        n2c.setPrioridad(PrioridadNecesidad.NORMAL);
+        n2c.setEstado(EstadoNecesidad.ABIERTA);
+        n2c.setFechaPublicacion(LocalDate.now().minusDays(15));
+        n2c.setOrganizacion(orgs.get(1));
+
+        // Org 2 — Ropero Comunitario Norte (3 needs)
         Necesidad n3 = new Necesidad();
         n3.setDescripcion("Fideos y arroz para el mes");
         n3.setPrioridad(PrioridadNecesidad.NORMAL);
@@ -175,20 +218,38 @@ public class DataInitializer {
         n3.setFechaVencimiento(LocalDate.now().plusDays(30));
         n3.setOrganizacion(orgs.get(2));
 
-        necesidadRepository.saveAll(List.of(n1, n2, n3));
-        log.info("Seeded 3 necesidades");
+        Necesidad n3b = new Necesidad();
+        n3b.setDescripcion("Bolsas grandes para clasificar ropa donada");
+        n3b.setPrioridad(PrioridadNecesidad.URGENTE);
+        n3b.setEstado(EstadoNecesidad.ABIERTA);
+        n3b.setFechaPublicacion(LocalDate.now().minusDays(1));
+        n3b.setFechaVencimiento(LocalDate.now().plusDays(7));
+        n3b.setOrganizacion(orgs.get(2));
+
+        Necesidad n3c = new Necesidad();
+        n3c.setDescripcion("Perchas y estantes para exhibición de ropa");
+        n3c.setPrioridad(PrioridadNecesidad.MEDIA);
+        n3c.setEstado(EstadoNecesidad.ABIERTA);
+        n3c.setFechaPublicacion(LocalDate.now().minusDays(8));
+        n3c.setOrganizacion(orgs.get(2));
+
+        necesidadRepository.saveAll(List.of(n1, n1b, n1c, n2, n2b, n2c, n3, n3b, n3c));
+        log.info("Seeded 9 necesidades (3 per org)");
     }
 
     private void seedDonaciones() {
         if (donacionRepository.count() > 0) return;
 
         List<Necesidad> necesidades = necesidadRepository.findAll();
-        if (necesidades.size() < 3) return;
+        if (necesidades.size() < 9) return;
 
         Optional<Usuario> donanteOpt = usuarioRepository.findByEmail("donante@hornero.ar");
-        if (donanteOpt.isEmpty()) return;
+        Optional<Usuario> donante2Opt = usuarioRepository.findByEmail("donante2@hornero.ar");
+        if (donanteOpt.isEmpty() || donante2Opt.isEmpty()) return;
         Donante donante = (Donante) donanteOpt.get();
+        Donante donante2 = (Donante) donante2Opt.get();
 
+        // Org 0 (necesidades 0, 1, 2)
         Donacion d1 = new Donacion();
         d1.setFechaOferta(LocalDate.now());
         d1.setEstado(EstadoDonacion.OFRECIDA);
@@ -196,22 +257,68 @@ public class DataInitializer {
         d1.setDonante(donante);
         d1.setNecesidad(necesidades.get(0));
 
+        Donacion d1b = new Donacion();
+        d1b.setFechaOferta(LocalDate.now().minusDays(1));
+        d1b.setEstado(EstadoDonacion.EN_CAMINO);
+        d1b.setObservaciones("Aceite girasol x 4 botellas");
+        d1b.setDonante(donante2);
+        d1b.setNecesidad(necesidades.get(1));
+
+        Donacion d1c = new Donacion();
+        d1c.setFechaOferta(LocalDate.now().minusDays(5));
+        d1c.setFechaEntrega(LocalDate.now().minusDays(1));
+        d1c.setEstado(EstadoDonacion.ENTREGADA);
+        d1c.setObservaciones("Tabla de corte y cuchillos donados");
+        d1c.setDonante(donante);
+        d1c.setNecesidad(necesidades.get(2));
+
+        // Org 1 (necesidades 3, 4, 5)
         Donacion d2 = new Donacion();
         d2.setFechaOferta(LocalDate.now().minusDays(3));
         d2.setEstado(EstadoDonacion.EN_CAMINO);
         d2.setObservaciones("Ropa de mis hijos en buen estado");
         d2.setDonante(donante);
-        d2.setNecesidad(necesidades.get(1));
+        d2.setNecesidad(necesidades.get(3));
 
+        Donacion d2b = new Donacion();
+        d2b.setFechaOferta(LocalDate.now().minusDays(7));
+        d2b.setFechaEntrega(LocalDate.now().minusDays(2));
+        d2b.setEstado(EstadoDonacion.ENTREGADA);
+        d2b.setObservaciones("Cuadernos y lápices para 15 chicos");
+        d2b.setDonante(donante2);
+        d2b.setNecesidad(necesidades.get(4));
+
+        Donacion d2c = new Donacion();
+        d2c.setFechaOferta(LocalDate.now().minusDays(2));
+        d2c.setEstado(EstadoDonacion.OFRECIDA);
+        d2c.setObservaciones("Tengo 4 sillas plegables para donar");
+        d2c.setDonante(donante);
+        d2c.setNecesidad(necesidades.get(5));
+
+        // Org 2 (necesidades 6, 7, 8)
         Donacion d3 = new Donacion();
         d3.setFechaOferta(LocalDate.now().minusDays(10));
         d3.setFechaEntrega(LocalDate.now().minusDays(2));
         d3.setEstado(EstadoDonacion.ENTREGADA);
         d3.setObservaciones("3 kg de fideos y 2 kg de arroz");
         d3.setDonante(donante);
-        d3.setNecesidad(necesidades.get(2));
+        d3.setNecesidad(necesidades.get(6));
 
-        donacionRepository.saveAll(List.of(d1, d2, d3));
-        log.info("Seeded 3 donaciones");
+        Donacion d3b = new Donacion();
+        d3b.setFechaOferta(LocalDate.now().minusDays(1));
+        d3b.setEstado(EstadoDonacion.OFRECIDA);
+        d3b.setObservaciones("Tengo bolsas de consorcio grandes disponibles");
+        d3b.setDonante(donante2);
+        d3b.setNecesidad(necesidades.get(7));
+
+        Donacion d3c = new Donacion();
+        d3c.setFechaOferta(LocalDate.now().minusDays(4));
+        d3c.setEstado(EstadoDonacion.EN_CAMINO);
+        d3c.setObservaciones("Perchas metálicas x 50 unidades");
+        d3c.setDonante(donante);
+        d3c.setNecesidad(necesidades.get(8));
+
+        donacionRepository.saveAll(List.of(d1, d1b, d1c, d2, d2b, d2c, d3, d3b, d3c));
+        log.info("Seeded 9 donaciones (3 per org)");
     }
 }

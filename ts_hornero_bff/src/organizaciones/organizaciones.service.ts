@@ -35,10 +35,10 @@ export class OrganizacionesService {
     return data;
   }
 
-  async listarValidadas(accessToken: string) {
+  async listarValidadas(accessToken?: string) {
     const { data } = await this.httpService.axiosRef.get(
       `${this.msUrl}/api/organizaciones`,
-      { headers: this.authHeaders(accessToken) },
+      accessToken ? { headers: this.authHeaders(accessToken) } : {},
     );
     return data;
   }
@@ -47,6 +47,13 @@ export class OrganizacionesService {
     const { data } = await this.httpService.axiosRef.get(
       `${this.msUrl}/api/organizaciones/pendientes`,
       { headers: this.authHeaders(accessToken) },
+    );
+    return data;
+  }
+
+  async findBySlug(slug: string) {
+    const { data } = await this.httpService.axiosRef.get(
+      `${this.msUrl}/api/organizaciones/${slug}`,
     );
     return data;
   }

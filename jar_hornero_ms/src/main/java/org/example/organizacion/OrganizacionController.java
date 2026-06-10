@@ -7,7 +7,9 @@ import lombok.RequiredArgsConstructor;
 import org.example.organizacion.dto.CrearOrganizacionRequest;
 import org.example.organizacion.dto.OrganizacionResponse;
 import org.springframework.http.HttpStatus;
+import org.springframework.lang.Nullable;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.http.ResponseEntity;
@@ -57,7 +59,10 @@ public class OrganizacionController {
 
     @Operation(summary = "Get organization by slug (access policy enforced by service)")
     @GetMapping("/{slug}")
-    public ResponseEntity<OrganizacionResponse> findBySlug(@PathVariable String slug, Authentication auth) {
+    public ResponseEntity<OrganizacionResponse> findBySlug(@PathVariable String slug, @Nullable Authentication auth) {
+        if (auth == null || !auth.isAuthenticated() || auth instanceof AnonymousAuthenticationToken) {
+            return ResponseEntity.ok(organizacionService.findBySlugPublic(slug));
+        }
         Long userId = (Long) auth.getPrincipal();
         String role = auth.getAuthorities().iterator().next().getAuthority();
         return ResponseEntity.ok(organizacionService.findBySlug(slug, userId, role));
