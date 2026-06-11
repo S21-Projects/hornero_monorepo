@@ -74,8 +74,8 @@ export function proxy(request: NextRequest) {
     if (isReferente && !isValidatedReferente) {
       return NextResponse.redirect(new URL('/dashboard', request.url));
     }
-    // DONANTE or unknown authenticated role → allow (BFF enforces authorization)
-    return NextResponse.next();
+    // DONANTE → not authorized for this management page
+    return NextResponse.redirect(new URL('/login', request.url));
   }
 
   // ── /prefs (legacy protected route) ───────────────────────────────────────

@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { HttpService } from '@nestjs/axios';
 import { ConfigService } from '@nestjs/config';
+import { CrearNecesidadDto } from './dto/crear-necesidad.dto.js';
 
 @Injectable()
 export class NecesidadesService {
@@ -25,5 +26,14 @@ export class NecesidadesService {
       const body = JSON.stringify(err?.response?.data);
       throw new Error(`MS ${status} on GET ${url}: ${body}`);
     }
+  }
+
+  async crear(dto: CrearNecesidadDto, accessToken: string) {
+    const { data } = await this.httpService.axiosRef.post(
+      `${this.msUrl}/api/necesidades`,
+      dto,
+      { headers: { Authorization: `Bearer ${accessToken}` } },
+    );
+    return data;
   }
 }

@@ -1,177 +1,209 @@
 'use client';
 
-import { Heart, Calendar } from "iconsax-reactjs";
-import { TopBar } from "@/components/ui/top-bar";
-import { Card } from "@/components/ui/card";
-import { Pill } from "@/components/ui/pill";
-import { Avatar } from "@/components/ui/avatar";
-import { Button } from "@/components/ui/button";
-import { EmptyState } from "@/components/ui/empty-state";
-import { ErrorState } from "@/components/ui/error-state";
-import { OrgCardSkeleton } from "@/components/ui/skeleton";
-import { useNecesidades } from "@/lib/hooks/useNecesidades";
-import { useValidatedOrganizaciones } from "@/lib/hooks/useValidatedOrganizaciones";
-import { mapPrioridad, type NecesidadResponse } from "@/lib/api/donaciones.server";
+import { useState } from 'react';
+import { TopBar } from '@/components/ui/top-bar';
+import { Button } from '@/components/ui/button';
+import { ErrorState } from '@/components/ui/error-state';
+import { NeedsBoard } from '@/components/needs/needs-board';
+import { useNecesidades } from '@/lib/hooks/useNecesidades';
+import { useValidatedOrganizaciones } from '@/lib/hooks/useValidatedOrganizaciones';
+import { useCreateNecesidad } from '@/lib/hooks/useCreateNecesidad';
+import { useAuthStore } from '@/store/auth.store';
+import { useQuery } from '@tanstack/react-query';
+import { getMiOrganizacion } from '@/lib/api/organizaciones';
 
-const PRIORITY_LABEL = { urgent: "Urgente", medium: "Media", normal: "Normal" };
-const URGENCY = ["Todas", "Urgente", "Media", "Normal"];
+const PRIORIDAD_OPTIONS = ['URGENTE', 'MEDIA', 'NORMAL'] as const;
+type Prioridad = (typeof PRIORIDAD_OPTIONS)[number];
 
-const ESTADO_VARIANT: Record<string, "ok" | "warn" | "ghost" | "bad"> = {
-  ACTIVA: "ok",
-  VENCIDA: "bad",
-  INACTIVA: "ghost",
+const PRIORIDAD_LABELS: Record<Prioridad, string> = {
+  URGENTE: 'Urgente',
+  MEDIA: 'Media',
+  NORMAL: 'Normal',
 };
 
-function NeedCard({ n, orgName }: { n: NecesidadResponse; orgName: string }) {
-  const priority = mapPrioridad(n.prioridad);
-  const estadoVariant = ESTADO_VARIANT[n.estado] ?? "ghost";
-  const fechaLabel = n.fechaVencimiento
-    ? new Date(n.fechaVencimiento).toLocaleDateString("es-AR")
-    : null;
-
-  return (
-    <Card
-      style={{
-        padding: 20,
-        display: "flex",
-        flexDirection: "column",
-        gap: 14,
-      }}
-    >
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <Pill variant={priority}>{PRIORITY_LABEL[priority]}</Pill>
-          <Pill variant={estadoVariant}>{n.estado}</Pill>
-        </div>
-      </div>
-
-      <div>
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 8,
-            color: "var(--ink-2)",
-            fontSize: 13,
-            fontWeight: 700,
-            marginBottom: 5,
-          }}
-        >
-          <Avatar name={orgName} size={26} />
-          {orgName}
-        </div>
-        <h3 style={{ fontSize: 20, fontWeight: 900 }}>{n.descripcion}</h3>
-      </div>
-
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 2 }}>
-        {fechaLabel ? (
-          <span
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 6,
-              fontSize: 12.5,
-              fontWeight: 700,
-              color: priority === "urgent" ? "var(--urgent)" : "var(--ink-3)",
-            }}
-          >
-            <Calendar size={15} /> {fechaLabel}
-          </span>
-        ) : (
-          <span style={{ fontSize: 12.5, fontWeight: 700, color: "var(--ink-3)" }}>
-            Sin vencimiento
-          </span>
-        )}
-        <Button variant="primary" size="sm" style={{ gap: 6 }}>
-          <Heart size={15} color="#fff" /> Donar
-        </Button>
-      </div>
-    </Card>
-  );
+interface CreateFormState {
+  descripcion: string;
+  prioridad: Prioridad;
+  fechaVencimiento: string;
 }
 
+const EMPTY_FORM: CreateFormState = {
+  descripcion: '',
+  prioridad: 'NORMAL',
+  fechaVencimiento: '',
+};
+
 export default function NeedsPage() {
-  const { data: necesidades, isPending, isError, refetch } = useNecesidades();
+  const user = useAuthStore((s) => s.user);
+  const { data: necesidades, isPending: loadingNeeds, isError, refetch } = useNecesidades();
   const { data: orgs } = useValidatedOrganizaciones();
+  const { data: miOrg } = useQuery({
+    queryKey: ['organizaciones', 'mia'],
+    queryFn: getMiOrganizacion,
+    enabled: user?.tipo === 'REFERENTE',
+    staleTime: 60_000,
+  });
+  const { mutate: crearNecesidad, isPending: creating, error: createError } = useCreateNecesidad();
+
+  const [form, setForm] = useState<CreateFormState>(EMPTY_FORM);
+  const [showForm, setShowForm] = useState(false);
 
   const orgMap = new Map(orgs?.map((o) => [o.id, o.nombre]) ?? []);
-  const count = necesidades?.length ?? 0;
+
+  const ownNeeds = miOrg
+    ? (necesidades ?? []).filter((n) => n.organizacionId === miOrg.id)
+    : [];
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    crearNecesidad(
+      {
+        descripcion: form.descripcion,
+        prioridad: form.prioridad,
+        ...(form.fechaVencimiento ? { fechaVencimiento: form.fechaVencimiento } : {}),
+      },
+      {
+        onSuccess: () => {
+          setForm(EMPTY_FORM);
+          setShowForm(false);
+        },
+      },
+    );
+  }
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100vh" }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
       <TopBar active="Necesidades" />
-      <div style={{ flex: 1, overflow: "auto", padding: "28px 40px" }}>
+      <div style={{ flex: 1, overflow: 'auto', padding: '28px 40px' }}>
+        {/* header */}
         <div
           style={{
-            display: "flex",
-            alignItems: "flex-end",
-            justifyContent: "space-between",
+            display: 'flex',
+            alignItems: 'flex-end',
+            justifyContent: 'space-between',
             marginBottom: 22,
           }}
         >
           <div>
-            <h1 style={{ fontSize: 28, fontWeight: 900 }}>Tablero de necesidades</h1>
-            <p style={{ color: "var(--ink-2)", fontSize: 15, marginTop: 5, fontWeight: 600 }}>
-              {isPending
-                ? "Cargando..."
-                : `${count} ${count === 1 ? "necesidad activa" : "necesidades activas"} de comedores de Córdoba`}
+            <h1 style={{ fontSize: 28, fontWeight: 900 }}>Mis necesidades</h1>
+            <p style={{ color: 'var(--ink-2)', fontSize: 15, marginTop: 5, fontWeight: 600 }}>
+              {miOrg ? miOrg.nombre : 'Organización'}
             </p>
           </div>
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={() => setShowForm((v) => !v)}
+          >
+            {showForm ? 'Cancelar' : '+ Nueva necesidad'}
+          </Button>
         </div>
 
-        {/* urgency filter */}
-        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 22, flexWrap: "wrap" }}>
-          <span
+        {/* create form */}
+        {showForm && (
+          <form
+            onSubmit={handleSubmit}
             style={{
-              fontSize: 12.5,
-              fontWeight: 800,
-              color: "var(--ink-3)",
-              textTransform: "uppercase",
-              letterSpacing: ".04em",
+              background: 'var(--card)',
+              border: '1px solid var(--line)',
+              borderRadius: 14,
+              padding: 24,
+              marginBottom: 28,
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 16,
+              maxWidth: 560,
             }}
           >
-            Urgencia
-          </span>
-          {URGENCY.map((o, i) => (
-            <span
-              key={o}
-              style={{
-                padding: "8px 14px",
-                borderRadius: 999,
-                fontWeight: 800,
-                fontSize: 13,
-                cursor: "pointer",
-                background: i === 0 ? "var(--earth)" : "var(--card)",
-                color: i === 0 ? "#fff" : "var(--ink-2)",
-                boxShadow: i === 0 ? "none" : "var(--sh-1)",
-              }}
-            >
-              {o}
-            </span>
-          ))}
-        </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <label style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink-2)' }}>
+                Descripción *
+              </label>
+              <textarea
+                required
+                value={form.descripcion}
+                onChange={(e) => setForm((f) => ({ ...f, descripcion: e.target.value }))}
+                rows={3}
+                style={{
+                  border: '1px solid var(--line)',
+                  borderRadius: 8,
+                  padding: '10px 12px',
+                  fontSize: 14,
+                  fontWeight: 600,
+                  resize: 'vertical',
+                  fontFamily: 'inherit',
+                }}
+                placeholder="¿Qué necesita la organización?"
+              />
+            </div>
 
-        {isPending ? (
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 20 }}>
-            {Array.from({ length: 6 }, (_, i) => <OrgCardSkeleton key={i} />)}
-          </div>
-        ) : isError ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <label style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink-2)' }}>
+                Prioridad *
+              </label>
+              <select
+                value={form.prioridad}
+                onChange={(e) => setForm((f) => ({ ...f, prioridad: e.target.value as Prioridad }))}
+                style={{
+                  border: '1px solid var(--line)',
+                  borderRadius: 8,
+                  padding: '10px 12px',
+                  fontSize: 14,
+                  fontWeight: 600,
+                  fontFamily: 'inherit',
+                }}
+              >
+                {PRIORIDAD_OPTIONS.map((p) => (
+                  <option key={p} value={p}>
+                    {PRIORIDAD_LABELS[p]}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <label style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink-2)' }}>
+                Fecha de vencimiento (opcional)
+              </label>
+              <input
+                type="date"
+                value={form.fechaVencimiento}
+                onChange={(e) => setForm((f) => ({ ...f, fechaVencimiento: e.target.value }))}
+                style={{
+                  border: '1px solid var(--line)',
+                  borderRadius: 8,
+                  padding: '10px 12px',
+                  fontSize: 14,
+                  fontWeight: 600,
+                  fontFamily: 'inherit',
+                }}
+              />
+            </div>
+
+            {createError && (
+              <p style={{ color: 'var(--error)', fontSize: 13, fontWeight: 600 }}>
+                No se pudo crear la necesidad. Intentá de nuevo.
+              </p>
+            )}
+
+            <Button variant="primary" size="sm" type="submit" disabled={creating}>
+              {creating ? 'Publicando...' : 'Publicar necesidad'}
+            </Button>
+          </form>
+        )}
+
+        {/* own-org needs list */}
+        {isError ? (
           <ErrorState
             onRetry={() => refetch()}
             message="No pudimos cargar las necesidades. Intentá de nuevo."
           />
-        ) : count === 0 ? (
-          <EmptyState variant="no-donaciones" />
         ) : (
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 20 }}>
-            {necesidades!.map((n) => (
-              <NeedCard
-                key={n.id}
-                n={n}
-                orgName={orgMap.get(n.organizacionId) ?? "Organización"}
-              />
-            ))}
-          </div>
+          <NeedsBoard
+            necesidades={ownNeeds}
+            isLoading={loadingNeeds}
+            orgMap={orgMap}
+          />
         )}
       </div>
     </div>

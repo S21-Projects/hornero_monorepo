@@ -11,11 +11,9 @@ import { ROLE_LABELS } from '@/lib/roles';
 
 type NavItem = { label: string; href: string };
 
-const NAV_ITEMS: NavItem[] = [
-  { label: 'Mapa',         href: '/' },
-  { label: 'Donaciones',   href: '/donaciones' },
-  { label: 'Necesidades',  href: '/needs' },
-  { label: 'Preferencias', href: '/prefs' },
+const BASE_NAV_ITEMS: NavItem[] = [
+  { label: 'Mapa',       href: '/' },
+  { label: 'Donaciones', href: '/donaciones' },
 ];
 
 interface TopBarProps {
@@ -27,6 +25,16 @@ export function TopBar({ active = 'Mapa' }: TopBarProps) {
   const user = useAuthStore((s) => s.user);
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const logout = useAuthStore((s) => s.logout);
+
+  const navItems: NavItem[] = [
+    ...BASE_NAV_ITEMS,
+    ...(isAuthenticated && user?.tipo === 'REFERENTE'
+      ? [{ label: 'Necesidades', href: '/needs' }]
+      : []),
+    ...(isAuthenticated
+      ? [{ label: 'Preferencias', href: '/prefs' }]
+      : []),
+  ];
 
   async function handleLogout() {
     await logout();
@@ -50,7 +58,7 @@ export function TopBar({ active = 'Mapa' }: TopBarProps) {
     >
       <Logo />
       <nav style={{ display: 'flex', gap: 4, marginLeft: 12 }}>
-        {NAV_ITEMS.map((item) => (
+        {navItems.map((item) => (
           <Link
             key={item.label}
             href={item.href}
@@ -103,7 +111,11 @@ export function TopBar({ active = 'Mapa' }: TopBarProps) {
             Salir
           </Button>
         </div>
-      ) : null}
+      ) : (
+        <Button variant="primary" size="sm" onClick={() => router.push('/login')}>
+          Iniciar sesión
+        </Button>
+      )}
     </header>
   );
 }
