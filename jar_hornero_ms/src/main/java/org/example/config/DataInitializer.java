@@ -78,6 +78,26 @@ public class DataInitializer {
             log.info("Seeded referente@hornero.ar");
         }
 
+        if (usuarioRepository.findByEmail("referente2@hornero.ar").isEmpty()) {
+            Referente referente2 = new Referente();
+            referente2.setNombre("Lucía Fernández");
+            referente2.setEmail("referente2@hornero.ar");
+            referente2.setPassword(passwordEncoder.encode("Ref123!"));
+            referente2.setActivo(true);
+            usuarioRepository.save(referente2);
+            log.info("Seeded referente2@hornero.ar");
+        }
+
+        if (usuarioRepository.findByEmail("referente3@hornero.ar").isEmpty()) {
+            Referente referente3 = new Referente();
+            referente3.setNombre("Mateo Gómez");
+            referente3.setEmail("referente3@hornero.ar");
+            referente3.setPassword(passwordEncoder.encode("Ref123!"));
+            referente3.setActivo(true);
+            usuarioRepository.save(referente3);
+            log.info("Seeded referente3@hornero.ar");
+        }
+
         if (usuarioRepository.findByEmail("donante@hornero.ar").isEmpty()) {
             Donante donante = new Donante();
             donante.setNombre("Donante Hornero");
@@ -105,16 +125,20 @@ public class DataInitializer {
             return;
         }
 
-        Optional<Usuario> referenteOpt = usuarioRepository.findByEmail("referente@hornero.ar");
-        Optional<Usuario> adminOpt = usuarioRepository.findByEmail(superAdminEmail);
+        Optional<Usuario> referenteOpt  = usuarioRepository.findByEmail("referente@hornero.ar");
+        Optional<Usuario> referente2Opt = usuarioRepository.findByEmail("referente2@hornero.ar");
+        Optional<Usuario> referente3Opt = usuarioRepository.findByEmail("referente3@hornero.ar");
+        Optional<Usuario> adminOpt      = usuarioRepository.findByEmail(superAdminEmail);
 
-        if (referenteOpt.isEmpty() || adminOpt.isEmpty()) {
+        if (referenteOpt.isEmpty() || referente2Opt.isEmpty() || referente3Opt.isEmpty() || adminOpt.isEmpty()) {
             log.warn("Seed users not found, skipping org seed");
             return;
         }
 
-        Referente referente = (Referente) referenteOpt.get();
-        Administrador admin = (Administrador) adminOpt.get();
+        Referente referente  = (Referente) referenteOpt.get();
+        Referente referente2 = (Referente) referente2Opt.get();
+        Referente referente3 = (Referente) referente3Opt.get();
+        Administrador admin  = (Administrador) adminOpt.get();
 
         Organizacion org1 = new Organizacion();
         org1.setNombre("Comedor La Esperanza");
@@ -137,7 +161,7 @@ public class DataInitializer {
         org2.setLatitud(-31.4089);
         org2.setLongitud(-64.1953);
         org2.setValidada(true);
-        org2.setReferente(referente);
+        org2.setReferente(referente2);
         org2.setValidadoPor(admin);
 
         Organizacion org3 = new Organizacion();
@@ -149,11 +173,11 @@ public class DataInitializer {
         org3.setLatitud(-31.3985);
         org3.setLongitud(-64.1901);
         org3.setValidada(true);
-        org3.setReferente(referente);
+        org3.setReferente(referente3);
         org3.setValidadoPor(admin);
 
         organizacionRepository.saveAll(List.of(org1, org2, org3));
-        log.info("Seeded 3 organizations");
+        log.info("Seeded 3 organizations (one referente per org)");
     }
 
     private void seedNecesidades() {

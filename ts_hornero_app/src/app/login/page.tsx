@@ -11,20 +11,23 @@ import { useAuthStore } from '@/store/auth.store';
 export default function LoginPage() {
   const router = useRouter();
   const login = useAuthStore((s) => s.login);
-  const isLoading = useAuthStore((s) => s.isLoading);
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError('');
+    setSubmitting(true);
     try {
       await login(email, password);
       router.push('/');
     } catch {
       setError('Credenciales inválidas');
+    } finally {
+      setSubmitting(false);
     }
   }
 
@@ -100,10 +103,10 @@ export default function LoginPage() {
             type="submit"
             variant="primary"
             block
-            disabled={isLoading}
+            disabled={submitting}
             style={{ marginTop: 8 }}
           >
-            {isLoading ? 'Ingresando…' : 'Ingresar'}
+            {submitting ? 'Ingresando…' : 'Ingresar'}
           </Button>
         </form>
       </Card>
