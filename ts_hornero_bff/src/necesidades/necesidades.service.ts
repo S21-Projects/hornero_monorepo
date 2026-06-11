@@ -17,7 +17,13 @@ export class NecesidadesService {
     const url = organizacionId
       ? `${this.msUrl}/api/necesidades?organizacionId=${organizacionId}`
       : `${this.msUrl}/api/necesidades`;
-    const { data } = await this.httpService.axiosRef.get(url);
-    return data;
+    try {
+      const { data } = await this.httpService.axiosRef.get(url);
+      return data;
+    } catch (err: any) {
+      const status = err?.response?.status;
+      const body = JSON.stringify(err?.response?.data);
+      throw new Error(`MS ${status} on GET ${url}: ${body}`);
+    }
   }
 }

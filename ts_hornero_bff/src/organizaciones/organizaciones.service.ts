@@ -36,11 +36,18 @@ export class OrganizacionesService {
   }
 
   async listarValidadas(accessToken?: string) {
-    const { data } = await this.httpService.axiosRef.get(
-      `${this.msUrl}/api/organizaciones`,
-      accessToken ? { headers: this.authHeaders(accessToken) } : {},
-    );
-    return data;
+    const url = `${this.msUrl}/api/organizaciones`;
+    try {
+      const { data } = await this.httpService.axiosRef.get(
+        url,
+        accessToken ? { headers: this.authHeaders(accessToken) } : {},
+      );
+      return data;
+    } catch (err: any) {
+      const status = err?.response?.status;
+      const body = JSON.stringify(err?.response?.data);
+      throw new Error(`MS ${status} on GET ${url}: ${body}`);
+    }
   }
 
   async listarPendientes(accessToken: string) {
