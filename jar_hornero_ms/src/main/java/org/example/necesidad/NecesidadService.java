@@ -6,6 +6,7 @@ import org.example.domain.Necesidad;
 import org.example.domain.NecesidadRepository;
 import org.example.domain.Organizacion;
 import org.example.domain.OrganizacionRepository;
+import org.example.necesidad.dto.ActualizarNecesidadRequest;
 import org.example.necesidad.dto.CrearNecesidadRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -54,6 +55,41 @@ public class NecesidadService {
                 .stream()
                 .map(this::toResponse)
                 .collect(Collectors.toList());
+    }
+
+    public NecesidadResponse findById(Long id) {
+        return toResponse(necesidadRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Necesidad not found")));
+    }
+
+    @Transactional
+    public NecesidadResponse actualizar(Long id, ActualizarNecesidadRequest dto, Long referenteId) {
+        Necesidad n = necesidadRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Necesidad not found"));
+        checkOwnership(n, referenteId);
+        if (dto.getDescripcion() != null) n.setDescripcion(dto.getDescripcion());
+        if (dto.getPrioridad() != null) n.setPrioridad(dto.getPrioridad());
+        if (dto.getEstado() != null) n.setEstado(dto.getEstado());
+        if (dto.getFechaVencimiento() != null) n.setFechaVencimiento(dto.getFechaVencimiento());
+        return toResponse(necesidadRepository.save(n));
+    }
+
+    @Transactional
+    public void eliminar(Long id, Long referenteId) {
+        Necesidad n = necesidadRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Necesidad not found"));
+        checkOwnership(n, referenteId);
+        necesidadRepository.delete(n);
+    }
+
+    private void checkOwnership(Necesidad n, Long referenteId) {
+        Organizacion org = organizacionRepository.findByReferente_Id(referenteId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.FORBIDDEN,
+                        "Access denied: not the referente of this organization"));
+        if (!n.getOrganizacion().getId().equals(org.getId())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                    "Access denied: not the referente of this organization");
+        }
     }
 
     private NecesidadResponse toResponse(Necesidad n) {
