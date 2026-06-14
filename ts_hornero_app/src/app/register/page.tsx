@@ -18,6 +18,7 @@ interface FieldErrors {
   nombre?: string;
   email?: string;
   password?: string;
+  confirmPassword?: string;
   orgNombre?: string;
   tipo?: string;
   direccion?: string;
@@ -60,6 +61,7 @@ export default function RegisterPage() {
   const [nombre, setNombre] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
 
   // Org fields
   const [orgNombre, setOrgNombre] = useState('');
@@ -88,7 +90,9 @@ export default function RegisterPage() {
     const errs: FieldErrors = {};
     if (!nombre.trim()) errs.nombre = 'El nombre es obligatorio';
     if (!email.trim()) errs.email = 'El email es obligatorio';
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) errs.email = 'Formato de email inválido';
     if (!password || password.length < 6) errs.password = 'La contraseña debe tener al menos 6 caracteres';
+    if (password !== confirmPassword) errs.confirmPassword = 'Las contraseñas no coinciden';
     return errs;
   }
 
@@ -229,13 +233,26 @@ export default function RegisterPage() {
               onChange={(e) => setPassword(e.target.value)}
               placeholder="Mínimo 6 caracteres"
               autoComplete="new-password"
+              showToggle
             />
             {fieldErrors.password && <ErrorBanner msg={fieldErrors.password} />}
 
+            <Input
+              id="confirmPassword"
+              label="Confirmar contraseña"
+              type="password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              placeholder="Repetí tu contraseña"
+              autoComplete="new-password"
+              showToggle
+            />
+            {fieldErrors.confirmPassword && <ErrorBanner msg={fieldErrors.confirmPassword} />}
+
             {globalError && <ErrorBanner msg={globalError} />}
 
-            <Button type="submit" variant="primary" block disabled={isSubmitting} style={{ marginTop: 8 }}>
-              {isSubmitting ? 'Creando cuenta…' : 'Continuar'}
+            <Button type="submit" variant="primary" block loading={isSubmitting} style={{ marginTop: 8 }}>
+              Continuar
             </Button>
 
             <div
@@ -372,8 +389,8 @@ export default function RegisterPage() {
 
             {globalError && <ErrorBanner msg={globalError} />}
 
-            <Button type="submit" variant="primary" block disabled={isSubmitting} style={{ marginTop: 8 }}>
-              {isSubmitting ? 'Enviando solicitud…' : 'Postular organización'}
+            <Button type="submit" variant="primary" block loading={isSubmitting} style={{ marginTop: 8 }}>
+              Postular organización
             </Button>
           </form>
         </Card>

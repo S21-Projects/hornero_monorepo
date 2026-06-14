@@ -5,6 +5,7 @@ import { Eye, TickCircle } from 'iconsax-reactjs';
 import { isAxiosError } from 'axios';
 import { Card } from '@/components/ui/card';
 import { Pill } from '@/components/ui/pill';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { usePendingOrgsQuery } from '@/hooks/usePendingOrgsQuery';
 import { TIPO_ORGANIZACION_LABELS, type TipoOrganizacion } from '@/lib/tipos-organizacion';
@@ -146,31 +147,72 @@ export default function PendingOrgsList() {
           <span style={{ textAlign: 'right' }}>Acciones</span>
         </div>
 
-        {isLoading && (
+        {isLoading && [0, 1, 2].map((i) => (
           <div
+            key={i}
             style={{
-              padding: '32px 24px',
-              textAlign: 'center',
-              fontSize: 14,
-              fontWeight: 700,
-              color: 'var(--ink-3)',
+              display: 'grid',
+              gridTemplateColumns: '2.4fr 1.3fr 1fr 1.4fr',
+              gap: 12,
+              padding: '14px 24px',
+              borderBottom: i < 2 ? '1px solid var(--line-soft)' : 'none',
+              alignItems: 'center',
             }}
           >
-            Cargando…
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <Skeleton width={40} height={40} borderRadius={10} />
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <Skeleton width={160} height={13} />
+                <Skeleton width={80} height={20} borderRadius={999} />
+              </div>
+            </div>
+            <Skeleton width={80} height={24} borderRadius={999} />
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+              <Skeleton width={100} height={13} />
+              <Skeleton width={120} height={11} />
+            </div>
+            <div style={{ display: 'flex', gap: 7, justifyContent: 'flex-end' }}>
+              <Skeleton width={34} height={32} borderRadius={8} />
+              <Skeleton width={80} height={32} borderRadius={8} />
+              <Skeleton width={80} height={32} borderRadius={8} />
+            </div>
           </div>
-        )}
+        ))}
 
         {!isLoading && !isError && data?.length === 0 && (
           <div
             style={{
-              padding: '32px 24px',
-              textAlign: 'center',
-              fontSize: 14,
-              fontWeight: 700,
-              color: 'var(--ink-3)',
+              padding: '48px 24px',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: 10,
             }}
           >
-            No hay organizaciones pendientes de revisión.
+            <div
+              style={{
+                width: 52,
+                height: 52,
+                borderRadius: '50%',
+                background: 'var(--straw)',
+                border: '1.5px dashed var(--horn)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                marginBottom: 4,
+              }}
+            >
+              <svg width={24} height={24} viewBox="0 0 24 24" fill="none" stroke="var(--horn)" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M5 14c0-4 3-7 7-7 2 0 4 1 4 1l3-2-1 3s1 2 1 4c0 4-3 7-7 7" />
+                <circle cx="10" cy="11" r="1" fill="var(--horn)" stroke="none" />
+              </svg>
+            </div>
+            <div style={{ fontWeight: 900, fontSize: 15, color: 'var(--earth)' }}>
+              Todo al día
+            </div>
+            <div style={{ fontWeight: 600, fontSize: 13.5, color: 'var(--ink-3)' }}>
+              No hay organizaciones pendientes de revisión.
+            </div>
           </div>
         )}
 

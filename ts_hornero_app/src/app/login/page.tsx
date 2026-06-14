@@ -81,6 +81,7 @@ export default function LoginPage() {
             placeholder="••••••••"
             required
             autoComplete="current-password"
+            showToggle
           />
 
           {error && (
@@ -103,10 +104,10 @@ export default function LoginPage() {
             type="submit"
             variant="primary"
             block
-            disabled={submitting}
+            loading={submitting}
             style={{ marginTop: 8 }}
           >
-            {submitting ? 'Ingresando…' : 'Ingresar'}
+            Ingresar
           </Button>
         </form>
       </Card>
