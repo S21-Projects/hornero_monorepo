@@ -10,6 +10,7 @@ import { useAuthStore } from '@/store/auth.store';
 import { registerUser } from '@/lib/api/auth';
 import { createOrganizacion } from '@/lib/api/organizaciones';
 import { api } from '@/lib/axios';
+import { type TipoOrganizacion, TIPO_ORGANIZACION_OPTIONS } from '@/lib/tipos-organizacion';
 
 type Step = 'account' | 'org' | 'done';
 
@@ -62,7 +63,7 @@ export default function RegisterPage() {
 
   // Org fields
   const [orgNombre, setOrgNombre] = useState('');
-  const [tipo, setTipo] = useState('');
+  const [tipo, setTipo] = useState<TipoOrganizacion | ''>('');
   const [direccion, setDireccion] = useState('');
   const [descripcion, setDescripcion] = useState('');
   const [latitud, setLatitud] = useState('');
@@ -120,7 +121,7 @@ export default function RegisterPage() {
   function validateOrg(): FieldErrors {
     const errs: FieldErrors = {};
     if (!orgNombre.trim()) errs.orgNombre = 'El nombre de la organización es obligatorio';
-    if (!tipo.trim()) errs.tipo = 'El tipo es obligatorio';
+    if (!tipo) errs.tipo = 'El tipo es obligatorio';
     if (!direccion.trim()) errs.direccion = 'La dirección es obligatoria';
     if (!latitud.trim() || parseNumber(latitud) === undefined) errs.latitud = 'Latitud inválida';
     if (!longitud.trim() || parseNumber(longitud) === undefined) errs.longitud = 'Longitud inválida';
@@ -137,7 +138,7 @@ export default function RegisterPage() {
     try {
       await createOrganizacion({
         nombre: orgNombre.trim(),
-        tipo: tipo.trim(),
+        tipo: tipo as TipoOrganizacion,
         direccion: direccion.trim(),
         descripcion: descripcion.trim() || undefined,
         latitud: parseNumber(latitud)!,
@@ -293,13 +294,36 @@ export default function RegisterPage() {
             />
             {fieldErrors.orgNombre && <ErrorBanner msg={fieldErrors.orgNombre} />}
 
-            <Input
-              id="tipo"
-              label="Tipo de organización"
-              value={tipo}
-              onChange={(e) => setTipo(e.target.value)}
-              placeholder="Comedor, Merendero, Copa de Leche, etc."
-            />
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <label
+                htmlFor="tipo"
+                style={{ fontSize: 13, fontWeight: 800, color: 'var(--ink-2)' }}
+              >
+                Tipo de organización
+              </label>
+              <select
+                id="tipo"
+                value={tipo}
+                onChange={(e) => setTipo(e.target.value as TipoOrganizacion | '')}
+                style={{
+                  fontFamily: 'inherit',
+                  fontSize: 14.5,
+                  color: tipo ? 'var(--ink)' : 'var(--ink-3)',
+                  background: '#fff',
+                  border: '1.5px solid var(--line)',
+                  borderRadius: 'var(--r-input)',
+                  padding: '12px 14px',
+                  width: '100%',
+                  outline: 'none',
+                  appearance: 'auto',
+                }}
+              >
+                <option value="" disabled>Seleccioná un tipo</option>
+                {TIPO_ORGANIZACION_OPTIONS.map(({ value, label }) => (
+                  <option key={value} value={value}>{label}</option>
+                ))}
+              </select>
+            </div>
             {fieldErrors.tipo && <ErrorBanner msg={fieldErrors.tipo} />}
 
             <Input

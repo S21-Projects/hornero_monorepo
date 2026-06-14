@@ -7,6 +7,7 @@ import { Card } from '@/components/ui/card';
 import { Pill } from '@/components/ui/pill';
 import { Button } from '@/components/ui/button';
 import { usePendingOrgsQuery } from '@/hooks/usePendingOrgsQuery';
+import { TIPO_ORGANIZACION_LABELS, type TipoOrganizacion } from '@/lib/tipos-organizacion';
 import { useValidateOrgMutation } from '@/hooks/useValidateOrgMutation';
 import { useRejectOrgMutation } from '@/hooks/useRejectOrgMutation';
 
@@ -257,7 +258,7 @@ export default function PendingOrgsList() {
 
               {/* Tipo */}
               <span>
-                <Pill variant="cat">{org.tipo}</Pill>
+                <Pill variant="cat">{TIPO_ORGANIZACION_LABELS[org.tipo as TipoOrganizacion] ?? org.tipo}</Pill>
               </span>
 
               {/* Referente */}

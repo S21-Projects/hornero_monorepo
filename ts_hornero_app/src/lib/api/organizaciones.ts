@@ -1,8 +1,9 @@
 import { api } from '@/lib/axios';
+import type { TipoOrganizacion } from '@/lib/tipos-organizacion';
 
 export interface CreateOrganizacionPayload {
   nombre: string;
-  tipo: string;
+  tipo: TipoOrganizacion;
   descripcion?: string;
   direccion?: string;
   latitud: number;
@@ -13,7 +14,7 @@ export interface OrganizacionResponse {
   id: number;
   slug: string;
   nombre: string;
-  tipo: string;
+  tipo: TipoOrganizacion;
   descripcion?: string;
   direccion?: string;
   latitud?: number;
