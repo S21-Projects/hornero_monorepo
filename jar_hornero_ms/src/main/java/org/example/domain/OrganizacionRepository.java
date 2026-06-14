@@ -9,7 +9,7 @@ import java.util.Optional;
 @Repository
 public interface OrganizacionRepository extends JpaRepository<Organizacion, Long> {
 
-    List<Organizacion> findByValidada(boolean validada);
+    List<Organizacion> findByEstado(EstadoOrganizacion estado);
 
     Optional<Organizacion> findByReferente_Id(Long referenteId);
 

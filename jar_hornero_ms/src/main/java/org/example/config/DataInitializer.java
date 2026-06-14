@@ -1,12 +1,16 @@
 package org.example.config;
 
 import jakarta.annotation.PostConstruct;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
+import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.example.domain.Donacion;
 import org.example.domain.DonacionRepository;
 import org.example.domain.EstadoDonacion;
 import org.example.domain.EstadoNecesidad;
+import org.example.domain.EstadoOrganizacion;
 import org.example.domain.Necesidad;
 import org.example.domain.NecesidadRepository;
 import org.example.domain.Organizacion;
@@ -18,6 +22,8 @@ import org.example.user.Referente;
 import org.example.user.Usuario;
 import org.example.user.UsuarioRepository;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.context.event.EventListener;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Component;
 
@@ -36,6 +42,9 @@ public class DataInitializer {
     private final NecesidadRepository necesidadRepository;
     private final DonacionRepository donacionRepository;
 
+    @PersistenceContext
+    private EntityManager entityManager;
+
     @Value("${SUPER_ADMIN_EMAIL:admin@hornero.ar}")
     private String superAdminEmail;
 
@@ -49,6 +58,18 @@ public class DataInitializer {
         seedOrganizaciones();
         seedNecesidades();
         seedDonaciones();
+    }
+
+    @EventListener(ApplicationReadyEvent.class)
+    @Transactional
+    public void backfillEstado() {
+        entityManager.createNativeQuery(
+                "UPDATE organizaciones SET estado = 'APROBADA' WHERE validada = true AND estado IS NULL"
+        ).executeUpdate();
+        entityManager.createNativeQuery(
+                "UPDATE organizaciones SET estado = 'PENDIENTE' WHERE (validada IS NULL OR validada = false) AND estado IS NULL"
+        ).executeUpdate();
+        log.info("Backfill estado complete (idempotent)");
     }
 
     private void seedAdmin() {
@@ -148,7 +169,7 @@ public class DataInitializer {
         org1.setDireccion("Bv. Los Andes 1230, Córdoba");
         org1.setLatitud(-31.4167);
         org1.setLongitud(-64.1833);
-        org1.setValidada(true);
+        org1.setEstado(EstadoOrganizacion.APROBADA);
         org1.setReferente(referente);
         org1.setValidadoPor(admin);
 
@@ -160,7 +181,7 @@ public class DataInitializer {
         org2.setDireccion("Av. Colón 450, Córdoba");
         org2.setLatitud(-31.4089);
         org2.setLongitud(-64.1953);
-        org2.setValidada(true);
+        org2.setEstado(EstadoOrganizacion.APROBADA);
         org2.setReferente(referente2);
         org2.setValidadoPor(admin);
 
@@ -172,7 +193,7 @@ public class DataInitializer {
         org3.setDireccion("Calle Tucumán 780, Córdoba");
         org3.setLatitud(-31.3985);
         org3.setLongitud(-64.1901);
-        org3.setValidada(true);
+        org3.setEstado(EstadoOrganizacion.APROBADA);
         org3.setReferente(referente3);
         org3.setValidadoPor(admin);
 

@@ -18,6 +18,7 @@ export interface OrganizacionResponse {
   direccion?: string;
   latitud?: number;
   longitud?: number;
+  estado: 'PENDIENTE' | 'APROBADA' | 'RECHAZADA';
   validada: boolean;
   referenteNombre?: string;
   referenteEmail?: string;
@@ -43,6 +44,10 @@ export async function getPendingOrganizaciones(): Promise<OrganizacionResponse[]
 
 export async function validateOrganizacion(id: number): Promise<void> {
   await api.patch(`/organizaciones/${id}/validar`);
+}
+
+export async function rejectOrganizacion(id: number): Promise<void> {
+  await api.patch(`/organizaciones/${id}/rechazar`);
 }
 
 export async function fetchValidatedOrganizaciones(): Promise<OrganizacionResponse[]> {

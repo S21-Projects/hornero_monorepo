@@ -1,16 +1,18 @@
 'use client';
 
-import { useState, useEffect, type FormEvent } from 'react';
+import { useState, type FormEvent } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Logo } from '@/components/ui/logo';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useAuthStore } from '@/store/auth.store';
-import { createOrganizacion, type CreateOrganizacionPayload } from '@/lib/api/organizaciones';
+import { registerUser } from '@/lib/api/auth';
+import { createOrganizacion } from '@/lib/api/organizaciones';
 import { api } from '@/lib/axios';
 
-// ─── Field-level error state ─────────────────────────────────────────────────
+type Step = 'account' | 'org' | 'done';
+
 interface FieldErrors {
   nombre?: string;
   email?: string;
@@ -22,32 +24,36 @@ interface FieldErrors {
   longitud?: string;
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
 function parseNumber(value: string): number | undefined {
   const n = parseFloat(value);
   return isNaN(n) ? undefined : n;
 }
 
-// ─── Page ─────────────────────────────────────────────────────────────────────
+function ErrorBanner({ msg }: { msg: string }) {
+  return (
+    <div
+      style={{
+        background: '#FEE2E2',
+        border: '1px solid #FCA5A5',
+        borderRadius: 10,
+        padding: '10px 14px',
+        fontSize: 13.5,
+        fontWeight: 700,
+        color: '#DC2626',
+      }}
+    >
+      {msg}
+    </div>
+  );
+}
+
 export default function RegisterPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const isOrgStep = searchParams.get('step') === 'org';
+  const loadUser = useAuthStore((s) => s.loadUser);
 
-  const register = useAuthStore((s) => s.register);
-  const isLoading = useAuthStore((s) => s.isLoading);
-  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
-  const user = useAuthStore((s) => s.user);
-
-  // Redirect authenticated users away from register
-  useEffect(() => {
-    if (!isAuthenticated || !user) return;
-    if (user.tipo === 'ADMINISTRADOR') {
-      router.replace('/');
-    } else if (user.tipo === 'REFERENTE' && !isOrgStep) {
-      router.replace('/dashboard');
-    }
-  }, [isAuthenticated, user, isOrgStep, router]);
+  const initialStep: Step = searchParams.get('step') === 'org' ? 'org' : 'account';
+  const [step, setStep] = useState<Step>(initialStep);
 
   // Account fields
   const [nombre, setNombre] = useState('');
@@ -64,8 +70,18 @@ export default function RegisterPage() {
 
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [globalError, setGlobalError] = useState('');
-  const [orgError, setOrgError] = useState('');
-  const [isOrgRetrying, setIsOrgRetrying] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const sectionTitleStyle: React.CSSProperties = {
+    fontSize: 15,
+    fontWeight: 900,
+    color: 'var(--earth)',
+    marginBottom: 16,
+    paddingBottom: 8,
+    borderBottom: '1.5px solid var(--line)',
+  };
+
+  // ── Step 1: account ────────────────────────────────────────────────────────
 
   function validateAccount(): FieldErrors {
     const errs: FieldErrors = {};
@@ -74,6 +90,32 @@ export default function RegisterPage() {
     if (!password || password.length < 6) errs.password = 'La contraseña debe tener al menos 6 caracteres';
     return errs;
   }
+
+  async function handleAccountSubmit(e: FormEvent) {
+    e.preventDefault();
+    const errs = validateAccount();
+    if (Object.keys(errs).length > 0) { setFieldErrors(errs); return; }
+    setFieldErrors({});
+    setGlobalError('');
+    setIsSubmitting(true);
+    try {
+      await registerUser({ nombre: nombre.trim(), email: email.trim(), password });
+      await api.post('/auth/login', { email: email.trim(), password });
+      await loadUser();
+      setStep('org');
+    } catch (err: unknown) {
+      const status = (err as any)?.response?.status;
+      if (status === 409) {
+        setFieldErrors({ email: 'Este email ya está registrado' });
+      } else {
+        setGlobalError('Ocurrió un error. Intentá de nuevo.');
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  // ── Step 2: org ────────────────────────────────────────────────────────────
 
   function validateOrg(): FieldErrors {
     const errs: FieldErrors = {};
@@ -85,106 +127,31 @@ export default function RegisterPage() {
     return errs;
   }
 
-  function buildOrgPayload(): CreateOrganizacionPayload {
-    return {
-      nombre: orgNombre.trim(),
-      tipo: tipo.trim(),
-      direccion: direccion.trim(),
-      descripcion: descripcion.trim() || undefined,
-      latitud: parseNumber(latitud)!,
-      longitud: parseNumber(longitud)!,
-    };
-  }
-
-  // Retry org creation only (used after partial failure)
-  async function handleOrgRetry() {
-    const errs = validateOrg();
-    if (Object.keys(errs).length > 0) {
-      setFieldErrors(errs);
-      return;
-    }
-    setFieldErrors({});
-    setOrgError('');
-    setIsOrgRetrying(true);
-    try {
-      await createOrganizacion(buildOrgPayload());
-      // Reload user after org creation (useMyOrgQuery will pick up new org status)
-      await useAuthStore.getState().loadUser();
-      router.push('/dashboard');
-    } catch {
-      setOrgError('No se pudo crear la organización. Verificá los datos e intentá de nuevo.');
-    } finally {
-      setIsOrgRetrying(false);
-    }
-  }
-
-  async function handleSubmit(e: FormEvent) {
+  async function handleOrgSubmit(e: FormEvent) {
     e.preventDefault();
-    setGlobalError('');
-    setOrgError('');
-
-    const accountErrs = validateAccount();
-    const orgErrs = validateOrg();
-    const allErrs = { ...accountErrs, ...orgErrs };
-
-    if (Object.keys(allErrs).length > 0) {
-      setFieldErrors(allErrs);
-      return;
-    }
+    const errs = validateOrg();
+    if (Object.keys(errs).length > 0) { setFieldErrors(errs); return; }
     setFieldErrors({});
-
+    setGlobalError('');
+    setIsSubmitting(true);
     try {
-      await register(
-        { nombre: nombre.trim(), email: email.trim(), password },
-        buildOrgPayload()
-      );
-      router.push('/dashboard');
-    } catch (err: unknown) {
-      const axiosErr = err as { response?: { status?: number }; message?: string };
-      const status = axiosErr?.response?.status;
-
-      if (status === 409) {
-        // Account step failed — duplicate email
-        setFieldErrors({ email: 'Este email ya está registrado' });
-        return;
-      }
-
-      // Check if the account was created (user is now authenticated) but org failed
-      const state = useAuthStore.getState();
-      if (state.isAuthenticated) {
-        setOrgError('Tu cuenta fue creada, pero no pudimos registrar la organización. Completá los datos y reintentá.');
-        return;
-      }
-
-      setGlobalError('Ocurrió un error al registrarte. Intentá de nuevo.');
+      await createOrganizacion({
+        nombre: orgNombre.trim(),
+        tipo: tipo.trim(),
+        direccion: direccion.trim(),
+        descripcion: descripcion.trim() || undefined,
+        latitud: parseNumber(latitud)!,
+        longitud: parseNumber(longitud)!,
+      });
+      setStep('done');
+    } catch {
+      setGlobalError('No se pudo registrar la organización. Verificá los datos e intentá de nuevo.');
+    } finally {
+      setIsSubmitting(false);
     }
   }
 
-  // ─── Render ──────────────────────────────────────────────────────────────────
-  const sectionTitleStyle: React.CSSProperties = {
-    fontSize: 15,
-    fontWeight: 900,
-    color: 'var(--earth)',
-    marginBottom: 16,
-    paddingBottom: 8,
-    borderBottom: '1.5px solid var(--line)',
-  };
-
-  const errorBanner = (msg: string) => (
-    <div
-      style={{
-        background: '#FEE2E2',
-        border: '1px solid #FCA5A5',
-        borderRadius: 10,
-        padding: '10px 14px',
-        fontSize: 13.5,
-        fontWeight: 700,
-        color: '#DC2626',
-      }}
-    >
-      {msg}
-    </div>
-  );
+  // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
     <div
@@ -202,126 +169,33 @@ export default function RegisterPage() {
         <Logo size={42} />
       </div>
 
-      {/* Org-only retry mode (partial failure recovery: ?step=org) */}
-      {isOrgStep ? (
+      {/* ── Step 1: account ─────────────────────────────────────────────── */}
+      {step === 'account' && (
         <Card style={{ width: '100%', maxWidth: 480, padding: 32 }}>
           <h1
             style={{
               fontSize: 22,
               fontWeight: 900,
               color: 'var(--earth)',
-              marginBottom: 8,
-              textAlign: 'center',
-            }}
-          >
-            Completá tu organización
-          </h1>
-          <p
-            style={{
-              fontSize: 14,
-              color: 'var(--ink-2)',
-              fontWeight: 600,
-              textAlign: 'center',
-              marginBottom: 24,
-            }}
-          >
-            Tu cuenta ya está activa. Solo falta registrar tu organización.
-          </p>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-            <Input
-              id="org-nombre"
-              label="Nombre de la organización"
-              value={orgNombre}
-              onChange={(e) => setOrgNombre(e.target.value)}
-              placeholder="Comedor Los Hornitos"
-            />
-            {fieldErrors.orgNombre && errorBanner(fieldErrors.orgNombre)}
-
-            <Input
-              id="tipo"
-              label="Tipo de organización"
-              value={tipo}
-              onChange={(e) => setTipo(e.target.value)}
-              placeholder="Comedor, Merendero, etc."
-            />
-            {fieldErrors.tipo && errorBanner(fieldErrors.tipo)}
-
-            <Input
-              id="direccion"
-              label="Dirección"
-              value={direccion}
-              onChange={(e) => setDireccion(e.target.value)}
-              placeholder="Av. Colón 1234, Córdoba"
-            />
-            {fieldErrors.direccion && errorBanner(fieldErrors.direccion)}
-
-            <Input
-              id="descripcion"
-              label="Descripción (opcional)"
-              value={descripcion}
-              onChange={(e) => setDescripcion(e.target.value)}
-              placeholder="Breve descripción de la organización"
-            />
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-              <div>
-                <Input
-                  id="latitud"
-                  label="Latitud"
-                  type="number"
-                  step="any"
-                  value={latitud}
-                  onChange={(e) => setLatitud(e.target.value)}
-                  placeholder="-31.4167"
-                />
-                {fieldErrors.latitud && errorBanner(fieldErrors.latitud)}
-              </div>
-              <div>
-                <Input
-                  id="longitud"
-                  label="Longitud"
-                  type="number"
-                  step="any"
-                  value={longitud}
-                  onChange={(e) => setLongitud(e.target.value)}
-                  placeholder="-64.1833"
-                />
-                {fieldErrors.longitud && errorBanner(fieldErrors.longitud)}
-              </div>
-            </div>
-
-            {orgError && errorBanner(orgError)}
-
-            <Button
-              type="button"
-              variant="primary"
-              block
-              disabled={isOrgRetrying}
-              style={{ marginTop: 8 }}
-              onClick={handleOrgRetry}
-            >
-              {isOrgRetrying ? 'Registrando…' : 'Registrar organización'}
-            </Button>
-          </div>
-        </Card>
-      ) : (
-        /* Full registration form */
-        <Card style={{ width: '100%', maxWidth: 520, padding: 32 }}>
-          <h1
-            style={{
-              fontSize: 22,
-              fontWeight: 900,
-              color: 'var(--earth)',
-              marginBottom: 28,
+              marginBottom: 6,
               textAlign: 'center',
             }}
           >
             Creá tu cuenta
           </h1>
+          <p
+            style={{
+              fontSize: 13.5,
+              fontWeight: 600,
+              color: 'var(--ink-3)',
+              textAlign: 'center',
+              marginBottom: 24,
+            }}
+          >
+            Paso 1 de 2 — Datos personales
+          </p>
 
-          <form onSubmit={handleSubmit} noValidate style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-            {/* Section: Tu cuenta */}
+          <form onSubmit={handleAccountSubmit} noValidate style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
             <div style={sectionTitleStyle}>Tu cuenta</div>
 
             <Input
@@ -333,7 +207,7 @@ export default function RegisterPage() {
               placeholder="Ana García"
               autoComplete="name"
             />
-            {fieldErrors.nombre && errorBanner(fieldErrors.nombre)}
+            {fieldErrors.nombre && <ErrorBanner msg={fieldErrors.nombre} />}
 
             <Input
               id="email"
@@ -344,7 +218,7 @@ export default function RegisterPage() {
               placeholder="nombre@ejemplo.com"
               autoComplete="email"
             />
-            {fieldErrors.email && errorBanner(fieldErrors.email)}
+            {fieldErrors.email && <ErrorBanner msg={fieldErrors.email} />}
 
             <Input
               id="password"
@@ -355,99 +229,12 @@ export default function RegisterPage() {
               placeholder="Mínimo 6 caracteres"
               autoComplete="new-password"
             />
-            {fieldErrors.password && errorBanner(fieldErrors.password)}
+            {fieldErrors.password && <ErrorBanner msg={fieldErrors.password} />}
 
-            {/* Section: Tu organización */}
-            <div style={{ ...sectionTitleStyle, marginTop: 8 }}>Tu organización</div>
+            {globalError && <ErrorBanner msg={globalError} />}
 
-            <Input
-              id="org-nombre"
-              label="Nombre de la organización"
-              value={orgNombre}
-              onChange={(e) => setOrgNombre(e.target.value)}
-              placeholder="Comedor Los Hornitos"
-            />
-            {fieldErrors.orgNombre && errorBanner(fieldErrors.orgNombre)}
-
-            <Input
-              id="tipo"
-              label="Tipo de organización"
-              value={tipo}
-              onChange={(e) => setTipo(e.target.value)}
-              placeholder="Comedor, Merendero, Copa de Leche, etc."
-            />
-            {fieldErrors.tipo && errorBanner(fieldErrors.tipo)}
-
-            <Input
-              id="direccion"
-              label="Dirección"
-              value={direccion}
-              onChange={(e) => setDireccion(e.target.value)}
-              placeholder="Av. Colón 1234, Córdoba"
-            />
-            {fieldErrors.direccion && errorBanner(fieldErrors.direccion)}
-
-            <Input
-              id="descripcion"
-              label="Descripción (opcional)"
-              value={descripcion}
-              onChange={(e) => setDescripcion(e.target.value)}
-              placeholder="Breve descripción de la organización"
-            />
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-              <div>
-                <Input
-                  id="latitud"
-                  label="Latitud"
-                  type="number"
-                  step="any"
-                  value={latitud}
-                  onChange={(e) => setLatitud(e.target.value)}
-                  placeholder="-31.4167"
-                />
-                {fieldErrors.latitud && errorBanner(fieldErrors.latitud)}
-              </div>
-              <div>
-                <Input
-                  id="longitud"
-                  label="Longitud"
-                  type="number"
-                  step="any"
-                  value={longitud}
-                  onChange={(e) => setLongitud(e.target.value)}
-                  placeholder="-64.1833"
-                />
-                {fieldErrors.longitud && errorBanner(fieldErrors.longitud)}
-              </div>
-            </div>
-
-            {/* Org-step failure banner (account created, org failed) */}
-            {orgError && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {errorBanner(orgError)}
-                <Button
-                  type="button"
-                  variant="secondary"
-                  block
-                  onClick={handleOrgRetry}
-                  disabled={isOrgRetrying}
-                >
-                  {isOrgRetrying ? 'Reintentando…' : 'Reintentar solo la organización'}
-                </Button>
-              </div>
-            )}
-
-            {globalError && errorBanner(globalError)}
-
-            <Button
-              type="submit"
-              variant="primary"
-              block
-              disabled={isLoading}
-              style={{ marginTop: 8 }}
-            >
-              {isLoading ? 'Registrando…' : 'Crear cuenta y organización'}
+            <Button type="submit" variant="primary" block disabled={isSubmitting} style={{ marginTop: 8 }}>
+              {isSubmitting ? 'Creando cuenta…' : 'Continuar'}
             </Button>
 
             <div
@@ -465,6 +252,160 @@ export default function RegisterPage() {
               </a>
             </div>
           </form>
+        </Card>
+      )}
+
+      {/* ── Step 2: org ─────────────────────────────────────────────────── */}
+      {step === 'org' && (
+        <Card style={{ width: '100%', maxWidth: 480, padding: 32 }}>
+          <h1
+            style={{
+              fontSize: 22,
+              fontWeight: 900,
+              color: 'var(--earth)',
+              marginBottom: 6,
+              textAlign: 'center',
+            }}
+          >
+            Tu organización
+          </h1>
+          <p
+            style={{
+              fontSize: 13.5,
+              fontWeight: 600,
+              color: 'var(--ink-3)',
+              textAlign: 'center',
+              marginBottom: 24,
+            }}
+          >
+            Paso 2 de 2 — Datos de la organización
+          </p>
+
+          <form onSubmit={handleOrgSubmit} noValidate style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <div style={sectionTitleStyle}>Datos de la organización</div>
+
+            <Input
+              id="org-nombre"
+              label="Nombre de la organización"
+              value={orgNombre}
+              onChange={(e) => setOrgNombre(e.target.value)}
+              placeholder="Comedor Los Hornitos"
+            />
+            {fieldErrors.orgNombre && <ErrorBanner msg={fieldErrors.orgNombre} />}
+
+            <Input
+              id="tipo"
+              label="Tipo de organización"
+              value={tipo}
+              onChange={(e) => setTipo(e.target.value)}
+              placeholder="Comedor, Merendero, Copa de Leche, etc."
+            />
+            {fieldErrors.tipo && <ErrorBanner msg={fieldErrors.tipo} />}
+
+            <Input
+              id="direccion"
+              label="Dirección"
+              value={direccion}
+              onChange={(e) => setDireccion(e.target.value)}
+              placeholder="Av. Colón 1234, Córdoba"
+            />
+            {fieldErrors.direccion && <ErrorBanner msg={fieldErrors.direccion} />}
+
+            <Input
+              id="descripcion"
+              label="Descripción (opcional)"
+              value={descripcion}
+              onChange={(e) => setDescripcion(e.target.value)}
+              placeholder="Breve descripción de la organización"
+            />
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              <div>
+                <Input
+                  id="latitud"
+                  label="Latitud"
+                  type="number"
+                  step="any"
+                  value={latitud}
+                  onChange={(e) => setLatitud(e.target.value)}
+                  placeholder="-31.4167"
+                />
+                {fieldErrors.latitud && <ErrorBanner msg={fieldErrors.latitud} />}
+              </div>
+              <div>
+                <Input
+                  id="longitud"
+                  label="Longitud"
+                  type="number"
+                  step="any"
+                  value={longitud}
+                  onChange={(e) => setLongitud(e.target.value)}
+                  placeholder="-64.1833"
+                />
+                {fieldErrors.longitud && <ErrorBanner msg={fieldErrors.longitud} />}
+              </div>
+            </div>
+
+            {globalError && <ErrorBanner msg={globalError} />}
+
+            <Button type="submit" variant="primary" block disabled={isSubmitting} style={{ marginTop: 8 }}>
+              {isSubmitting ? 'Enviando solicitud…' : 'Postular organización'}
+            </Button>
+          </form>
+        </Card>
+      )}
+
+      {/* ── Step 3: confirmation ─────────────────────────────────────────── */}
+      {step === 'done' && (
+        <Card style={{ width: '100%', maxWidth: 480, padding: 40, textAlign: 'center' }}>
+          <div
+            style={{
+              width: 72,
+              height: 72,
+              borderRadius: '50%',
+              background: '#D1FAE5',
+              border: '2px solid #34D399',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              margin: '0 auto 24px',
+            }}
+          >
+            <svg
+              width={34}
+              height={34}
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="#10B981"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <polyline points="20 6 9 17 4 12" />
+            </svg>
+          </div>
+
+          <h1 style={{ fontSize: 22, fontWeight: 900, color: 'var(--earth)', marginBottom: 12 }}>
+            ¡Solicitud enviada!
+          </h1>
+
+          <p
+            style={{
+              fontSize: 14.5,
+              fontWeight: 600,
+              color: 'var(--ink-2)',
+              lineHeight: 1.6,
+              maxWidth: 340,
+              margin: '0 auto 28px',
+            }}
+          >
+            Registramos tu organización. Un administrador la revisará pronto. Te
+            avisaremos cuando esté aprobada.
+          </p>
+
+          <Button variant="primary" block onClick={() => router.push('/dashboard')}>
+            Ir a mi panel
+          </Button>
         </Card>
       )}
     </div>
