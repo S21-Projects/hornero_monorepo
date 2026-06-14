@@ -8,10 +8,12 @@ import { Pill } from '@/components/ui/pill';
 import { Button } from '@/components/ui/button';
 import { usePendingOrgsQuery } from '@/hooks/usePendingOrgsQuery';
 import { useValidateOrgMutation } from '@/hooks/useValidateOrgMutation';
+import { useRejectOrgMutation } from '@/hooks/useRejectOrgMutation';
 
 export default function PendingOrgsList() {
   const { data, isLoading, isError, refetch } = usePendingOrgsQuery();
   const mutation = useValidateOrgMutation();
+  const rejectMutation = useRejectOrgMutation();
   const [rowErrors, setRowErrors] = useState<Record<number, string>>({});
 
   function handleValidate(id: number) {
@@ -27,6 +29,23 @@ export default function PendingOrgsList() {
           setRowErrors((prev) => ({ ...prev, [id]: 'Ya validada' }));
           refetch();
         }
+      },
+    });
+  }
+
+  function handleReject(id: number) {
+    setRowErrors((prev) => {
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
+    rejectMutation.mutate(id, {
+      onError: (err) => {
+        const msg = isAxiosError(err) && err.response?.status === 409
+          ? 'Ya procesada'
+          : 'Error al rechazar';
+        setRowErrors((prev) => ({ ...prev, [id]: msg }));
+        refetch();
       },
     });
   }
@@ -155,7 +174,9 @@ export default function PendingOrgsList() {
         )}
 
         {data?.map((org, i) => {
-          const inFlight = mutation.isPending && mutation.variables === org.id;
+          const validateInFlight = mutation.isPending && mutation.variables === org.id;
+          const rejectInFlight = rejectMutation.isPending && rejectMutation.variables === org.id;
+          const inFlight = validateInFlight || rejectInFlight;
           const rowError = rowErrors[org.id];
 
           return (
@@ -313,7 +334,27 @@ export default function PendingOrgsList() {
                   }}
                 >
                   <TickCircle size={16} color="var(--ok)" />
-                  {inFlight ? 'Validando…' : 'Validar'}
+                  {validateInFlight ? 'Validando…' : 'Validar'}
+                </Button>
+                <Button
+                  size="sm"
+                  disabled={inFlight}
+                  onClick={() => handleReject(org.id)}
+                  style={{
+                    background: '#FEE2E2',
+                    color: '#DC2626',
+                    border: 'none',
+                    cursor: inFlight ? 'not-allowed' : 'pointer',
+                    gap: 6,
+                    padding: '8px 12px',
+                    borderRadius: 10,
+                    fontFamily: 'inherit',
+                    fontWeight: 800,
+                    fontSize: 13.5,
+                    opacity: inFlight ? 0.6 : 1,
+                  }}
+                >
+                  {rejectInFlight ? 'Rechazando…' : 'Rechazar'}
                 </Button>
               </div>
             </div>

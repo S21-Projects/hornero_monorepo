@@ -37,8 +37,9 @@ public class Organizacion {
 
     private Double longitud;
 
-    @Column(nullable = false)
-    private Boolean validada = false;
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = true)
+    private EstadoOrganizacion estado = EstadoOrganizacion.PENDIENTE;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "administrador_id")
