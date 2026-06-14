@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { HttpService } from '@nestjs/axios';
 import { ConfigService } from '@nestjs/config';
 import { CrearNecesidadDto } from './dto/crear-necesidad.dto.js';
+import { ActualizarNecesidadDto } from './dto/actualizar-necesidad.dto.js';
 
 @Injectable()
 export class NecesidadesService {
@@ -12,6 +13,10 @@ export class NecesidadesService {
 
   private get msUrl(): string {
     return this.configService.get<string>('JAVA_MS_URL') as string;
+  }
+
+  private authHeaders(accessToken: string) {
+    return { Authorization: `Bearer ${accessToken}` };
   }
 
   async getNecesidades(organizacionId?: string) {
@@ -32,7 +37,31 @@ export class NecesidadesService {
     const { data } = await this.httpService.axiosRef.post(
       `${this.msUrl}/api/necesidades`,
       dto,
-      { headers: { Authorization: `Bearer ${accessToken}` } },
+      { headers: this.authHeaders(accessToken) },
+    );
+    return data;
+  }
+
+  async findById(id: number) {
+    const { data } = await this.httpService.axiosRef.get(
+      `${this.msUrl}/api/necesidades/${id}`,
+    );
+    return data;
+  }
+
+  async actualizar(id: number, dto: ActualizarNecesidadDto, accessToken: string) {
+    const { data } = await this.httpService.axiosRef.patch(
+      `${this.msUrl}/api/necesidades/${id}`,
+      dto,
+      { headers: this.authHeaders(accessToken) },
+    );
+    return data;
+  }
+
+  async eliminar(id: number, accessToken: string) {
+    const { data } = await this.httpService.axiosRef.delete(
+      `${this.msUrl}/api/necesidades/${id}`,
+      { headers: this.authHeaders(accessToken) },
     );
     return data;
   }
