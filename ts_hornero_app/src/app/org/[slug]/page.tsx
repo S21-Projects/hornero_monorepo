@@ -17,6 +17,7 @@ import {
   mapPrioridad,
   PRIORITY_ORDER,
 } from "@/lib/api/donaciones.server";
+import { TIPO_ORGANIZACION_LABELS, type TipoOrganizacion } from "@/lib/tipos-organizacion";
 
 export const revalidate = 60;
 
@@ -113,7 +114,7 @@ export default async function OrgDetailPage({
             <div style={{ flex: 1, color: "#fff", paddingBottom: 4 }}>
               <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
                 <Pill variant="open" dot>Abierto · cierra 15:00</Pill>
-                <Pill variant="cat">{org.tipo}</Pill>
+                <Pill variant="cat">{TIPO_ORGANIZACION_LABELS[org.tipo as TipoOrganizacion] ?? org.tipo}</Pill>
                 <Pill variant="solid" style={{ background: "rgba(255,255,255,.22)" }}>
                   {org.validada ? "Validado" : "Pendiente"}
                 </Pill>

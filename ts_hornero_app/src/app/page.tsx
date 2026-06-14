@@ -11,6 +11,7 @@ import { MapPlaceholder } from "@/components/ui/map-placeholder";
 import { Avatar } from "@/components/ui/avatar";
 import { Location, Routing } from "iconsax-reactjs";
 import type { OrganizacionResponse } from "@/lib/api/organizaciones";
+import { TIPO_ORGANIZACION_LABELS, type TipoOrganizacion } from "@/lib/tipos-organizacion";
 import { useValidatedOrganizaciones } from "@/lib/hooks/useValidatedOrganizaciones";
 import { OrgCardSkeleton } from "@/components/ui/skeleton";
 import { ErrorState } from "@/components/ui/error-state";
@@ -62,7 +63,7 @@ function OrgCard({ org }: { org: OrganizacionResponse }) {
       </div>
 
       <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-        <Pill variant="cat">{org.tipo}</Pill>
+        <Pill variant="cat">{TIPO_ORGANIZACION_LABELS[org.tipo as TipoOrganizacion] ?? org.tipo}</Pill>
       </div>
 
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
