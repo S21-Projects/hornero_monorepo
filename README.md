@@ -1,4 +1,4 @@
-# Hornero — Local Setup Guide
+# Hornero — Setup & Deploy Guide
 
 > **Note:** This project started as a polyrepo (each service had its own git repository).
 > It was consolidated into this monorepo on 2026-06-08.
@@ -27,6 +27,9 @@ ts_hornero_bff  :3001   (NestJS BFF — aggregates, auth proxy)
   │  JAVA_MS_URL
   ▼
 jar_hornero_ms  :8081   (Spring Boot — domain logic, JWT issuer)
+  │
+  ▼
+PostgreSQL      :5432
 ```
 
 ---
@@ -41,96 +44,159 @@ jar_hornero_ms  :8081   (Spring Boot — domain logic, JWT issuer)
 
 ---
 
-## Path A — Docker Compose (recommended)
+## Local Dev
 
-### Prerequisites
-- Docker 24+ with Compose V2 (`docker compose` not `docker-compose`)
+Three modes available. All use the root `.env.*` file loaded automatically by the Makefile.
 
-### Steps
+### Mode 1 — Docker Compose (full stack)
+
+Everything runs in containers including Postgres. No local Java or Node required.
+
+**Prerequisites:** Docker 24+ with Compose V2
 
 ```bash
-# 1. Copy the environment template and fill in your JWT secret
 cp .env.example .env
-# Edit .env: set a real JWT_SECRET (at least 32 random chars)
+# Edit .env: set a real JWT_SECRET (min 32 random chars)
 
-# 2. Boot everything
-docker compose up --build
+make up
 ```
-
-### URLs
 
 | Service | URL |
 |---------|-----|
 | Frontend | http://localhost:3000 |
 | BFF | http://localhost:3001 |
-| BFF API docs (Swagger) | http://localhost:3001/api/docs |
-| Microservice | http://localhost:8081 |
-| MS Swagger UI | http://localhost:8081/swagger-ui.html |
-
-### Stopping
+| BFF Swagger | http://localhost:3001/api/docs |
+| MS | http://localhost:8081 |
+| MS Swagger | http://localhost:8081/swagger-ui.html |
 
 ```bash
-docker compose down
-# To also remove volumes:
-docker compose down -v
+make down        # stop
+make down -v     # stop + delete DB volume
 ```
 
 ---
 
-## Path B — Local Dev (no Docker)
+### Mode 2 — Local processes + local Postgres
 
-Open **three terminals**, one per service.
+Services run on your machine; only Postgres runs in Docker.
 
-### Terminal 1 — Spring Boot MS
+**Prerequisites:** Java 17, Maven, Node 20, Docker
 
 ```bash
-cd jar_hornero_ms
+cp .env.local.example .env.local
+# Edit .env.local: set a real JWT_SECRET
 
-# Required environment variables
-export SERVER_PORT=8081
-export JWT_SECRET=change-me-use-a-long-random-secret-min-32-chars
+# One command (color-coded output, Ctrl+C kills all)
+make start-local
 
-mvn spring-boot:run
+# Or three terminals if you prefer
+make dev-ms-local   # terminal 1 — also starts Postgres
+make dev-bff-local  # terminal 2
+make dev-app-local  # terminal 3
 ```
 
-> The MS uses an H2 in-memory database — no external DB required.
+---
 
-### Terminal 2 — NestJS BFF
+### Mode 3 — Local processes + Railway DB
 
-```bash
-cd ts_hornero_bff
+Services run on your machine; DB is the deployed Railway instance.
 
-# Copy and fill the env file (JAVA_MS_URL, PORT, FRONTEND_URL)
-cp .env.example .env
-
-npm install
-npm run start:dev
-```
-
-### Terminal 3 — Next.js Frontend
+**Prerequisites:** Java 17, Maven, Node 20
 
 ```bash
-cd ts_hornero_app
+cp .env.desa.example .env.desa
+# Fill in the DB_* vars from: Railway → your project → Postgres service → Variables
 
-# NEXT_PUBLIC_BFF_URL is baked into the bundle at build time.
-# For local dev, Next.js reads it from .env.local:
-echo "NEXT_PUBLIC_BFF_URL=http://localhost:3001" > .env.local
+# One command
+make start-desa
 
-npm install
-npm run dev
+# Or three terminals
+make dev-ms-desa
+make dev-bff-desa
+make dev-app-desa
 ```
 
 ---
 
 ## Environment Variables Reference
 
-| Variable | Service | Description | Default |
-|----------|---------|-------------|---------|
-| `SERVER_PORT` | MS | HTTP port | 8081 |
-| `JWT_SECRET` | MS | HS256 signing secret (min 32 chars) | _required_ |
-| `PORT` | BFF | HTTP port | 3001 |
-| `JAVA_MS_URL` | BFF | Base URL of the MS | http://localhost:8081 |
-| `FRONTEND_URL` | BFF | Allowed CORS origin | http://localhost:3000 |
-| `NEXT_PUBLIC_BFF_URL` | Frontend | BFF base URL (baked at build time) | http://localhost:3001 |
+| Variable | Used by | Description |
+|----------|---------|-------------|
+| `JWT_SECRET` | MS + BFF | HS256 signing secret — must match in both services (min 32 chars) |
+| `SERVER_PORT` | MS | HTTP port (default 8081) |
+| `PORT` | BFF | HTTP port (default 3001) |
+| `JAVA_MS_URL` | BFF | Internal URL of the MS |
+| `FRONTEND_URL` | BFF | Allowed CORS origin |
+| `NEXT_PUBLIC_BFF_URL` | App | BFF base URL — baked into the bundle at build time |
+| `DB_HOST` | MS | Postgres host (`localhost` for local, `postgres` in Docker, Railway host in prod) |
+| `DB_PORT` | MS | Postgres port (default 5432) |
+| `DB_NAME` | MS | Database name |
+| `DB_USERNAME` | MS | Database user |
+| `DB_PASSWORD` | MS | Database password |
+| `POSTGRES_DB/USER/PASSWORD` | Docker only | Used by the `postgres` Docker service |
 
-See `.env.example` at the root for a ready-to-copy template.
+Env file templates: `.env.example`, `.env.local.example`, `.env.desa.example`
+
+---
+
+## Deploy on Railway
+
+Railway runs each service as an independent deployment within a project, using the `Dockerfile` in each service directory.
+
+### 1. Create the project
+
+1. Go to [railway.app](https://railway.app) → **New Project**
+2. Choose **Deploy from GitHub repo** → select `hornero_monorepo`
+
+### 2. Add PostgreSQL
+
+Inside the project: **New** → **Database** → **PostgreSQL**
+
+Railway provisions a managed Postgres instance and exposes these variables (available to reference from other services):
+`PGHOST`, `PGPORT`, `PGDATABASE`, `PGUSER`, `PGPASSWORD`
+
+### 3. Deploy each service
+
+For each of the three services, click **New** → **GitHub Repo** → select `hornero_monorepo`, then in the service settings:
+
+| Setting | MS | BFF | App |
+|---------|----|-----|-----|
+| **Root Directory** | `jar_hornero_ms` | `ts_hornero_bff` | `ts_hornero_app` |
+| **Builder** | Dockerfile | Dockerfile | Dockerfile |
+
+### 4. Set environment variables
+
+Railway lets you reference another service's variables with `${{ServiceName.VAR}}`.
+
+**MS service (`jar_hornero_ms`):**
+```
+JWT_SECRET=<your-secret>
+DB_HOST=${{Postgres.PGHOST}}
+DB_PORT=${{Postgres.PGPORT}}
+DB_NAME=${{Postgres.PGDATABASE}}
+DB_USERNAME=${{Postgres.PGUSER}}
+DB_PASSWORD=${{Postgres.PGPASSWORD}}
+```
+
+**BFF service (`ts_hornero_bff`):**
+```
+JWT_SECRET=<same-secret-as-MS>
+JAVA_MS_URL=http://<ms-private-domain>
+FRONTEND_URL=https://<app-public-domain>
+```
+
+**App service (`ts_hornero_app`):**
+```
+NEXT_PUBLIC_BFF_URL=https://<bff-public-domain>
+```
+
+> **Private vs public domains**: for `JAVA_MS_URL` use the Railway private domain (Settings → Networking → Private Domain) so traffic stays internal and free. For `FRONTEND_URL` and `NEXT_PUBLIC_BFF_URL` use the public domains.
+
+### 5. Deploy order
+
+Deploy in this order to avoid startup failures:
+
+1. **Postgres** (already running after step 2)
+2. **MS** — needs Postgres
+3. **BFF** — needs MS
+4. **App** — needs BFF URL at build time (`NEXT_PUBLIC_BFF_URL` is baked in)

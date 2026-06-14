@@ -16,3 +16,9 @@ export async function getValidatedOrganizaciones(): Promise<OrganizacionResponse
     revalidate: 60,
   });
 }
+
+export async function getOrganizacionBySlug(slug: string): Promise<OrganizacionResponse> {
+  return publicFetch<OrganizacionResponse>(`/organizaciones/${slug}`, {
+    revalidate: 60,
+  });
+}

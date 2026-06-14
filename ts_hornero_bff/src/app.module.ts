@@ -5,6 +5,9 @@ import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
 import { AuthModule } from './auth/auth.module.js';
 import { OrganizacionesModule } from './organizaciones/organizaciones.module.js';
+import { NecesidadesModule } from './necesidades/necesidades.module.js';
+import { DonacionesModule } from './donaciones/donaciones.module.js';
+import { UsuariosModule } from './usuarios/usuarios.module.js';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard.js';
 import { RolesGuard } from './auth/guards/roles.guard.js';
 
@@ -13,6 +16,9 @@ import { RolesGuard } from './auth/guards/roles.guard.js';
     ConfigModule.forRoot({ isGlobal: true }),
     AuthModule,
     OrganizacionesModule,
+    NecesidadesModule,
+    DonacionesModule,
+    UsuariosModule,
   ],
   controllers: [AppController],
   providers: [

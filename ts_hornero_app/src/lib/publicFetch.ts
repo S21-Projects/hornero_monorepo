@@ -14,7 +14,8 @@ export async function publicFetch<T>(
   path: string,
   opts: PublicFetchOptions = {}
 ): Promise<T> {
-  const bffBase = process.env.BFF_BASE_URL ?? '';
+  const bffBase = process.env.BFF_BASE_URL;
+  if (!bffBase) throw new Error(`publicFetch: BFF_BASE_URL is not set`);
   const url = `${bffBase}${path}`;
 
   const nextOpts: { revalidate?: number | false; tags?: string[] } = {};
@@ -27,7 +28,9 @@ export async function publicFetch<T>(
     nextOpts.tags = opts.tags;
   }
 
-  const fetchOpts: RequestInit & { next?: typeof nextOpts } = {};
+  const fetchOpts: RequestInit & { next?: typeof nextOpts } = {
+    signal: AbortSignal.timeout(8000),
+  };
 
   if (Object.keys(nextOpts).length > 0) {
     fetchOpts.next = nextOpts;

@@ -33,6 +33,14 @@ public class SecurityConfig {
                                 "/swagger-ui.html",
                                 "/v3/api-docs/**",
                                 "/v3/api-docs.yaml").permitAll()
+                        // Public read-only endpoints — no account required
+                        .requestMatchers(org.springframework.http.HttpMethod.GET,
+                                "/api/organizaciones",
+                                "/api/organizaciones/**",
+                                "/api/necesidades",
+                                "/api/necesidades/**",
+                                "/api/donaciones",
+                                "/api/donaciones/**").permitAll()
                         .anyRequest().authenticated())
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
                 .headers(headers -> headers.frameOptions(frame -> frame.sameOrigin()))
