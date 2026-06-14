@@ -6,6 +6,7 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.example.domain.TipoOrganizacion;
 
 @Getter
 @Setter
@@ -16,8 +17,8 @@ public class CrearOrganizacionRequest {
     @NotBlank(message = "El nombre es obligatorio")
     private String nombre;
 
-    @NotBlank(message = "El tipo es obligatorio")
-    private String tipo;
+    @NotNull(message = "El tipo es obligatorio")
+    private TipoOrganizacion tipo;
 
     private String descripcion;
 

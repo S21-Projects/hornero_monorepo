@@ -11,6 +11,7 @@ import { ErrorState } from "@/components/ui/error-state";
 import { OrgCardSkeleton } from "@/components/ui/skeleton";
 import { useValidatedOrganizaciones } from "@/lib/hooks/useValidatedOrganizaciones";
 import type { OrganizacionResponse } from "@/lib/api/organizaciones";
+import { TIPO_ORGANIZACION_LABELS, type TipoOrganizacion } from "@/lib/tipos-organizacion";
 
 const TIPOS = ["Todos", "Comedor", "Merendero", "Ropero"];
 
@@ -31,7 +32,7 @@ function OrgRow({ org }: { org: OrganizacionResponse }) {
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 5 }}>
             <h3 style={{ fontSize: 16, fontWeight: 800 }}>{org.nombre}</h3>
-            <Pill variant="cat">{org.tipo}</Pill>
+            <Pill variant="cat">{TIPO_ORGANIZACION_LABELS[org.tipo as TipoOrganizacion] ?? org.tipo}</Pill>
             {org.validada && <Pill variant="ok">Validada</Pill>}
           </div>
           <div

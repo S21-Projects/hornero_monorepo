@@ -29,7 +29,9 @@ public class Organizacion {
     @Column(length = 1000)
     private String descripcion;
 
-    private String tipo;
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = true)
+    private TipoOrganizacion tipo;
 
     private String direccion;
 

@@ -5,6 +5,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.example.domain.EstadoOrganizacion;
+import org.example.domain.TipoOrganizacion;
 
 @Getter
 @Setter
@@ -15,7 +16,7 @@ public class OrganizacionResponse {
     private Long id;
     private String nombre;
     private String slug;
-    private String tipo;
+    private TipoOrganizacion tipo;
     private String descripcion;
     private String direccion;
     private Double latitud;
