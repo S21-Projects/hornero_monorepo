@@ -1,8 +1,9 @@
 import { api } from '@/lib/axios';
+import type { TipoOrganizacion } from '@/lib/tipos-organizacion';
 
 export interface CreateOrganizacionPayload {
   nombre: string;
-  tipo: string;
+  tipo: TipoOrganizacion;
   descripcion?: string;
   direccion?: string;
   latitud: number;
@@ -11,12 +12,14 @@ export interface CreateOrganizacionPayload {
 
 export interface OrganizacionResponse {
   id: number;
+  slug: string;
   nombre: string;
-  tipo: string;
+  tipo: TipoOrganizacion;
   descripcion?: string;
   direccion?: string;
   latitud?: number;
   longitud?: number;
+  estado: 'PENDIENTE' | 'APROBADA' | 'RECHAZADA';
   validada: boolean;
   referenteNombre?: string;
   referenteEmail?: string;
@@ -42,4 +45,13 @@ export async function getPendingOrganizaciones(): Promise<OrganizacionResponse[]
 
 export async function validateOrganizacion(id: number): Promise<void> {
   await api.patch(`/organizaciones/${id}/validar`);
+}
+
+export async function rejectOrganizacion(id: number): Promise<void> {
+  await api.patch(`/organizaciones/${id}/rechazar`);
+}
+
+export async function fetchValidatedOrganizaciones(): Promise<OrganizacionResponse[]> {
+  const { data } = await api.get<OrganizacionResponse[]>('/organizaciones');
+  return data;
 }

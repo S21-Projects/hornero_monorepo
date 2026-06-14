@@ -4,7 +4,7 @@ FROM node:20-alpine AS builder
 WORKDIR /app
 
 COPY package*.json ./
-RUN npm ci --ignore-scripts
+RUN npm install --ignore-scripts
 
 COPY . .
 RUN npm run build
@@ -16,7 +16,7 @@ WORKDIR /app
 
 # Copy only production dependencies
 COPY package*.json ./
-RUN npm ci --only=production --ignore-scripts
+RUN npm install --omit=dev --ignore-scripts
 
 COPY --from=builder /app/dist ./dist
 

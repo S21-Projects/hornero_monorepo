@@ -1,10 +1,12 @@
+import Link from 'next/link';
+
 interface LogoProps {
   size?: number;
 }
 
 export function Logo({ size = 34 }: LogoProps) {
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+    <Link href="/" style={{ display: "flex", alignItems: "center", gap: 10, textDecoration: "none" }}>
       <div
         style={{
           width: size,
@@ -56,6 +58,6 @@ export function Logo({ size = 34 }: LogoProps) {
           Comedores · Córdoba
         </div>
       </div>
-    </div>
+    </Link>
   );
 }
