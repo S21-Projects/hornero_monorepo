@@ -34,6 +34,9 @@ export function TopBar({ active = 'Mapa' }: TopBarProps) {
     ...(isAuthenticated
       ? [{ label: 'Preferencias', href: '/prefs' }]
       : []),
+    ...(isAuthenticated && user?.tipo === 'ADMINISTRADOR'
+      ? [{ label: 'Admin', href: '/admin' }]
+      : []),
   ];
 
   async function handleLogout() {
@@ -93,13 +96,23 @@ export function TopBar({ active = 'Mapa' }: TopBarProps) {
             paddingLeft: 6,
           }}
         >
-          <Avatar name={user.nombre} size={38} tintIndex={0} />
-          <div style={{ lineHeight: 1.25 }}>
-            <div style={{ fontWeight: 800, fontSize: 13.5, color: 'var(--earth)' }}>
-              {user.nombre}
-            </div>
-            <div style={{ fontSize: 12, color: 'var(--ink-3)', fontWeight: 700 }}>
-              {ROLE_LABELS[user.tipo] ?? user.tipo}
+          <div
+            onClick={() => router.push(user.tipo === 'ADMINISTRADOR' ? '/admin' : '/dashboard')}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 10,
+              cursor: 'pointer',
+            }}
+          >
+            <Avatar name={user.nombre} size={38} tintIndex={0} />
+            <div style={{ lineHeight: 1.25 }}>
+              <div style={{ fontWeight: 800, fontSize: 13.5, color: 'var(--earth)' }}>
+                {user.nombre}
+              </div>
+              <div style={{ fontSize: 12, color: 'var(--ink-3)', fontWeight: 700 }}>
+                {ROLE_LABELS[user.tipo] ?? user.tipo}
+              </div>
             </div>
           </div>
           <Button

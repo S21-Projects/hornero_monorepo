@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import {
   Grid1, Buildings2, Box, People,
   Layer, Setting2,
@@ -11,6 +12,15 @@ import { useAuthStore } from '@/store/auth.store';
 import { ROLE_LABELS } from '@/lib/roles';
 
 type NavItem = { label: string; icon: React.ReactNode };
+
+const ROUTE_MAP: Record<string, string | null> = {
+  Organizaciones: '/admin',
+  Usuarios: '/users',
+  Panel: null,
+  Necesidades: null,
+  'Analíticas': null,
+  Ajustes: null,
+};
 
 const NAV_ITEMS: NavItem[] = [
   { label: 'Panel',          icon: <Grid1 size={19} /> },
@@ -81,25 +91,34 @@ export function AdminShell({
         <nav style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
           {NAV_ITEMS.map((item) => {
             const isActive = item.label === active;
-            return (
-              <div
-                key={item.label}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 11,
-                  padding: '11px 12px',
-                  borderRadius: 11,
-                  cursor: 'pointer',
-                  fontWeight: 800,
-                  fontSize: 14.5,
-                  color: isActive ? '#fff' : 'var(--ink-2)',
-                  background: isActive ? 'var(--horn)' : 'transparent',
-                }}
-              >
-                <span style={{ color: isActive ? '#fff' : 'var(--ink-3)' }}>
-                  {item.icon}
-                </span>
+            const route = ROUTE_MAP[item.label] ?? null;
+            const itemStyle: React.CSSProperties = {
+              display: 'flex',
+              alignItems: 'center',
+              gap: 11,
+              padding: '11px 12px',
+              borderRadius: 11,
+              cursor: route ? 'pointer' : 'not-allowed',
+              fontWeight: 800,
+              fontSize: 14.5,
+              color: isActive ? '#fff' : 'var(--ink-2)',
+              background: isActive ? 'var(--horn)' : 'transparent',
+              textDecoration: 'none',
+              ...(route ? {} : { opacity: 0.4, pointerEvents: 'none' as React.CSSProperties['pointerEvents'] }),
+            };
+            const iconEl = (
+              <span style={{ color: isActive ? '#fff' : 'var(--ink-3)' }}>
+                {item.icon}
+              </span>
+            );
+            return route && !isActive ? (
+              <Link key={item.label} href={route} style={itemStyle}>
+                {iconEl}
+                {item.label}
+              </Link>
+            ) : (
+              <div key={item.label} style={itemStyle}>
+                {iconEl}
                 {item.label}
               </div>
             );

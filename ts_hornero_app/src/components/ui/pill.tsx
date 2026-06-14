@@ -1,6 +1,6 @@
 import { type CSSProperties } from "react";
 
-type PillVariant =
+export type PillVariant =
   | "open" | "closed" | "cat"
   | "urgent" | "medium" | "normal" | "ok" | "warn" | "bad"
   | "ghost" | "solid"
