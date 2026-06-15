@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, type FormEvent } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { Logo } from '@/components/ui/logo';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -13,7 +13,9 @@ import { createOrganizacion } from '@/lib/api/organizaciones';
 import { api } from '@/lib/axios';
 import { type TipoOrganizacion, TIPO_ORGANIZACION_OPTIONS } from '@/lib/tipos-organizacion';
 
-type Step = 'account' | 'org' | 'done';
+// State machine types
+type Step = 'role' | 'account' | 'org' | 'done' | 'org-error';
+type UserRole = 'DONANTE' | 'REFERENTE';
 
 interface FieldErrors {
   nombre?: string;
@@ -55,11 +57,11 @@ function ErrorBanner({ msg }: { msg: string }) {
 
 export default function RegisterPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const loadUser = useAuthStore((s) => s.loadUser);
 
-  const initialStep: Step = searchParams.get('step') === 'org' ? 'org' : 'account';
-  const [step, setStep] = useState<Step>(initialStep);
+  const [step, setStep] = useState<Step>('role');
+  const [role, setRole] = useState<UserRole | null>(null);
+  const [pendingRole, setPendingRole] = useState<UserRole | null>(null);
 
   // Account fields
   const [nombre, setNombre] = useState('');
@@ -79,7 +81,7 @@ export default function RegisterPage() {
   const [globalError, setGlobalError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // ── Step 1: account ────────────────────────────────────────────────────────
+  // ── Validation ─────────────────────────────────────────────────────────────
 
   function validateAccount(): FieldErrors {
     const errs: FieldErrors = {};
@@ -91,32 +93,6 @@ export default function RegisterPage() {
     return errs;
   }
 
-  async function handleAccountSubmit(e: FormEvent) {
-    e.preventDefault();
-    const errs = validateAccount();
-    if (Object.keys(errs).length > 0) { setFieldErrors(errs); return; }
-    setFieldErrors({});
-    setGlobalError('');
-    setIsSubmitting(true);
-    try {
-      await registerUser({ nombre: nombre.trim(), email: email.trim(), password });
-      await api.post('/auth/login', { email: email.trim(), password });
-      await loadUser();
-      setStep('org');
-    } catch (err: unknown) {
-      const status = (err as any)?.response?.status;
-      if (status === 409) {
-        setFieldErrors({ email: 'Este email ya está registrado' });
-      } else {
-        setGlobalError('Ocurrió un error. Intentá de nuevo.');
-      }
-    } finally {
-      setIsSubmitting(false);
-    }
-  }
-
-  // ── Step 2: org ────────────────────────────────────────────────────────────
-
   function validateOrg(): FieldErrors {
     const errs: FieldErrors = {};
     if (!orgNombre.trim()) errs.orgNombre = 'El nombre de la organización es obligatorio';
@@ -127,13 +103,67 @@ export default function RegisterPage() {
     return errs;
   }
 
-  async function handleOrgSubmit(e: FormEvent) {
-    e.preventDefault();
-    const errs = validateOrg();
-    if (Object.keys(errs).length > 0) { setFieldErrors(errs); return; }
-    setFieldErrors({});
-    setGlobalError('');
+  // ── Error helpers ──────────────────────────────────────────────────────────
+
+  function handleRegistrationError(err: unknown) {
+    const status = (err as any)?.response?.status;
+    if (status === 409) {
+      setFieldErrors({ email: 'Este email ya está registrado' });
+    } else {
+      setGlobalError('Ocurrió un error. Intentá de nuevo.');
+    }
+  }
+
+  // ── Final submit handlers ──────────────────────────────────────────────────
+
+  async function handleDonanteFinalSubmit() {
     setIsSubmitting(true);
+    try {
+      await registerUser({ nombre: nombre.trim(), email: email.trim(), password, tipo: 'DONANTE' });
+      await api.post('/auth/login', { email: email.trim(), password });
+      await loadUser();
+      router.push('/');
+    } catch (err: unknown) {
+      handleRegistrationError(err);
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  async function handleReferenteFinalSubmit() {
+    setIsSubmitting(true);
+    try {
+      // Step 1: create account + login (atomic unit — if this fails, nothing was created)
+      await registerUser({ nombre: nombre.trim(), email: email.trim(), password, tipo: 'REFERENTE' });
+      await api.post('/auth/login', { email: email.trim(), password });
+      await loadUser();
+
+      // Step 2: create org (user is already logged in; failure → org-error retry)
+      try {
+        await createOrganizacion({
+          nombre: orgNombre.trim(),
+          tipo: tipo as TipoOrganizacion,
+          direccion: direccion.trim(),
+          descripcion: descripcion.trim() || undefined,
+          latitud: parseNumber(latitud)!,
+          longitud: parseNumber(longitud)!,
+        });
+        setStep('done');
+      } catch {
+        // User was created and logged in successfully; only org POST failed
+        setStep('org-error');
+      }
+    } catch (err: unknown) {
+      // Registration itself failed (before any user was created)
+      handleRegistrationError(err);
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  async function handleOrgRetry() {
+    setIsSubmitting(true);
+    setGlobalError('');
     try {
       await createOrganizacion({
         nombre: orgNombre.trim(),
@@ -143,13 +173,48 @@ export default function RegisterPage() {
         latitud: parseNumber(latitud)!,
         longitud: parseNumber(longitud)!,
       });
-      setStep('done');
+      router.push('/dashboard');
     } catch {
-      setGlobalError('No se pudo registrar la organización. Verificá los datos e intentá de nuevo.');
+      setGlobalError('No se pudo registrar la organización. Intentá de nuevo.');
     } finally {
       setIsSubmitting(false);
     }
   }
+
+  // ── Step submit handlers ───────────────────────────────────────────────────
+
+  function handleRoleSelect(selectedRole: UserRole) {
+    setRole(selectedRole);
+    setPendingRole(null);
+    setStep('account');
+  }
+
+  function handleAccountSubmit(e: FormEvent) {
+    e.preventDefault();
+    const errs = validateAccount();
+    if (Object.keys(errs).length > 0) { setFieldErrors(errs); return; }
+    setFieldErrors({});
+    setGlobalError('');
+
+    if (role === 'DONANTE') {
+      void handleDonanteFinalSubmit();
+    } else {
+      setStep('org');
+    }
+  }
+
+  async function handleOrgSubmit(e: FormEvent) {
+    e.preventDefault();
+    const errs = validateOrg();
+    if (Object.keys(errs).length > 0) { setFieldErrors(errs); return; }
+    setFieldErrors({});
+    setGlobalError('');
+    await handleReferenteFinalSubmit();
+  }
+
+  // ── Step labels ────────────────────────────────────────────────────────────
+
+  const accountStepLabel = role === 'DONANTE' ? 'Paso 1 de 1 — Datos personales' : 'Paso 1 de 2 — Datos personales';
 
   // ── Render ─────────────────────────────────────────────────────────────────
 
@@ -169,6 +234,94 @@ export default function RegisterPage() {
         <Logo size={42} />
       </div>
 
+      {/* ── Step 0: role selection ───────────────────────────────────────── */}
+      {step === 'role' && (
+        <div style={{ width: '100%', maxWidth: 560 }}>
+          <Text
+            variant="h2"
+            as="h1"
+            color="earth"
+            style={{ marginBottom: 8, textAlign: 'center' }}
+          >
+            ¿Cómo querés participar?
+          </Text>
+          <Text
+            as="p"
+            variant="label"
+            color="ink-3"
+            style={{ textAlign: 'center', marginBottom: 32 }}
+          >
+            Elegí tu rol para comenzar el registro
+          </Text>
+
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+              gap: 16,
+            }}
+          >
+            {(['DONANTE', 'REFERENTE'] as UserRole[]).map((r) => {
+              const isSelected = pendingRole === r;
+              return (
+                <div
+                  key={r}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => setPendingRole(r)}
+                  onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && setPendingRole(r)}
+                  style={{
+                    cursor: 'pointer',
+                    transform: isSelected ? 'translateY(-2px)' : 'none',
+                    transition: 'transform 0.15s',
+                    userSelect: 'none',
+                    outline: 'none',
+                  }}
+                >
+                  <Card
+                    style={{
+                      padding: 28,
+                      border: `2px solid ${isSelected ? 'var(--earth)' : 'var(--line)'}`,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: 12,
+                      alignItems: 'flex-start',
+                      transition: 'border-color 0.15s',
+                    }}
+                  >
+                    <Text variant="title" color="earth">
+                      {r === 'DONANTE' ? 'Quiero donar' : 'Tengo una organización'}
+                    </Text>
+                    <Text variant="body-sm" color="ink-2">
+                      {r === 'DONANTE'
+                        ? 'Apoyá organizaciones sociales con donaciones de dinero o artículos.'
+                        : 'Registrá tu organización social y gestioná las necesidades de tu comunidad.'}
+                    </Text>
+                  </Card>
+                </div>
+              );
+            })}
+          </div>
+
+          <Button
+            variant="primary"
+            block
+            disabled={!pendingRole}
+            onClick={() => pendingRole && handleRoleSelect(pendingRole)}
+            style={{ marginTop: 20 }}
+          >
+            Continuar
+          </Button>
+
+          <Text as="div" variant="label" color="ink-2" style={{ textAlign: 'center', marginTop: 20 }}>
+            ¿Ya tenés cuenta?{' '}
+            <a href="/login" style={{ textDecoration: 'none' }}>
+              <Text as="span" variant="label" style={{ color: 'var(--sky)', fontWeight: 800 }}>Ingresá acá</Text>
+            </a>
+          </Text>
+        </div>
+      )}
+
       {/* ── Step 1: account ─────────────────────────────────────────────── */}
       {step === 'account' && (
         <Card style={{ width: '100%', maxWidth: 480, padding: 32 }}>
@@ -186,7 +339,7 @@ export default function RegisterPage() {
             color="ink-3"
             style={{ textAlign: 'center', marginBottom: 24 }}
           >
-            Paso 1 de 2 — Datos personales
+            {accountStepLabel}
           </Text>
 
           <form onSubmit={handleAccountSubmit} noValidate style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -241,7 +394,17 @@ export default function RegisterPage() {
             {globalError && <ErrorBanner msg={globalError} />}
 
             <Button type="submit" variant="primary" block loading={isSubmitting} style={{ marginTop: 8 }}>
-              Continuar
+              {role === 'DONANTE' ? 'Crear cuenta' : 'Continuar'}
+            </Button>
+
+            <Button
+              type="button"
+              variant="secondary"
+              block
+              onClick={() => setStep('role')}
+              style={{ marginTop: 4 }}
+            >
+              Volver
             </Button>
 
             <Text as="div" variant="label" color="ink-2" style={{ textAlign: 'center', marginTop: 4 }}>
@@ -368,7 +531,7 @@ export default function RegisterPage() {
         </Card>
       )}
 
-      {/* ── Step 3: confirmation ─────────────────────────────────────────── */}
+      {/* ── Step: done (REFERENTE success) ──────────────────────────────── */}
       {step === 'done' && (
         <Card style={{ width: '100%', maxWidth: 480, padding: 40, textAlign: 'center' }}>
           <div
@@ -414,6 +577,67 @@ export default function RegisterPage() {
           <Button variant="primary" block onClick={() => router.push('/dashboard')}>
             Ir a mi panel
           </Button>
+        </Card>
+      )}
+
+      {/* ── Step: org-error (user created, org failed) ───────────────────── */}
+      {step === 'org-error' && (
+        <Card style={{ width: '100%', maxWidth: 480, padding: 40, textAlign: 'center' }}>
+          <div
+            style={{
+              width: 72,
+              height: 72,
+              borderRadius: '50%',
+              background: '#FEF3C7',
+              border: '2px solid #F59E0B',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              margin: '0 auto 24px',
+            }}
+          >
+            <svg
+              width={34}
+              height={34}
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="#D97706"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+              <line x1="12" y1="9" x2="12" y2="13" />
+              <line x1="12" y1="17" x2="12.01" y2="17" />
+            </svg>
+          </div>
+
+          <Text variant="h2" as="h1" color="earth" style={{ marginBottom: 12 }}>
+            Cuenta creada, pero...
+          </Text>
+
+          <Text
+            variant="body-sm"
+            color="ink-2"
+            style={{ maxWidth: 360, margin: '0 auto 28px' }}
+          >
+            Tu cuenta fue creada correctamente, pero no pudimos registrar la organización en este momento. Podés intentarlo de nuevo o ir a tu panel y completarlo después.
+          </Text>
+
+          {globalError && (
+            <div style={{ marginBottom: 16 }}>
+              <ErrorBanner msg={globalError} />
+            </div>
+          )}
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <Button variant="primary" block loading={isSubmitting} onClick={() => void handleOrgRetry()}>
+              Reintentar
+            </Button>
+            <Button variant="secondary" block onClick={() => router.push('/dashboard')}>
+              Ir a mi panel
+            </Button>
+          </div>
         </Card>
       )}
     </div>
