@@ -12,6 +12,9 @@ import { registerUser } from '@/lib/api/auth';
 import { createOrganizacion } from '@/lib/api/organizaciones';
 import { api } from '@/lib/axios';
 import { type TipoOrganizacion, TIPO_ORGANIZACION_OPTIONS } from '@/lib/tipos-organizacion';
+import { MapDynamic } from '@/components/ui/map-dynamic';
+import { useGeolocation } from '@/hooks/useGeolocation';
+import { CORDOBA_CENTER, type LatLng } from '@/lib/geo';
 
 // State machine types
 type Step = 'role' | 'account' | 'org' | 'done' | 'org-error';
@@ -25,13 +28,7 @@ interface FieldErrors {
   orgNombre?: string;
   tipo?: string;
   direccion?: string;
-  latitud?: string;
-  longitud?: string;
-}
-
-function parseNumber(value: string): number | undefined {
-  const n = parseFloat(value);
-  return isNaN(n) ? undefined : n;
+  ubicacion?: string;
 }
 
 const sectionTitleStyle: React.CSSProperties = {
@@ -74,8 +71,9 @@ export default function RegisterPage() {
   const [tipo, setTipo] = useState<TipoOrganizacion | ''>('');
   const [direccion, setDireccion] = useState('');
   const [descripcion, setDescripcion] = useState('');
-  const [latitud, setLatitud] = useState('');
-  const [longitud, setLongitud] = useState('');
+  const [coords, setCoords] = useState<LatLng | null>(null);
+
+  const { position, hasUserPosition, fixCount, request } = useGeolocation();
 
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [globalError, setGlobalError] = useState('');
@@ -98,8 +96,7 @@ export default function RegisterPage() {
     if (!orgNombre.trim()) errs.orgNombre = 'El nombre de la organización es obligatorio';
     if (!tipo) errs.tipo = 'El tipo es obligatorio';
     if (!direccion.trim()) errs.direccion = 'La dirección es obligatoria';
-    if (!latitud.trim() || parseNumber(latitud) === undefined) errs.latitud = 'Latitud inválida';
-    if (!longitud.trim() || parseNumber(longitud) === undefined) errs.longitud = 'Longitud inválida';
+    if (!coords) errs.ubicacion = 'Marcá la ubicación en el mapa';
     return errs;
   }
 
@@ -145,8 +142,8 @@ export default function RegisterPage() {
           tipo: tipo as TipoOrganizacion,
           direccion: direccion.trim(),
           descripcion: descripcion.trim() || undefined,
-          latitud: parseNumber(latitud)!,
-          longitud: parseNumber(longitud)!,
+          latitud: coords!.lat,
+          longitud: coords!.lng,
         });
         setStep('done');
       } catch {
@@ -170,8 +167,8 @@ export default function RegisterPage() {
         tipo: tipo as TipoOrganizacion,
         direccion: direccion.trim(),
         descripcion: descripcion.trim() || undefined,
-        latitud: parseNumber(latitud)!,
-        longitud: parseNumber(longitud)!,
+        latitud: coords!.lat,
+        longitud: coords!.lng,
       });
       router.push('/dashboard');
     } catch {
@@ -495,31 +492,57 @@ export default function RegisterPage() {
               placeholder="Breve descripción de la organización"
             />
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-              <div>
-                <Input
-                  id="latitud"
-                  label="Latitud"
-                  type="number"
-                  step="any"
-                  value={latitud}
-                  onChange={(e) => setLatitud(e.target.value)}
-                  placeholder="-31.4167"
-                />
-                {fieldErrors.latitud && <ErrorBanner msg={fieldErrors.latitud} />}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 8 }}>
+                <label>
+                  <Text as="span" variant="label" color="ink-2">Ubicación de la organización</Text>
+                </label>
+                <button
+                  type="button"
+                  onClick={() => request((latlng) => setCoords(latlng))}
+                  style={{
+                    fontFamily: 'inherit',
+                    fontSize: 13,
+                    fontWeight: 700,
+                    color: 'var(--sky)',
+                    background: 'none',
+                    border: 'none',
+                    cursor: 'pointer',
+                    padding: 0,
+                  }}
+                >
+                  Usar mi ubicación
+                </button>
               </div>
-              <div>
-                <Input
-                  id="longitud"
-                  label="Longitud"
-                  type="number"
-                  step="any"
-                  value={longitud}
-                  onChange={(e) => setLongitud(e.target.value)}
-                  placeholder="-64.1833"
+              <Text as="p" variant="label" color="ink-3" style={{ marginBottom: 2 }}>
+                Tocá el mapa para marcar dónde está tu organización.
+              </Text>
+
+              <div
+                style={{
+                  height: 280,
+                  borderRadius: 'var(--r-input)',
+                  overflow: 'hidden',
+                  border: '1.5px solid var(--line)',
+                }}
+              >
+                <MapDynamic
+                  center={coords ?? (hasUserPosition ? position : CORDOBA_CENTER)}
+                  zoom={14}
+                  height={280}
+                  userPosition={hasUserPosition ? position : null}
+                  recenterSignal={fixCount}
+                  onMapClick={(latlng) => setCoords(latlng)}
+                  markers={coords ? [{ id: 'org', lat: coords.lat, lng: coords.lng }] : []}
                 />
-                {fieldErrors.longitud && <ErrorBanner msg={fieldErrors.longitud} />}
               </div>
+
+              <Text as="div" variant="label" color="ink-2" style={{ marginTop: 2 }}>
+                {coords
+                  ? `Lat: ${coords.lat.toFixed(5)} · Lng: ${coords.lng.toFixed(5)}`
+                  : 'Sin ubicación marcada'}
+              </Text>
+              {fieldErrors.ubicacion && <ErrorBanner msg={fieldErrors.ubicacion} />}
             </div>
 
             {globalError && <ErrorBanner msg={globalError} />}
