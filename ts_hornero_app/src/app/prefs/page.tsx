@@ -3,7 +3,7 @@ import { TopBar } from "@/components/ui/top-bar";
 import { Card } from "@/components/ui/card";
 import { Pill } from "@/components/ui/pill";
 import { Button } from "@/components/ui/button";
-import { MapPlaceholder } from "@/components/ui/map-placeholder";
+import { ZonasMap } from "@/components/prefs/zonas-map";
 import { Toast } from "@/components/ui/toast";
 
 const FOOD_PREFS = [
@@ -20,12 +20,6 @@ const CHANNEL_PREFS = [
 
 const ZONES = ["Alberdi", "San Vicente", "General Paz", "Nueva Córdoba", "Yofre", "Centro"];
 const ACTIVE_ZONES = new Set([0, 1, 3]);
-
-const MAP_PINS = [
-  { x: "30%", y: "40%", active: true },
-  { x: "60%", y: "55%", active: true },
-  { x: "70%", y: "30%", active: true },
-];
 
 function Toggle({ on }: { on: boolean }) {
   return (
@@ -120,7 +114,7 @@ export default function PrefsPage() {
                 Tocá los barrios donde querés ayudar.
               </p>
               <div style={{ borderRadius: 14, overflow: "hidden", height: 190, position: "relative", marginBottom: 14 }}>
-                <MapPlaceholder pins={MAP_PINS} />
+                <ZonasMap height={190} />
               </div>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
                 {ZONES.map((z, i) => {
