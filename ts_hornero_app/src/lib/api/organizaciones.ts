@@ -55,3 +55,20 @@ export async function fetchValidatedOrganizaciones(): Promise<OrganizacionRespon
   const { data } = await api.get<OrganizacionResponse[]>('/organizaciones');
   return data;
 }
+
+export interface UpdateOrganizacionPayload {
+  nombre?: string;
+  tipo?: TipoOrganizacion;
+  descripcion?: string;
+  direccion?: string;
+  latitud?: number;
+  longitud?: number;
+}
+
+export async function updateOrganizacion(
+  id: number,
+  payload: UpdateOrganizacionPayload,
+): Promise<OrganizacionResponse> {
+  const { data } = await api.patch<OrganizacionResponse>(`/organizaciones/${id}`, payload);
+  return data;
+}

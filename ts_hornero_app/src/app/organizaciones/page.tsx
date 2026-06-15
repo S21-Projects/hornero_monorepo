@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from "react";
 import Link from "next/link";
 import { Location } from "iconsax-reactjs";
 import { TopBar } from "@/components/ui/top-bar";
@@ -12,9 +13,12 @@ import { OrgCardSkeleton } from "@/components/ui/skeleton";
 import { Text } from "@/components/ui/typography";
 import { useValidatedOrganizaciones } from "@/lib/hooks/useValidatedOrganizaciones";
 import type { OrganizacionResponse } from "@/lib/api/organizaciones";
-import { TIPO_ORGANIZACION_LABELS, type TipoOrganizacion } from "@/lib/tipos-organizacion";
+import { TIPO_ORGANIZACION_LABELS, TIPO_ORGANIZACION_OPTIONS, type TipoOrganizacion } from "@/lib/tipos-organizacion";
 
-const TIPOS = ["Todos", "Comedor", "Merendero", "Ropero"];
+const FILTER_OPTIONS = [
+  { label: 'Todos', value: '' },
+  ...TIPO_ORGANIZACION_OPTIONS,
+];
 
 function OrgRow({ org }: { org: OrganizacionResponse }) {
   return (
@@ -62,8 +66,12 @@ function OrgRow({ org }: { org: OrganizacionResponse }) {
 
 export default function OrganizacionesPage() {
   const { data: orgs, isPending, isError, refetch } = useValidatedOrganizaciones();
+  const [activeFilter, setActiveFilter] = useState<string>('');
 
-  const count = orgs?.length ?? 0;
+  const filteredOrgs = (orgs ?? []).filter(
+    (o) => activeFilter === '' || o.tipo === activeFilter
+  );
+  const count = filteredOrgs.length;
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100vh" }}>
@@ -81,20 +89,24 @@ export default function OrganizacionesPage() {
         </div>
 
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 22, flexWrap: "wrap" }}>
-          {TIPOS.map((t, i) => (
-            <span
-              key={t}
-              style={{
-                padding: "8px 14px",
-                borderRadius: 999,
-                cursor: "pointer",
-                background: i === 0 ? "var(--earth)" : "var(--card)",
-                boxShadow: i === 0 ? "none" : "var(--sh-1)",
-              }}
-            >
-              <Text variant="label" as="span" style={{ color: i === 0 ? '#fff' : 'var(--ink-2)' }}>{t}</Text>
-            </span>
-          ))}
+          {FILTER_OPTIONS.map(({ label, value }) => {
+            const isActive = value === activeFilter;
+            return (
+              <span
+                key={value}
+                onClick={() => setActiveFilter(value)}
+                style={{
+                  padding: "8px 14px",
+                  borderRadius: 999,
+                  cursor: "pointer",
+                  background: isActive ? "var(--earth)" : "var(--card)",
+                  boxShadow: isActive ? "none" : "var(--sh-1)",
+                }}
+              >
+                <Text variant="label" as="span" style={{ color: isActive ? '#fff' : 'var(--ink-2)' }}>{label}</Text>
+              </span>
+            );
+          })}
         </div>
 
         {isPending ? (
@@ -107,7 +119,7 @@ export default function OrganizacionesPage() {
           <EmptyState variant="no-comedores" />
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-            {orgs!.map((org) => (
+            {filteredOrgs.map((org) => (
               <OrgRow key={org.id} org={org} />
             ))}
           </div>

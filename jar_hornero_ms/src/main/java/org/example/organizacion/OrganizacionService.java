@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import org.example.domain.EstadoOrganizacion;
 import org.example.domain.Organizacion;
 import org.example.domain.OrganizacionRepository;
+import org.example.organizacion.dto.ActualizarOrganizacionRequest;
 import org.example.organizacion.dto.CrearOrganizacionRequest;
 import org.example.organizacion.dto.OrganizacionResponse;
 import org.example.user.Administrador;
@@ -137,6 +138,26 @@ public class OrganizacionService {
         }
 
         throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Acceso denegado");
+    }
+
+    @Transactional
+    public OrganizacionResponse actualizar(Long orgId, ActualizarOrganizacionRequest request, Long referenteUserId) {
+        Organizacion organizacion = organizacionRepository.findById(orgId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Organización no encontrada"));
+
+        if (organizacion.getReferente() == null || !organizacion.getReferente().getId().equals(referenteUserId)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "No tenés permiso para editar esta organización");
+        }
+
+        if (request.getNombre() != null) organizacion.setNombre(request.getNombre());
+        if (request.getTipo() != null) organizacion.setTipo(request.getTipo());
+        if (request.getDescripcion() != null) organizacion.setDescripcion(request.getDescripcion());
+        if (request.getDireccion() != null) organizacion.setDireccion(request.getDireccion());
+        if (request.getLatitud() != null) organizacion.setLatitud(request.getLatitud());
+        if (request.getLongitud() != null) organizacion.setLongitud(request.getLongitud());
+
+        Organizacion saved = organizacionRepository.save(organizacion);
+        return toResponse(saved);
     }
 
     public OrganizacionResponse toResponse(Organizacion organizacion) {
