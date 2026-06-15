@@ -145,10 +145,10 @@ export default function DashboardPage() {
           </Text>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            <Button variant="primary" block>
+            <Button variant="primary" block onClick={() => router.push('/needs')}>
               Publicar necesidad
             </Button>
-            <Button variant="secondary" block>
+            <Button variant="secondary" block onClick={() => router.push(`/org/${myOrg.slug}`)}>
               Gestionar organización
             </Button>
           </div>

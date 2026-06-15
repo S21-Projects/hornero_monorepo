@@ -204,6 +204,7 @@ export default function NeedsPage() {
             necesidades={ownNeeds}
             isLoading={loadingNeeds}
             orgMap={orgMap}
+            onCreateNew={() => setShowForm(true)}
           />
         )}
       </div>

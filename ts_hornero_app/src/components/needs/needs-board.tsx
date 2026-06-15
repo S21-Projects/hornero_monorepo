@@ -98,9 +98,10 @@ export interface NeedsBoardProps {
   necesidades: NecesidadResponse[];
   isLoading?: boolean;
   orgMap?: Map<number, string>;
+  onCreateNew?: () => void;
 }
 
-export function NeedsBoard({ necesidades, isLoading = false, orgMap }: NeedsBoardProps) {
+export function NeedsBoard({ necesidades, isLoading = false, orgMap, onCreateNew }: NeedsBoardProps) {
   const [selectedUrgency, setSelectedUrgency] = useState('Todas');
 
   const filtered = selectedUrgency === 'Todas'
@@ -148,7 +149,7 @@ export function NeedsBoard({ necesidades, isLoading = false, orgMap }: NeedsBoar
       </div>
 
       {filtered.length === 0 ? (
-        <EmptyState variant="no-donaciones" />
+        <EmptyState variant="no-necesidades" onCta={onCreateNew} />
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
           {filtered.map((n) => (

@@ -1,8 +1,8 @@
-import { Add, Heart, Notification } from "iconsax-reactjs";
+import { Add, Heart, Notification, ClipboardText } from "iconsax-reactjs";
 import { Button } from "./button";
 import { Text } from "./typography";
 
-type EmptyVariant = "no-comedores" | "no-donaciones" | "no-alertas";
+type EmptyVariant = "no-comedores" | "no-donaciones" | "no-alertas" | "no-necesidades";
 
 interface EmptyStateProps {
   variant: EmptyVariant;
@@ -30,6 +30,12 @@ const DEFAULTS: Record<EmptyVariant, { title: string; body: string; ctaLabel: st
     body: "No tenés alertas nuevas. Cuando un comedor de tus zonas publique una necesidad, te avisamos acá.",
     ctaLabel: "Configurar alertas",
     ctaIcon: <Notification size={17} color="#fff" />,
+  },
+  "no-necesidades": {
+    title: "Todavía no publicaste necesidades",
+    body: "Cuando tu organización necesite algo, publicalo acá y los donantes podrán ayudarte.",
+    ctaLabel: "Nueva necesidad",
+    ctaIcon: <ClipboardText size={17} color="#fff" />,
   },
 };
 
@@ -59,6 +65,38 @@ function HorneroIllustration({ variant }: { variant: EmptyVariant }) {
         }}
       >
         <span style={{ fontSize: 26 }}>🪺</span>
+        <Text
+          variant="micro"
+          as="span"
+          style={{
+            fontFamily: '"DM Mono", monospace',
+            letterSpacing: ".06em",
+            textTransform: "uppercase",
+            color: "#A0673E",
+          }}
+        >
+          {label}
+        </Text>
+      </div>
+    );
+  }
+
+  if (variant === "no-necesidades") {
+    return (
+      <div
+        style={{
+          ...base,
+          width: 132,
+          height: 132,
+          borderRadius: 18,
+        }}
+      >
+        <svg width={34} height={34} viewBox="0 0 24 24" fill="none" stroke="var(--horn)" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+          <rect x="8" y="2" width="8" height="4" rx="1" />
+          <path d="M8 4H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-2" />
+          <line x1="8" y1="12" x2="16" y2="12" />
+          <line x1="8" y1="16" x2="12" y2="16" />
+        </svg>
         <Text
           variant="micro"
           as="span"
