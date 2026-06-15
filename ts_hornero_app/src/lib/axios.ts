@@ -37,7 +37,7 @@ api.interceptors.response.use(
         // who hit public endpoints that happened to return 401 (e.g. backend
         // not yet reachable, transient error, etc.).
         const hadSession = typeof document !== 'undefined' &&
-          (document.cookie.includes('access_token') || document.cookie.includes('refresh_token'));
+          document.cookie.includes('session_hint');
         if (typeof window !== 'undefined' && hadSession) {
           window.location.href = '/login';
         }

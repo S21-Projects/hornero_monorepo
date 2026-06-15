@@ -9,8 +9,10 @@ import { Avatar } from "@/components/ui/avatar";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ErrorState } from "@/components/ui/error-state";
 import { OrgCardSkeleton } from "@/components/ui/skeleton";
+import { Text } from "@/components/ui/typography";
 import { useValidatedOrganizaciones } from "@/lib/hooks/useValidatedOrganizaciones";
 import type { OrganizacionResponse } from "@/lib/api/organizaciones";
+import { TIPO_ORGANIZACION_LABELS, type TipoOrganizacion } from "@/lib/tipos-organizacion";
 
 const TIPOS = ["Todos", "Comedor", "Merendero", "Ropero"];
 
@@ -30,37 +32,27 @@ function OrgRow({ org }: { org: OrganizacionResponse }) {
         <Avatar name={org.nombre} size={52} />
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 5 }}>
-            <h3 style={{ fontSize: 16, fontWeight: 800 }}>{org.nombre}</h3>
-            <Pill variant="cat">{org.tipo}</Pill>
+            <Text variant="title" as="h3">{org.nombre}</Text>
+            <Pill variant="cat">{TIPO_ORGANIZACION_LABELS[org.tipo as TipoOrganizacion] ?? org.tipo}</Pill>
             {org.validada && <Pill variant="ok">Validada</Pill>}
           </div>
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 6,
-              color: "var(--ink-2)",
-              fontSize: 13,
-              fontWeight: 700,
-            }}
+          <Text
+            as="div"
+            variant="body-sm"
+            color="ink-2"
+            style={{ display: "flex", alignItems: "center", gap: 6 }}
           >
             <Location size={14} color="var(--ink-3)" />
             {org.direccion ?? "Córdoba"}
-          </div>
+          </Text>
           {org.descripcion && (
-            <p
-              style={{
-                color: "var(--ink-3)",
-                fontSize: 13,
-                fontWeight: 600,
-                marginTop: 5,
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                whiteSpace: "nowrap",
-              }}
+            <Text
+              variant="body-sm"
+              color="ink-3"
+              style={{ marginTop: 5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
             >
               {org.descripcion}
-            </p>
+            </Text>
           )}
         </div>
       </Card>
@@ -76,15 +68,15 @@ export default function OrganizacionesPage() {
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100vh" }}>
       <TopBar active="Mapa" />
-      <div style={{ flex: 1, overflow: "auto", padding: "28px 40px" }}>
+      <div className="flex-1 overflow-auto px-4 py-7 sm:px-10">
         <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", marginBottom: 22 }}>
           <div>
-            <h1 style={{ fontSize: 28, fontWeight: 900 }}>Organizaciones</h1>
-            <p style={{ color: "var(--ink-2)", fontSize: 15, marginTop: 5, fontWeight: 600 }}>
+            <Text variant="h1">Organizaciones</Text>
+            <Text variant="body" color="ink-2" style={{ marginTop: 5 }}>
               {isPending
                 ? "Cargando..."
                 : `${count} ${count === 1 ? "organización validada" : "organizaciones validadas"} en Córdoba`}
-            </p>
+            </Text>
           </div>
         </div>
 
@@ -95,15 +87,12 @@ export default function OrganizacionesPage() {
               style={{
                 padding: "8px 14px",
                 borderRadius: 999,
-                fontWeight: 800,
-                fontSize: 13,
                 cursor: "pointer",
                 background: i === 0 ? "var(--earth)" : "var(--card)",
-                color: i === 0 ? "#fff" : "var(--ink-2)",
                 boxShadow: i === 0 ? "none" : "var(--sh-1)",
               }}
             >
-              {t}
+              <Text variant="label" as="span" style={{ color: i === 0 ? '#fff' : 'var(--ink-2)' }}>{t}</Text>
             </span>
           ))}
         </div>

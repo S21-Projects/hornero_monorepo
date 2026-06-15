@@ -73,4 +73,13 @@ export class OrganizacionesService {
     );
     return data;
   }
+
+  async rechazar(id: number, accessToken: string) {
+    const { data } = await this.httpService.axiosRef.patch(
+      `${this.msUrl}/api/organizaciones/${id}/rechazar`,
+      {},
+      { headers: this.authHeaders(accessToken) },
+    );
+    return data;
+  }
 }

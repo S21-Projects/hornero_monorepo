@@ -1,5 +1,14 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsNotEmpty, IsNumber, IsOptional, IsString } from 'class-validator';
+import { IsEnum, IsNotEmpty, IsNumber, IsOptional, IsString } from 'class-validator';
+
+export const TipoOrganizacion = {
+  COMEDOR: 'COMEDOR',
+  COPITA: 'COPITA',
+  ROPERO: 'ROPERO',
+  MERENDERO: 'MERENDERO',
+  OTRO: 'OTRO',
+} as const;
+export type TipoOrganizacion = typeof TipoOrganizacion[keyof typeof TipoOrganizacion];
 
 export class CrearOrganizacionDto {
   @ApiProperty({ example: 'Comedor La Esperanza' })
@@ -7,10 +16,10 @@ export class CrearOrganizacionDto {
   @IsNotEmpty()
   nombre: string;
 
-  @ApiProperty({ example: 'COMEDOR' })
-  @IsString()
+  @ApiProperty({ example: 'COMEDOR', enum: Object.values(TipoOrganizacion) })
+  @IsEnum(TipoOrganizacion)
   @IsNotEmpty()
-  tipo: string;
+  tipo: TipoOrganizacion;
 
   @ApiPropertyOptional({ example: 'Comedor comunitario en el barrio norte' })
   @IsOptional()

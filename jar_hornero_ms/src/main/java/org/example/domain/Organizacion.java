@@ -29,7 +29,9 @@ public class Organizacion {
     @Column(length = 1000)
     private String descripcion;
 
-    private String tipo;
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = true)
+    private TipoOrganizacion tipo;
 
     private String direccion;
 
@@ -37,8 +39,9 @@ public class Organizacion {
 
     private Double longitud;
 
-    @Column(nullable = false)
-    private Boolean validada = false;
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = true)
+    private EstadoOrganizacion estado = EstadoOrganizacion.PENDIENTE;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "administrador_id")

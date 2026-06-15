@@ -6,6 +6,7 @@ import { Logo } from '@/components/ui/logo';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { Text } from '@/components/ui/typography';
 import { useAuthStore } from '@/store/auth.store';
 
 export default function LoginPage() {
@@ -48,17 +49,14 @@ export default function LoginPage() {
       </div>
 
       <Card style={{ width: '100%', maxWidth: 400, padding: 32 }}>
-        <h1
-          style={{
-            fontSize: 22,
-            fontWeight: 900,
-            color: 'var(--earth)',
-            marginBottom: 24,
-            textAlign: 'center',
-          }}
+        <Text
+          variant="h2"
+          as="h1"
+          color="earth"
+          style={{ marginBottom: 24, textAlign: 'center' }}
         >
           Ingresá a tu cuenta
-        </h1>
+        </Text>
 
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           <Input
@@ -81,6 +79,7 @@ export default function LoginPage() {
             placeholder="••••••••"
             required
             autoComplete="current-password"
+            showToggle
           />
 
           {error && (
@@ -90,12 +89,9 @@ export default function LoginPage() {
                 border: '1px solid #FCA5A5',
                 borderRadius: 10,
                 padding: '10px 14px',
-                fontSize: 13.5,
-                fontWeight: 700,
-                color: '#DC2626',
               }}
             >
-              {error}
+              <Text variant="label" style={{ color: '#DC2626' }}>{error}</Text>
             </div>
           )}
 
@@ -103,10 +99,17 @@ export default function LoginPage() {
             type="submit"
             variant="primary"
             block
-            disabled={submitting}
+            loading={submitting}
             style={{ marginTop: 8 }}
           >
-            {submitting ? 'Ingresando…' : 'Ingresar'}
+            Ingresar
+          </Button>
+          <Button            
+            variant="secondary"
+            block
+            onClick={() => router.push('/register')}
+          >
+            Registrarse
           </Button>
         </form>
       </Card>
