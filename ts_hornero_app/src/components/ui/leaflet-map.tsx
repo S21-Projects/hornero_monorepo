@@ -12,7 +12,7 @@ export interface MapMarkerData {
   lng: number;
   label?: string;
   sub?: string;
-  /** Resalta el marcador (color celeste de marca) cuando está activo/seleccionado. */
+  /** Resalta el marcador (amarillo de marca) cuando está activo/seleccionado. */
   active?: boolean;
 }
 
@@ -38,7 +38,7 @@ export interface LeafletMapProps {
 
 /** Pin SVG de marca (reutiliza el path del mockup original). */
 function pinIcon(active: boolean): L.DivIcon {
-  const color = active ? 'var(--sky, #4BA3D3)' : 'var(--horn, #C85A20)';
+  const color = active ? 'var(--sun, #D4A017)' : 'var(--horn, #C85A20)';
   return L.divIcon({
     className: 'hornero-pin',
     html: `
