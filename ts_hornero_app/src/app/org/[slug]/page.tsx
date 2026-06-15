@@ -1,20 +1,22 @@
 import { notFound } from "next/navigation";
-import { Sms, Location, Heart, Routing, Shield, Truck } from "iconsax-reactjs";
+import { Sms, Location, Heart, Routing } from "iconsax-reactjs";
 import { TopBar } from "@/components/ui/top-bar";
 import { Card } from "@/components/ui/card";
 import { Pill } from "@/components/ui/pill";
 import { Button } from "@/components/ui/button";
 import { Avatar } from "@/components/ui/avatar";
 import { MapDynamic } from "@/components/ui/map-dynamic";
+import { DonateButton } from "@/components/donaciones/donate-button";
 import { Text } from "@/components/ui/typography";
 import { Box } from "iconsax-reactjs";
 import { getOrganizacionBySlug } from "@/lib/api/organizaciones.server";
 import {
   getDonacionesByOrg,
   getNecesidadesByOrg,
-  mapEstadoDonacion,
   mapPrioridad,
   PRIORITY_ORDER,
+  ESTADO_DONACION_LABELS,
+  ESTADO_DONACION_PILL,
 } from "@/lib/api/donaciones.server";
 import { TIPO_ORGANIZACION_LABELS, type TipoOrganizacion } from "@/lib/tipos-organizacion";
 import { OrgEditButton } from "@/components/org/OrgEditButton";
@@ -22,11 +24,6 @@ import { OrgEditButton } from "@/components/org/OrgEditButton";
 export const revalidate = 60;
 
 const PRIORITY_LABEL = { urgent: "Urgente", medium: "Media", normal: "Normal" } as const;
-const STATUS_MAP = {
-  received:  { variant: "ok",   label: "Recibido",   icon: <Shield size={13} /> },
-  transit:   { variant: "warn", label: "En camino",  icon: <Truck size={13} /> },
-  delivered: { variant: "open", label: "Entregado",  icon: <Shield size={13} /> },
-} as const;
 
 export default async function OrgDetailPage({
   params,
@@ -59,7 +56,7 @@ export default async function OrgDetailPage({
     who: d.donanteName,
     what: d.observaciones ?? "",
     date: d.fechaOferta,
-    status: mapEstadoDonacion(d.estado),
+    estado: d.estado,
   }));
 
   // Right-rail CTA: pick the highest-priority need (URGENTE > MEDIA > NORMAL)
@@ -187,6 +184,13 @@ export default async function OrgDetailPage({
                       </div>
                       <Text variant="label" as="p" color="ink-2" style={{ marginTop: 4 }}>{sub}</Text>
                     </div>
+                    <DonateButton
+                      necesidadId={id}
+                      necesidadDescripcion={title}
+                      orgNombre={org.nombre}
+                      variant="secondary"
+                      size="sm"
+                    />
                   </div>
                 ))}
               </Card>
@@ -196,22 +200,19 @@ export default async function OrgDetailPage({
             {donations.length > 0 && (
               <Card style={{ padding: "20px 24px 8px" }}>
                 <Text variant="h3" as="h3" style={{ marginBottom: 4 }}>Donaciones recientes</Text>
-                {donations.map(({ id, who, what, date, status }) => {
-                  const s = STATUS_MAP[status];
-                  return (
-                    <div key={id} style={{ display: "flex", alignItems: "center", gap: 14, padding: "14px 0", borderBottom: "1px solid var(--line-soft)" }}>
-                      <Avatar name={who} size={40} tintIndex={who.length % 6} />
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <Text as="div" variant="body-sm">{who}</Text>
-                        <Text as="div" variant="label" color="ink-2">{what}</Text>
-                      </div>
-                      <Text as="div" variant="caption" color="ink-3" style={{ marginRight: 8 }}>{date}</Text>
-                      <Pill variant={s.variant} dot>
-                        {s.icon} {s.label}
-                      </Pill>
+                {donations.map(({ id, who, what, date, estado }) => (
+                  <div key={id} style={{ display: "flex", alignItems: "center", gap: 14, padding: "14px 0", borderBottom: "1px solid var(--line-soft)" }}>
+                    <Avatar name={who} size={40} tintIndex={who.length % 6} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <Text as="div" variant="body-sm">{who}</Text>
+                      <Text as="div" variant="label" color="ink-2">{what}</Text>
                     </div>
-                  );
-                })}
+                    <Text as="div" variant="caption" color="ink-3" style={{ marginRight: 8 }}>{date}</Text>
+                    <Pill variant={ESTADO_DONACION_PILL[estado] ?? "ghost"} dot>
+                      {ESTADO_DONACION_LABELS[estado] ?? estado}
+                    </Pill>
+                  </div>
+                ))}
               </Card>
             )}
           </div>
@@ -228,9 +229,17 @@ export default async function OrgDetailPage({
                 <Text variant="body-sm" color="ink-2" style={{ marginTop: 6 }}>
                   {ctaNeed.sub}
                 </Text>
-                <Button variant="primary" block style={{ gap: 8, marginTop: 14 }}>
+                <DonateButton
+                  necesidadId={ctaNeed.id}
+                  necesidadDescripcion={ctaNeed.title}
+                  orgNombre={org.nombre}
+                  variant="primary"
+                  size="default"
+                  block
+                  style={{ marginTop: 14 }}
+                >
                   <Heart size={18} color="#fff" /> Donar a esta necesidad
-                </Button>
+                </DonateButton>
                 <Button variant="ghost" block style={{ marginTop: 8, gap: 8 }}>
                   <Routing size={17} color="var(--ink-2)" /> Cómo llegar
                 </Button>

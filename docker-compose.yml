@@ -71,6 +71,8 @@ services:
       - "${APP_PORT:-3000}:3000"
     environment:
       NODE_ENV: "production"
+      # Server-side internal URL — reached over the compose network, not localhost.
+      BFF_BASE_URL: "http://bff:3001"
     depends_on:
       - bff
     networks:

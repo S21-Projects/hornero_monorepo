@@ -8,6 +8,7 @@ import { NextRequest, NextResponse } from 'next/server';
 // | /admin/*                | →/login    | allow  | →/            | →/               |
 // | /dashboard              | →/login    | →/     | allow         | allow            |
 // | /needs/*, /org/* (write)| →/login    | allow  | allow         | →/dashboard      |
+// | /mis-donaciones         | →/login    | →/     | →/            | →/  (DONANTE: allow)|
 // | / (public)              | allow      | allow  | allow         | allow            |
 //
 // Role is read from decoded access_token JWT payload.tipo (no signature verification —
@@ -78,6 +79,14 @@ export function proxy(request: NextRequest) {
     return NextResponse.redirect(new URL('/login', request.url));
   }
 
+  // ── /mis-donaciones (DONANTE only) ────────────────────────────────────────
+  if (pathname.startsWith('/mis-donaciones')) {
+    if (!isAuthenticated) return NextResponse.redirect(new URL('/login', request.url));
+    if (role === 'DONANTE') return NextResponse.next();
+    // ADMIN / REFERENTE → not a donante area
+    return NextResponse.redirect(new URL('/', request.url));
+  }
+
   // ── /prefs (legacy protected route) ───────────────────────────────────────
   if (pathname.startsWith('/prefs')) {
     if (!isAuthenticated) return NextResponse.redirect(new URL('/login', request.url));
@@ -103,6 +112,7 @@ export const config = {
     '/dashboard',
     '/admin/:path*',
     '/needs/:path*',
+    '/mis-donaciones/:path*',
     '/prefs/:path*',
     '/users/:path*',
   ],
