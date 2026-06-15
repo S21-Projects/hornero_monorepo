@@ -75,7 +75,7 @@ export default function OrganizacionesPage() {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100vh" }}>
-      <TopBar active="Mapa" />
+      <TopBar active="Organizaciones" />
       <div className="flex-1 overflow-auto px-4 py-7 sm:px-10">
         <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", marginBottom: 22 }}>
           <div>

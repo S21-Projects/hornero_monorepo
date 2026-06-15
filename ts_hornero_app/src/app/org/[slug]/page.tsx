@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { Clock, Sms, Location, Heart, Routing, Shield, Truck } from "iconsax-reactjs";
+import { Sms, Location, Heart, Routing } from "iconsax-reactjs";
 import { TopBar } from "@/components/ui/top-bar";
 import { Card } from "@/components/ui/card";
 import { Pill } from "@/components/ui/pill";
@@ -7,15 +7,18 @@ import { Stars } from "@/components/ui/stars";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Avatar } from "@/components/ui/avatar";
-import { MapPlaceholder } from "@/components/ui/map-placeholder";
+import { MapDynamic } from "@/components/ui/map-dynamic";
+import { DonateButton } from "@/components/donaciones/donate-button";
+import { Text } from "@/components/ui/typography";
 import { Box } from "iconsax-reactjs";
 import { getOrganizacionBySlug } from "@/lib/api/organizaciones.server";
 import {
   getDonacionesByOrg,
   getNecesidadesByOrg,
-  mapEstadoDonacion,
   mapPrioridad,
   PRIORITY_ORDER,
+  ESTADO_DONACION_LABELS,
+  ESTADO_DONACION_PILL,
 } from "@/lib/api/donaciones.server";
 import { TIPO_ORGANIZACION_LABELS, type TipoOrganizacion } from "@/lib/tipos-organizacion";
 import { OrgEditButton } from "@/components/org/OrgEditButton";
@@ -23,11 +26,6 @@ import { OrgEditButton } from "@/components/org/OrgEditButton";
 export const revalidate = 60;
 
 const PRIORITY_LABEL = { urgent: "Urgente", medium: "Media", normal: "Normal" } as const;
-const STATUS_MAP = {
-  received:  { variant: "ok",   label: "Recibido",   icon: <Shield size={13} /> },
-  transit:   { variant: "warn", label: "En camino",  icon: <Truck size={13} /> },
-  delivered: { variant: "open", label: "Entregado",  icon: <Shield size={13} /> },
-} as const;
 
 export default async function OrgDetailPage({
   params,
@@ -60,7 +58,7 @@ export default async function OrgDetailPage({
     who: d.donanteName,
     what: d.observaciones ?? "",
     date: d.fechaOferta,
-    status: mapEstadoDonacion(d.estado),
+    estado: d.estado,
   }));
 
   // Right-rail CTA: pick the highest-priority need (URGENTE > MEDIA > NORMAL)
@@ -201,6 +199,13 @@ export default async function OrgDetailPage({
                       </div>
                       <p style={{ color: "var(--ink-2)", fontSize: 13.5, marginTop: 4, fontWeight: 600 }}>{sub}</p>
                     </div>
+                    <DonateButton
+                      necesidadId={id}
+                      necesidadDescripcion={title}
+                      orgNombre={org.nombre}
+                      variant="secondary"
+                      size="sm"
+                    />
                   </div>
                 ))}
               </Card>
@@ -209,23 +214,20 @@ export default async function OrgDetailPage({
             {/* donations — only render when there are results */}
             {donations.length > 0 && (
               <Card style={{ padding: "20px 24px 8px" }}>
-                <h3 style={{ fontSize: 18, fontWeight: 900, marginBottom: 4 }}>Donaciones recientes</h3>
-                {donations.map(({ id, who, what, date, status }) => {
-                  const s = STATUS_MAP[status];
-                  return (
-                    <div key={id} style={{ display: "flex", alignItems: "center", gap: 14, padding: "14px 0", borderBottom: "1px solid var(--line-soft)" }}>
-                      <Avatar name={who} size={40} tintIndex={who.length % 6} />
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontWeight: 800, fontSize: 14.5 }}>{who}</div>
-                        <div style={{ color: "var(--ink-2)", fontSize: 13, fontWeight: 600 }}>{what}</div>
-                      </div>
-                      <div style={{ color: "var(--ink-3)", fontSize: 12.5, fontWeight: 700, marginRight: 8 }}>{date}</div>
-                      <Pill variant={s.variant} dot>
-                        {s.icon} {s.label}
-                      </Pill>
+                <Text variant="h3" as="h3" style={{ marginBottom: 4 }}>Donaciones recientes</Text>
+                {donations.map(({ id, who, what, date, estado }) => (
+                  <div key={id} style={{ display: "flex", alignItems: "center", gap: 14, padding: "14px 0", borderBottom: "1px solid var(--line-soft)" }}>
+                    <Avatar name={who} size={40} tintIndex={who.length % 6} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <Text as="div" variant="body-sm">{who}</Text>
+                      <Text as="div" variant="label" color="ink-2">{what}</Text>
                     </div>
-                  );
-                })}
+                    <Text as="div" variant="caption" color="ink-3" style={{ marginRight: 8 }}>{date}</Text>
+                    <Pill variant={ESTADO_DONACION_PILL[estado] ?? "ghost"} dot>
+                      {ESTADO_DONACION_LABELS[estado] ?? estado}
+                    </Pill>
+                  </div>
+                ))}
               </Card>
             )}
           </div>
@@ -241,13 +243,18 @@ export default async function OrgDetailPage({
                 <h3 style={{ fontSize: 20, fontWeight: 900 }}>{ctaNeed.title}</h3>
                 <p style={{ color: "var(--ink-2)", fontSize: 14, marginTop: 6, fontWeight: 600, lineHeight: 1.5 }}>
                   {ctaNeed.sub}
-                </p>
-                <div style={{ margin: "14px 0 18px" }}>
-                  <Progress value={0} max={1} height={11} />
-                </div>
-                <Button variant="primary" block style={{ fontSize: 16, gap: 8 }}>
+                </Text>
+                <DonateButton
+                  necesidadId={ctaNeed.id}
+                  necesidadDescripcion={ctaNeed.title}
+                  orgNombre={org.nombre}
+                  variant="primary"
+                  size="default"
+                  block
+                  style={{ marginTop: 14 }}
+                >
                   <Heart size={18} color="#fff" /> Donar a esta necesidad
-                </Button>
+                </DonateButton>
                 <Button variant="ghost" block style={{ marginTop: 8, gap: 8 }}>
                   <Routing size={17} color="var(--ink-2)" /> Cómo llegar
                 </Button>

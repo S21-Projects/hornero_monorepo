@@ -102,7 +102,9 @@ public class DonacionService {
 
     private void validateTransition(EstadoDonacion current, EstadoDonacion next) {
         boolean valid = switch (current) {
-            case OFRECIDA -> next == EstadoDonacion.EN_CAMINO || next == EstadoDonacion.CANCELADA;
+            case OFRECIDA -> next == EstadoDonacion.EN_CAMINO
+                    || next == EstadoDonacion.ENTREGADA
+                    || next == EstadoDonacion.CANCELADA;
             case EN_CAMINO -> next == EstadoDonacion.ENTREGADA || next == EstadoDonacion.CANCELADA;
             default -> false;
         };

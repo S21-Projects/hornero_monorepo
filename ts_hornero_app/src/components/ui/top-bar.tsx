@@ -12,8 +12,9 @@ import { ROLE_LABELS } from '@/lib/roles';
 type NavItem = { label: string; href: string };
 
 const BASE_NAV_ITEMS: NavItem[] = [
-  { label: 'Mapa',       href: '/' },
-  { label: 'Donaciones', href: '/donaciones' },
+  { label: 'Mapa',          href: '/' },
+  { label: 'Organizaciones', href: '/organizaciones' },
+  { label: 'Donaciones',    href: '/donaciones' },
 ];
 
 interface TopBarProps {
@@ -30,6 +31,9 @@ export function TopBar({ active = 'Mapa' }: TopBarProps) {
     ...BASE_NAV_ITEMS,
     ...(isAuthenticated && user?.tipo === 'REFERENTE'
       ? [{ label: 'Necesidades', href: '/needs' }]
+      : []),
+    ...(isAuthenticated && user?.tipo === 'DONANTE'
+      ? [{ label: 'Mis donaciones', href: '/mis-donaciones' }]
       : []),
     ...(isAuthenticated
       ? [{ label: 'Preferencias', href: '/prefs' }]
