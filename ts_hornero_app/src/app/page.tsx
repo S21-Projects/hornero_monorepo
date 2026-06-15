@@ -1,34 +1,44 @@
 'use client';
 
+import { useMemo, useState } from "react";
 import Link from "next/link";
-import { SearchNormal1, Add, ArrowRight } from "iconsax-reactjs";
+import { SearchNormal1, ArrowRight } from "iconsax-reactjs";
 import { TopBar } from "@/components/ui/top-bar";
 import { Card } from "@/components/ui/card";
 import { Pill } from "@/components/ui/pill";
 import { Stars } from "@/components/ui/stars";
 import { Button } from "@/components/ui/button";
-import { MapPlaceholder } from "@/components/ui/map-placeholder";
+import { MapDynamic, type MapMarkerData } from "@/components/ui/map-dynamic";
 import { Avatar } from "@/components/ui/avatar";
 import { Location, Routing } from "iconsax-reactjs";
 import type { OrganizacionResponse } from "@/lib/api/organizaciones";
 import { useValidatedOrganizaciones } from "@/lib/hooks/useValidatedOrganizaciones";
+import { useGeolocation } from "@/hooks/useGeolocation";
+import { sortByDistance, formatDistance } from "@/lib/geo";
 import { OrgCardSkeleton } from "@/components/ui/skeleton";
 import { ErrorState } from "@/components/ui/error-state";
 import { EmptyState } from "@/components/ui/empty-state";
 
 const FILTERS = ["Todos", "Almuerzo", "Merienda", "Desayuno", "Donaciones", "Abierto ahora"];
 
-const PINS = [
-  { x: "28%", y: "34%", active: false, count: 3 },
-  { x: "52%", y: "52%", active: true },
-  { x: "68%", y: "30%", active: false },
-  { x: "44%", y: "70%", active: false, count: 2 },
-  { x: "78%", y: "62%", active: false },
-];
+type OrgWithDistance = OrganizacionResponse & { distanceKm?: number };
 
-function OrgCard({ org }: { org: OrganizacionResponse }) {
+function OrgCard({
+  org,
+  selected,
+  onHover,
+}: {
+  org: OrgWithDistance;
+  selected: boolean;
+  onHover: () => void;
+}) {
   return (
-    <Link href={`/org/${org.slug}`} style={{ textDecoration: "none", color: "inherit", flexShrink: 0 }}>
+    <Link
+      id={`org-card-${org.id}`}
+      href={`/org/${org.slug}`}
+      onMouseEnter={onHover}
+      style={{ textDecoration: "none", color: "inherit", flexShrink: 0, scrollSnapAlign: "start" }}
+    >
     <Card
       style={{
         width: 290,
@@ -37,7 +47,9 @@ function OrgCard({ org }: { org: OrganizacionResponse }) {
         flexDirection: "column",
         gap: 12,
         cursor: "pointer",
-        transition: "box-shadow .15s",
+        transition: "box-shadow .15s, outline-color .15s",
+        outline: selected ? "2px solid var(--sky)" : "2px solid transparent",
+        boxShadow: selected ? "var(--sh-2)" : undefined,
       }}
     >
       <div style={{ display: "flex", gap: 12 }}>
@@ -56,7 +68,14 @@ function OrgCard({ org }: { org: OrganizacionResponse }) {
             }}
           >
             <Location size={14} color="var(--ink-3)" />
-            {org.direccion ?? "Córdoba"}
+            <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              {org.direccion ?? "Córdoba"}
+            </span>
+            {org.distanceKm != null && (
+              <span style={{ color: "var(--horn)", fontWeight: 800, flexShrink: 0 }}>
+                · {formatDistance(org.distanceKm)}
+              </span>
+            )}
           </div>
         </div>
       </div>
@@ -79,13 +98,52 @@ function OrgCard({ org }: { org: OrganizacionResponse }) {
 
 export default function HomePage() {
   const { data: orgs, isPending, isError, refetch } = useValidatedOrganizaciones();
+  const { position, hasUserPosition, fixCount, request } = useGeolocation();
+  const [selectedId, setSelectedId] = useState<number | null>(null);
+
+  // Orgs ordenadas por cercanía a la ubicación (usuario o centro de Córdoba).
+  const sortedOrgs = useMemo<OrgWithDistance[]>(
+    () => (orgs ? sortByDistance(orgs, position) : []),
+    [orgs, position],
+  );
+
+  // Solo las que tienen coordenadas válidas van al mapa.
+  const markers = useMemo<MapMarkerData[]>(
+    () =>
+      sortedOrgs
+        .filter((o) => o.latitud != null && o.longitud != null)
+        .map((o) => ({
+          id: o.id,
+          lat: o.latitud as number,
+          lng: o.longitud as number,
+          label: o.nombre,
+          sub: o.direccion,
+        })),
+    [sortedOrgs],
+  );
+
+  function selectOrg(id: number) {
+    setSelectedId(id);
+    document
+      .getElementById(`org-card-${id}`)
+      ?.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
+  }
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100vh" }}>
       <TopBar active="Mapa" />
 
       <div style={{ position: "relative", flex: 1, overflow: "hidden" }}>
-        <MapPlaceholder pins={PINS} />
+        <MapDynamic
+          markers={markers}
+          center={position}
+          zoom={13}
+          fitToMarkers
+          userPosition={hasUserPosition ? position : null}
+          selectedId={selectedId}
+          onMarkerSelect={(id) => selectOrg(id as number)}
+          recenterSignal={fixCount}
+        />
 
         {/* floating search + filters */}
         <div
@@ -98,7 +156,7 @@ export default function HomePage() {
             display: "flex",
             flexDirection: "column",
             gap: 12,
-            zIndex: 10,
+            zIndex: 1000,
           }}
         >
           <Card
@@ -158,28 +216,27 @@ export default function HomePage() {
             display: "flex",
             flexDirection: "column",
             gap: 8,
-            zIndex: 10,
+            zIndex: 1000,
           }}
         >
-          {[<Add key="add" size={20} color="var(--earth)" />, <Location key="loc" size={20} color="var(--earth)" />].map((icon, i) => (
-            <button
-              key={i}
-              style={{
-                width: 44,
-                height: 44,
-                border: "none",
-                background: "var(--card)",
-                borderRadius: "var(--r-card)",
-                boxShadow: "var(--sh-1)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                cursor: "pointer",
-              }}
-            >
-              {icon}
-            </button>
-          ))}
+          <button
+            title="Centrar en mi ubicación"
+            onClick={() => request()}
+            style={{
+              width: 44,
+              height: 44,
+              border: "none",
+              background: "var(--card)",
+              borderRadius: "var(--r-card)",
+              boxShadow: "var(--sh-1)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              cursor: "pointer",
+            }}
+          >
+            <Location size={20} color="var(--earth)" variant={hasUserPosition ? "Bold" : "Linear"} />
+          </button>
         </div>
 
         {/* bottom sheet */}
@@ -194,7 +251,7 @@ export default function HomePage() {
             borderTopRightRadius: 24,
             boxShadow: "0 -8px 30px rgba(122,42,8,.12)",
             padding: "14px 28px 22px",
-            zIndex: 10,
+            zIndex: 1000,
           }}
         >
           <div
@@ -216,10 +273,10 @@ export default function HomePage() {
           >
             <h2 style={{ fontSize: 19, fontWeight: 900 }}>
               Cerca tuyo
-              {!isPending && orgs && orgs.length > 0 && (
+              {!isPending && sortedOrgs.length > 0 && (
                 <>
                   {" "}·{" "}
-                  <span style={{ color: "var(--horn)" }}>{orgs.length} lugares</span>
+                  <span style={{ color: "var(--horn)" }}>{sortedOrgs.length} lugares</span>
                 </>
               )}
             </h2>
@@ -239,7 +296,7 @@ export default function HomePage() {
               <ArrowRight size={15} color="var(--sky)" />
             </a>
           </div>
-          <div style={{ display: "flex", gap: 16, overflowX: "auto", scrollSnapType: "x mandatory", paddingBottom: 4, scrollbarWidth: "none" }}>
+          <div className="scrollbar-none" style={{ display: "flex", gap: 16, overflowX: "auto", scrollSnapType: "x mandatory", paddingBottom: 4 }}>
             {isPending ? (
               Array.from({ length: 3 }, (_, i) => <OrgCardSkeleton key={i} />)
             ) : isError ? (
@@ -247,10 +304,17 @@ export default function HomePage() {
                 onRetry={() => refetch()}
                 message="No pudimos cargar los lugares. Intentá de nuevo."
               />
-            ) : !orgs || orgs.length === 0 ? (
+            ) : sortedOrgs.length === 0 ? (
               <EmptyState variant="no-comedores" />
             ) : (
-              orgs.map((org) => <OrgCard key={org.id} org={org} />)
+              sortedOrgs.map((org) => (
+                <OrgCard
+                  key={org.id}
+                  org={org}
+                  selected={org.id === selectedId}
+                  onHover={() => setSelectedId(org.id)}
+                />
+              ))
             )}
           </div>
         </div>
