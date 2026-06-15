@@ -1,6 +1,6 @@
 import { type ButtonHTMLAttributes, type CSSProperties } from "react";
 
-type ButtonVariant = "primary" | "secondary" | "ghost" | "sky";
+type ButtonVariant = "primary" | "secondary" | "ghost" | "sky" | "danger" | "ok";
 type ButtonSize = "default" | "sm";
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
@@ -11,15 +11,17 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 const VARIANT_STYLES: Record<ButtonVariant, CSSProperties> = {
-  primary:   { background: "var(--horn)",   color: "#fff",            boxShadow: "0 2px 0 #A8481699" },
-  secondary: { background: "#fff",          color: "var(--earth)",    boxShadow: "inset 0 0 0 1.6px var(--line)" },
-  ghost:     { background: "transparent",   color: "var(--ink-2)" },
-  sky:       { background: "var(--sky)",    color: "#fff" },
+  primary:   { background: "var(--horn)",    color: "#fff",         boxShadow: "0 2px 0 #A8481699" },
+  secondary: { background: "#fff",           color: "var(--earth)", boxShadow: "inset 0 0 0 1.6px var(--line)" },
+  ghost:     { background: "transparent",    color: "var(--ink-2)" },
+  sky:       { background: "var(--sky)",     color: "#fff" },
+  danger:    { background: "var(--urgent)",  color: "#fff",         boxShadow: "0 2px 0 #9B2A1F99" },
+  ok:        { background: "var(--ok)",     color: "#fff",         boxShadow: "0 2px 0 #2E6E4499" },
 };
 
 const SIZE_STYLES: Record<ButtonSize, CSSProperties> = {
-  default: { padding: "13px 20px", fontSize: 15, borderRadius: "var(--r-btn)" },
-  sm:      { padding: "9px 14px",  fontSize: 13.5, borderRadius: 10 },
+  default: { padding: "13px 20px", fontSize: "var(--fs-body)",    borderRadius: "var(--r-btn)" },
+  sm:      { padding: "9px 14px",  fontSize: "var(--fs-body-sm)", borderRadius: 10 },
 };
 
 export function Button({
@@ -27,27 +29,29 @@ export function Button({
   size = "default",
   block,
   style,
+  className,
   children,
   loading,
   disabled,
   ...props
 }: ButtonProps) {
+  const classes = ["inline-flex", block ? "w-full" : "", className].filter(Boolean).join(" ");
+
   return (
     <button
       {...props}
       disabled={loading || !!disabled}
+      className={classes}
       style={{
-        display: "inline-flex",
         alignItems: "center",
         justifyContent: "center",
         gap: 8,
         border: "none",
         cursor: "pointer",
         fontFamily: "inherit",
-        fontWeight: 800,
+        fontWeight: "var(--fw-bolder)" as CSSProperties["fontWeight"],
         lineHeight: 1,
         transition: "filter .15s, background .15s",
-        width: block ? "100%" : undefined,
         ...VARIANT_STYLES[variant],
         ...SIZE_STYLES[size],
         ...style,

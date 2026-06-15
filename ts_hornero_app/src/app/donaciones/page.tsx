@@ -3,6 +3,7 @@
 import { TopBar } from '@/components/ui/top-bar';
 import { ErrorState } from '@/components/ui/error-state';
 import { NeedsBoard } from '@/components/needs/needs-board';
+import { Text } from '@/components/ui/typography';
 import { useNecesidades } from '@/lib/hooks/useNecesidades';
 import { useValidatedOrganizaciones } from '@/lib/hooks/useValidatedOrganizaciones';
 
@@ -16,7 +17,7 @@ export default function DonacionesPage() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
       <TopBar active="Donaciones" />
-      <div style={{ flex: 1, overflow: 'auto', padding: '28px 40px' }}>
+      <div className="flex-1 overflow-auto px-4 py-7 sm:px-10">
         <div
           style={{
             display: 'flex',
@@ -26,12 +27,12 @@ export default function DonacionesPage() {
           }}
         >
           <div>
-            <h1 style={{ fontSize: 28, fontWeight: 900 }}>Necesidades</h1>
-            <p style={{ color: 'var(--ink-2)', fontSize: 15, marginTop: 5, fontWeight: 600 }}>
+            <Text variant="h1">Necesidades</Text>
+            <Text variant="body" color="ink-2" style={{ marginTop: 5 }}>
               {isPending
                 ? 'Cargando...'
                 : `${count} ${count === 1 ? 'necesidad publicada' : 'necesidades publicadas'} de comedores de Córdoba`}
-            </p>
+            </Text>
           </div>
         </div>
 
