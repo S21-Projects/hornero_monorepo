@@ -1,0 +1,18 @@
+meta {
+  name: Necesidad por id
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{bffUrl}}/necesidades/{{necesidadId}}
+  auth: none
+}
+
+vars:pre-request {
+  necesidadId: 1
+}
+
+docs {
+  Public. Returns a single need by its id.
+}

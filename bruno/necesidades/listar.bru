@@ -1,0 +1,19 @@
+meta {
+  name: Listar necesidades
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{bffUrl}}/necesidades
+  auth: none
+}
+
+params:query {
+  ~organizacionId: 1
+}
+
+docs {
+  Public. Lists all needs. Filter by organization with the optional
+  `organizacionId` query param.
+}

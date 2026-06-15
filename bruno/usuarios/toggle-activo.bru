@@ -1,0 +1,31 @@
+meta {
+  name: Toggle activo usuario
+  type: http
+  seq: 2
+}
+
+patch {
+  url: {{bffUrl}}/usuarios/{{usuarioId}}/activo
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+  Cookie: access_token={{accessToken}}
+}
+
+body:json {
+  {
+    "activo": false
+  }
+}
+
+vars:pre-request {
+  usuarioId: 1
+}
+
+docs {
+  Protected — admin only. Enables or disables a user account.
+  Set `activo` to true or false. Login as an ADMIN first.
+}

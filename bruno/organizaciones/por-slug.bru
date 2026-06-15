@@ -1,0 +1,19 @@
+meta {
+  name: Organizacion por slug
+  type: http
+  seq: 7
+}
+
+get {
+  url: {{bffUrl}}/organizaciones/{{slug}}
+  auth: none
+}
+
+vars:pre-request {
+  slug: comedor-la-esperanza
+}
+
+docs {
+  Public. Returns a validated organization by its slug.
+  Set `slug` to the organization's URL slug.
+}

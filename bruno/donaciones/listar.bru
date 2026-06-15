@@ -1,0 +1,19 @@
+meta {
+  name: Listar donaciones
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{bffUrl}}/donaciones
+  auth: none
+}
+
+params:query {
+  ~organizacionId: 1
+}
+
+docs {
+  Public. Lists all donations. Filter by organization with the optional
+  `organizacionId` query param.
+}

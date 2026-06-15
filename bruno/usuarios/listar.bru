@@ -1,0 +1,18 @@
+meta {
+  name: Listar usuarios
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{bffUrl}}/usuarios
+  auth: none
+}
+
+headers {
+  Cookie: access_token={{accessToken}}
+}
+
+docs {
+  Protected — admin only. Returns all registered users. Login as an ADMIN first.
+}

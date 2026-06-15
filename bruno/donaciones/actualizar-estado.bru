@@ -1,0 +1,31 @@
+meta {
+  name: Actualizar estado donacion
+  type: http
+  seq: 5
+}
+
+patch {
+  url: {{bffUrl}}/donaciones/{{donacionId}}/estado
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+  Cookie: access_token={{accessToken}}
+}
+
+body:json {
+  {
+    "estado": "ACEPTADA"
+  }
+}
+
+vars:pre-request {
+  donacionId: 1
+}
+
+docs {
+  Protected — referente only. Updates the status of a donation offer.
+  Typical `estado` values: PENDIENTE | ACEPTADA | RECHAZADA.
+}
