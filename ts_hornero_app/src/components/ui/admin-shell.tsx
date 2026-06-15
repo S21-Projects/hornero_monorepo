@@ -19,7 +19,7 @@ type NavItem = { label: string; icon: React.ReactNode };
 const ROUTE_MAP: Record<string, string | null> = {
   Organizaciones: '/admin',
   Usuarios: '/users',
-  Panel: null,
+  Panel: '/panel',
   Necesidades: null,
   'Analíticas': null,
   Ajustes: null,
