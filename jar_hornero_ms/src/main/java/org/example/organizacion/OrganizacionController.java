@@ -4,6 +4,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.example.organizacion.dto.ActualizarOrganizacionRequest;
 import org.example.organizacion.dto.CrearOrganizacionRequest;
 import org.example.organizacion.dto.OrganizacionResponse;
 import org.springframework.http.HttpStatus;
@@ -82,5 +83,16 @@ public class OrganizacionController {
     @PreAuthorize("hasRole('ADMINISTRADOR')")
     public OrganizacionResponse rechazar(@PathVariable Long id) {
         return organizacionService.rechazar(id);
+    }
+
+    @Operation(summary = "Update an organization (referente owner only)")
+    @PatchMapping("/{id}")
+    @PreAuthorize("hasRole('REFERENTE')")
+    public ResponseEntity<OrganizacionResponse> actualizar(
+            @PathVariable Long id,
+            @Valid @RequestBody ActualizarOrganizacionRequest request) {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        Long userId = (Long) auth.getPrincipal();
+        return ResponseEntity.ok(organizacionService.actualizar(id, request, userId));
     }
 }

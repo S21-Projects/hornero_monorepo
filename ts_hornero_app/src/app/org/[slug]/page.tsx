@@ -1,11 +1,9 @@
 import { notFound } from "next/navigation";
-import { Clock, Sms, Location, Heart, Routing, Shield, Truck } from "iconsax-reactjs";
+import { Sms, Location, Heart, Routing, Shield, Truck } from "iconsax-reactjs";
 import { TopBar } from "@/components/ui/top-bar";
 import { Card } from "@/components/ui/card";
 import { Pill } from "@/components/ui/pill";
-import { Stars } from "@/components/ui/stars";
 import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
 import { Avatar } from "@/components/ui/avatar";
 import { MapDynamic } from "@/components/ui/map-dynamic";
 import { Text } from "@/components/ui/typography";
@@ -19,6 +17,7 @@ import {
   PRIORITY_ORDER,
 } from "@/lib/api/donaciones.server";
 import { TIPO_ORGANIZACION_LABELS, type TipoOrganizacion } from "@/lib/tipos-organizacion";
+import { OrgEditButton } from "@/components/org/OrgEditButton";
 
 export const revalidate = 60;
 
@@ -114,13 +113,15 @@ export default async function OrgDetailPage({
             </div>
             <div style={{ flex: 1, paddingBottom: 4 }}>
               <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
-                <Pill variant="open" dot>Abierto · cierra 15:00</Pill>
                 <Pill variant="cat">{TIPO_ORGANIZACION_LABELS[org.tipo as TipoOrganizacion] ?? org.tipo}</Pill>
                 <Pill variant="solid" style={{ background: "rgba(255,255,255,.22)" }}>
                   {org.validada ? "Validado" : "Pendiente"}
                 </Pill>
               </div>
-              <Text variant="h1" as="h1" style={{ color: "#fff", fontSize: 32 }}>{org.nombre}</Text>
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <Text variant="h1" as="h1" style={{ color: "#fff", fontSize: 32 }}>{org.nombre}</Text>
+                <OrgEditButton org={org} />
+              </div>
               <Text
                 as="div"
                 variant="body-sm"
@@ -138,7 +139,6 @@ export default async function OrgDetailPage({
                   <Location size={16} color="#fff" />
                   {org.direccion ?? "Sin dirección"}
                 </span>
-                <Stars value={4.8} showNum />
               </Text>
             </div>
           </div>
@@ -153,23 +153,19 @@ export default async function OrgDetailPage({
               <Text variant="body" color="ink-2">
                 {org.descripcion ?? ""}
               </Text>
-              <div style={{ display: "flex", gap: 28, marginTop: 18, flexWrap: "wrap" }}>
-                {[
-                  { icon: <Clock size={20} color="var(--horn)" />, title: "Almuerzo",  sub: "Lun a Vie · 12:00–15:00" },
-                  { icon: <Clock size={20} color="var(--horn)" />, title: "Merienda",  sub: "Lun a Sáb · 16:30–18:00" },
-                  { icon: <Sms size={20} color="var(--horn)" />,   title: "Contacto",  sub: "hornitos@correo.ar" },
-                ].map(({ icon, title, sub }) => (
-                  <div key={title} style={{ display: "flex", gap: 11, alignItems: "center" }}>
+              {org.referenteEmail && (
+                <div style={{ display: "flex", gap: 28, marginTop: 18, flexWrap: "wrap" }}>
+                  <div style={{ display: "flex", gap: 11, alignItems: "center" }}>
                     <div style={{ width: 40, height: 40, borderRadius: 11, background: "var(--card-2)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                      {icon}
+                      <Sms size={20} color="var(--horn)" />
                     </div>
                     <div>
-                      <Text as="div" variant="caption" color="ink-3">{title}</Text>
-                      <Text as="div" variant="body-sm">{sub}</Text>
+                      <Text as="div" variant="caption" color="ink-3">Contacto</Text>
+                      <Text as="div" variant="body-sm">{org.referenteEmail}</Text>
                     </div>
                   </div>
-                ))}
-              </div>
+                </div>
+              )}
             </Card>
 
             {/* needs — only render when there are results */}
@@ -232,10 +228,7 @@ export default async function OrgDetailPage({
                 <Text variant="body-sm" color="ink-2" style={{ marginTop: 6 }}>
                   {ctaNeed.sub}
                 </Text>
-                <div style={{ margin: "14px 0 18px" }}>
-                  <Progress value={0} max={1} height={11} />
-                </div>
-                <Button variant="primary" block style={{ gap: 8 }}>
+                <Button variant="primary" block style={{ gap: 8, marginTop: 14 }}>
                   <Heart size={18} color="#fff" /> Donar a esta necesidad
                 </Button>
                 <Button variant="ghost" block style={{ marginTop: 8, gap: 8 }}>
