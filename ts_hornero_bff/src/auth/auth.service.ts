@@ -54,21 +54,22 @@ export class AuthService {
     refreshToken: string,
   ) {
     const isProd = process.env.NODE_ENV === 'production';
+    const sameSite = isProd ? 'none' : 'lax';
     res.cookie('access_token', accessToken, {
       httpOnly: true,
-      sameSite: 'strict',
+      sameSite,
       secure: isProd,
       maxAge: 900 * 1000,
     });
     res.cookie('session_hint', '1', {
       httpOnly: false,
-      sameSite: 'strict',
+      sameSite,
       secure: isProd,
       maxAge: 900 * 1000,
     });
     res.cookie('refresh_token', refreshToken, {
       httpOnly: true,
-      sameSite: 'strict',
+      sameSite,
       secure: isProd,
       maxAge: 604800 * 1000,
     });
