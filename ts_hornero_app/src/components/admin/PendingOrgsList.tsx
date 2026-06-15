@@ -7,6 +7,7 @@ import { Card } from '@/components/ui/card';
 import { Pill } from '@/components/ui/pill';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
+import { Text } from '@/components/ui/typography';
 import { usePendingOrgsQuery } from '@/hooks/usePendingOrgsQuery';
 import { TIPO_ORGANIZACION_LABELS, type TipoOrganizacion } from '@/lib/tipos-organizacion';
 import { useValidateOrgMutation } from '@/hooks/useValidateOrgMutation';
@@ -66,15 +67,7 @@ export default function PendingOrgsList() {
               justifyContent: 'space-between',
             }}
           >
-            <span
-              style={{
-                fontSize: 13.5,
-                fontWeight: 800,
-                color: 'var(--ink-2)',
-              }}
-            >
-              Pendientes
-            </span>
+            <Text as="span" variant="label" color="ink-2">Pendientes</Text>
             <span
               style={{
                 width: 10,
@@ -84,27 +77,12 @@ export default function PendingOrgsList() {
               }}
             />
           </div>
-          <div
-            style={{
-              fontSize: 38,
-              fontWeight: 900,
-              color: 'var(--earth)',
-              marginTop: 8,
-              lineHeight: 1,
-            }}
-          >
+          <Text as="div" variant="stat" color="earth" style={{ marginTop: 8 }}>
             {isLoading ? '…' : pendingCount}
-          </div>
-          <div
-            style={{
-              fontSize: 12.5,
-              fontWeight: 700,
-              color: 'var(--ink-3)',
-              marginTop: 8,
-            }}
-          >
+          </Text>
+          <Text as="div" variant="caption" color="ink-3" style={{ marginTop: 8 }}>
             Requieren revisión
-          </div>
+          </Text>
         </Card>
       </div>
 
@@ -116,40 +94,37 @@ export default function PendingOrgsList() {
             border: '1px solid #FCA5A5',
             borderRadius: 10,
             padding: '10px 14px',
-            fontSize: 13.5,
-            fontWeight: 700,
-            color: '#DC2626',
           }}
         >
-          No se pudieron cargar las organizaciones pendientes. Intentá recargar la página.
+          <Text variant="label" style={{ color: '#DC2626' }}>
+            No se pudieron cargar las organizaciones pendientes. Intentá recargar la página.
+          </Text>
         </div>
       )}
 
       {/* table */}
       <Card style={{ overflow: 'hidden' }}>
+        <div className="overflow-x-auto">
         <div
+          className="min-w-[640px]"
           style={{
             display: 'grid',
             gridTemplateColumns: '2.4fr 1.3fr 1fr 1.4fr',
             gap: 12,
             padding: '16px 24px',
             borderBottom: '1px solid var(--line)',
-            fontSize: 12.5,
-            fontWeight: 800,
-            color: 'var(--ink-3)',
-            textTransform: 'uppercase',
-            letterSpacing: '.04em',
           }}
         >
-          <span>Organización</span>
-          <span>Tipo</span>
-          <span>Referente</span>
-          <span style={{ textAlign: 'right' }}>Acciones</span>
+          <Text as="span" variant="caption" color="ink-3" style={{ textTransform: 'uppercase', letterSpacing: '.04em' }}>Organización</Text>
+          <Text as="span" variant="caption" color="ink-3" style={{ textTransform: 'uppercase', letterSpacing: '.04em' }}>Tipo</Text>
+          <Text as="span" variant="caption" color="ink-3" style={{ textTransform: 'uppercase', letterSpacing: '.04em' }}>Referente</Text>
+          <Text as="span" variant="caption" color="ink-3" style={{ textAlign: 'right', textTransform: 'uppercase', letterSpacing: '.04em' }}>Acciones</Text>
         </div>
 
         {isLoading && [0, 1, 2].map((i) => (
           <div
             key={i}
+            className="min-w-[640px]"
             style={{
               display: 'grid',
               gridTemplateColumns: '2.4fr 1.3fr 1fr 1.4fr',
@@ -207,12 +182,8 @@ export default function PendingOrgsList() {
                 <circle cx="10" cy="11" r="1" fill="var(--horn)" stroke="none" />
               </svg>
             </div>
-            <div style={{ fontWeight: 900, fontSize: 15, color: 'var(--earth)' }}>
-              Todo al día
-            </div>
-            <div style={{ fontWeight: 600, fontSize: 13.5, color: 'var(--ink-3)' }}>
-              No hay organizaciones pendientes de revisión.
-            </div>
+            <Text as="div" variant="title" color="earth">Todo al día</Text>
+            <Text as="div" variant="label" color="ink-3">No hay organizaciones pendientes de revisión.</Text>
           </div>
         )}
 
@@ -225,6 +196,7 @@ export default function PendingOrgsList() {
           return (
             <div
               key={org.id}
+              className="min-w-[640px]"
               style={{
                 display: 'grid',
                 gridTemplateColumns: '2.4fr 1.3fr 1fr 1.4fr',
@@ -273,24 +245,18 @@ export default function PendingOrgsList() {
                   </svg>
                 </div>
                 <div style={{ minWidth: 0 }}>
-                  <div
+                  <Text
+                    as="div"
+                    variant="body-sm"
                     style={{
-                      fontWeight: 800,
-                      fontSize: 14.5,
                       overflow: 'hidden',
                       textOverflow: 'ellipsis',
                       whiteSpace: 'nowrap',
                     }}
                   >
                     {org.nombre}
-                  </div>
-                  <div
-                    style={{
-                      fontSize: 12.5,
-                      color: 'var(--ink-3)',
-                      fontWeight: 700,
-                    }}
-                  >
+                  </Text>
+                  <div style={{ fontSize: 12.5, color: 'var(--ink-3)', fontWeight: 700 }}>
                     <Pill variant="warn" dot>
                       Pendiente
                     </Pill>
@@ -305,30 +271,30 @@ export default function PendingOrgsList() {
 
               {/* Referente */}
               <div style={{ minWidth: 0 }}>
-                <div
+                <Text
+                  as="div"
+                  variant="body-sm"
+                  color="ink-2"
                   style={{
-                    fontWeight: 700,
-                    fontSize: 14,
-                    color: 'var(--ink-2)',
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',
                     whiteSpace: 'nowrap',
                   }}
                 >
                   {org.referenteNombre ?? '—'}
-                </div>
-                <div
+                </Text>
+                <Text
+                  as="div"
+                  variant="caption"
+                  color="ink-3"
                   style={{
-                    fontSize: 12.5,
-                    color: 'var(--ink-3)',
-                    fontWeight: 600,
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',
                     whiteSpace: 'nowrap',
                   }}
                 >
                   {org.referenteEmail ?? ''}
-                </div>
+                </Text>
               </div>
 
               {/* Actions */}
@@ -341,15 +307,9 @@ export default function PendingOrgsList() {
                 }}
               >
                 {rowError && (
-                  <span
-                    style={{
-                      fontSize: 12.5,
-                      fontWeight: 700,
-                      color: '#DC2626',
-                    }}
-                  >
+                  <Text as="span" variant="caption" style={{ color: '#DC2626' }}>
                     {rowError}
-                  </span>
+                  </Text>
                 )}
                 <Button
                   variant="secondary"
@@ -359,50 +319,29 @@ export default function PendingOrgsList() {
                   <Eye size={16} color="var(--ink-2)" />
                 </Button>
                 <Button
+                  variant="ok"
                   size="sm"
+                  loading={validateInFlight}
                   disabled={inFlight}
                   onClick={() => handleValidate(org.id)}
-                  style={{
-                    background: 'var(--ok-bg)',
-                    color: 'var(--ok)',
-                    border: 'none',
-                    cursor: inFlight ? 'not-allowed' : 'pointer',
-                    gap: 6,
-                    padding: '8px 12px',
-                    borderRadius: 10,
-                    fontFamily: 'inherit',
-                    fontWeight: 800,
-                    fontSize: 13.5,
-                    opacity: inFlight ? 0.6 : 1,
-                  }}
                 >
-                  <TickCircle size={16} color="var(--ok)" />
-                  {validateInFlight ? 'Validando…' : 'Validar'}
+                  <TickCircle size={16} color="#fff" />
+                  Validar
                 </Button>
                 <Button
+                  variant="danger"
                   size="sm"
+                  loading={rejectInFlight}
                   disabled={inFlight}
                   onClick={() => handleReject(org.id)}
-                  style={{
-                    background: '#FEE2E2',
-                    color: '#DC2626',
-                    border: 'none',
-                    cursor: inFlight ? 'not-allowed' : 'pointer',
-                    gap: 6,
-                    padding: '8px 12px',
-                    borderRadius: 10,
-                    fontFamily: 'inherit',
-                    fontWeight: 800,
-                    fontSize: 13.5,
-                    opacity: inFlight ? 0.6 : 1,
-                  }}
                 >
-                  {rejectInFlight ? 'Rechazando…' : 'Rechazar'}
+                  Rechazar
                 </Button>
               </div>
             </div>
           );
         })}
+        </div>
       </Card>
     </div>
   );
