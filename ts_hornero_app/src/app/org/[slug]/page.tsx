@@ -7,7 +7,7 @@ import { Stars } from "@/components/ui/stars";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Avatar } from "@/components/ui/avatar";
-import { MapPlaceholder } from "@/components/ui/map-placeholder";
+import { MapDynamic } from "@/components/ui/map-dynamic";
 import { Text } from "@/components/ui/typography";
 import { Box } from "iconsax-reactjs";
 import { getOrganizacionBySlug } from "@/lib/api/organizaciones.server";
@@ -246,9 +246,29 @@ export default async function OrgDetailPage({
 
             <Card style={{ padding: 20 }}>
               <Text variant="title" as="h4" style={{ marginBottom: 12 }}>Ubicación</Text>
-              <div style={{ borderRadius: 14, overflow: "hidden", height: 150 }}>
-                <MapPlaceholder pins={[{ x: "50%", y: "50%", active: false }]} />
-              </div>
+              {org.latitud != null && org.longitud != null ? (
+                <div style={{ borderRadius: 14, overflow: "hidden", height: 150 }}>
+                  <MapDynamic
+                    markers={[
+                      {
+                        id: org.id,
+                        lat: org.latitud,
+                        lng: org.longitud,
+                        active: true,
+                        label: org.nombre,
+                      },
+                    ]}
+                    center={{ lat: org.latitud, lng: org.longitud }}
+                    zoom={15}
+                    height={150}
+                    interactive={false}
+                  />
+                </div>
+              ) : (
+                <Text variant="body" color="ink-2">
+                  {org.direccion ?? "Ubicación no disponible"}
+                </Text>
+              )}
             </Card>
           </div>
         </div>
