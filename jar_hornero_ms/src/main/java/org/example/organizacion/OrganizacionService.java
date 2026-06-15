@@ -84,7 +84,6 @@ public class OrganizacionService {
         }
 
         organizacion.setEstado(EstadoOrganizacion.APROBADA);
-        organizacion.setValidada(true);
         organizacion.setValidadoPor(administrador);
 
         Organizacion saved = organizacionRepository.save(organizacion);
@@ -155,6 +154,8 @@ public class OrganizacionService {
         if (request.getDireccion() != null) organizacion.setDireccion(request.getDireccion());
         if (request.getLatitud() != null) organizacion.setLatitud(request.getLatitud());
         if (request.getLongitud() != null) organizacion.setLongitud(request.getLongitud());
+        if (request.getProfileImageUrl() != null) organizacion.setProfileImageUrl(request.getProfileImageUrl());
+        if (request.getBannerUrl() != null) organizacion.setBannerUrl(request.getBannerUrl());
 
         Organizacion saved = organizacionRepository.save(organizacion);
         return toResponse(saved);
@@ -165,7 +166,7 @@ public class OrganizacionService {
         String referenteEmail = organizacion.getReferente() != null ? organizacion.getReferente().getEmail() : null;
         String validadoPorNombre = organizacion.getValidadoPor() != null ? organizacion.getValidadoPor().getNombre() : null;
 
-        return new OrganizacionResponse(
+        OrganizacionResponse response = new OrganizacionResponse(
                 organizacion.getId(),
                 organizacion.getNombre(),
                 organizacion.getSlug(),
@@ -177,8 +178,11 @@ public class OrganizacionService {
                 organizacion.getEstado(),
                 referenteNombre,
                 referenteEmail,
-                validadoPorNombre
+                validadoPorNombre,
+                organizacion.getProfileImageUrl(),
+                organizacion.getBannerUrl()
         );
+        return response;
     }
 
     private String generateSlug(String nombre) {

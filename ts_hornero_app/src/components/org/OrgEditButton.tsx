@@ -1,29 +1,48 @@
 'use client';
 
 import { useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { type OrganizacionResponse } from '@/lib/api/organizaciones';
-import { useMyOrgQuery } from '@/hooks/useMyOrgQuery';
+import { Edit2 } from 'iconsax-reactjs';
+import { useAuthStore } from '@/store/auth.store';
 import { OrgEditForm } from './OrgEditForm';
+import { type OrganizacionResponse } from '@/lib/api/organizaciones';
 
 interface OrgEditButtonProps {
   org: OrganizacionResponse;
 }
 
 export function OrgEditButton({ org }: OrgEditButtonProps) {
-  const { data: myOrg } = useMyOrgQuery();
-  const [isOpen, setIsOpen] = useState(false);
+  const user = useAuthStore((s) => s.user);
+  const [open, setOpen] = useState(false);
 
-  if (myOrg?.id !== org.id) return null;
+  // Only the referente of the org can edit it
+  if (!user || user.tipo !== 'REFERENTE') return null;
+  if (org.referenteEmail && user.email !== org.referenteEmail) return null;
 
   return (
     <>
-      <Button variant="secondary" onClick={() => setIsOpen(true)}>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        aria-label="Editar organización"
+        style={{
+          background: 'rgba(255,255,255,0.18)',
+          border: '1.5px solid rgba(255,255,255,0.4)',
+          borderRadius: 10,
+          padding: '7px 10px',
+          cursor: 'pointer',
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: 6,
+          color: '#fff',
+          fontSize: 13,
+          fontWeight: 700,
+        }}
+      >
+        <Edit2 size={16} color="#fff" />
         Editar
-      </Button>
-      {isOpen && (
-        <OrgEditForm org={org} onClose={() => setIsOpen(false)} />
-      )}
+      </button>
+
+      {open && <OrgEditForm org={org} onClose={() => setOpen(false)} />}
     </>
   );
 }

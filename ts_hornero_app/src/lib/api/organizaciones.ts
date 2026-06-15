@@ -24,6 +24,8 @@ export interface OrganizacionResponse {
   referenteNombre?: string;
   referenteEmail?: string;
   validadoPorNombre?: string;
+  profileImageUrl?: string;
+  bannerUrl?: string;
 }
 
 export async function createOrganizacion(
@@ -63,6 +65,8 @@ export interface UpdateOrganizacionPayload {
   direccion?: string;
   latitud?: number;
   longitud?: number;
+  profileImageUrl?: string;
+  bannerUrl?: string;
 }
 
 export async function updateOrganizacion(

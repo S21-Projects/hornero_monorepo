@@ -31,10 +31,18 @@ public class UsuarioService {
         return toResponse(usuarioRepository.save(u));
     }
 
+    @Transactional
+    public UsuarioResponse updatePhoto(Long userId, String photoUrl) {
+        Usuario u = usuarioRepository.findById(userId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Usuario not found"));
+        u.setPhotoUrl(photoUrl);
+        return toResponse(usuarioRepository.save(u));
+    }
+
     private UsuarioResponse toResponse(Usuario u) {
         String tipo = u instanceof Donante ? "DONANTE"
                 : u instanceof Referente ? "REFERENTE"
                 : "ADMINISTRADOR";
-        return new UsuarioResponse(u.getId(), u.getNombre(), u.getEmail(), tipo, u.isActivo());
+        return new UsuarioResponse(u.getId(), u.getNombre(), u.getEmail(), tipo, u.isActivo(), u.getPhotoUrl());
     }
 }

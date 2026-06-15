@@ -25,6 +25,8 @@ public class OrganizacionResponse {
     private String referenteNombre;
     private String referenteEmail;
     private String validadoPorNombre;
+    private String profileImageUrl;
+    private String bannerUrl;
 
     public boolean isValidada() {
         return EstadoOrganizacion.APROBADA.equals(this.estado);

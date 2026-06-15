@@ -1,4 +1,4 @@
-import { IsEnum, IsNumber, IsOptional, IsString } from 'class-validator';
+import { IsEnum, IsNumber, IsOptional, IsString, IsUrl } from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { TipoOrganizacion } from './crear-organizacion.dto.js';
 
@@ -32,4 +32,14 @@ export class ActualizarOrganizacionDto {
   @IsOptional()
   @IsNumber()
   longitud?: number;
+
+  @ApiPropertyOptional({ example: 'https://fly.storage.tigris.dev/hornero/org-profile/42/1718300000000.jpg' })
+  @IsOptional()
+  @IsUrl()
+  profileImageUrl?: string;
+
+  @ApiPropertyOptional({ example: 'https://fly.storage.tigris.dev/hornero/org-banner/42/1718300000001.jpg' })
+  @IsOptional()
+  @IsUrl()
+  bannerUrl?: string;
 }

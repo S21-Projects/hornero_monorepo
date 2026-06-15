@@ -42,4 +42,10 @@ export class UsuariosController {
   ) {
     return this.usuariosService.toggleActivo(id, body, this.getToken(req));
   }
+
+  @Patch('me/photo')
+  @ApiOperation({ summary: 'Update the authenticated user photo URL' })
+  updatePhoto(@Body() body: { photoUrl: string }, @Req() req: Request) {
+    return this.usuariosService.updatePhoto(body.photoUrl, this.getToken(req));
+  }
 }

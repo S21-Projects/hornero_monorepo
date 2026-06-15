@@ -4,7 +4,7 @@ import { useState, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Text } from '@/components/ui/typography';
+import { ImageUploadField } from '@/components/upload/ImageUploadField';
 import { type OrganizacionResponse } from '@/lib/api/organizaciones';
 import { type TipoOrganizacion, TIPO_ORGANIZACION_OPTIONS } from '@/lib/tipos-organizacion';
 import { useUpdateOrgMutation } from '@/hooks/useUpdateOrgMutation';
@@ -29,7 +29,21 @@ export function OrgEditForm({ org, onClose }: OrgEditFormProps) {
   const [direccion, setDireccion] = useState(org.direccion ?? '');
   const [latitud, setLatitud] = useState(org.latitud?.toString() ?? '');
   const [longitud, setLongitud] = useState(org.longitud?.toString() ?? '');
+  const [profileImageUrl, setProfileImageUrl] = useState(org.profileImageUrl ?? '');
+  const [bannerUrl, setBannerUrl] = useState(org.bannerUrl ?? '');
   const [error, setError] = useState('');
+
+  function handleProfileUploaded(url: string) {
+    setProfileImageUrl(url);
+    // Immediately patch to persist the URL
+    mutate({ id: org.id, payload: { profileImageUrl: url } });
+  }
+
+  function handleBannerUploaded(url: string) {
+    setBannerUrl(url);
+    // Immediately patch to persist the URL
+    mutate({ id: org.id, payload: { bannerUrl: url } });
+  }
 
   function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -44,6 +58,8 @@ export function OrgEditForm({ org, onClose }: OrgEditFormProps) {
     if (lat !== undefined) payload.latitud = lat;
     const lng = parseNumber(longitud);
     if (lng !== undefined) payload.longitud = lng;
+    if (profileImageUrl) payload.profileImageUrl = profileImageUrl;
+    if (bannerUrl) payload.bannerUrl = bannerUrl;
 
     mutate(
       { id: org.id, payload },
@@ -76,10 +92,10 @@ export function OrgEditForm({ org, onClose }: OrgEditFormProps) {
       <div
         style={{
           background: 'var(--card)',
-          borderRadius: 'var(--r-card)',
+          borderRadius: 14,
           padding: 32,
           width: '100%',
-          maxWidth: 480,
+          maxWidth: 520,
           maxHeight: '90vh',
           overflowY: 'auto',
           display: 'flex',
@@ -88,16 +104,34 @@ export function OrgEditForm({ org, onClose }: OrgEditFormProps) {
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
-          <Text variant="h3" as="h2">Editar organización</Text>
+          <span style={{ fontSize: 20, fontWeight: 900 }}>Editar organización</span>
           <button
             type="button"
             onClick={onClose}
-            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, lineHeight: 1 }}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, lineHeight: 1, fontSize: 18 }}
             aria-label="Cerrar"
           >
-            <Text variant="body" color="ink-3">✕</Text>
+            ✕
           </button>
         </div>
+
+        <ImageUploadField
+          label="Imagen de perfil"
+          currentUrl={profileImageUrl || undefined}
+          onUploaded={handleProfileUploaded}
+          uploadType="org-profile"
+          entityId={org.id}
+          aspectRatio="1 / 1"
+        />
+
+        <ImageUploadField
+          label="Banner"
+          currentUrl={bannerUrl || undefined}
+          onUploaded={handleBannerUploaded}
+          uploadType="org-banner"
+          entityId={org.id}
+          aspectRatio="3 / 1"
+        />
 
         <form onSubmit={handleSubmit} noValidate style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           <Input
@@ -109,8 +143,8 @@ export function OrgEditForm({ org, onClose }: OrgEditFormProps) {
           />
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <label htmlFor="edit-tipo">
-              <Text as="span" variant="label" color="ink-2">Tipo de organización</Text>
+            <label htmlFor="edit-tipo" style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink-2)' }}>
+              Tipo de organización
             </label>
             <select
               id="edit-tipo"
@@ -122,7 +156,7 @@ export function OrgEditForm({ org, onClose }: OrgEditFormProps) {
                 color: tipo ? 'var(--ink)' : 'var(--ink-3)',
                 background: '#fff',
                 border: '1.5px solid var(--line)',
-                borderRadius: 'var(--r-input)',
+                borderRadius: 8,
                 padding: '12px 14px',
                 width: '100%',
                 outline: 'none',
@@ -182,12 +216,12 @@ export function OrgEditForm({ org, onClose }: OrgEditFormProps) {
                 padding: '10px 14px',
               }}
             >
-              <Text variant="label" style={{ color: '#DC2626' }}>{error}</Text>
+              <span style={{ fontSize: 13, color: '#DC2626', fontWeight: 600 }}>{error}</span>
             </div>
           )}
 
           <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
-            <Button type="submit" variant="primary" block loading={isPending}>
+            <Button type="submit" variant="primary" block disabled={isPending}>
               Guardar cambios
             </Button>
             <Button type="button" variant="secondary" block onClick={onClose}>

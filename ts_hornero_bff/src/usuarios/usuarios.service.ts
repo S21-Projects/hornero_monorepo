@@ -33,4 +33,13 @@ export class UsuariosService {
     );
     return data;
   }
+
+  async updatePhoto(photoUrl: string, accessToken: string) {
+    const { data } = await this.httpService.axiosRef.patch(
+      `${this.msUrl}/api/usuarios/me/photo`,
+      { photoUrl },
+      { headers: this.authHeaders(accessToken) },
+    );
+    return data;
+  }
 }

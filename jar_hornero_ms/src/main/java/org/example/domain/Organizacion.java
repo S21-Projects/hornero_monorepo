@@ -39,7 +39,6 @@ public class Organizacion {
 
     private Double longitud;
 
-    @Column(nullable = false)
     private Boolean validada = false;
 
     @Enumerated(EnumType.STRING)
@@ -53,6 +52,12 @@ public class Organizacion {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "referente_id")
     private Referente referente;
+
+    @Column(name = "profile_image_url")
+    private String profileImageUrl;
+
+    @Column(name = "banner_url")
+    private String bannerUrl;
 
     @OneToMany(mappedBy = "organizacion", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Necesidad> necesidades = new ArrayList<>();

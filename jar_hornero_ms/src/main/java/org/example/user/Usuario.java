@@ -10,8 +10,15 @@ import lombok.*;
 @Getter
 @Setter
 @NoArgsConstructor
-@AllArgsConstructor
 public abstract class Usuario {
+
+    protected Usuario(Long id, String nombre, String email, String password, boolean activo) {
+        this.id = id;
+        this.nombre = nombre;
+        this.email = email;
+        this.password = password;
+        this.activo = activo;
+    }
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -28,4 +35,7 @@ public abstract class Usuario {
 
     @Column(nullable = false)
     private boolean activo = true;
+
+    @Column(name = "photo_url")
+    private String photoUrl;
 }
