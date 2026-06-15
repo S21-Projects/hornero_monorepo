@@ -5,6 +5,7 @@ import { TopBar } from '@/components/ui/top-bar';
 import { Button } from '@/components/ui/button';
 import { ErrorState } from '@/components/ui/error-state';
 import { NeedsBoard } from '@/components/needs/needs-board';
+import { Text } from '@/components/ui/typography';
 import { useNecesidades } from '@/lib/hooks/useNecesidades';
 import { useValidatedOrganizaciones } from '@/lib/hooks/useValidatedOrganizaciones';
 import { useCreateNecesidad } from '@/lib/hooks/useCreateNecesidad';
@@ -74,7 +75,7 @@ export default function NeedsPage() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
       <TopBar active="Necesidades" />
-      <div style={{ flex: 1, overflow: 'auto', padding: '28px 40px' }}>
+      <div className="flex-1 overflow-auto px-4 py-7 sm:px-10">
         {/* header */}
         <div
           style={{
@@ -85,10 +86,10 @@ export default function NeedsPage() {
           }}
         >
           <div>
-            <h1 style={{ fontSize: 28, fontWeight: 900 }}>Mis necesidades</h1>
-            <p style={{ color: 'var(--ink-2)', fontSize: 15, marginTop: 5, fontWeight: 600 }}>
+            <Text variant="h1">Mis necesidades</Text>
+            <Text variant="body" color="ink-2" style={{ marginTop: 5 }}>
               {miOrg ? miOrg.nombre : 'Organización'}
-            </p>
+            </Text>
           </div>
           <Button
             variant="primary"
@@ -116,9 +117,9 @@ export default function NeedsPage() {
             }}
           >
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <label style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink-2)' }}>
+              <Text as="label" variant="label" color="ink-2">
                 Descripción *
-              </label>
+              </Text>
               <textarea
                 required
                 value={form.descripcion}
@@ -138,9 +139,9 @@ export default function NeedsPage() {
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <label style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink-2)' }}>
+              <Text as="label" variant="label" color="ink-2">
                 Prioridad *
-              </label>
+              </Text>
               <select
                 value={form.prioridad}
                 onChange={(e) => setForm((f) => ({ ...f, prioridad: e.target.value as Prioridad }))}
@@ -162,9 +163,9 @@ export default function NeedsPage() {
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <label style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink-2)' }}>
+              <Text as="label" variant="label" color="ink-2">
                 Fecha de vencimiento (opcional)
-              </label>
+              </Text>
               <input
                 type="date"
                 value={form.fechaVencimiento}
@@ -181,13 +182,13 @@ export default function NeedsPage() {
             </div>
 
             {createError && (
-              <p style={{ color: 'var(--error)', fontSize: 13, fontWeight: 600 }}>
+              <Text as="p" variant="label" style={{ color: 'var(--error)' }}>
                 No se pudo crear la necesidad. Intentá de nuevo.
-              </p>
+              </Text>
             )}
 
-            <Button variant="primary" size="sm" type="submit" disabled={creating}>
-              {creating ? 'Publicando...' : 'Publicar necesidad'}
+            <Button variant="primary" size="sm" type="submit" loading={creating}>
+              Publicar necesidad
             </Button>
           </form>
         )}

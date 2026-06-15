@@ -2,6 +2,7 @@
 
 import { Warning2, Refresh2 } from "iconsax-reactjs";
 import { Button } from "./button";
+import { Text } from "./typography";
 
 interface ErrorStateProps {
   title?: string;
@@ -41,19 +42,14 @@ export function ErrorState({
       >
         <Warning2 size={40} color="var(--urgent)" variant="Bold" />
       </div>
-      <h2 style={{ fontSize: 21, fontWeight: 900 }}>{title}</h2>
-      <p
-        style={{
-          color: "var(--ink-2)",
-          fontSize: 14.5,
-          fontWeight: 600,
-          lineHeight: 1.55,
-          maxWidth: 320,
-          marginTop: 4,
-        }}
+      <Text variant="h2">{title}</Text>
+      <Text
+        variant="body-sm"
+        color="ink-2"
+        style={{ maxWidth: 320, marginTop: 4 }}
       >
         {message}
-      </p>
+      </Text>
       {onRetry && (
         <Button
           variant="secondary"

@@ -76,4 +76,11 @@ public class OrganizacionController {
         Long userId = (Long) auth.getPrincipal();
         return organizacionService.validar(id, userId);
     }
+
+    @Operation(summary = "Reject an organization (admin only)")
+    @PatchMapping("/{id}/rechazar")
+    @PreAuthorize("hasRole('ADMINISTRADOR')")
+    public OrganizacionResponse rechazar(@PathVariable Long id) {
+        return organizacionService.rechazar(id);
+    }
 }

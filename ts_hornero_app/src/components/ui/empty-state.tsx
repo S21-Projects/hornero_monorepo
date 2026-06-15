@@ -1,5 +1,6 @@
 import { Add, Heart, Notification } from "iconsax-reactjs";
 import { Button } from "./button";
+import { Text } from "./typography";
 
 type EmptyVariant = "no-comedores" | "no-donaciones" | "no-alertas";
 
@@ -45,13 +46,6 @@ function HorneroIllustration({ variant }: { variant: EmptyVariant }) {
     textAlign: "center",
     color: "var(--horn)",
   };
-  const mono: React.CSSProperties = {
-    fontFamily: '"DM Mono", monospace',
-    fontSize: 10.5,
-    letterSpacing: ".06em",
-    color: "#A0673E",
-    textTransform: "uppercase",
-  };
   const label = "Ilustración · Hornero";
 
   if (variant === "no-alertas") {
@@ -65,7 +59,18 @@ function HorneroIllustration({ variant }: { variant: EmptyVariant }) {
         }}
       >
         <span style={{ fontSize: 26 }}>🪺</span>
-        <span style={mono}>{label}</span>
+        <Text
+          variant="micro"
+          as="span"
+          style={{
+            fontFamily: '"DM Mono", monospace',
+            letterSpacing: ".06em",
+            textTransform: "uppercase",
+            color: "#A0673E",
+          }}
+        >
+          {label}
+        </Text>
       </div>
     );
   }
@@ -84,7 +89,18 @@ function HorneroIllustration({ variant }: { variant: EmptyVariant }) {
           <path d="M12 21s7-6.3 7-11a7 7 0 1 0-14 0c0 4.7 7 11 7 11z" />
           <circle cx="12" cy="10" r="2.5" />
         </svg>
-        <span style={mono}>{label}</span>
+        <Text
+          variant="micro"
+          as="span"
+          style={{
+            fontFamily: '"DM Mono", monospace',
+            letterSpacing: ".06em",
+            textTransform: "uppercase",
+            color: "#A0673E",
+          }}
+        >
+          {label}
+        </Text>
       </div>
     );
   }
@@ -96,7 +112,18 @@ function HorneroIllustration({ variant }: { variant: EmptyVariant }) {
         <circle cx="10" cy="11" r="1" fill="var(--horn)" stroke="none" />
         <path d="M5 14c-1 2-2 3-3 3 1 1 3 1 4 0" />
       </svg>
-      <span style={mono}>{label}</span>
+      <Text
+        variant="micro"
+        as="span"
+        style={{
+          fontFamily: '"DM Mono", monospace',
+          letterSpacing: ".06em",
+          textTransform: "uppercase",
+          color: "#A0673E",
+        }}
+      >
+        {label}
+      </Text>
     </div>
   );
 }
@@ -126,21 +153,16 @@ export function EmptyState({
       <div style={{ marginBottom: 18 }}>
         <HorneroIllustration variant={variant} />
       </div>
-      <h2 style={{ fontSize: 21, fontWeight: 900 }}>
+      <Text variant="h2">
         {title ?? defaults.title}
-      </h2>
-      <p
-        style={{
-          color: "var(--ink-2)",
-          fontSize: 14.5,
-          fontWeight: 600,
-          lineHeight: 1.55,
-          maxWidth: 300,
-          marginTop: 4,
-        }}
+      </Text>
+      <Text
+        variant="body-sm"
+        color="ink-2"
+        style={{ maxWidth: 300, marginTop: 4 }}
       >
         {body ?? defaults.body}
-      </p>
+      </Text>
       <Button
         variant="primary"
         style={{ marginTop: 18, gap: 8 }}

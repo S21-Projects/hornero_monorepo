@@ -1,6 +1,7 @@
 package org.example.organizacion;
 
 import lombok.RequiredArgsConstructor;
+import org.example.domain.EstadoOrganizacion;
 import org.example.domain.Organizacion;
 import org.example.domain.OrganizacionRepository;
 import org.example.organizacion.dto.CrearOrganizacionRequest;
@@ -42,7 +43,7 @@ public class OrganizacionService {
         organizacion.setDireccion(request.getDireccion());
         organizacion.setLatitud(request.getLatitud());
         organizacion.setLongitud(request.getLongitud());
-        organizacion.setValidada(false);
+        organizacion.setEstado(EstadoOrganizacion.PENDIENTE);
         organizacion.setReferente(referente);
 
         Organizacion saved = organizacionRepository.save(organizacion);
@@ -51,7 +52,7 @@ public class OrganizacionService {
 
     @Transactional(readOnly = true)
     public List<OrganizacionResponse> listarValidadas() {
-        return organizacionRepository.findByValidada(true)
+        return organizacionRepository.findByEstado(EstadoOrganizacion.APROBADA)
                 .stream()
                 .map(this::toResponse)
                 .collect(Collectors.toList());
@@ -59,7 +60,7 @@ public class OrganizacionService {
 
     @Transactional(readOnly = true)
     public List<OrganizacionResponse> listarPendientes() {
-        return organizacionRepository.findByValidada(false)
+        return organizacionRepository.findByEstado(EstadoOrganizacion.PENDIENTE)
                 .stream()
                 .map(this::toResponse)
                 .collect(Collectors.toList());
@@ -70,7 +71,7 @@ public class OrganizacionService {
         Organizacion organizacion = organizacionRepository.findById(orgId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Organización no encontrada"));
 
-        if (Boolean.TRUE.equals(organizacion.getValidada())) {
+        if (EstadoOrganizacion.APROBADA.equals(organizacion.getEstado())) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "La organización ya fue validada");
         }
 
@@ -81,8 +82,23 @@ public class OrganizacionService {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Solo los administradores pueden validar organizaciones");
         }
 
-        organizacion.setValidada(true);
+        organizacion.setEstado(EstadoOrganizacion.APROBADA);
         organizacion.setValidadoPor(administrador);
+
+        Organizacion saved = organizacionRepository.save(organizacion);
+        return toResponse(saved);
+    }
+
+    @Transactional
+    public OrganizacionResponse rechazar(Long orgId) {
+        Organizacion organizacion = organizacionRepository.findById(orgId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Organización no encontrada"));
+
+        if (!EstadoOrganizacion.PENDIENTE.equals(organizacion.getEstado())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Solo se pueden rechazar organizaciones en estado PENDIENTE");
+        }
+
+        organizacion.setEstado(EstadoOrganizacion.RECHAZADA);
 
         Organizacion saved = organizacionRepository.save(organizacion);
         return toResponse(saved);
@@ -91,7 +107,7 @@ public class OrganizacionService {
     @Transactional(readOnly = true)
     public OrganizacionResponse findBySlugPublic(String slug) {
         return organizacionRepository.findBySlug(slug)
-                .filter(o -> Boolean.TRUE.equals(o.getValidada()))
+                .filter(o -> EstadoOrganizacion.APROBADA.equals(o.getEstado()))
                 .map(this::toResponse)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Organización no encontrada"));
     }
@@ -108,7 +124,7 @@ public class OrganizacionService {
         Organizacion org = organizacionRepository.findBySlug(slug)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Organización no encontrada"));
 
-        if (Boolean.TRUE.equals(org.getValidada())) {
+        if (EstadoOrganizacion.APROBADA.equals(org.getEstado())) {
             return toResponse(org);
         }
 
@@ -136,7 +152,7 @@ public class OrganizacionService {
                 organizacion.getDireccion(),
                 organizacion.getLatitud(),
                 organizacion.getLongitud(),
-                organizacion.getValidada(),
+                organizacion.getEstado(),
                 referenteNombre,
                 referenteEmail,
                 validadoPorNombre

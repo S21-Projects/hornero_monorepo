@@ -58,6 +58,12 @@ export class OrganizacionesController {
     return this.organizacionesService.validar(id, this.getToken(req));
   }
 
+  @Patch(':id/rechazar')
+  @ApiOperation({ summary: 'Reject an organization (admin only)' })
+  rechazar(@Param('id', ParseIntPipe) id: number, @Req() req: Request) {
+    return this.organizacionesService.rechazar(id, this.getToken(req));
+  }
+
   @Public()
   @Get(':slug')
   @ApiOperation({ summary: 'Get organization by slug (public)' })

@@ -12,6 +12,7 @@ import { MapDynamic, type MapMarkerData } from "@/components/ui/map-dynamic";
 import { Avatar } from "@/components/ui/avatar";
 import { Location, Routing } from "iconsax-reactjs";
 import type { OrganizacionResponse } from "@/lib/api/organizaciones";
+import { TIPO_ORGANIZACION_LABELS, type TipoOrganizacion } from "@/lib/tipos-organizacion";
 import { useValidatedOrganizaciones } from "@/lib/hooks/useValidatedOrganizaciones";
 import { useGeolocation } from "@/hooks/useGeolocation";
 import { sortByDistance, formatDistance } from "@/lib/geo";
@@ -81,7 +82,7 @@ function OrgCard({
       </div>
 
       <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-        <Pill variant="cat">{org.tipo}</Pill>
+        <Pill variant="cat">{TIPO_ORGANIZACION_LABELS[org.tipo as TipoOrganizacion] ?? org.tipo}</Pill>
       </div>
 
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
@@ -147,15 +148,12 @@ export default function HomePage() {
 
         {/* floating search + filters */}
         <div
+          className="w-[calc(100%-32px)] sm:w-[min(760px,70%)] flex flex-col gap-3"
           style={{
             position: "absolute",
             top: 22,
             left: "50%",
             transform: "translateX(-50%)",
-            width: "min(760px, 70%)",
-            display: "flex",
-            flexDirection: "column",
-            gap: 12,
             zIndex: 1000,
           }}
         >

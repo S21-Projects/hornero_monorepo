@@ -1,6 +1,7 @@
 package org.example.necesidad;
 
 import org.example.domain.EstadoNecesidad;
+import org.example.domain.EstadoOrganizacion;
 import org.example.domain.Necesidad;
 import org.example.domain.NecesidadRepository;
 import org.example.domain.Organizacion;
@@ -34,7 +35,7 @@ class NecesidadServiceTest {
         organizacion = new Organizacion();
         organizacion.setId(1L);
         organizacion.setNombre("Org Test");
-        organizacion.setValidada(true);
+        organizacion.setEstado(EstadoOrganizacion.APROBADA);
     }
 
     private Necesidad buildNecesidad(Long id) {

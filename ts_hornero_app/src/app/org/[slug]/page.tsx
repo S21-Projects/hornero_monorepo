@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Avatar } from "@/components/ui/avatar";
 import { MapDynamic } from "@/components/ui/map-dynamic";
+import { Text } from "@/components/ui/typography";
 import { Box } from "iconsax-reactjs";
 import { getOrganizacionBySlug } from "@/lib/api/organizaciones.server";
 import {
@@ -17,6 +18,7 @@ import {
   mapPrioridad,
   PRIORITY_ORDER,
 } from "@/lib/api/donaciones.server";
+import { TIPO_ORGANIZACION_LABELS, type TipoOrganizacion } from "@/lib/tipos-organizacion";
 
 export const revalidate = 60;
 
@@ -110,35 +112,47 @@ export default async function OrgDetailPage({
                 <path d="M5 14c-1 2-2 3-3 3 1 1 3 1 4 0" />
               </svg>
             </div>
-            <div style={{ flex: 1, color: "#fff", paddingBottom: 4 }}>
+            <div style={{ flex: 1, paddingBottom: 4 }}>
               <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
                 <Pill variant="open" dot>Abierto · cierra 15:00</Pill>
-                <Pill variant="cat">{org.tipo}</Pill>
+                <Pill variant="cat">{TIPO_ORGANIZACION_LABELS[org.tipo as TipoOrganizacion] ?? org.tipo}</Pill>
                 <Pill variant="solid" style={{ background: "rgba(255,255,255,.22)" }}>
                   {org.validada ? "Validado" : "Pendiente"}
                 </Pill>
               </div>
-              <h1 style={{ color: "#fff", fontSize: 32, fontWeight: 900 }}>{org.nombre}</h1>
-              <div style={{ display: "flex", alignItems: "center", gap: 16, marginTop: 8, fontWeight: 700, fontSize: 14.5, opacity: 0.95 }}>
+              <Text variant="h1" as="h1" style={{ color: "#fff", fontSize: 32 }}>{org.nombre}</Text>
+              <Text
+                as="div"
+                variant="body-sm"
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 16,
+                  marginTop: 8,
+                  opacity: 0.95,
+                  color: "#fff",
+                  fontWeight: "var(--fw-bold)" as React.CSSProperties["fontWeight"],
+                }}
+              >
                 <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
                   <Location size={16} color="#fff" />
                   {org.direccion ?? "Sin dirección"}
                 </span>
                 <Stars value={4.8} showNum />
-              </div>
+              </Text>
             </div>
           </div>
         </div>
 
         {/* body */}
-        <div style={{ display: "flex", gap: 28, padding: "28px 40px", alignItems: "flex-start" }}>
-          <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 22, minWidth: 0 }}>
+        <div className="flex flex-col sm:flex-row gap-7 sm:items-start px-4 py-7 sm:px-10">
+          <div className="flex flex-col flex-1 min-w-0" style={{ gap: 22 }}>
             {/* about */}
             <Card style={{ padding: 24 }}>
-              <h3 style={{ fontSize: 18, fontWeight: 900, marginBottom: 6 }}>Sobre el comedor</h3>
-              <p style={{ color: "var(--ink-2)", fontSize: 15, lineHeight: 1.6, fontWeight: 600 }}>
+              <Text variant="h3" as="h3" style={{ marginBottom: 6 }}>Sobre el comedor</Text>
+              <Text variant="body" color="ink-2">
                 {org.descripcion ?? ""}
-              </p>
+              </Text>
               <div style={{ display: "flex", gap: 28, marginTop: 18, flexWrap: "wrap" }}>
                 {[
                   { icon: <Clock size={20} color="var(--horn)" />, title: "Almuerzo",  sub: "Lun a Vie · 12:00–15:00" },
@@ -150,8 +164,8 @@ export default async function OrgDetailPage({
                       {icon}
                     </div>
                     <div>
-                      <div style={{ fontSize: 12.5, color: "var(--ink-3)", fontWeight: 700 }}>{title}</div>
-                      <div style={{ fontWeight: 800, fontSize: 14 }}>{sub}</div>
+                      <Text as="div" variant="caption" color="ink-3">{title}</Text>
+                      <Text as="div" variant="body-sm">{sub}</Text>
                     </div>
                   </div>
                 ))}
@@ -162,7 +176,7 @@ export default async function OrgDetailPage({
             {needs.length > 0 && (
               <Card style={{ padding: "20px 24px 8px" }}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
-                  <h3 style={{ fontSize: 18, fontWeight: 900 }}>Necesidades activas</h3>
+                  <Text variant="h3" as="h3">Necesidades activas</Text>
                   <Pill variant="ghost">{needs.length} abiertas</Pill>
                 </div>
                 {needs.map(({ id, title, sub, priority }) => (
@@ -172,10 +186,10 @@ export default async function OrgDetailPage({
                     </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                        <h4 style={{ fontSize: 15.5, fontWeight: 800 }}>{title}</h4>
+                        <Text variant="body" as="h4">{title}</Text>
                         <Pill variant={priority}>{PRIORITY_LABEL[priority]}</Pill>
                       </div>
-                      <p style={{ color: "var(--ink-2)", fontSize: 13.5, marginTop: 4, fontWeight: 600 }}>{sub}</p>
+                      <Text variant="label" as="p" color="ink-2" style={{ marginTop: 4 }}>{sub}</Text>
                     </div>
                   </div>
                 ))}
@@ -185,17 +199,17 @@ export default async function OrgDetailPage({
             {/* donations — only render when there are results */}
             {donations.length > 0 && (
               <Card style={{ padding: "20px 24px 8px" }}>
-                <h3 style={{ fontSize: 18, fontWeight: 900, marginBottom: 4 }}>Donaciones recientes</h3>
+                <Text variant="h3" as="h3" style={{ marginBottom: 4 }}>Donaciones recientes</Text>
                 {donations.map(({ id, who, what, date, status }) => {
                   const s = STATUS_MAP[status];
                   return (
                     <div key={id} style={{ display: "flex", alignItems: "center", gap: 14, padding: "14px 0", borderBottom: "1px solid var(--line-soft)" }}>
                       <Avatar name={who} size={40} tintIndex={who.length % 6} />
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontWeight: 800, fontSize: 14.5 }}>{who}</div>
-                        <div style={{ color: "var(--ink-2)", fontSize: 13, fontWeight: 600 }}>{what}</div>
+                        <Text as="div" variant="body-sm">{who}</Text>
+                        <Text as="div" variant="label" color="ink-2">{what}</Text>
                       </div>
-                      <div style={{ color: "var(--ink-3)", fontSize: 12.5, fontWeight: 700, marginRight: 8 }}>{date}</div>
+                      <Text as="div" variant="caption" color="ink-3" style={{ marginRight: 8 }}>{date}</Text>
                       <Pill variant={s.variant} dot>
                         {s.icon} {s.label}
                       </Pill>
@@ -207,21 +221,21 @@ export default async function OrgDetailPage({
           </div>
 
           {/* right rail */}
-          <div style={{ width: 320, flexShrink: 0, display: "flex", flexDirection: "column", gap: 18 }}>
+          <div className="flex flex-col w-full sm:w-[320px] sm:flex-shrink-0" style={{ gap: 18 }}>
             {/* CTA — only render when there are needs */}
             {ctaNeed && (
               <Card style={{ padding: 22, background: "var(--straw)" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
                   <Pill variant={ctaNeed.priority}>{PRIORITY_LABEL[ctaNeed.priority]}</Pill>
                 </div>
-                <h3 style={{ fontSize: 20, fontWeight: 900 }}>{ctaNeed.title}</h3>
-                <p style={{ color: "var(--ink-2)", fontSize: 14, marginTop: 6, fontWeight: 600, lineHeight: 1.5 }}>
+                <Text variant="h3" as="h3">{ctaNeed.title}</Text>
+                <Text variant="body-sm" color="ink-2" style={{ marginTop: 6 }}>
                   {ctaNeed.sub}
-                </p>
+                </Text>
                 <div style={{ margin: "14px 0 18px" }}>
                   <Progress value={0} max={1} height={11} />
                 </div>
-                <Button variant="primary" block style={{ fontSize: 16, gap: 8 }}>
+                <Button variant="primary" block style={{ gap: 8 }}>
                   <Heart size={18} color="#fff" /> Donar a esta necesidad
                 </Button>
                 <Button variant="ghost" block style={{ marginTop: 8, gap: 8 }}>
@@ -231,7 +245,7 @@ export default async function OrgDetailPage({
             )}
 
             <Card style={{ padding: 20 }}>
-              <h4 style={{ fontSize: 15, fontWeight: 900, marginBottom: 12 }}>Ubicación</h4>
+              <Text variant="title" as="h4" style={{ marginBottom: 12 }}>Ubicación</Text>
               {org.latitud != null && org.longitud != null ? (
                 <div style={{ borderRadius: 14, overflow: "hidden", height: 150 }}>
                   <MapDynamic
@@ -251,9 +265,9 @@ export default async function OrgDetailPage({
                   />
                 </div>
               ) : (
-                <p style={{ color: "var(--ink-2)", fontSize: 14, fontWeight: 600 }}>
+                <Text variant="body" color="ink-2">
                   {org.direccion ?? "Ubicación no disponible"}
-                </p>
+                </Text>
               )}
             </Card>
           </div>
