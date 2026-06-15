@@ -1,11 +1,11 @@
 'use client';
 
 import { useState } from 'react';
-import { Heart, Calendar } from 'iconsax-reactjs';
+import { Calendar } from 'iconsax-reactjs';
 import { Card } from '@/components/ui/card';
 import { Pill } from '@/components/ui/pill';
 import { Avatar } from '@/components/ui/avatar';
-import { Button } from '@/components/ui/button';
+import { DonateButton } from '@/components/donaciones/donate-button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { OrgCardSkeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/typography';
@@ -86,9 +86,12 @@ function NeedCard({ n, orgName }: NeedCardProps) {
             Sin vencimiento
           </Text>
         )}
-        <Button variant="primary" size="sm" style={{ gap: 6 }}>
-          <Heart size={15} color="#fff" /> Donar
-        </Button>
+        <DonateButton
+          necesidadId={n.id}
+          necesidadDescripcion={n.descripcion}
+          orgNombre={orgName}
+          size="sm"
+        />
       </div>
     </Card>
   );

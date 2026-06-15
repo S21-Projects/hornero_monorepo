@@ -60,6 +60,9 @@ export function TopBar({ active = 'Mapa' }: TopBarProps) {
     ...(isAuthenticated && user?.tipo === 'REFERENTE'
       ? [{ label: 'Necesidades', href: '/needs' }]
       : []),
+    ...(isAuthenticated && user?.tipo === 'DONANTE'
+      ? [{ label: 'Mis donaciones', href: '/mis-donaciones' }]
+      : []),
     ...(isAuthenticated
       ? [{ label: 'Preferencias', href: '/prefs' }]
       : []),
