@@ -12,7 +12,7 @@ export function useMyOrgQuery() {
       try {
         return await getMiOrganizacion();
       } catch (err) {
-        if (isAxiosError(err) && err.response?.status === 404) {
+        if (isAxiosError(err) && (err.response?.status === 404 || err.response?.status === 403)) {
           return null;
         }
         throw err;

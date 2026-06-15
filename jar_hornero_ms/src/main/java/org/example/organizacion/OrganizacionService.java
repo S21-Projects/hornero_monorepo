@@ -83,6 +83,7 @@ public class OrganizacionService {
         }
 
         organizacion.setEstado(EstadoOrganizacion.APROBADA);
+        organizacion.setValidada(true);
         organizacion.setValidadoPor(administrador);
 
         Organizacion saved = organizacionRepository.save(organizacion);
