@@ -1,0 +1,18 @@
+meta {
+  name: Mis donaciones
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{bffUrl}}/donaciones/mias
+  auth: none
+}
+
+headers {
+  Cookie: access_token={{accessToken}}
+}
+
+docs {
+  Protected — donante only. Returns all donations made by the authenticated donante.
+}
