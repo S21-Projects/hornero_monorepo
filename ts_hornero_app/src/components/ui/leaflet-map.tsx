@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, type CSSProperties } from 'react';
 import L from 'leaflet';
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, useMap, useMapEvents } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import type { LatLng } from '@/lib/geo';
 
@@ -31,6 +31,8 @@ export interface LeafletMapProps {
   interactive?: boolean;
   /** Incrementá este número para forzar un recentrado en `center` (botón "mi ubicación"). */
   recenterSignal?: number;
+  /** Click sobre el mapa: devuelve las coordenadas del punto (selector de ubicación). */
+  onMapClick?: (latlng: LatLng) => void;
   style?: CSSProperties;
 }
 
@@ -111,6 +113,16 @@ function MapController({
   return null;
 }
 
+/** Captura clicks sobre el mapa y reporta las coordenadas (selector de ubicación). */
+function MapClickHandler({ onMapClick }: { onMapClick: (latlng: LatLng) => void }) {
+  useMapEvents({
+    click(e) {
+      onMapClick({ lat: e.latlng.lat, lng: e.latlng.lng });
+    },
+  });
+  return null;
+}
+
 export default function LeafletMap({
   markers = [],
   center,
@@ -122,6 +134,7 @@ export default function LeafletMap({
   onMarkerSelect,
   interactive = true,
   recenterSignal,
+  onMapClick,
   style,
 }: LeafletMapProps) {
   const icons = useMemo(
@@ -170,6 +183,8 @@ export default function LeafletMap({
       })}
 
       {userPosition && <Marker position={[userPosition.lat, userPosition.lng]} icon={userIcon} />}
+
+      {onMapClick && <MapClickHandler onMapClick={onMapClick} />}
 
       <MapController
         center={center}

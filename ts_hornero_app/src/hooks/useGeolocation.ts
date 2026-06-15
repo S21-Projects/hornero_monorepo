@@ -13,8 +13,8 @@ export interface UseGeolocationResult {
   status: GeolocationStatus;
   /** Contador que se incrementa cada vez que se obtiene una posición (para recentrar el mapa). */
   fixCount: number;
-  /** Pide (o vuelve a pedir) la ubicación al navegador. */
-  request: () => void;
+  /** Pide (o vuelve a pedir) la ubicación al navegador. `onFix` recibe las coordenadas obtenidas. */
+  request: (onFix?: (latlng: LatLng) => void) => void;
 }
 
 /**
@@ -28,7 +28,7 @@ export function useGeolocation(): UseGeolocationResult {
   const [status, setStatus] = useState<GeolocationStatus>('idle');
   const [fixCount, setFixCount] = useState(0);
 
-  const request = useCallback(() => {
+  const request = useCallback((onFix?: (latlng: LatLng) => void) => {
     if (typeof navigator === 'undefined' || !navigator.geolocation) {
       setStatus('unsupported');
       return;
@@ -37,10 +37,12 @@ export function useGeolocation(): UseGeolocationResult {
     setStatus('requesting');
     navigator.geolocation.getCurrentPosition(
       (pos) => {
-        setPosition({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+        const latlng = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        setPosition(latlng);
         setHasUserPosition(true);
         setStatus('granted');
         setFixCount((n) => n + 1);
+        onFix?.(latlng);
       },
       () => {
         setStatus('denied');
