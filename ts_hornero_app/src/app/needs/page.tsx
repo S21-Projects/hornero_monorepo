@@ -4,11 +4,12 @@ import { useState } from 'react';
 import { TopBar } from '@/components/ui/top-bar';
 import { Button } from '@/components/ui/button';
 import { ErrorState } from '@/components/ui/error-state';
-import { NeedsBoard } from '@/components/needs/needs-board';
+import { ManagedNeedsBoard } from '@/components/needs/managed-needs-board';
 import { Text } from '@/components/ui/typography';
 import { useNecesidades } from '@/lib/hooks/useNecesidades';
-import { useValidatedOrganizaciones } from '@/lib/hooks/useValidatedOrganizaciones';
+import { useDonacionesByOrg } from '@/lib/hooks/useDonacionesByOrg';
 import { useCreateNecesidad } from '@/lib/hooks/useCreateNecesidad';
+import type { DonacionResponse } from '@/lib/api/donaciones.server';
 import { useAuthStore } from '@/store/auth.store';
 import { useQuery } from '@tanstack/react-query';
 import { getMiOrganizacion } from '@/lib/api/organizaciones';
@@ -37,23 +38,28 @@ const EMPTY_FORM: CreateFormState = {
 export default function NeedsPage() {
   const user = useAuthStore((s) => s.user);
   const { data: necesidades, isPending: loadingNeeds, isError, refetch } = useNecesidades();
-  const { data: orgs } = useValidatedOrganizaciones();
   const { data: miOrg } = useQuery({
     queryKey: ['organizaciones', 'mia'],
     queryFn: getMiOrganizacion,
     enabled: user?.tipo === 'REFERENTE',
     staleTime: 60_000,
   });
+  const { data: orgDonaciones } = useDonacionesByOrg(miOrg?.id);
   const { mutate: crearNecesidad, isPending: creating, error: createError } = useCreateNecesidad();
 
   const [form, setForm] = useState<CreateFormState>(EMPTY_FORM);
   const [showForm, setShowForm] = useState(false);
 
-  const orgMap = new Map(orgs?.map((o) => [o.id, o.nombre]) ?? []);
-
   const ownNeeds = miOrg
     ? (necesidades ?? []).filter((n) => n.organizacionId === miOrg.id)
     : [];
+
+  const donacionesPorNecesidad = new Map<number, DonacionResponse[]>();
+  for (const d of orgDonaciones ?? []) {
+    const list = donacionesPorNecesidad.get(d.necesidadId) ?? [];
+    list.push(d);
+    donacionesPorNecesidad.set(d.necesidadId, list);
+  }
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -200,10 +206,10 @@ export default function NeedsPage() {
             message="No pudimos cargar las necesidades. Intentá de nuevo."
           />
         ) : (
-          <NeedsBoard
+          <ManagedNeedsBoard
             necesidades={ownNeeds}
+            donacionesPorNecesidad={donacionesPorNecesidad}
             isLoading={loadingNeeds}
-            orgMap={orgMap}
             onCreateNew={() => setShowForm(true)}
           />
         )}
