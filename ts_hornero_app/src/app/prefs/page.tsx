@@ -3,8 +3,9 @@ import { TopBar } from "@/components/ui/top-bar";
 import { Card } from "@/components/ui/card";
 import { Pill } from "@/components/ui/pill";
 import { Button } from "@/components/ui/button";
-import { MapPlaceholder } from "@/components/ui/map-placeholder";
+import { ZonasMap } from "@/components/prefs/zonas-map";
 import { Toast } from "@/components/ui/toast";
+import { Text } from "@/components/ui/typography";
 
 const FOOD_PREFS = [
   { icon: <svg width={21} height={21} viewBox="0 0 24 24" fill="none" stroke="var(--horn)" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M12 13c2.5 0 4-2 4-4.5S14.5 4 12 4 8 6 8 8.5 9.5 13 12 13zM12 13v7" /></svg>, title: "Almuerzo",   sub: "Comedores que sirven el mediodía",         on: true },
@@ -20,12 +21,6 @@ const CHANNEL_PREFS = [
 
 const ZONES = ["Alberdi", "San Vicente", "General Paz", "Nueva Córdoba", "Yofre", "Centro"];
 const ACTIVE_ZONES = new Set([0, 1, 3]);
-
-const MAP_PINS = [
-  { x: "30%", y: "40%", active: true },
-  { x: "60%", y: "55%", active: true },
-  { x: "70%", y: "30%", active: true },
-];
 
 function Toggle({ on }: { on: boolean }) {
   return (
@@ -74,8 +69,8 @@ function PrefRow({ icon, title, sub, on }: { icon: React.ReactNode; title: strin
         {icon}
       </div>
       <div style={{ flex: 1 }}>
-        <div style={{ fontWeight: 800, fontSize: 15 }}>{title}</div>
-        <div style={{ color: "var(--ink-2)", fontSize: 13, fontWeight: 600, marginTop: 2 }}>{sub}</div>
+        <Text as="div" variant="title">{title}</Text>
+        <Text as="div" variant="label" color="ink-2" style={{ marginTop: 2 }}>{sub}</Text>
       </div>
       <Toggle on={on} />
     </div>
@@ -86,26 +81,26 @@ export default function PrefsPage() {
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100vh" }}>
       <TopBar active="Preferencias" />
-      <div style={{ flex: 1, overflow: "auto", padding: "28px 40px" }}>
+      <div className="flex-1 overflow-auto px-4 py-7 sm:px-10">
         <div style={{ marginBottom: 24 }}>
-          <h1 style={{ fontSize: 28, fontWeight: 900 }}>Preferencias de notificación</h1>
-          <p style={{ color: "var(--ink-2)", fontSize: 15, marginTop: 5, fontWeight: 600 }}>
+          <Text variant="h1">Preferencias de notificación</Text>
+          <Text variant="body" color="ink-2" style={{ marginTop: 5 }}>
             Elegí qué necesidades y zonas te avisamos. Recibí alertas solo de lo que te importa.
-          </p>
+          </Text>
         </div>
 
-        <div style={{ display: "flex", gap: 28, alignItems: "flex-start" }}>
+        <div className="flex flex-col sm:flex-row gap-7 sm:items-start">
           {/* left */}
-          <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 22, minWidth: 0 }}>
+          <div className="flex flex-col flex-1 min-w-0" style={{ gap: 22 }}>
             <Card style={{ padding: "20px 24px 8px" }}>
-              <h3 style={{ fontSize: 17, fontWeight: 900, marginBottom: 4 }}>Categorías de alimento</h3>
+              <Text variant="h3" as="h3" style={{ fontSize: 17, marginBottom: 4 }}>Categorías de alimento</Text>
               {FOOD_PREFS.map((p) => (
                 <PrefRow key={p.title} {...p} />
               ))}
             </Card>
 
             <Card style={{ padding: "20px 24px" }}>
-              <h3 style={{ fontSize: 17, fontWeight: 900, marginBottom: 6 }}>Canales</h3>
+              <Text variant="h3" as="h3" style={{ fontSize: 17, marginBottom: 6 }}>Canales</Text>
               {CHANNEL_PREFS.map((p) => (
                 <PrefRow key={p.title} {...p} />
               ))}
@@ -113,14 +108,14 @@ export default function PrefsPage() {
           </div>
 
           {/* right */}
-          <div style={{ width: 380, flexShrink: 0, display: "flex", flexDirection: "column", gap: 22 }}>
+          <div className="flex flex-col w-full sm:w-[380px] sm:flex-shrink-0" style={{ gap: 22 }}>
             <Card style={{ padding: 20 }}>
-              <h3 style={{ fontSize: 17, fontWeight: 900, marginBottom: 4 }}>Zonas de interés</h3>
-              <p style={{ color: "var(--ink-2)", fontSize: 13, fontWeight: 600, marginBottom: 14 }}>
+              <Text variant="h3" as="h3" style={{ fontSize: 17, marginBottom: 4 }}>Zonas de interés</Text>
+              <Text as="p" variant="label" color="ink-2" style={{ marginBottom: 14 }}>
                 Tocá los barrios donde querés ayudar.
-              </p>
+              </Text>
               <div style={{ borderRadius: 14, overflow: "hidden", height: 190, position: "relative", marginBottom: 14 }}>
-                <MapPlaceholder pins={MAP_PINS} />
+                <ZonasMap height={190} />
               </div>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
                 {ZONES.map((z, i) => {
@@ -134,14 +129,12 @@ export default function PrefsPage() {
                         gap: 6,
                         padding: "8px 13px",
                         borderRadius: 999,
-                        fontWeight: 800,
-                        fontSize: 13,
                         cursor: "pointer",
                         background: active ? "var(--sky-bg)" : "var(--card-2)",
-                        color: active ? "#1C6E96" : "var(--ink-2)",
                       }}
                     >
-                      {active && <TickCircle size={13} color="#1C6E96" variant="Bold" />} {z}
+                      {active && <TickCircle size={13} color="#1C6E96" variant="Bold" />}
+                      <Text variant="label" as="span" style={{ color: active ? '#1C6E96' : 'var(--ink-2)' }}>{z}</Text>
                     </span>
                   );
                 })}
@@ -150,9 +143,14 @@ export default function PrefsPage() {
 
             {/* notification preview */}
             <div>
-              <div style={{ fontSize: 12.5, fontWeight: 800, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: ".04em", marginBottom: 10 }}>
+              <Text
+                as="div"
+                variant="caption"
+                color="ink-3"
+                style={{ textTransform: "uppercase", letterSpacing: ".04em", marginBottom: 10 }}
+              >
                 Vista previa de la alerta
-              </div>
+              </Text>
               <Toast
                 icon={<Notification size={20} color="var(--horn)" />}
                 title="Nueva necesidad cerca tuyo"
@@ -165,15 +163,15 @@ export default function PrefsPage() {
                 action={
                   <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                     <Pill variant="urgent" style={{ fontSize: 10.5, padding: "4px 8px" }}>Urgente</Pill>
-                    <a href="/needs" style={{ fontSize: 13, color: "var(--sky)", fontWeight: 700, textDecoration: "none" }}>
-                      Ver necesidad →
+                    <a href="/needs" style={{ textDecoration: "none" }}>
+                      <Text as="span" variant="label" style={{ color: "var(--sky)" }}>Ver necesidad →</Text>
                     </a>
                   </div>
                 }
               />
             </div>
 
-            <Button variant="primary" block style={{ fontSize: 16 }}>
+            <Button variant="primary" block>
               Guardar preferencias
             </Button>
           </div>

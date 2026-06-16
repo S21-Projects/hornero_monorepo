@@ -8,6 +8,7 @@ import { useAuthStore } from '@/store/auth.store';
 import { useMyOrgQuery } from '@/hooks/useMyOrgQuery';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Text } from '@/components/ui/typography';
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -34,7 +35,7 @@ export default function DashboardPage() {
           justifyContent: 'center',
         }}
       >
-        <span style={{ fontWeight: 700, color: 'var(--ink-2)' }}>Cargando…</span>
+        <Text as="span" variant="label" color="ink-2">Cargando…</Text>
       </div>
     );
   }
@@ -85,30 +86,18 @@ export default function DashboardPage() {
             </svg>
           </div>
 
-          <h1
-            style={{
-              fontSize: 22,
-              fontWeight: 900,
-              color: 'var(--earth)',
-              marginBottom: 12,
-            }}
-          >
+          <Text variant="h2" as="h1" color="earth" style={{ marginBottom: 12 }}>
             Tu organización está en revisión
-          </h1>
+          </Text>
 
-          <p
-            style={{
-              fontSize: 14.5,
-              fontWeight: 600,
-              color: 'var(--ink-2)',
-              lineHeight: 1.6,
-              maxWidth: 360,
-              margin: '0 auto 28px',
-            }}
+          <Text
+            variant="body-sm"
+            color="ink-2"
+            style={{ maxWidth: 360, margin: '0 auto 28px' }}
           >
             Recibimos tu postulación. Un administrador la revisará pronto. Te
             avisaremos cuando esté aprobada.
-          </p>
+          </Text>
 
           {/* Disabled donation-request placeholder */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -132,14 +121,7 @@ export default function DashboardPage() {
           </div>
 
           {myOrg === null && (
-            <p
-              style={{
-                marginTop: 20,
-                fontSize: 12.5,
-                fontWeight: 600,
-                color: 'var(--ink-3)',
-              }}
-            >
+            <Text variant="caption" color="ink-3" style={{ marginTop: 20 }}>
               Si tu organización no aparece, intentá cerrar sesión y volver a
               ingresar, o{' '}
               <a
@@ -149,38 +131,24 @@ export default function DashboardPage() {
                 completar el registro
               </a>
               .
-            </p>
+            </Text>
           )}
         </Card>
       ) : (
         /* ── Validated referente dashboard ───────────────────────────────── */
         <Card style={{ width: '100%', maxWidth: 560, padding: 40 }}>
-          <h1
-            style={{
-              fontSize: 24,
-              fontWeight: 900,
-              color: 'var(--earth)',
-              marginBottom: 8,
-            }}
-          >
+          <Text variant="h2" as="h1" color="earth" style={{ marginBottom: 8 }}>
             Bienvenido, {user.nombre}
-          </h1>
-          <p
-            style={{
-              fontSize: 14.5,
-              fontWeight: 600,
-              color: 'var(--ink-2)',
-              marginBottom: 28,
-            }}
-          >
+          </Text>
+          <Text variant="body-sm" color="ink-2" style={{ marginBottom: 28 }}>
             Tu organización está activa y aprobada.
-          </p>
+          </Text>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            <Button variant="primary" block>
+            <Button variant="primary" block onClick={() => router.push('/needs')}>
               Publicar necesidad
             </Button>
-            <Button variant="secondary" block>
+            <Button variant="secondary" block onClick={() => router.push(`/org/${myOrg.slug}`)}>
               Gestionar organización
             </Button>
           </div>

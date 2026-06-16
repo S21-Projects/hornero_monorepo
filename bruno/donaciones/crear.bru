@@ -1,0 +1,28 @@
+meta {
+  name: Crear donacion
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{bffUrl}}/donaciones
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+  Cookie: access_token={{accessToken}}
+}
+
+body:json {
+  {
+    "necesidadId": 1,
+    "observaciones": "Puedo entregar de lunes a viernes por la tarde"
+  }
+}
+
+docs {
+  Protected — donante only. Creates a donation offer for a need.
+  `observaciones` is optional.
+}

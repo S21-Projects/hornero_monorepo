@@ -4,6 +4,7 @@ export interface RegisterPayload {
   nombre: string;
   email: string;
   password: string;
+  tipo: 'REFERENTE' | 'DONANTE';
 }
 
 export async function registerUser(payload: RegisterPayload): Promise<void> {

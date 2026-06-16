@@ -24,6 +24,8 @@ export interface OrganizacionResponse {
   referenteNombre?: string;
   referenteEmail?: string;
   validadoPorNombre?: string;
+  profileImageKey?: string | null;
+  bannerKey?: string | null;
 }
 
 export async function createOrganizacion(
@@ -53,5 +55,29 @@ export async function rejectOrganizacion(id: number): Promise<void> {
 
 export async function fetchValidatedOrganizaciones(): Promise<OrganizacionResponse[]> {
   const { data } = await api.get<OrganizacionResponse[]>('/organizaciones');
+  return data;
+}
+
+export async function fetchOrganizacionBySlug(slug: string): Promise<OrganizacionResponse> {
+  const { data } = await api.get<OrganizacionResponse>(`/organizaciones/${slug}`);
+  return data;
+}
+
+export interface UpdateOrganizacionPayload {
+  nombre?: string;
+  tipo?: TipoOrganizacion;
+  descripcion?: string;
+  direccion?: string;
+  latitud?: number;
+  longitud?: number;
+  profileImageKey?: string | null;
+  bannerKey?: string | null;
+}
+
+export async function updateOrganizacion(
+  id: number,
+  payload: UpdateOrganizacionPayload,
+): Promise<OrganizacionResponse> {
+  const { data } = await api.patch<OrganizacionResponse>(`/organizaciones/${id}`, payload);
   return data;
 }

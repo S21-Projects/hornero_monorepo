@@ -34,7 +34,7 @@ public class JwtService {
     public String generateAccessToken(Usuario usuario) {
         Map<String, Object> claims = new HashMap<>();
         claims.put("email", usuario.getEmail());
-        // Get discriminator value (tipo) from the class discriminator annotation
+        claims.put("nombre", usuario.getNombre());
         claims.put("tipo", resolveDiscriminatorValue(usuario));
 
         return Jwts.builder()
