@@ -8,5 +8,6 @@ import { OrganizacionesController } from './organizaciones.controller.js';
   imports: [HttpModule, ConfigModule],
   providers: [OrganizacionesService],
   controllers: [OrganizacionesController],
+  exports: [OrganizacionesService],
 })
 export class OrganizacionesModule {}

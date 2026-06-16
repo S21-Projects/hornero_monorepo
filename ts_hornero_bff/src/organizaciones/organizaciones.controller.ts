@@ -14,6 +14,7 @@ import type { Request } from 'express';
 import { Public } from '../auth/decorators/public.decorator.js';
 import { OrganizacionesService } from './organizaciones.service.js';
 import { CrearOrganizacionDto } from './dto/crear-organizacion.dto.js';
+import { ActualizarOrganizacionDto } from './dto/actualizar-organizacion.dto.js';
 
 @ApiTags('organizaciones')
 @Controller('organizaciones')
@@ -69,5 +70,15 @@ export class OrganizacionesController {
   @ApiOperation({ summary: 'Get organization by slug (public)' })
   findBySlug(@Param('slug') slug: string) {
     return this.organizacionesService.findBySlug(slug);
+  }
+
+  @Patch(':id')
+  @ApiOperation({ summary: 'Update an organization (referente owner only)' })
+  actualizar(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: ActualizarOrganizacionDto,
+    @Req() req: Request,
+  ) {
+    return this.organizacionesService.actualizar(id, dto, this.getToken(req));
   }
 }

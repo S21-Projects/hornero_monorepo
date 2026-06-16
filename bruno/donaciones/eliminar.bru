@@ -1,0 +1,23 @@
+meta {
+  name: Eliminar donacion
+  type: http
+  seq: 6
+}
+
+delete {
+  url: {{bffUrl}}/donaciones/{{donacionId}}
+  body: none
+  auth: none
+}
+
+headers {
+  Cookie: access_token={{accessToken}}
+}
+
+vars:pre-request {
+  donacionId: 1
+}
+
+docs {
+  Protected — donante only. Cancels and deletes a donation by its id.
+}

@@ -58,6 +58,28 @@
   --sh-pop:        0 12px 36px rgba(122,42,8,.18);
 }
 
+/* ── Typography scale ──────────────────────────────────────── */
+:root {
+  /* Size */
+  --fs-display:  80px;
+  --fs-stat:     38px;
+  --fs-h1:       28px;
+  --fs-h2:       22px;
+  --fs-h3:       20px;
+  --fs-title:    16px;
+  --fs-body:     15px;
+  --fs-body-sm:  14px;
+  --fs-label:    13px;
+  --fs-caption:  12.5px;
+  --fs-micro:    11px;
+
+  /* Weight */
+  --fw-regular:  600;
+  --fw-bold:     700;
+  --fw-bolder:   800;
+  --fw-black:    900;
+}
+
 /* ── Tailwind v4 theme registration ───────────────────────── */
 @theme inline {
   /* Colors → bg-*, text-*, border-* utilities */

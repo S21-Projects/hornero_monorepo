@@ -1,0 +1,24 @@
+meta {
+  name: Rechazar organizacion
+  type: http
+  seq: 6
+}
+
+patch {
+  url: {{bffUrl}}/organizaciones/{{orgId}}/rechazar
+  body: none
+  auth: none
+}
+
+headers {
+  Cookie: access_token={{accessToken}}
+}
+
+vars:pre-request {
+  orgId: 1
+}
+
+docs {
+  Protected — admin only. Rejects the organization with the given id.
+  Set `orgId` to a pending organization id. Login as an ADMIN user first.
+}

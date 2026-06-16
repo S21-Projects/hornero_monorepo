@@ -1,0 +1,18 @@
+meta {
+  name: Donacion por id
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{bffUrl}}/donaciones/{{donacionId}}
+  auth: none
+}
+
+vars:pre-request {
+  donacionId: 1
+}
+
+docs {
+  Public. Returns a single donation by its id.
+}

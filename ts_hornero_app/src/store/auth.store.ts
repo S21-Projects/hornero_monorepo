@@ -1,7 +1,5 @@
 import { create } from 'zustand';
 import { api } from '@/lib/axios';
-import { registerUser, type RegisterPayload } from '@/lib/api/auth';
-import { createOrganizacion, type CreateOrganizacionPayload } from '@/lib/api/organizaciones';
 
 export type UserRole = 'ADMINISTRADOR' | 'REFERENTE' | 'DONANTE';
 
@@ -19,10 +17,6 @@ interface AuthState {
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   loadUser: () => Promise<void>;
-  register: (
-    userPayload: RegisterPayload,
-    orgPayload: CreateOrganizacionPayload
-  ) => Promise<void>;
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
@@ -60,21 +54,5 @@ export const useAuthStore = create<AuthState>((set) => ({
     }
   },
 
-  register: async (userPayload, orgPayload) => {
-    // Step 1: create account
-    await registerUser(userPayload);
 
-    // Step 2: auto-login
-    await api.post('/auth/login', {
-      email: userPayload.email,
-      password: userPayload.password,
-    });
-
-    // Step 3: load user (sets isAuthenticated)
-    const store = useAuthStore.getState();
-    await store.loadUser();
-
-    // Step 4: create organization (useMyOrgQuery will fetch org status automatically)
-    await createOrganizacion(orgPayload);
-  },
 }));

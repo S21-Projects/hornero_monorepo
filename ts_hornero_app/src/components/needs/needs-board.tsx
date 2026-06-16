@@ -1,13 +1,14 @@
 'use client';
 
 import { useState } from 'react';
-import { Heart, Calendar } from 'iconsax-reactjs';
+import { Calendar } from 'iconsax-reactjs';
 import { Card } from '@/components/ui/card';
 import { Pill } from '@/components/ui/pill';
 import { Avatar } from '@/components/ui/avatar';
-import { Button } from '@/components/ui/button';
+import { DonateButton } from '@/components/donaciones/donate-button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { OrgCardSkeleton } from '@/components/ui/skeleton';
+import { Text } from '@/components/ui/typography';
 import { mapPrioridad, type NecesidadResponse } from '@/lib/api/donaciones.server';
 
 const PRIORITY_LABEL: Record<string, string> = {
@@ -54,45 +55,43 @@ function NeedCard({ n, orgName }: NeedCardProps) {
       </div>
 
       <div>
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 8,
-            color: 'var(--ink-2)',
-            fontSize: 13,
-            fontWeight: 700,
-            marginBottom: 5,
-          }}
+        <Text
+          as="div"
+          variant="label"
+          color="ink-2"
+          style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 5 }}
         >
           <Avatar name={orgName} size={26} />
           {orgName}
-        </div>
-        <h3 style={{ fontSize: 20, fontWeight: 900 }}>{n.descripcion}</h3>
+        </Text>
+        <Text variant="h3" as="h3">{n.descripcion}</Text>
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 2 }}>
         {fechaLabel ? (
-          <span
+          <Text
+            as="span"
+            variant="caption"
             style={{
               display: 'inline-flex',
               alignItems: 'center',
               gap: 6,
-              fontSize: 12.5,
-              fontWeight: 700,
               color: priority === 'urgent' ? 'var(--urgent)' : 'var(--ink-3)',
             }}
           >
             <Calendar size={15} /> {fechaLabel}
-          </span>
+          </Text>
         ) : (
-          <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--ink-3)' }}>
+          <Text as="span" variant="caption" color="ink-3">
             Sin vencimiento
-          </span>
+          </Text>
         )}
-        <Button variant="primary" size="sm" style={{ gap: 6 }}>
-          <Heart size={15} color="#fff" /> Donar
-        </Button>
+        <DonateButton
+          necesidadId={n.id}
+          necesidadDescripcion={n.descripcion}
+          orgNombre={orgName}
+          size="sm"
+        />
       </div>
     </Card>
   );
@@ -102,9 +101,10 @@ export interface NeedsBoardProps {
   necesidades: NecesidadResponse[];
   isLoading?: boolean;
   orgMap?: Map<number, string>;
+  onCreateNew?: () => void;
 }
 
-export function NeedsBoard({ necesidades, isLoading = false, orgMap }: NeedsBoardProps) {
+export function NeedsBoard({ necesidades, isLoading = false, orgMap, onCreateNew }: NeedsBoardProps) {
   const [selectedUrgency, setSelectedUrgency] = useState('Todas');
 
   const filtered = selectedUrgency === 'Todas'
@@ -116,7 +116,7 @@ export function NeedsBoard({ necesidades, isLoading = false, orgMap }: NeedsBoar
 
   if (isLoading) {
     return (
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 20 }}>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
         {Array.from({ length: 6 }, (_, i) => <OrgCardSkeleton key={i} />)}
       </div>
     );
@@ -126,17 +126,14 @@ export function NeedsBoard({ necesidades, isLoading = false, orgMap }: NeedsBoar
     <div>
       {/* urgency filter */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 22, flexWrap: 'wrap' }}>
-        <span
-          style={{
-            fontSize: 12.5,
-            fontWeight: 800,
-            color: 'var(--ink-3)',
-            textTransform: 'uppercase',
-            letterSpacing: '.04em',
-          }}
+        <Text
+          as="span"
+          variant="caption"
+          color="ink-3"
+          style={{ textTransform: 'uppercase', letterSpacing: '.04em' }}
         >
           Urgencia
-        </span>
+        </Text>
         {URGENCY_OPTIONS.map((o) => (
           <span
             key={o}
@@ -144,23 +141,20 @@ export function NeedsBoard({ necesidades, isLoading = false, orgMap }: NeedsBoar
             style={{
               padding: '8px 14px',
               borderRadius: 999,
-              fontWeight: 800,
-              fontSize: 13,
               cursor: 'pointer',
               background: o === selectedUrgency ? 'var(--earth)' : 'var(--card)',
-              color: o === selectedUrgency ? '#fff' : 'var(--ink-2)',
               boxShadow: o === selectedUrgency ? 'none' : 'var(--sh-1)',
             }}
           >
-            {o}
+            <Text variant="label" as="span" style={{ color: o === selectedUrgency ? '#fff' : 'var(--ink-2)' }}>{o}</Text>
           </span>
         ))}
       </div>
 
       {filtered.length === 0 ? (
-        <EmptyState variant="no-donaciones" />
+        <EmptyState variant="no-necesidades" onCta={onCreateNew} />
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 20 }}>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
           {filtered.map((n) => (
             <NeedCard
               key={n.id}

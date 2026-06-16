@@ -54,6 +54,7 @@ services:
       PORT: "3001"
       JAVA_MS_URL: "http://ms:8081"
       FRONTEND_URL: "${FRONTEND_URL:-http://localhost:3000}"
+      JWT_SECRET: "${JWT_SECRET}"
       NODE_ENV: "production"
     depends_on:
       ms:
@@ -70,6 +71,8 @@ services:
       - "${APP_PORT:-3000}:3000"
     environment:
       NODE_ENV: "production"
+      # Server-side internal URL — reached over the compose network, not localhost.
+      BFF_BASE_URL: "http://bff:3001"
     depends_on:
       - bff
     networks:

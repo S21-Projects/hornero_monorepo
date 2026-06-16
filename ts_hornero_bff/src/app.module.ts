@@ -8,6 +8,8 @@ import { OrganizacionesModule } from './organizaciones/organizaciones.module.js'
 import { NecesidadesModule } from './necesidades/necesidades.module.js';
 import { DonacionesModule } from './donaciones/donaciones.module.js';
 import { UsuariosModule } from './usuarios/usuarios.module.js';
+import { UploadModule } from './upload/upload.module.js';
+import { ImagesModule } from './images/images.module.js';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard.js';
 import { RolesGuard } from './auth/guards/roles.guard.js';
 
@@ -19,6 +21,8 @@ import { RolesGuard } from './auth/guards/roles.guard.js';
     NecesidadesModule,
     DonacionesModule,
     UsuariosModule,
+    UploadModule,
+    ImagesModule,
   ],
   controllers: [AppController],
   providers: [

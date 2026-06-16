@@ -1,0 +1,23 @@
+meta {
+  name: Eliminar necesidad
+  type: http
+  seq: 5
+}
+
+delete {
+  url: {{bffUrl}}/necesidades/{{necesidadId}}
+  body: none
+  auth: none
+}
+
+headers {
+  Cookie: access_token={{accessToken}}
+}
+
+vars:pre-request {
+  necesidadId: 1
+}
+
+docs {
+  Protected — referente only. Permanently deletes a need by its id.
+}

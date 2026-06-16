@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { HttpService } from '@nestjs/axios';
 import { ConfigService } from '@nestjs/config';
 import { CrearOrganizacionDto } from './dto/crear-organizacion.dto.js';
+import { ActualizarOrganizacionDto } from './dto/actualizar-organizacion.dto.js';
 
 @Injectable()
 export class OrganizacionesService {
@@ -78,6 +79,15 @@ export class OrganizacionesService {
     const { data } = await this.httpService.axiosRef.patch(
       `${this.msUrl}/api/organizaciones/${id}/rechazar`,
       {},
+      { headers: this.authHeaders(accessToken) },
+    );
+    return data;
+  }
+
+  async actualizar(id: number, dto: ActualizarOrganizacionDto, accessToken: string) {
+    const { data } = await this.httpService.axiosRef.patch(
+      `${this.msUrl}/api/organizaciones/${id}`,
+      dto,
       { headers: this.authHeaders(accessToken) },
     );
     return data;
