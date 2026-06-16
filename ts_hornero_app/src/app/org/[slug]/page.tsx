@@ -1,4 +1,8 @@
+'use client';
+
 import { notFound } from "next/navigation";
+import { use } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Sms, Location, Heart, Routing } from "iconsax-reactjs";
 import { TopBar } from "@/components/ui/top-bar";
 import { Card } from "@/components/ui/card";
@@ -9,10 +13,10 @@ import { MapDynamic } from "@/components/ui/map-dynamic";
 import { DonateButton } from "@/components/donaciones/donate-button";
 import { Text } from "@/components/ui/typography";
 import { Box } from "iconsax-reactjs";
-import { getOrganizacionBySlug } from "@/lib/api/organizaciones.server";
+import { fetchOrganizacionBySlug } from "@/lib/api/organizaciones";
 import {
-  getDonacionesByOrg,
-  getNecesidadesByOrg,
+  fetchDonacionesByOrg,
+  fetchNecesidadesByOrg,
   mapPrioridad,
   PRIORITY_ORDER,
   ESTADO_DONACION_LABELS,
@@ -21,28 +25,49 @@ import {
 import { TIPO_ORGANIZACION_LABELS, type TipoOrganizacion } from "@/lib/tipos-organizacion";
 import { OrgEditButton } from "@/components/org/OrgEditButton";
 
-export const revalidate = 60;
+const BFF = process.env.NEXT_PUBLIC_BFF_URL ?? '';
 
 const PRIORITY_LABEL = { urgent: "Urgente", medium: "Media", normal: "Normal" } as const;
 
-export default async function OrgDetailPage({
+export default function OrgDetailPage({
   params,
 }: {
   params: Promise<{ slug: string }>;
 }) {
-  const { slug } = await params;
+  const { slug } = use(params);
 
-  let org;
-  try {
-    org = await getOrganizacionBySlug(slug);
-  } catch {
-    notFound();
+  const { data: org, isLoading: orgLoading, isError } = useQuery({
+    queryKey: ['org', slug],
+    queryFn: () => fetchOrganizacionBySlug(slug),
+    retry: false,
+  });
+
+  const { data: rawNecesidades = [] } = useQuery({
+    queryKey: ['org-necesidades', org?.id],
+    queryFn: () => fetchNecesidadesByOrg(org!.id),
+    enabled: !!org?.id,
+  });
+
+  const { data: rawDonaciones = [] } = useQuery({
+    queryKey: ['org-donaciones', org?.id],
+    queryFn: () => fetchDonacionesByOrg(org!.id),
+    enabled: !!org?.id,
+  });
+
+  if (orgLoading) {
+    return (
+      <div style={{ display: "flex", flexDirection: "column", height: "100vh" }}>
+        <TopBar active="Mapa" />
+        <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <Text variant="body" color="ink-3">Cargando...</Text>
+        </div>
+      </div>
+    );
   }
 
-  const [rawNecesidades, rawDonaciones] = await Promise.all([
-    getNecesidadesByOrg(org.id),
-    getDonacionesByOrg(org.id),
-  ]);
+  if (isError || !org) {
+    notFound();
+  }
 
   const needs = rawNecesidades.map((n) => ({
     id: n.id,
@@ -59,7 +84,6 @@ export default async function OrgDetailPage({
     estado: d.estado,
   }));
 
-  // Right-rail CTA: pick the highest-priority need (URGENTE > MEDIA > NORMAL)
   const ctaNeed = needs.length > 0
     ? needs.slice().sort((a, b) => PRIORITY_ORDER[a.priority] - PRIORITY_ORDER[b.priority])[0]
     : null;
@@ -70,6 +94,14 @@ export default async function OrgDetailPage({
       <div style={{ flex: 1, overflow: "auto" }}>
         {/* hero */}
         <div style={{ position: "relative", height: 240, background: "var(--card-2)" }}>
+          {org.bannerKey && (
+            <img
+              src={`${BFF}/images?key=${org.bannerKey}`}
+              alt=""
+              aria-hidden
+              style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }}
+            />
+          )}
           <div
             style={{
               position: "absolute",
@@ -100,13 +132,22 @@ export default async function OrgDetailPage({
                 alignItems: "center",
                 justifyContent: "center",
                 flexShrink: 0,
+                overflow: "hidden",
               }}
             >
-              <svg width={32} height={32} viewBox="0 0 24 24" fill="none" stroke="var(--horn)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M5 14c0-4 3-7 7-7 2 0 4 1 4 1l3-2-1 3s1 2 1 4c0 4-3 7-7 7" />
-                <circle cx="10" cy="11" r="1" fill="var(--horn)" stroke="none" />
-                <path d="M5 14c-1 2-2 3-3 3 1 1 3 1 4 0" />
-              </svg>
+              {org.profileImageKey ? (
+                <img
+                  src={`${BFF}/images?key=${org.profileImageKey}`}
+                  alt={`${org.nombre} profile`}
+                  style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                />
+              ) : (
+                <svg width={32} height={32} viewBox="0 0 24 24" fill="none" stroke="var(--horn)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M5 14c0-4 3-7 7-7 2 0 4 1 4 1l3-2-1 3s1 2 1 4c0 4-3 7-7 7" />
+                  <circle cx="10" cy="11" r="1" fill="var(--horn)" stroke="none" />
+                  <path d="M5 14c-1 2-2 3-3 3 1 1 3 1 4 0" />
+                </svg>
+              )}
             </div>
             <div style={{ flex: 1, paddingBottom: 4 }}>
               <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
@@ -165,7 +206,6 @@ export default async function OrgDetailPage({
               )}
             </Card>
 
-            {/* needs — only render when there are results */}
             {needs.length > 0 && (
               <Card style={{ padding: "20px 24px 8px" }}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
@@ -196,7 +236,6 @@ export default async function OrgDetailPage({
               </Card>
             )}
 
-            {/* donations — only render when there are results */}
             {donations.length > 0 && (
               <Card style={{ padding: "20px 24px 8px" }}>
                 <Text variant="h3" as="h3" style={{ marginBottom: 4 }}>Donaciones recientes</Text>
@@ -219,7 +258,6 @@ export default async function OrgDetailPage({
 
           {/* right rail */}
           <div className="flex flex-col w-full sm:w-[320px] sm:flex-shrink-0" style={{ gap: 18 }}>
-            {/* CTA — only render when there are needs */}
             {ctaNeed && (
               <Card style={{ padding: 22, background: "var(--straw)" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
@@ -251,15 +289,7 @@ export default async function OrgDetailPage({
               {org.latitud != null && org.longitud != null ? (
                 <div style={{ borderRadius: 14, overflow: "hidden", height: 150 }}>
                   <MapDynamic
-                    markers={[
-                      {
-                        id: org.id,
-                        lat: org.latitud,
-                        lng: org.longitud,
-                        active: true,
-                        label: org.nombre,
-                      },
-                    ]}
+                    markers={[{ id: org.id, lat: org.latitud, lng: org.longitud, active: true, label: org.nombre }]}
                     center={{ lat: org.latitud, lng: org.longitud }}
                     zoom={15}
                     height={150}

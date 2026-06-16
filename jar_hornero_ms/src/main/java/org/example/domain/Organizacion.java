@@ -54,6 +54,12 @@ public class Organizacion {
     @JoinColumn(name = "referente_id")
     private Referente referente;
 
+    @Column(name = "profile_image_key")
+    private String profileImageKey;
+
+    @Column(name = "banner_key")
+    private String bannerKey;
+
     @OneToMany(mappedBy = "organizacion", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Necesidad> necesidades = new ArrayList<>();
 }
