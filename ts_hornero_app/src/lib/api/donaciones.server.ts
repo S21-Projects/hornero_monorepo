@@ -96,3 +96,8 @@ export async function fetchDonacionesByOrg(orgId: number): Promise<DonacionRespo
   const { data } = await api.get<DonacionResponse[]>(`/donaciones?organizacionId=${orgId}`);
   return data;
 }
+
+export async function fetchNecesidadesByOrg(orgId: number): Promise<NecesidadResponse[]> {
+  const { data } = await api.get<NecesidadResponse[]>(`/necesidades?organizacionId=${orgId}`);
+  return data;
+}

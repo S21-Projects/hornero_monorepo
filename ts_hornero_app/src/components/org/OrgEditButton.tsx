@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { type OrganizacionResponse } from '@/lib/api/organizaciones';
 import { useMyOrgQuery } from '@/hooks/useMyOrgQuery';
@@ -13,8 +13,11 @@ interface OrgEditButtonProps {
 export function OrgEditButton({ org }: OrgEditButtonProps) {
   const { data: myOrg } = useMyOrgQuery();
   const [isOpen, setIsOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
 
-  if (myOrg?.id !== org.id) return null;
+  useEffect(() => { setMounted(true); }, []);
+
+  if (!mounted || myOrg?.id !== org.id) return null;
 
   return (
     <>
