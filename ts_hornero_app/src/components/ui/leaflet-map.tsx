@@ -12,6 +12,8 @@ export interface MapMarkerData {
   lng: number;
   label?: string;
   sub?: string;
+  /** URL ya construida del banner de la organización (`${BFF}/images?key=...`). */
+  banner?: string;
   /** Resalta el marcador (amarillo de marca) cuando está activo/seleccionado. */
   active?: boolean;
 }
@@ -172,8 +174,22 @@ export default function LeafletMap({
               click: () => onMarkerSelect?.(m.id),
             }}
           >
-            {(m.label || m.sub) && (
-              <Popup>
+            {(m.banner || m.label || m.sub) && (
+              <Popup minWidth={200}>
+                {m.banner && (
+                  <img
+                    src={m.banner}
+                    alt=""
+                    style={{
+                      width: '100%',
+                      height: 90,
+                      objectFit: 'cover',
+                      borderRadius: 6,
+                      marginBottom: 6,
+                      display: 'block',
+                    }}
+                  />
+                )}
                 {m.label && <strong>{m.label}</strong>}
                 {m.sub && <div style={{ color: 'var(--ink-2)' }}>{m.sub}</div>}
               </Popup>
