@@ -19,6 +19,8 @@ import { OrgCardSkeleton } from "@/components/ui/skeleton";
 import { ErrorState } from "@/components/ui/error-state";
 import { EmptyState } from "@/components/ui/empty-state";
 
+const BFF = process.env.NEXT_PUBLIC_BFF_URL ?? "";
+
 const FILTER_OPTIONS = [
   { label: "Todos", value: "" },
   ...TIPO_ORGANIZACION_OPTIONS,
@@ -132,6 +134,7 @@ export default function HomePage() {
           lng: o.longitud as number,
           label: o.nombre,
           sub: o.direccion,
+          banner: o.bannerKey ? `${BFF}/images?key=${o.bannerKey}` : undefined,
         })),
     [visibleOrgs],
   );
