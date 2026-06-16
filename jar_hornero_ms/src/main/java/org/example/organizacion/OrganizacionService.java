@@ -155,6 +155,8 @@ public class OrganizacionService {
         if (request.getDireccion() != null) organizacion.setDireccion(request.getDireccion());
         if (request.getLatitud() != null) organizacion.setLatitud(request.getLatitud());
         if (request.getLongitud() != null) organizacion.setLongitud(request.getLongitud());
+        if (request.getProfileImageKey() != null) organizacion.setProfileImageKey(request.getProfileImageKey());
+        if (request.getBannerKey() != null) organizacion.setBannerKey(request.getBannerKey());
 
         Organizacion saved = organizacionRepository.save(organizacion);
         return toResponse(saved);
@@ -177,7 +179,9 @@ public class OrganizacionService {
                 organizacion.getEstado(),
                 referenteNombre,
                 referenteEmail,
-                validadoPorNombre
+                validadoPorNombre,
+                organizacion.getProfileImageKey(),
+                organizacion.getBannerKey()
         );
     }
 

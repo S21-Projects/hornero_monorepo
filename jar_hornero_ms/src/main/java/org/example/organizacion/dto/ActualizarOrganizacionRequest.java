@@ -18,4 +18,6 @@ public class ActualizarOrganizacionRequest {
     private String direccion;
     private Double latitud;
     private Double longitud;
+    private String profileImageKey;
+    private String bannerKey;
 }
