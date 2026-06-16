@@ -32,4 +32,14 @@ export class ActualizarOrganizacionDto {
   @IsOptional()
   @IsNumber()
   longitud?: number;
+
+  @ApiPropertyOptional({ example: 'org-profile/42/1718300000000.jpg' })
+  @IsOptional()
+  @IsString()
+  profileImageKey?: string;
+
+  @ApiPropertyOptional({ example: 'org-banner/42/1718300000000.jpg' })
+  @IsOptional()
+  @IsString()
+  bannerKey?: string;
 }
