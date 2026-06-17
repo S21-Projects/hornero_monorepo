@@ -194,19 +194,15 @@ export function TopBar({ active = 'Mapa' }: TopBarProps) {
         <>
           {/* Backdrop */}
           <div
-            className="fixed inset-0 z-40 md:hidden"
+            className="fixed inset-0 md:hidden"
             onClick={() => setOpen(false)}
-            style={{ background: 'rgba(0,0,0,0.45)' }}
+            style={{ background: 'rgba(0,0,0,0.45)', zIndex: 1100 }}
           />
           {/* Panel */}
           <aside
             ref={drawerRef}
-            className="fixed inset-y-0 left-0 z-50 w-[280px] flex flex-col md:hidden"
-            style={{
-              background: 'var(--card)',
-              boxShadow: '4px 0 24px rgba(0,0,0,0.13)',
-              padding: '24px 16px',
-            }}
+            className="fixed inset-y-0 left-0 w-[280px] flex flex-col md:hidden"
+            style={{ zIndex: 1200, background: 'var(--card)', boxShadow: '4px 0 24px rgba(0,0,0,0.13)', padding: '24px 16px' }}
           >
             <div style={{ marginBottom: 24 }}>
               <Logo />
