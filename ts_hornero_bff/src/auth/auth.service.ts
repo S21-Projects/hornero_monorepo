@@ -43,9 +43,13 @@ export class AuthService {
   }
 
   logout(res: Response) {
-    res.clearCookie('access_token');
-    res.clearCookie('refresh_token');
-    res.clearCookie('session_hint');
+    const isProd = process.env.NODE_ENV === 'production';
+    const cookieDomain = process.env.COOKIE_DOMAIN;
+    const sameSite = isProd ? 'none' : 'lax';
+    const base = { sameSite, secure: isProd, domain: cookieDomain } as const;
+    res.clearCookie('access_token', { ...base, httpOnly: true });
+    res.clearCookie('refresh_token', { ...base, httpOnly: true });
+    res.clearCookie('session_hint', { ...base, httpOnly: false });
   }
 
   private setCookies(
