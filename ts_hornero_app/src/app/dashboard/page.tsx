@@ -17,12 +17,15 @@ export default function DashboardPage() {
   const user = useAuthStore((s) => s.user);
   const { data: myOrg } = useMyOrgQuery();
 
-  // Redirect unauthenticated users to login
+  // Redirect unauthenticated users to login; donantes have no dashboard here
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
       router.replace('/login');
     }
-  }, [isLoading, isAuthenticated, router]);
+    if (!isLoading && isAuthenticated && user?.tipo === 'DONANTE') {
+      router.replace('/');
+    }
+  }, [isLoading, isAuthenticated, user, router]);
 
   if (isLoading || !user) {
     return (
@@ -40,7 +43,7 @@ export default function DashboardPage() {
     );
   }
 
-  const isPending = !myOrg || myOrg.validada === false;
+  const isPending = user?.tipo === 'REFERENTE' && (!myOrg || myOrg.validada === false);
 
   return (
     <div
@@ -148,7 +151,7 @@ export default function DashboardPage() {
             <Button variant="primary" block onClick={() => router.push('/needs')}>
               Publicar necesidad
             </Button>
-            <Button variant="secondary" block onClick={() => router.push(`/org/${myOrg.slug}`)}>
+            <Button variant="secondary" block onClick={() => myOrg && router.push(`/org/${myOrg.slug}`)}>
               Gestionar organización
             </Button>
           </div>

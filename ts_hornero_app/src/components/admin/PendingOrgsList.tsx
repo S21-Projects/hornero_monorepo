@@ -12,9 +12,12 @@ import { usePendingOrgsQuery } from '@/hooks/usePendingOrgsQuery';
 import { TIPO_ORGANIZACION_LABELS, type TipoOrganizacion } from '@/lib/tipos-organizacion';
 import { useValidateOrgMutation } from '@/hooks/useValidateOrgMutation';
 import { useRejectOrgMutation } from '@/hooks/useRejectOrgMutation';
+import { Pager } from '@/components/ui/Pager';
 
 export default function PendingOrgsList() {
-  const { data, isLoading, isError, refetch } = usePendingOrgsQuery();
+  const [page, setPage] = useState(0);
+  const { data, isLoading, isError, refetch } = usePendingOrgsQuery(page, 20);
+  const orgs = data?.content ?? [];
   const mutation = useValidateOrgMutation();
   const rejectMutation = useRejectOrgMutation();
   const [rowErrors, setRowErrors] = useState<Record<number, string>>({});
@@ -53,7 +56,7 @@ export default function PendingOrgsList() {
     });
   }
 
-  const pendingCount = data?.length ?? 0;
+  const pendingCount = data?.totalElements ?? 0;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
@@ -154,7 +157,7 @@ export default function PendingOrgsList() {
           </div>
         ))}
 
-        {!isLoading && !isError && data?.length === 0 && (
+        {!isLoading && !isError && orgs.length === 0 && (
           <div
             style={{
               padding: '48px 24px',
@@ -187,7 +190,7 @@ export default function PendingOrgsList() {
           </div>
         )}
 
-        {data?.map((org, i) => {
+        {orgs.map((org, i) => {
           const validateInFlight = mutation.isPending && mutation.variables === org.id;
           const rejectInFlight = rejectMutation.isPending && rejectMutation.variables === org.id;
           const inFlight = validateInFlight || rejectInFlight;
@@ -203,7 +206,7 @@ export default function PendingOrgsList() {
                 gap: 12,
                 padding: '14px 24px',
                 borderBottom:
-                  i < (data?.length ?? 0) - 1
+                  i < orgs.length - 1
                     ? '1px solid var(--line-soft)'
                     : 'none',
                 alignItems: 'center',
@@ -343,6 +346,15 @@ export default function PendingOrgsList() {
         })}
         </div>
       </Card>
+
+      {data && data.totalPages > 1 && (
+        <Pager
+          page={page}
+          totalPages={data.totalPages}
+          totalElements={data.totalElements}
+          onPageChange={setPage}
+        />
+      )}
     </div>
   );
 }

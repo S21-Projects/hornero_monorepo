@@ -11,11 +11,12 @@ import { CORDOBA_CENTER } from '@/lib/geo';
  * así que el mapa solo ubica las organizaciones existentes.
  */
 export function ZonasMap({ height = 190 }: { height?: number }) {
-  const { data: orgs } = useValidatedOrganizaciones();
+  // TODO [tech-debt]: bulk fetch (size=1000) — replace with geo/bounds endpoint (?bbox=) when org count grows
+  const { data: orgsPage } = useValidatedOrganizaciones(0, 1000);
 
   const markers = useMemo<MapMarkerData[]>(
     () =>
-      (orgs ?? [])
+      (orgsPage?.content ?? [])
         .filter((o) => o.latitud != null && o.longitud != null)
         .map((o) => ({
           id: o.id,
@@ -24,7 +25,7 @@ export function ZonasMap({ height = 190 }: { height?: number }) {
           label: o.nombre,
           sub: o.direccion,
         })),
-    [orgs],
+    [orgsPage],
   );
 
   return (

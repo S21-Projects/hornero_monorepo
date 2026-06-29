@@ -1,5 +1,6 @@
 import { publicFetch } from '@/lib/publicFetch';
 import { api } from '@/lib/axios';
+import type { PageData, PageParams } from '@/types/api';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -22,6 +23,8 @@ export interface DonacionResponse {
   donanteName: string;
   necesidadId: number;
   organizacionId: number;
+  necesidadDescripcion: string;
+  organizacionNombre: string;
 }
 
 // ─── UI token types ────────────────────────────────────────────────────────────
@@ -63,6 +66,44 @@ export const ESTADO_DONACION_PILL: Record<string, 'warn' | 'open' | 'ok' | 'bad'
 
 // ─── Fetchers ─────────────────────────────────────────────────────────────────
 
+// ─── Paginated fetchers ───────────────────────────────────────────────────────
+
+function buildQueryString(params: Record<string, string | number | undefined>): string {
+  const q = new URLSearchParams();
+  for (const [k, v] of Object.entries(params)) {
+    if (v !== undefined && v !== '') q.set(k, String(v));
+  }
+  const s = q.toString();
+  return s ? `?${s}` : '';
+}
+
+export async function fetchNecesidades(
+  params: PageParams & { organizacionId?: string } = {}
+): Promise<PageData<NecesidadResponse>> {
+  const qs = buildQueryString({
+    page: params.page,
+    size: params.size,
+    sort: params.sort,
+    organizacionId: params.organizacionId,
+  });
+  const { data } = await api.get<PageData<NecesidadResponse>>(`/necesidades${qs}`);
+  return data;
+}
+
+export async function fetchDonaciones(params: PageParams = {}): Promise<PageData<DonacionResponse>> {
+  const qs = buildQueryString({ page: params.page, size: params.size, sort: params.sort });
+  const { data } = await api.get<PageData<DonacionResponse>>(`/donaciones${qs}`);
+  return data;
+}
+
+export async function fetchMisDonaciones(params: PageParams = {}): Promise<PageData<DonacionResponse>> {
+  const qs = buildQueryString({ page: params.page, size: params.size, sort: params.sort });
+  const { data } = await api.get<PageData<DonacionResponse>>(`/donaciones/mias${qs}`);
+  return data;
+}
+
+// ─── Legacy server-side fetchers (publicFetch / org page) ────────────────────
+
 export async function getNecesidadesByOrg(orgId: number): Promise<NecesidadResponse[]> {
   return publicFetch<NecesidadResponse[]>(`/necesidades?organizacionId=${orgId}`, {
     revalidate: 60,
@@ -77,27 +118,24 @@ export async function getDonacionesByOrg(orgId: number): Promise<DonacionRespons
 
 // ─── Client-side fetchers (TanStack Query) ────────────────────────────────────
 
+/** @deprecated Use fetchNecesidades(params) instead */
 export async function fetchAllNecesidades(): Promise<NecesidadResponse[]> {
-  const { data } = await api.get<NecesidadResponse[]>('/necesidades');
-  return data;
+  const { data } = await api.get<PageData<NecesidadResponse>>('/necesidades');
+  return data.content;
 }
 
+/** @deprecated Use fetchDonaciones(params) instead */
 export async function fetchAllDonaciones(): Promise<DonacionResponse[]> {
-  const { data } = await api.get<DonacionResponse[]>('/donaciones');
-  return data;
-}
-
-export async function fetchMisDonaciones(): Promise<DonacionResponse[]> {
-  const { data } = await api.get<DonacionResponse[]>('/donaciones/mias');
-  return data;
+  const { data } = await api.get<PageData<DonacionResponse>>('/donaciones');
+  return data.content;
 }
 
 export async function fetchDonacionesByOrg(orgId: number): Promise<DonacionResponse[]> {
-  const { data } = await api.get<DonacionResponse[]>(`/donaciones?organizacionId=${orgId}`);
-  return data;
+  const { data } = await api.get<PageData<DonacionResponse>>(`/donaciones?organizacionId=${orgId}&size=100`);
+  return data.content;
 }
 
 export async function fetchNecesidadesByOrg(orgId: number): Promise<NecesidadResponse[]> {
-  const { data } = await api.get<NecesidadResponse[]>(`/necesidades?organizacionId=${orgId}`);
-  return data;
+  const { data } = await api.get<PageData<NecesidadResponse>>(`/necesidades?organizacionId=${orgId}&size=100`);
+  return data.content;
 }

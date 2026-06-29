@@ -16,6 +16,7 @@ import { useAuthStore } from '@/store/auth.store';
 import { ROLE_LABELS } from '@/lib/roles';
 import { useUsuariosQuery } from '@/hooks/useUsuariosQuery';
 import { toggleActivo } from '@/lib/api/usuarios';
+import { Pager } from '@/components/ui/Pager';
 
 const ROLE_PILL: Record<string, { variant: PillVariant; label: string }> = {
   ADMINISTRADOR: { variant: 'role-super', label: ROLE_LABELS.ADMINISTRADOR },
@@ -31,8 +32,10 @@ export default function UsersPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const { user, isLoading: authLoading } = useAuthStore();
-  const { data, isLoading, isError, refetch } = useUsuariosQuery();
+  const [page, setPage] = useState(0);
+  const { data, isLoading, isError, refetch } = useUsuariosQuery(page, 20);
 
+  const users = data?.content ?? [];
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [bulkLoading, setBulkLoading] = useState(false);
   const [bulkError, setBulkError] = useState<string | null>(null);
@@ -48,7 +51,11 @@ export default function UsersPage() {
   function toggleSelect(id: number) {
     setSelected(prev => {
       const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
       return next;
     });
   }
@@ -173,7 +180,7 @@ export default function UsersPage() {
             />
           )}
 
-          {!isLoading && !isError && data && data.length === 0 && (
+          {!isLoading && !isError && users.length === 0 && (
             <div
               style={{
                 padding: '56px 24px',
@@ -206,8 +213,8 @@ export default function UsersPage() {
             </div>
           )}
 
-          {!isLoading && !isError && data && data.length > 0 &&
-            data.map((u, i) => {
+          {!isLoading && !isError && users.length > 0 &&
+            users.map((u, i) => {
               const { variant, label } = getRolePill(u.tipo);
               const sel = selected.has(u.id);
               return (
@@ -216,7 +223,7 @@ export default function UsersPage() {
                   className="hidden sm:grid gap-3 px-6 py-[13px] items-center"
                   style={{
                     gridTemplateColumns: '36px 2.4fr 1.7fr 1fr 1fr 60px',
-                    borderBottom: i < data.length - 1 ? '1px solid var(--line-soft)' : 'none',
+                    borderBottom: i < users.length - 1 ? '1px solid var(--line-soft)' : 'none',
                     background: sel ? '#FBF1E2' : 'transparent',
                   }}
                 >
@@ -276,9 +283,18 @@ export default function UsersPage() {
         </Card>
         </div>
 
+        {data && data.totalPages > 1 && (
+          <Pager
+            page={page}
+            totalPages={data.totalPages}
+            totalElements={data.totalElements}
+            onPageChange={setPage}
+          />
+        )}
+
         {/* Mobile card-list — sm:hidden */}
         <div className="sm:hidden space-y-3">
-          {!isLoading && !isError && data && data.length > 0 && data.map((u, i) => {
+          {!isLoading && !isError && users.length > 0 && users.map((u, i) => {
             const { variant, label } = getRolePill(u.tipo);
             const sel = selected.has(u.id);
             return (

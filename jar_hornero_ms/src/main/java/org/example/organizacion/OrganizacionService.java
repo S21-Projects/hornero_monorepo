@@ -11,6 +11,8 @@ import org.example.user.Administrador;
 import org.example.user.Referente;
 import org.example.user.Usuario;
 import org.example.user.UsuarioRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -52,19 +54,15 @@ public class OrganizacionService {
     }
 
     @Transactional(readOnly = true)
-    public List<OrganizacionResponse> listarValidadas() {
-        return organizacionRepository.findByEstado(EstadoOrganizacion.APROBADA)
-                .stream()
-                .map(this::toResponse)
-                .collect(Collectors.toList());
+    public Page<OrganizacionResponse> listarValidadas(Pageable pageable) {
+        return organizacionRepository.findByEstado(EstadoOrganizacion.APROBADA, pageable)
+                .map(this::toResponse);
     }
 
     @Transactional(readOnly = true)
-    public List<OrganizacionResponse> listarPendientes() {
-        return organizacionRepository.findByEstado(EstadoOrganizacion.PENDIENTE)
-                .stream()
-                .map(this::toResponse)
-                .collect(Collectors.toList());
+    public Page<OrganizacionResponse> listarPendientes(Pageable pageable) {
+        return organizacionRepository.findByEstado(EstadoOrganizacion.PENDIENTE, pageable)
+                .map(this::toResponse);
     }
 
     @Transactional

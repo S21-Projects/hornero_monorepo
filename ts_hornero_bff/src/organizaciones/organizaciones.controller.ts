@@ -6,6 +6,7 @@ import {
   ParseIntPipe,
   Patch,
   Post,
+  Query,
   Req,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -42,15 +43,25 @@ export class OrganizacionesController {
   @Public()
   @Get()
   @ApiOperation({ summary: 'List validated organizations' })
-  listarValidadas(@Req() req: Request) {
+  listarValidadas(
+    @Req() req: Request,
+    @Query('page') page?: string,
+    @Query('size') size?: string,
+    @Query('sort') sort?: string,
+  ) {
     const token = (req as any).cookies?.['access_token'] as string | undefined;
-    return this.organizacionesService.listarValidadas(token);
+    return this.organizacionesService.listarValidadas(token, page, size, sort);
   }
 
   @Get('pendientes')
   @ApiOperation({ summary: 'List pending organizations (admin only)' })
-  listarPendientes(@Req() req: Request) {
-    return this.organizacionesService.listarPendientes(this.getToken(req));
+  listarPendientes(
+    @Req() req: Request,
+    @Query('page') page?: string,
+    @Query('size') size?: string,
+    @Query('sort') sort?: string,
+  ) {
+    return this.organizacionesService.listarPendientes(this.getToken(req), page, size, sort);
   }
 
   @Patch(':id/validar')

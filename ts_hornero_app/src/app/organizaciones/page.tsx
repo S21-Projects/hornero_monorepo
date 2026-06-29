@@ -11,7 +11,8 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { ErrorState } from "@/components/ui/error-state";
 import { OrgCardSkeleton } from "@/components/ui/skeleton";
 import { Text } from "@/components/ui/typography";
-import { useValidatedOrganizaciones } from "@/lib/hooks/useValidatedOrganizaciones";
+import { InfiniteList } from "@/components/ui/InfiniteList";
+import { useOrganizacionesInfinite } from "@/lib/hooks/useOrganizacionesInfinite";
 import type { OrganizacionResponse } from "@/lib/api/organizaciones";
 import { TIPO_ORGANIZACION_LABELS, TIPO_ORGANIZACION_OPTIONS, type TipoOrganizacion } from "@/lib/tipos-organizacion";
 
@@ -65,10 +66,12 @@ function OrgRow({ org }: { org: OrganizacionResponse }) {
 }
 
 export default function OrganizacionesPage() {
-  const { data: orgs, isPending, isError, refetch } = useValidatedOrganizaciones();
+  const { data, isPending, isError, refetch, hasNextPage, isFetchingNextPage, fetchNextPage } =
+    useOrganizacionesInfinite(20);
   const [activeFilter, setActiveFilter] = useState<string>('');
 
-  const filteredOrgs = (orgs ?? []).filter(
+  const allOrgs = data?.pages.flatMap((p) => p.content) ?? [];
+  const filteredOrgs = allOrgs.filter(
     (o) => activeFilter === '' || o.tipo === activeFilter
   );
   const count = filteredOrgs.length;
@@ -118,11 +121,17 @@ export default function OrganizacionesPage() {
         ) : count === 0 ? (
           <EmptyState variant="no-comedores" />
         ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-            {filteredOrgs.map((org) => (
-              <OrgRow key={org.id} org={org} />
-            ))}
-          </div>
+          <InfiniteList
+            hasNextPage={!!hasNextPage}
+            isFetchingNextPage={isFetchingNextPage}
+            fetchNextPage={fetchNextPage}
+          >
+            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              {filteredOrgs.map((org) => (
+                <OrgRow key={org.id} org={org} />
+              ))}
+            </div>
+          </InfiniteList>
         )}
       </div>
     </div>

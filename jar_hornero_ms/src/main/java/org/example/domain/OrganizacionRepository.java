@@ -1,5 +1,7 @@
 package org.example.domain;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
@@ -10,6 +12,8 @@ import java.util.Optional;
 public interface OrganizacionRepository extends JpaRepository<Organizacion, Long> {
 
     List<Organizacion> findByEstado(EstadoOrganizacion estado);
+
+    Page<Organizacion> findByEstado(EstadoOrganizacion estado, Pageable pageable);
 
     Optional<Organizacion> findByReferente_Id(Long referenteId);
 

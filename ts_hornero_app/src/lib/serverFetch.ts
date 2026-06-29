@@ -35,5 +35,7 @@ export async function serverFetch<T>(
     throw new Error(`serverFetch ${path} failed: ${res.status}`);
   }
 
-  return res.json() as Promise<T>;
+  // Unwrap the ApiResponse envelope: { status, message, timestamp, data } → data
+  const envelope = await res.json();
+  return (envelope?.data ?? envelope) as T;
 }

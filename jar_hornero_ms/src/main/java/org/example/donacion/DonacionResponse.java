@@ -10,5 +10,7 @@ public record DonacionResponse(
         String observaciones,
         String donanteName,
         Long necesidadId,
-        Long organizacionId
+        Long organizacionId,
+        String necesidadDescripcion,
+        String organizacionNombre
 ) {}

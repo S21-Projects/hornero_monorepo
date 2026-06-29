@@ -8,14 +8,14 @@ import org.example.domain.Organizacion;
 import org.example.domain.OrganizacionRepository;
 import org.example.necesidad.dto.ActualizarNecesidadRequest;
 import org.example.necesidad.dto.CrearNecesidadRequest;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDate;
-import java.util.List;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -43,18 +43,14 @@ public class NecesidadService {
         return toResponse(necesidadRepository.save(necesidad));
     }
 
-    public List<NecesidadResponse> findByOrganizacion(Long organizacionId) {
-        return necesidadRepository.findByOrganizacion_Id(organizacionId)
-                .stream()
-                .map(this::toResponse)
-                .collect(Collectors.toList());
+    public Page<NecesidadResponse> findByOrganizacion(Long organizacionId, Pageable pageable) {
+        return necesidadRepository.findByOrganizacion_Id(organizacionId, pageable)
+                .map(this::toResponse);
     }
 
-    public List<NecesidadResponse> findAll() {
-        return necesidadRepository.findAll()
-                .stream()
-                .map(this::toResponse)
-                .collect(Collectors.toList());
+    public Page<NecesidadResponse> findAll(Pageable pageable) {
+        return necesidadRepository.findAll(pageable)
+                .map(this::toResponse);
     }
 
     public NecesidadResponse findById(Long id) {
@@ -92,7 +88,7 @@ public class NecesidadService {
         }
     }
 
-    private NecesidadResponse toResponse(Necesidad n) {
+    NecesidadResponse toResponse(Necesidad n) {
         return new NecesidadResponse(
                 n.getId(),
                 n.getDescripcion(),

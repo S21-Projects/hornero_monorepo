@@ -4,9 +4,10 @@ import { useState } from 'react';
 import { TopBar } from '@/components/ui/top-bar';
 import { Button } from '@/components/ui/button';
 import { ErrorState } from '@/components/ui/error-state';
+import { InfiniteList } from '@/components/ui/InfiniteList';
 import { ManagedNeedsBoard } from '@/components/needs/managed-needs-board';
 import { Text } from '@/components/ui/typography';
-import { useNecesidades } from '@/lib/hooks/useNecesidades';
+import { useNecesidadesInfinite } from '@/lib/hooks/useNecesidadesInfinite';
 import { useDonacionesByOrg } from '@/lib/hooks/useDonacionesByOrg';
 import { useCreateNecesidad } from '@/lib/hooks/useCreateNecesidad';
 import type { DonacionResponse } from '@/lib/api/donaciones.server';
@@ -37,22 +38,30 @@ const EMPTY_FORM: CreateFormState = {
 
 export default function NeedsPage() {
   const user = useAuthStore((s) => s.user);
-  const { data: necesidades, isPending: loadingNeeds, isError, refetch } = useNecesidades();
   const { data: miOrg } = useQuery({
     queryKey: ['organizaciones', 'mia'],
     queryFn: getMiOrganizacion,
     enabled: user?.tipo === 'REFERENTE',
     staleTime: 60_000,
   });
+
+  const {
+    data,
+    isPending: loadingNeeds,
+    isError,
+    refetch,
+    hasNextPage,
+    isFetchingNextPage,
+    fetchNextPage,
+  } = useNecesidadesInfinite(20, miOrg?.id?.toString());
+
   const { data: orgDonaciones } = useDonacionesByOrg(miOrg?.id);
   const { mutate: crearNecesidad, isPending: creating, error: createError } = useCreateNecesidad();
 
   const [form, setForm] = useState<CreateFormState>(EMPTY_FORM);
   const [showForm, setShowForm] = useState(false);
 
-  const ownNeeds = miOrg
-    ? (necesidades ?? []).filter((n) => n.organizacionId === miOrg.id)
-    : [];
+  const ownNeeds = data?.pages.flatMap((p) => p.content) ?? [];
 
   const donacionesPorNecesidad = new Map<number, DonacionResponse[]>();
   for (const d of orgDonaciones ?? []) {
@@ -199,19 +208,25 @@ export default function NeedsPage() {
           </form>
         )}
 
-        {/* own-org needs list */}
+        {/* own-org needs list with infinite scroll */}
         {isError ? (
           <ErrorState
             onRetry={() => refetch()}
             message="No pudimos cargar las necesidades. Intentá de nuevo."
           />
         ) : (
-          <ManagedNeedsBoard
-            necesidades={ownNeeds}
-            donacionesPorNecesidad={donacionesPorNecesidad}
-            isLoading={loadingNeeds}
-            onCreateNew={() => setShowForm(true)}
-          />
+          <InfiniteList
+            hasNextPage={!!hasNextPage}
+            isFetchingNextPage={isFetchingNextPage}
+            fetchNextPage={fetchNextPage}
+          >
+            <ManagedNeedsBoard
+              necesidades={ownNeeds}
+              donacionesPorNecesidad={donacionesPorNecesidad}
+              isLoading={loadingNeeds}
+              onCreateNew={() => setShowForm(true)}
+            />
+          </InfiniteList>
         )}
       </div>
     </div>
