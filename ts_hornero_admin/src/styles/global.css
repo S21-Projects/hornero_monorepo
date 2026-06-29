@@ -1,0 +1,157 @@
+@import "tailwindcss";
+
+/* ── Animations ────────────────────────────────────────────── */
+@keyframes skeleton-pulse {
+  0%, 100% { opacity: 0.5; }
+  50%       { opacity: 1; }
+}
+
+/* ── El Hornero design tokens ──────────────────────────────── */
+:root {
+  /* Brand */
+  --horn:          #C85A20;
+  --belly:         #E8A060;
+  --earth:         #7A2A08;
+  --straw:         #F2D5B0;
+  --adobe:         #FBF3E8;
+  --sky:           #4BA3D3;
+  --sun:           #D4A017;
+  --ink:           #2C2C2A;
+
+  /* Derived neutrals */
+  --card:          #FFFCF7;
+  --card-2:        #FBF1E2;
+  --line:          #EAD9C2;
+  --line-soft:     #F1E4D2;
+  --ink-2:         #6B5E50;
+  --ink-3:         #9B8E7E;
+
+  /* Semantic — text */
+  --urgent:        #C0392B;
+  --medium:        #B5781E;
+  --normal-tx:     #8A6A3A;
+  --ok:            #3E8E5A;
+  --warn-tx:       #B5781E;
+  --bad-tx:        #C0392B;
+  --sky-tx:        #1C6E96;
+  --gray-tx:       #8A8178;
+
+  /* Semantic — backgrounds */
+  --urgent-bg:     #F7DAD5;
+  --medium-bg:     #F6E4C4;
+  --normal-bg:     #F2D5B0;
+  --ok-bg:         #D7ECDD;
+  --warn-bg:       #F6E4C4;
+  --bad-bg:        #F7DAD5;
+  --sky-bg:        #D9EEF8;
+  --gray-bg:       #ECE5DB;
+
+  /* Shape */
+  --r-card:        18px;
+  --r-pill:        999px;
+  --r-btn:         12px;
+  --r-input:       12px;
+
+  /* Shadow */
+  --sh-1:          0 1px 2px rgba(122,42,8,.04), 0 2px 8px rgba(122,42,8,.06);
+  --sh-2:          0 4px 18px rgba(122,42,8,.10);
+  --sh-pop:        0 12px 36px rgba(122,42,8,.18);
+}
+
+/* ── Typography scale ──────────────────────────────────────── */
+:root {
+  /* Size */
+  --fs-display:  80px;
+  --fs-stat:     38px;
+  --fs-h1:       28px;
+  --fs-h2:       22px;
+  --fs-h3:       20px;
+  --fs-title:    16px;
+  --fs-body:     15px;
+  --fs-body-sm:  14px;
+  --fs-label:    13px;
+  --fs-caption:  12.5px;
+  --fs-micro:    11px;
+
+  /* Weight */
+  --fw-regular:  600;
+  --fw-bold:     700;
+  --fw-bolder:   800;
+  --fw-black:    900;
+}
+
+/* ── Tailwind v4 theme registration ───────────────────────── */
+@theme inline {
+  /* Colors → bg-*, text-*, border-* utilities */
+  --color-horn:        var(--horn);
+  --color-belly:       var(--belly);
+  --color-earth:       var(--earth);
+  --color-straw:       var(--straw);
+  --color-adobe:       var(--adobe);
+  --color-sky-brand:   var(--sky);
+  --color-sun:         var(--sun);
+  --color-ink:         var(--ink);
+  --color-card:        var(--card);
+  --color-card-2:      var(--card-2);
+  --color-line:        var(--line);
+  --color-line-soft:   var(--line-soft);
+  --color-ink-2:       var(--ink-2);
+  --color-ink-3:       var(--ink-3);
+
+  /* Semantic colors */
+  --color-urgent:      var(--urgent);
+  --color-urgent-bg:   var(--urgent-bg);
+  --color-medium:      var(--medium);
+  --color-medium-bg:   var(--medium-bg);
+  --color-ok:          var(--ok);
+  --color-ok-bg:       var(--ok-bg);
+  --color-sky-bg:      var(--sky-bg);
+  --color-gray-tx:     var(--gray-tx);
+  --color-gray-bg:     var(--gray-bg);
+
+  /* Font */
+  --font-app:          'Nunito', system-ui, sans-serif;
+
+  /* Border radius */
+  --radius-card:       var(--r-card);
+  --radius-pill:       var(--r-pill);
+  --radius-btn:        var(--r-btn);
+  --radius-input:      var(--r-input);
+}
+
+/* ── Base ──────────────────────────────────────────────────── */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html, body {
+  height: 100%;
+}
+
+body {
+  font-family: var(--font-app);
+  color: var(--ink);
+  background: var(--adobe);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  font-variant-numeric: tabular-nums;
+}
+
+h1, h2, h3, h4 {
+  margin: 0;
+  color: var(--earth);
+  letter-spacing: -0.01em;
+}
+
+p {
+  margin: 0;
+}
+
+/* ── Scrollbar hide ────────────────────────────────────────── */
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+.scrollbar-none {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
