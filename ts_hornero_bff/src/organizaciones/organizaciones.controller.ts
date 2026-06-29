@@ -12,6 +12,8 @@ import {
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { Request } from 'express';
 import { Public } from '../auth/decorators/public.decorator.js';
+import { Roles } from '../auth/decorators/roles.decorator.js';
+import { Role } from '../common/enums/role.enum.js';
 import { OrganizacionesService } from './organizaciones.service.js';
 import { CrearOrganizacionDto } from './dto/crear-organizacion.dto.js';
 import { ActualizarOrganizacionDto } from './dto/actualizar-organizacion.dto.js';
@@ -47,18 +49,21 @@ export class OrganizacionesController {
     return this.organizacionesService.listarValidadas(token);
   }
 
+  @Roles(Role.ADMINISTRADOR)
   @Get('pendientes')
   @ApiOperation({ summary: 'List pending organizations (admin only)' })
   listarPendientes(@Req() req: Request) {
     return this.organizacionesService.listarPendientes(this.getToken(req));
   }
 
+  @Roles(Role.ADMINISTRADOR)
   @Patch(':id/validar')
   @ApiOperation({ summary: 'Validate an organization (admin only)' })
   validar(@Param('id', ParseIntPipe) id: number, @Req() req: Request) {
     return this.organizacionesService.validar(id, this.getToken(req));
   }
 
+  @Roles(Role.ADMINISTRADOR)
   @Patch(':id/rechazar')
   @ApiOperation({ summary: 'Reject an organization (admin only)' })
   rechazar(@Param('id', ParseIntPipe) id: number, @Req() req: Request) {
