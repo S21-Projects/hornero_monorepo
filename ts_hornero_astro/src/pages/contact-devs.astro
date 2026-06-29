@@ -1,0 +1,67 @@
+---
+export const prerender = true;
+import Layout from '../layouts/Layout.astro';
+---
+
+<Layout
+  title="Contacto — El Hornero"
+  description="Contactá al equipo de desarrollo de El Hornero."
+>
+  <section
+    style={{
+      maxWidth: 720,
+      margin: '0 auto',
+      padding: '64px 24px',
+    }}
+  >
+    <h1
+      style={{
+        fontSize: 'var(--fs-h1)',
+        fontWeight: 900,
+        color: 'var(--earth)',
+        marginBottom: 16,
+      }}
+    >
+      Contacto
+    </h1>
+    <p
+      style={{
+        fontSize: 'var(--fs-body)',
+        color: 'var(--ink-2)',
+        lineHeight: 1.7,
+        marginBottom: 24,
+      }}
+    >
+      ¿Encontraste un error, tenés una sugerencia o querés colaborar con el proyecto? Escribinos.
+    </p>
+    <div
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 16,
+        background: 'var(--card)',
+        borderRadius: 'var(--r-card)',
+        padding: 28,
+        boxShadow: 'var(--sh-1)',
+      }}
+    >
+      <p style={{ fontSize: 'var(--fs-body)', color: 'var(--ink-2)' }}>
+        Podés abrir un issue en nuestro repositorio o contactarnos por correo.
+      </p>
+      <a
+        href="mailto:hornero-dev@example.com"
+        style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: 8,
+          color: 'var(--sky)',
+          fontWeight: 700,
+          textDecoration: 'none',
+          fontSize: 'var(--fs-body)',
+        }}
+      >
+        ✉️ hornero-dev@example.com
+      </a>
+    </div>
+  </section>
+</Layout>
