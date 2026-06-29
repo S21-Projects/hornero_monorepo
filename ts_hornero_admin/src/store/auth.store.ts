@@ -1,12 +1,12 @@
 import { create } from 'zustand';
 import { api } from '../lib/axios';
-import { decodeToken } from '../lib/auth/jwt';
 
 // Union type — not enum (TS6 erasableSyntaxOnly constraint).
 export type UserRole = 'ADMINISTRADOR' | 'REFERENTE' | 'DONANTE';
 
 export interface AuthUser {
-  id: number;
+  // Field name matches JwtStrategy.validate() return: { userId: payload.sub, ... }
+  userId: number;
   email: string;
   nombre: string;
   tipo: UserRole;
@@ -14,88 +14,77 @@ export interface AuthUser {
 
 export interface AuthState {
   user: AuthUser | null;
-  tipo: UserRole | null;
-  isAuthenticated: boolean;
+  /**
+   * Explicit async status:
+   * - 'unauthenticated': no session cookie, not logged in
+   * - 'loading': session_hint present but role not yet resolved (GET /auth/me pending)
+   * - 'authenticated': user + role loaded from /auth/me
+   */
+  status: 'loading' | 'authenticated' | 'unauthenticated';
   orgValidada: boolean;
-  isLoading: boolean;
 
   /**
-   * Synchronously reads `access_token` + `org_validada` cookies and
-   * populates tipo / orgValidada without any network call.
-   * Mirrors the trust level of proxy.ts in ts_hornero_app.
+   * Synchronous boot step: checks session_hint cookie (JS-readable, httpOnly:false).
+   * If present → status='loading' (a session likely exists; role unknown until loadUser()).
+   * If absent  → status='unauthenticated'.
+   * Does NOT make any network request.
    */
   hydrate(): void;
 
+  /**
+   * Async role resolution: GET /auth/me (sends httpOnly access_token automatically).
+   * On success → sets user + status='authenticated'.
+   * On 401/error → clears user + status='unauthenticated'.
+   */
+  loadUser(): Promise<void>;
+
   login(email: string, password: string): Promise<void>;
   logout(): Promise<void>;
-  loadUser(): Promise<void>;
 }
 
-function getCookieValue(name: string): string | null {
-  const match = document.cookie
-    .split('; ')
-    .find((row) => row.startsWith(`${name}=`));
-  return match ? decodeURIComponent(match.split('=')[1]) : null;
+function hasCookie(name: string): boolean {
+  return (
+    typeof document !== 'undefined' &&
+    document.cookie.split('; ').some((row) => row.startsWith(`${name}=`))
+  );
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
-  tipo: null,
-  isAuthenticated: false,
+  status: 'unauthenticated',
   orgValidada: false,
-  isLoading: false,
 
   hydrate() {
-    const raw = getCookieValue('access_token');
-    if (!raw) {
-      set({ tipo: null, isAuthenticated: false });
-      return;
+    if (hasCookie('session_hint')) {
+      set({ status: 'loading' });
+    } else {
+      set({ status: 'unauthenticated' });
     }
-    const decoded = decodeToken(raw);
-    if (!decoded) {
-      set({ tipo: null, isAuthenticated: false });
-      return;
+  },
+
+  async loadUser() {
+    try {
+      const res = await api.get<AuthUser>('/auth/me');
+      const u = res.data;
+      set({ user: u, status: 'authenticated' });
+    } catch {
+      set({ user: null, status: 'unauthenticated' });
     }
-    const orgValidada = getCookieValue('org_validada') === 'true';
-    set({ tipo: decoded.tipo, isAuthenticated: true, orgValidada });
   },
 
   async login(email: string, password: string) {
-    set({ isLoading: true });
-    try {
-      await api.post('/auth/login', { email, password });
-      await get().loadUser();
-    } finally {
-      set({ isLoading: false });
-    }
+    // POST /auth/login sets httpOnly cookies; BFF returns { user: {...} }.
+    // Call loadUser() afterwards to get the role from /auth/me with guaranteed shape.
+    await api.post('/auth/login', { email, password });
+    await get().loadUser();
   },
 
   async logout() {
     try {
       await api.post('/auth/logout');
     } finally {
-      set({
-        user: null,
-        tipo: null,
-        isAuthenticated: false,
-        orgValidada: false,
-      });
+      set({ user: null, status: 'unauthenticated', orgValidada: false });
       window.location.href = '/login';
-    }
-  },
-
-  async loadUser() {
-    set({ isLoading: true });
-    try {
-      const res = await api.get<AuthUser>('/auth/me');
-      const u = res.data;
-      set({
-        user: u,
-        tipo: u.tipo,
-        isAuthenticated: true,
-      });
-    } finally {
-      set({ isLoading: false });
     }
   },
 }));

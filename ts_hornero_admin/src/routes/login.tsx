@@ -23,8 +23,8 @@ export default function LoginPage() {
     setSubmitting(true);
     try {
       await login(email, password);
-      // Read fresh store state after login completes
-      const tipo = useAuthStore.getState().tipo;
+      // Read fresh store state after login completes (role comes from /auth/me, not cookies)
+      const tipo = useAuthStore.getState().user?.tipo;
       if (tipo === 'ADMINISTRADOR') navigate('/panel');
       else if (tipo === 'DONANTE') navigate('/mis-donaciones');
       else navigate('/dashboard');

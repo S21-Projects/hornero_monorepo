@@ -1,7 +1,7 @@
 # Security finding: `access_token` cookie is not `httpOnly`
 
 **Severity:** Medium–High (XSS token theft)
-**Status:** Open — pending fix
+**Status:** Resolved
 **Component:** `ts_hornero_bff`
 **File:** `src/auth/auth.service.ts` → `setCookies()`
 
