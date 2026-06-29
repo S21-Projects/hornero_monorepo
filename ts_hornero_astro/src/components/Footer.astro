@@ -1,0 +1,36 @@
+---
+const links = [
+  { href: '/', label: 'Inicio' },
+  { href: '/organizaciones', label: 'Organizaciones' },
+  { href: '/donaciones', label: 'Necesidades' },
+  { href: '/about-us', label: 'Nosotros' },
+  { href: '/contact-devs', label: 'Contacto' },
+];
+---
+
+<footer class="mt-auto border-t border-[var(--line)] bg-[var(--card-2)]">
+  <div
+    class="mx-auto flex max-w-[1200px] flex-col items-center gap-5 px-4 py-8 sm:px-6"
+  >
+    <nav aria-label="Footer navigation" class="w-full">
+      <ul
+        class="m-0 flex list-none flex-col items-center gap-3 p-0 sm:flex-row sm:flex-wrap sm:justify-center sm:gap-x-5 sm:gap-y-2"
+      >
+        {links.map(({ href, label }) => (
+          <li>
+            <a
+              href={href}
+              class="text-sm font-bold text-[var(--ink-2)] no-underline transition-colors hover:text-[var(--horn)]"
+            >
+              {label}
+            </a>
+          </li>
+        ))}
+      </ul>
+    </nav>
+
+    <p class="m-0 text-center text-xs text-[var(--ink-3)]">
+      © {new Date().getFullYear()} El Hornero — Comedores Córdoba. Plataforma de donaciones.
+    </p>
+  </div>
+</footer>
