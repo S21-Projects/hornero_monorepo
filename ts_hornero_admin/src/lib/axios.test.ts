@@ -8,8 +8,8 @@ const mock = new MockAdapter(api, { onNoMatch: 'throwException' });
 
 beforeEach(() => {
   mock.reset();
-  // Clear any cookies left by previous tests
-  document.cookie = 'access_token=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/';
+  // Clear session_hint left by previous tests
+  document.cookie = 'session_hint=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/';
 });
 
 afterEach(() => {
@@ -36,9 +36,10 @@ describe('single-flight 401 refresh', () => {
     expect(r2.data).toBe('ok-b');
   });
 
-  it('refresh failure + access_token cookie present → queued requests all reject and redirects to /login', async () => {
-    // Simulate an active session
-    document.cookie = 'access_token=eyJhbGciOiJIUzI1NiJ9.test.sig; path=/';
+  it('refresh failure + session_hint cookie present → queued requests reject and redirects to /login', async () => {
+    // Simulate an active session via the JS-readable session_hint cookie.
+    // access_token is httpOnly and cannot be set from JS.
+    document.cookie = 'session_hint=1; path=/';
 
     // Capture the redirect without actually navigating
     const originalLocation = globalThis.location;

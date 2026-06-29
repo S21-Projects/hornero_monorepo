@@ -24,7 +24,7 @@ const NAV_LINKS: Record<UserRole, NavItem[]> = {
 };
 
 export default function AppShell() {
-  const tipo = useAuthStore((s) => s.tipo);
+  const tipo = useAuthStore((s) => s.user?.tipo ?? null);
   const logout = useAuthStore((s) => s.logout);
 
   const links: NavItem[] = tipo !== null ? NAV_LINKS[tipo] : [];

@@ -41,12 +41,13 @@ api.interceptors.response.use(
       } catch (e) {
         processQueue(e);
         // Only redirect to /login if the user had an active session.
-        // The BFF sets `access_token` (JS-readable) but NOT `session_hint`.
-        // Gating on `access_token` presence prevents redirecting anonymous
-        // users who hit a public endpoint that happened to return 401.
+        // access_token is httpOnly (unreadable from JS); use session_hint='1'
+        // (httpOnly:false) as the JS-readable "session exists" flag.
+        // Gating on session_hint prevents redirecting anonymous visitors
+        // who hit a public endpoint that happened to return 401.
         const hadSession =
           typeof document !== 'undefined' &&
-          document.cookie.includes('access_token');
+          document.cookie.includes('session_hint');
         if (typeof window !== 'undefined' && hadSession) {
           window.location.href = '/login';
         }

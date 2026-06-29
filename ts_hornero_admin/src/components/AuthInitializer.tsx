@@ -11,11 +11,11 @@ interface AuthInitializerProps {
 
 /**
  * Mounts once at the app root.
- * 1. Calls hydrate() — synchronous cookie decode → populates tipo / orgValidada
- * 2. Calls loadUser() — GET /auth/me to enrich full user object
- *
- * Errors from loadUser are swallowed silently; anonymous visitors or users
- * with expired tokens should not see a crash on startup.
+ * 1. hydrate() — synchronous: checks session_hint cookie.
+ *    If present → status='loading' (session may exist, role unknown).
+ *    If absent  → status='unauthenticated' (no further network call).
+ * 2. If status is 'loading' after hydrate, calls loadUser() → GET /auth/me
+ *    to resolve the role. On success: status='authenticated'. On failure: 'unauthenticated'.
  */
 export function AuthInitializer({ children }: AuthInitializerProps) {
   const hydrate = useAuthStore((s) => s.hydrate);
@@ -23,9 +23,10 @@ export function AuthInitializer({ children }: AuthInitializerProps) {
 
   useEffect(() => {
     hydrate();
-    void loadUser().catch(() => {
-      // Silent: no active session or network error on startup.
-    });
+    // Read status synchronously after hydrate() — Zustand setState is synchronous.
+    if (useAuthStore.getState().status === 'loading') {
+      void loadUser();
+    }
   }, [hydrate, loadUser]);
 
   return <>{children}</>;

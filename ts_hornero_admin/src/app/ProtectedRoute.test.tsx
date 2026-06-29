@@ -3,6 +3,11 @@ import { render, screen } from '@testing-library/react';
 import { createMemoryRouter, RouterProvider } from 'react-router-dom';
 import { ProtectedRoute } from './ProtectedRoute';
 import { useAuthStore } from '../store/auth.store';
+import type { AuthUser } from '../store/auth.store';
+
+const ADMIN_USER: AuthUser = { userId: 1, email: 'admin@test.com', nombre: 'Admin', tipo: 'ADMINISTRADOR' };
+const DONANTE_USER: AuthUser = { userId: 2, email: 'd@test.com', nombre: 'Donante', tipo: 'DONANTE' };
+const REFERENTE_USER: AuthUser = { userId: 3, email: 'r@test.com', nombre: 'Ref', tipo: 'REFERENTE' };
 
 // Helper: build a MemoryRouter that places the ProtectedRoute guard at '/'
 // with a protected child page, plus redirect targets.
@@ -31,15 +36,27 @@ beforeEach(() => {
   // Reset store to unauthenticated baseline before each test
   useAuthStore.setState({
     user: null,
-    tipo: null,
-    isAuthenticated: false,
+    status: 'unauthenticated',
     orgValidada: false,
-    isLoading: false,
   });
 });
 
 describe('ProtectedRoute guard matrix', () => {
+  it('renders a loader while status is loading (role not yet resolved)', () => {
+    useAuthStore.setState({ status: 'loading' });
+
+    const router = buildRouter({ allow: ['ADMINISTRADOR'] });
+    render(<RouterProvider router={router} />);
+
+    // Neither content nor redirect should render during loading
+    expect(screen.queryByText('Protected Content')).not.toBeInTheDocument();
+    expect(screen.queryByText('Login Page')).not.toBeInTheDocument();
+    // The loader placeholder div is rendered
+    expect(document.querySelector('[aria-busy="true"]')).not.toBeNull();
+  });
+
   it('unauthenticated user is redirected to /login', () => {
+    // default state is already 'unauthenticated'
     const router = buildRouter({ allow: ['ADMINISTRADOR'] });
     render(<RouterProvider router={router} />);
 
@@ -48,7 +65,7 @@ describe('ProtectedRoute guard matrix', () => {
   });
 
   it('ADMIN on an ADMIN-only route renders the Outlet (child content)', () => {
-    useAuthStore.setState({ isAuthenticated: true, tipo: 'ADMINISTRADOR' });
+    useAuthStore.setState({ status: 'authenticated', user: ADMIN_USER });
 
     const router = buildRouter({ allow: ['ADMINISTRADOR'] });
     render(<RouterProvider router={router} />);
@@ -58,7 +75,7 @@ describe('ProtectedRoute guard matrix', () => {
   });
 
   it('DONANTE on an ADMIN-only route is redirected (role not in allow list)', () => {
-    useAuthStore.setState({ isAuthenticated: true, tipo: 'DONANTE' });
+    useAuthStore.setState({ status: 'authenticated', user: DONANTE_USER });
 
     const router = buildRouter({ allow: ['ADMINISTRADOR'] });
     render(<RouterProvider router={router} />);
@@ -70,8 +87,8 @@ describe('ProtectedRoute guard matrix', () => {
 
   it('unvalidated REFERENTE on a requireValidated route is redirected to /pending-validation', () => {
     useAuthStore.setState({
-      isAuthenticated: true,
-      tipo: 'REFERENTE',
+      status: 'authenticated',
+      user: REFERENTE_USER,
       orgValidada: false,
     });
 

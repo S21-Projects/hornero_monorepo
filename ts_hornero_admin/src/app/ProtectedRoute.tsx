@@ -21,7 +21,12 @@ interface ProtectedRouteProps {
 
 /**
  * Layout route guard — mirrors the proxy.ts server-side guard matrix.
- * Reads synchronous store state (populated by hydrate() from access_token cookie).
+ *
+ * The guard is async-aware:
+ * - 'loading'         → render a minimal loader; do NOT redirect (role not resolved yet).
+ * - 'unauthenticated' → redirect to /login.
+ * - 'authenticated'   → apply the role matrix using store.user.tipo (NOT a decoded cookie).
+ *
  * Trust level: UX routing only, same as proxy.ts.
  */
 export function ProtectedRoute({
@@ -29,14 +34,21 @@ export function ProtectedRoute({
   requireValidated = false,
   redirectTo = '/',
 }: ProtectedRouteProps) {
-  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
-  const tipo = useAuthStore((s) => s.tipo);
+  const status = useAuthStore((s) => s.status);
+  const user = useAuthStore((s) => s.user);
   const orgValidada = useAuthStore((s) => s.orgValidada);
 
-  if (!isAuthenticated) {
+  if (status === 'loading') {
+    // Role is being resolved via GET /auth/me — do not redirect yet.
+    return <div aria-busy="true" aria-label="Loading..." />;
+  }
+
+  if (status === 'unauthenticated') {
     return <Navigate to="/login" replace />;
   }
 
+  // status === 'authenticated'
+  const tipo = user?.tipo;
   if (!tipo || !allow.includes(tipo)) {
     return <Navigate to={redirectTo} replace />;
   }
@@ -54,16 +66,20 @@ interface PublicOnlyRouteProps {
 
 /**
  * Inverse guard for /login and /register.
- * Redirects authenticated users away:
- *   - ADMINISTRADOR → /
- *   - REFERENTE / DONANTE → /dashboard
+ * - 'loading'         → render loader (role not resolved; premature redirect would break UX).
+ * - 'authenticated'   → redirect to role home.
+ * - 'unauthenticated' → render the public page.
  */
 export function PublicOnlyRoute({ children }: PublicOnlyRouteProps) {
-  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
-  const tipo = useAuthStore((s) => s.tipo);
+  const status = useAuthStore((s) => s.status);
+  const user = useAuthStore((s) => s.user);
 
-  if (isAuthenticated) {
-    if (tipo === 'ADMINISTRADOR') return <Navigate to="/" replace />;
+  if (status === 'loading') {
+    return <div aria-busy="true" aria-label="Loading..." />;
+  }
+
+  if (status === 'authenticated') {
+    if (user?.tipo === 'ADMINISTRADOR') return <Navigate to="/" replace />;
     return <Navigate to="/dashboard" replace />;
   }
 
