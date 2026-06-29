@@ -7,6 +7,8 @@ import DashboardPage from '../routes/dashboard';
 import NeedsPage from '../routes/needs';
 import PrefsPage from '../routes/prefs';
 import MisDonacionesPage from '../routes/mis-donaciones';
+import ExplorarPage from '../routes/explorar';
+import NecesidadDetallePage from '../routes/necesidad-detalle';
 import PanelPage from '../routes/panel';
 import AdminPage from '../routes/admin';
 import UsersPage from '../routes/users';
@@ -99,7 +101,9 @@ export const router = createBrowserRouter([
       {
         element: <AppShell />,
         children: [
-          { path: '/mis-donaciones', element: <MisDonacionesPage /> },
+          { path: '/mis-donaciones',    element: <MisDonacionesPage /> },
+          { path: '/explorar',          element: <ExplorarPage /> },
+          { path: '/necesidades/:id',   element: <NecesidadDetallePage /> },
         ],
       },
     ],

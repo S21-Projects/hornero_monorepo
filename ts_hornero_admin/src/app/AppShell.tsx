@@ -19,6 +19,7 @@ const NAV_LINKS: Record<UserRole, NavItem[]> = {
     { to: '/prefs', label: 'Preferencias' },
   ],
   DONANTE: [
+    { to: '/explorar',       label: 'Explorar' },
     { to: '/mis-donaciones', label: 'Mis Donaciones' },
   ],
 };
