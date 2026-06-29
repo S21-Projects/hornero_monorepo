@@ -35,8 +35,13 @@ export class NecesidadesController {
   @Public()
   @Get()
   @ApiOperation({ summary: 'List needs, optionally filtered by organization (public)' })
-  getNecesidades(@Query('organizacionId') organizacionId?: string) {
-    return this.necesidadesService.getNecesidades(organizacionId);
+  getNecesidades(
+    @Query('organizacionId') organizacionId?: string,
+    @Query('page') page?: string,
+    @Query('size') size?: string,
+    @Query('sort') sort?: string,
+  ) {
+    return this.necesidadesService.getNecesidades(organizacionId, page, size, sort);
   }
 
   @Roles(Role.REFERENTE)

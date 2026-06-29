@@ -101,7 +101,9 @@ function OrgCard({
 }
 
 export default function HomePage() {
-  const { data: orgs, isPending, isError, refetch } = useValidatedOrganizaciones();
+  // Teaser: first 6 orgs for the home map view. Full list is at /organizaciones.
+  const { data: orgsPage, isPending, isError, refetch } = useValidatedOrganizaciones(0, 6);
+  const orgs = orgsPage?.content;
   const { position, hasUserPosition, fixCount, request } = useGeolocation();
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [activeFilter, setActiveFilter] = useState<string>("");

@@ -16,6 +16,10 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
@@ -39,11 +43,13 @@ class OrganizacionServiceTest {
 
     private Referente referente;
     private Administrador administrador;
+    private Pageable defaultPageable;
 
     @BeforeEach
     void setUp() {
         referente = new Referente(1L, "Ref Test", "ref@test.com", "encoded", true);
         administrador = new Administrador(2L, "Admin Test", "admin@test.com", "encoded", true);
+        defaultPageable = PageRequest.of(0, 20);
     }
 
     // --- crear ---
@@ -144,12 +150,13 @@ class OrganizacionServiceTest {
         validated.setEstado(EstadoOrganizacion.APROBADA);
         validated.setReferente(referente);
 
-        when(organizacionRepository.findByEstado(EstadoOrganizacion.APROBADA)).thenReturn(List.of(validated));
+        Page<Organizacion> repoPage = new PageImpl<>(List.of(validated), defaultPageable, 1L);
+        when(organizacionRepository.findByEstado(EstadoOrganizacion.APROBADA, defaultPageable)).thenReturn(repoPage);
 
-        List<OrganizacionResponse> result = organizacionService.listarValidadas();
+        Page<OrganizacionResponse> result = organizacionService.listarValidadas(defaultPageable);
 
-        assertThat(result).hasSize(1);
-        assertThat(result.get(0).isValidada()).isTrue();
+        assertThat(result.getContent()).hasSize(1);
+        assertThat(result.getContent().get(0).isValidada()).isTrue();
     }
 
     @Test
@@ -160,21 +167,23 @@ class OrganizacionServiceTest {
         pending.setEstado(EstadoOrganizacion.PENDIENTE);
         pending.setReferente(referente);
 
-        when(organizacionRepository.findByEstado(EstadoOrganizacion.PENDIENTE)).thenReturn(List.of(pending));
+        Page<Organizacion> repoPage = new PageImpl<>(List.of(pending), defaultPageable, 1L);
+        when(organizacionRepository.findByEstado(EstadoOrganizacion.PENDIENTE, defaultPageable)).thenReturn(repoPage);
 
-        List<OrganizacionResponse> result = organizacionService.listarPendientes();
+        Page<OrganizacionResponse> result = organizacionService.listarPendientes(defaultPageable);
 
-        assertThat(result).hasSize(1);
-        assertThat(result.get(0).isValidada()).isFalse();
+        assertThat(result.getContent()).hasSize(1);
+        assertThat(result.getContent().get(0).isValidada()).isFalse();
     }
 
     @Test
     void listarPendientes_doesNotReturnValidatedOrgs() {
-        when(organizacionRepository.findByEstado(EstadoOrganizacion.PENDIENTE)).thenReturn(List.of());
+        Page<Organizacion> emptyPage = new PageImpl<>(List.of(), defaultPageable, 0L);
+        when(organizacionRepository.findByEstado(EstadoOrganizacion.PENDIENTE, defaultPageable)).thenReturn(emptyPage);
 
-        List<OrganizacionResponse> result = organizacionService.listarPendientes();
+        Page<OrganizacionResponse> result = organizacionService.listarPendientes(defaultPageable);
 
-        assertThat(result).isEmpty();
+        assertThat(result.getContent()).isEmpty();
     }
 
     // --- findByReferente ---

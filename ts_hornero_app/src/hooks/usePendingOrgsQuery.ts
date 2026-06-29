@@ -1,9 +1,12 @@
-import { useQuery } from '@tanstack/react-query';
-import { getPendingOrganizaciones, type OrganizacionResponse } from '@/lib/api/organizaciones';
+import { useQuery, keepPreviousData } from '@tanstack/react-query';
+import { fetchPendingOrgs } from '@/lib/api/organizaciones';
+import type { PageData } from '@/types/api';
+import type { OrganizacionResponse } from '@/lib/api/organizaciones';
 
-export function usePendingOrgsQuery() {
-  return useQuery<OrganizacionResponse[], Error>({
-    queryKey: ['pendingOrgs'],
-    queryFn: getPendingOrganizaciones,
+export function usePendingOrgsQuery(page = 0, size = 20) {
+  return useQuery<PageData<OrganizacionResponse>>({
+    queryKey: ['pendingOrgs', page, size],
+    queryFn: () => fetchPendingOrgs({ page, size }),
+    placeholderData: keepPreviousData,
   });
 }

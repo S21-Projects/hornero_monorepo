@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { HttpService } from '@nestjs/axios';
 import { ConfigService } from '@nestjs/config';
+import { buildQuery } from '../common/build-query.js';
 
 @Injectable()
 export class UsuariosService {
@@ -17,11 +18,11 @@ export class UsuariosService {
     return { Authorization: `Bearer ${accessToken}` };
   }
 
-  async findAll(accessToken: string) {
-    const { data } = await this.httpService.axiosRef.get(
-      `${this.msUrl}/api/usuarios`,
-      { headers: this.authHeaders(accessToken) },
-    );
+  async findAll(accessToken: string, page?: string, size?: string, sort?: string) {
+    const url = `${this.msUrl}/api/usuarios${buildQuery({ page, size, sort })}`;
+    const { data } = await this.httpService.axiosRef.get(url, {
+      headers: this.authHeaders(accessToken),
+    });
     return data;
   }
 

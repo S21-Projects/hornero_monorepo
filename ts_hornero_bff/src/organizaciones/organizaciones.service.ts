@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { HttpService } from '@nestjs/axios';
 import { ConfigService } from '@nestjs/config';
+import { buildQuery } from '../common/build-query.js';
 import { CrearOrganizacionDto } from './dto/crear-organizacion.dto.js';
 import { ActualizarOrganizacionDto } from './dto/actualizar-organizacion.dto.js';
 
@@ -36,26 +37,20 @@ export class OrganizacionesService {
     return data;
   }
 
-  async listarValidadas(accessToken?: string) {
-    const url = `${this.msUrl}/api/organizaciones`;
-    try {
-      const { data } = await this.httpService.axiosRef.get(
-        url,
-        accessToken ? { headers: this.authHeaders(accessToken) } : {},
-      );
-      return data;
-    } catch (err: any) {
-      const status = err?.response?.status;
-      const body = JSON.stringify(err?.response?.data);
-      throw new Error(`MS ${status} on GET ${url}: ${body}`);
-    }
+  async listarValidadas(accessToken?: string, page?: string, size?: string, sort?: string) {
+    const url = `${this.msUrl}/api/organizaciones${buildQuery({ page, size, sort })}`;
+    const { data } = await this.httpService.axiosRef.get(
+      url,
+      accessToken ? { headers: this.authHeaders(accessToken) } : {},
+    );
+    return data;
   }
 
-  async listarPendientes(accessToken: string) {
-    const { data } = await this.httpService.axiosRef.get(
-      `${this.msUrl}/api/organizaciones/pendientes`,
-      { headers: this.authHeaders(accessToken) },
-    );
+  async listarPendientes(accessToken: string, page?: string, size?: string, sort?: string) {
+    const url = `${this.msUrl}/api/organizaciones/pendientes${buildQuery({ page, size, sort })}`;
+    const { data } = await this.httpService.axiosRef.get(url, {
+      headers: this.authHeaders(accessToken),
+    });
     return data;
   }
 

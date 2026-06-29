@@ -15,7 +15,13 @@ const processQueue = (error: unknown) => {
 };
 
 api.interceptors.response.use(
-  (res) => res,
+  (res) => {
+    // Unwrap the ApiResponse envelope: { status, message, timestamp, data } → data
+    if (res.data && typeof res.data === 'object' && 'data' in res.data) {
+      res.data = (res.data as { data: unknown }).data;
+    }
+    return res;
+  },
   async (error) => {
     const originalRequest = error.config;
     if (error.response?.status === 401 && !originalRequest._retry) {

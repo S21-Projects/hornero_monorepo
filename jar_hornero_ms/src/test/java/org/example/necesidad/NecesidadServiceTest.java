@@ -5,6 +5,7 @@ import org.example.domain.EstadoOrganizacion;
 import org.example.domain.Necesidad;
 import org.example.domain.NecesidadRepository;
 import org.example.domain.Organizacion;
+import org.example.domain.OrganizacionRepository;
 import org.example.domain.PrioridadNecesidad;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -12,6 +13,10 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -25,10 +30,14 @@ class NecesidadServiceTest {
     @Mock
     private NecesidadRepository necesidadRepository;
 
+    @Mock
+    private OrganizacionRepository organizacionRepository;
+
     @InjectMocks
     private NecesidadService necesidadService;
 
     private Organizacion organizacion;
+    private Pageable defaultPageable;
 
     @BeforeEach
     void setUp() {
@@ -36,6 +45,7 @@ class NecesidadServiceTest {
         organizacion.setId(1L);
         organizacion.setNombre("Org Test");
         organizacion.setEstado(EstadoOrganizacion.APROBADA);
+        defaultPageable = PageRequest.of(0, 20);
     }
 
     private Necesidad buildNecesidad(Long id) {
@@ -54,45 +64,52 @@ class NecesidadServiceTest {
 
     @Test
     void findByOrganizacion_repoReturnsTwoResults_returnsListOfTwo() {
-        when(necesidadRepository.findByOrganizacion_Id(1L))
-                .thenReturn(List.of(buildNecesidad(1L), buildNecesidad(2L)));
+        List<Necesidad> content = List.of(buildNecesidad(1L), buildNecesidad(2L));
+        Page<Necesidad> repoPage = new PageImpl<>(content, defaultPageable, 2L);
 
-        List<NecesidadResponse> result = necesidadService.findByOrganizacion(1L);
+        when(necesidadRepository.findByOrganizacion_Id(1L, defaultPageable)).thenReturn(repoPage);
 
-        assertThat(result).hasSize(2);
-        assertThat(result.get(0).organizacionId()).isEqualTo(1L);
-        assertThat(result.get(1).organizacionId()).isEqualTo(1L);
+        Page<NecesidadResponse> result = necesidadService.findByOrganizacion(1L, defaultPageable);
+
+        assertThat(result.getContent()).hasSize(2);
+        assertThat(result.getContent().get(0).organizacionId()).isEqualTo(1L);
+        assertThat(result.getContent().get(1).organizacionId()).isEqualTo(1L);
     }
 
     @Test
-    void findByOrganizacion_repoReturnsEmpty_returnsEmptyList() {
-        when(necesidadRepository.findByOrganizacion_Id(99L)).thenReturn(List.of());
+    void findByOrganizacion_repoReturnsEmpty_returnsEmptyPage() {
+        Page<Necesidad> emptyPage = new PageImpl<>(List.of(), defaultPageable, 0L);
+        when(necesidadRepository.findByOrganizacion_Id(99L, defaultPageable)).thenReturn(emptyPage);
 
-        List<NecesidadResponse> result = necesidadService.findByOrganizacion(99L);
+        Page<NecesidadResponse> result = necesidadService.findByOrganizacion(99L, defaultPageable);
 
         assertThat(result).isNotNull();
-        assertThat(result).isEmpty();
+        assertThat(result.getContent()).isEmpty();
+        assertThat(result.getTotalElements()).isEqualTo(0L);
     }
 
     // --- findAll ---
 
     @Test
-    void findAll_repoReturnsThreeResults_returnsListOfThree() {
-        when(necesidadRepository.findAll())
-                .thenReturn(List.of(buildNecesidad(1L), buildNecesidad(2L), buildNecesidad(3L)));
+    void findAll_repoReturnsThreeResults_returnsPageOfThree() {
+        List<Necesidad> content = List.of(buildNecesidad(1L), buildNecesidad(2L), buildNecesidad(3L));
+        Page<Necesidad> repoPage = new PageImpl<>(content, defaultPageable, 3L);
 
-        List<NecesidadResponse> result = necesidadService.findAll();
+        when(necesidadRepository.findAll(defaultPageable)).thenReturn(repoPage);
 
-        assertThat(result).hasSize(3);
+        Page<NecesidadResponse> result = necesidadService.findAll(defaultPageable);
+
+        assertThat(result.getContent()).hasSize(3);
     }
 
     @Test
-    void findAll_repoReturnsEmpty_returnsEmptyList() {
-        when(necesidadRepository.findAll()).thenReturn(List.of());
+    void findAll_repoReturnsEmpty_returnsEmptyPage() {
+        Page<Necesidad> emptyPage = new PageImpl<>(List.of(), defaultPageable, 0L);
+        when(necesidadRepository.findAll(defaultPageable)).thenReturn(emptyPage);
 
-        List<NecesidadResponse> result = necesidadService.findAll();
+        Page<NecesidadResponse> result = necesidadService.findAll(defaultPageable);
 
         assertThat(result).isNotNull();
-        assertThat(result).isEmpty();
+        assertThat(result.getContent()).isEmpty();
     }
 }
