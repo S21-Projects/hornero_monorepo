@@ -1,0 +1,47 @@
+---
+export const prerender = true;
+import Layout from '../layouts/Layout.astro';
+---
+
+<Layout
+  title="Quiénes somos — El Hornero"
+  description="Conocé el equipo y la misión detrás de El Hornero, plataforma de donaciones para comedores de Córdoba."
+>
+  <section
+    style={{
+      maxWidth: 720,
+      margin: '0 auto',
+      padding: '64px 24px',
+    }}
+  >
+    <h1
+      style={{
+        fontSize: 'var(--fs-h1)',
+        fontWeight: 900,
+        color: 'var(--earth)',
+        marginBottom: 16,
+      }}
+    >
+      Quiénes somos
+    </h1>
+    <p
+      style={{
+        fontSize: 'var(--fs-body)',
+        color: 'var(--ink-2)',
+        lineHeight: 1.7,
+        marginBottom: 24,
+      }}
+    >
+      El Hornero nació de la voluntad de conectar comedores y organizaciones comunitarias de Córdoba con personas que quieren ayudar. Nuestra misión es simple: hacer que donar sea fácil y transparente.
+    </p>
+    <p
+      style={{
+        fontSize: 'var(--fs-body)',
+        color: 'var(--ink-2)',
+        lineHeight: 1.7,
+      }}
+    >
+      Somos un grupo de estudiantes y desarrolladores que creemos en el impacto real de la tecnología aplicada a la comunidad.
+    </p>
+  </section>
+</Layout>

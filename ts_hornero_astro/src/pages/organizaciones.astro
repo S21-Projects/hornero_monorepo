@@ -1,0 +1,23 @@
+---
+import Layout from '../layouts/Layout.astro';
+import OrgList from '../components/islands/OrgList';
+import { publicFetch } from '../lib/publicFetch';
+import type { Org } from '../lib/types';
+
+let orgs: Org[] = [];
+try {
+  // TODO: when the MS pagination/envelope cutover lands, switch to PageResponse<T> and read .content (see src/lib/types.ts)
+  orgs = await publicFetch<Org[]>('/organizaciones');
+} catch (e) {
+  orgs = [];
+}
+---
+
+<Layout
+  title="Organizaciones — El Hornero"
+  description="Listado de comedores y organizaciones validadas de Córdoba."
+>
+  <div class="flex-1 overflow-auto px-4 py-7 sm:px-10">
+    <OrgList client:load orgs={orgs} />
+  </div>
+</Layout>

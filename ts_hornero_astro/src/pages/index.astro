@@ -1,0 +1,19 @@
+---
+import Layout from '../layouts/Layout.astro';
+import HomeMapExplorer from '../components/islands/HomeMapExplorer';
+import { publicFetch } from '../lib/publicFetch';
+import type { Org } from '../lib/types';
+
+let orgs: Org[] = [];
+try {
+  // TODO: when the MS pagination/envelope cutover lands, switch to PageResponse<T> and read .content (see src/lib/types.ts)
+  orgs = await publicFetch<Org[]>('/organizaciones');
+} catch (e) {
+  // BFF unavailable at build time or runtime — render with empty list
+  orgs = [];
+}
+---
+
+<Layout title="El Hornero — Comedores Córdoba">
+  <HomeMapExplorer client:only="react" orgs={orgs} />
+</Layout>
