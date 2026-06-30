@@ -88,15 +88,19 @@ the discriminator value becomes the JWT `tipo` claim (see `JwtService.resolveDis
    signature** — UX redirects only, never trusted for security. The guard matrix is documented in a
    table at the top of that file.
 
-**Cookie model (set by the BFF in `auth.service.ts`):**
-- `access_token` — `httpOnly: false` (frontend reads `tipo` for UX routing), `sameSite: strict`.
-- `refresh_token` — `httpOnly: true`.
-- `secure` is on only when `NODE_ENV=production`.
-- An `org_validada` cookie ("true"/absent) tells the frontend whether a referente's org is approved.
-- Rationale/tradeoffs of the non-httpOnly access token are in `docs/security-access-token-httponly.md`.
+**Cookie model (set by the BFF in `auth.service.ts` `setCookies`):**
+- `access_token` — `httpOnly: true`, 15 min. NOT readable in JS.
+- `refresh_token` — `httpOnly: true`, 7 days.
+- `session_hint` — value `'1'`, `httpOnly: false`, 15 min. The only JS-readable flag — it
+  signals that a session may exist but carries NO role.
+- `sameSite` is `none` (with `secure`) in production, `lax` in dev. All three are cleared on logout.
+- The role is NOT in a cookie: the frontend resolves it via `GET /auth/me` → `{userId, email, nombre, tipo}`.
+- Rationale/tradeoffs of this posture are in `docs/security-access-token-httponly.md`.
 
 The frontend axios client (`src/lib/axios.ts`) auto-refreshes on 401 via a single-flight queue,
-then retries; on refresh failure it redirects to `/login` only if a session cookie was present.
+then retries; on refresh failure it redirects to `/login` only if `session_hint` was present.
+The React/Vite SPA (`ts_hornero_admin`) cannot read `access_token` (httpOnly), so its guards key off
+`session_hint` + `GET /auth/me` rather than decoding the JWT client-side.
 
 ## How the layers talk
 
