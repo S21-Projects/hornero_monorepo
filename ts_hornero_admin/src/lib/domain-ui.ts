@@ -38,3 +38,27 @@ export const ESTADO_DONACION: Record<string, BadgeConfig> = {
 
 /** Fallback for any unknown enum value. Never throws. */
 export const FALLBACK_BADGE: BadgeConfig = { tone: 'neutral', label: '—' };
+
+// ---------------------------------------------------------------------------
+// Admin badge configs (Slice 6)
+// ---------------------------------------------------------------------------
+
+export const ESTADO_ORGANIZACION: Record<string, BadgeConfig> = {
+  PENDIENTE: { tone: 'sky',     label: 'Pendiente' },
+  APROBADA:  { tone: 'ok',      label: 'Aprobada' },
+  RECHAZADA: { tone: 'danger',  label: 'Rechazada' },
+};
+
+export const TIPO_ORGANIZACION: Record<string, BadgeConfig> = {
+  COMEDOR:   { tone: 'neutral', label: 'Comedor' },
+  COPITA:    { tone: 'neutral', label: 'Copita' },
+  ROPERO:    { tone: 'neutral', label: 'Ropero' },
+  MERENDERO: { tone: 'neutral', label: 'Merendero' },
+  OTRO:      { tone: 'neutral', label: 'Otro' },
+};
+
+/** Keyed by stringified boolean: 'true' | 'false'. */
+export const ACTIVO: Record<string, BadgeConfig> = {
+  'true':  { tone: 'ok',      label: 'Activo' },
+  'false': { tone: 'neutral', label: 'Inactivo' },
+};

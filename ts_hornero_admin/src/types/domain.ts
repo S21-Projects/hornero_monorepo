@@ -72,3 +72,50 @@ export interface ActualizarNecesidadInput {
   estado?: EstadoNecesidad;
   fechaVencimiento?: string;
 }
+
+// ---------------------------------------------------------------------------
+// Admin types (Slice 6)
+// ---------------------------------------------------------------------------
+
+import type { UserRole } from '../store/auth.store';
+
+export const EstadoOrganizacion = {
+  PENDIENTE: 'PENDIENTE',
+  APROBADA:  'APROBADA',
+  RECHAZADA: 'RECHAZADA',
+} as const;
+export type EstadoOrganizacion = typeof EstadoOrganizacion[keyof typeof EstadoOrganizacion];
+
+export const TipoOrganizacion = {
+  COMEDOR:   'COMEDOR',
+  COPITA:    'COPITA',
+  ROPERO:    'ROPERO',
+  MERENDERO: 'MERENDERO',
+  OTRO:      'OTRO',
+} as const;
+export type TipoOrganizacion = typeof TipoOrganizacion[keyof typeof TipoOrganizacion];
+
+export interface OrganizacionAdmin {
+  id: number;
+  nombre: string;
+  slug: string;
+  tipo: TipoOrganizacion;
+  descripcion: string;
+  direccion: string;
+  latitud?: number;
+  longitud?: number;
+  estado: EstadoOrganizacion;
+  referenteNombre: string;
+  referenteEmail: string;
+  validadoPorNombre?: string;
+  profileImageKey?: string;
+  bannerKey?: string;
+}
+
+export interface Usuario {
+  id: number;
+  nombre: string;
+  email: string;
+  tipo: UserRole;
+  activo: boolean;
+}
