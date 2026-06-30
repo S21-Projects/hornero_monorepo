@@ -38,6 +38,7 @@ beforeEach(() => {
     user: null,
     status: 'unauthenticated',
     orgValidada: false,
+    orgChecked: false,
   });
 });
 
@@ -90,6 +91,7 @@ describe('ProtectedRoute guard matrix', () => {
       status: 'authenticated',
       user: REFERENTE_USER,
       orgValidada: false,
+      orgChecked: true, // org check settled — result is unvalidated
     });
 
     const router = buildRouter(
@@ -100,5 +102,56 @@ describe('ProtectedRoute guard matrix', () => {
 
     expect(screen.getByText('Pending Validation Page')).toBeInTheDocument();
     expect(screen.queryByText('Needs Content')).not.toBeInTheDocument();
+  });
+
+  describe('REFERENTE + requireValidated — orgChecked gate', () => {
+    const GUARD_PROPS = { allow: ['ADMINISTRADOR', 'REFERENTE'] as Array<typeof REFERENTE_USER['tipo']>, requireValidated: true };
+
+    it('renders a loader while orgChecked=false (mia query still in flight)', () => {
+      useAuthStore.setState({
+        status: 'authenticated',
+        user: REFERENTE_USER,
+        orgValidada: false,
+        orgChecked: false, // query not settled yet
+      });
+
+      const router = buildRouter(GUARD_PROPS, '/needs');
+      render(<RouterProvider router={router} />);
+
+      // No redirect, no content — just the loader placeholder
+      expect(screen.queryByText('Needs Content')).not.toBeInTheDocument();
+      expect(screen.queryByText('Pending Validation Page')).not.toBeInTheDocument();
+      expect(document.querySelector('[aria-busy="true"]')).not.toBeNull();
+    });
+
+    it('redirects to /pending-validation when orgChecked=true and orgValidada=false', () => {
+      useAuthStore.setState({
+        status: 'authenticated',
+        user: REFERENTE_USER,
+        orgValidada: false,
+        orgChecked: true,
+      });
+
+      const router = buildRouter(GUARD_PROPS, '/needs');
+      render(<RouterProvider router={router} />);
+
+      expect(screen.getByText('Pending Validation Page')).toBeInTheDocument();
+      expect(screen.queryByText('Needs Content')).not.toBeInTheDocument();
+    });
+
+    it('renders the outlet when orgChecked=true and orgValidada=true', () => {
+      useAuthStore.setState({
+        status: 'authenticated',
+        user: REFERENTE_USER,
+        orgValidada: true,
+        orgChecked: true,
+      });
+
+      const router = buildRouter(GUARD_PROPS, '/needs');
+      render(<RouterProvider router={router} />);
+
+      expect(screen.getByText('Needs Content')).toBeInTheDocument();
+      expect(screen.queryByText('Pending Validation Page')).not.toBeInTheDocument();
+    });
   });
 });
