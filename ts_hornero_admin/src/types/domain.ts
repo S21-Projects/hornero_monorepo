@@ -59,3 +59,16 @@ export interface CrearDonacionInput {
   necesidadId: number;
   observaciones?: string;
 }
+
+export interface CrearNecesidadInput {
+  descripcion: string;
+  prioridad: PrioridadNecesidad;
+  fechaVencimiento?: string;
+}
+
+export interface ActualizarNecesidadInput {
+  descripcion?: string;
+  prioridad?: PrioridadNecesidad;
+  estado?: EstadoNecesidad;
+  fechaVencimiento?: string;
+}
