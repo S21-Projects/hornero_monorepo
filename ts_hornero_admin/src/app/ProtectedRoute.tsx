@@ -37,6 +37,7 @@ export function ProtectedRoute({
   const status = useAuthStore((s) => s.status);
   const user = useAuthStore((s) => s.user);
   const orgValidada = useAuthStore((s) => s.orgValidada);
+  const orgChecked = useAuthStore((s) => s.orgChecked);
 
   if (status === 'loading') {
     // Role is being resolved via GET /auth/me — do not redirect yet.
@@ -53,8 +54,15 @@ export function ProtectedRoute({
     return <Navigate to={redirectTo} replace />;
   }
 
-  if (requireValidated && tipo === 'REFERENTE' && !orgValidada) {
-    return <Navigate to="/pending-validation" replace />;
+  if (requireValidated && tipo === 'REFERENTE') {
+    // Wait for the mia query to settle (orgChecked=false means AuthInitializer hasn't
+    // finished yet). Redirecting early would bounce a valid referente to /pending-validation.
+    if (!orgChecked) {
+      return <div aria-busy="true" aria-label="Loading..." />;
+    }
+    if (!orgValidada) {
+      return <Navigate to="/pending-validation" replace />;
+    }
   }
 
   return <Outlet />;

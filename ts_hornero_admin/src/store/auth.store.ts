@@ -22,6 +22,18 @@ export interface AuthState {
    */
   status: 'loading' | 'authenticated' | 'unauthenticated';
   orgValidada: boolean;
+  /**
+   * True once GET /organizaciones/mia has settled (success or error) for the current
+   * session. Guards the REFERENTE+requireValidated branch so we don't redirect prematurely
+   * during the window between status='authenticated' and the mia query resolving.
+   */
+  orgChecked: boolean;
+
+  /**
+   * Sets orgValidada AND marks orgChecked=true. Called by AuthInitializer once
+   * GET /organizaciones/mia settles (with true/false on success, false on error).
+   */
+  setOrgValidada(validada: boolean): void;
 
   /**
    * Synchronous boot step: checks session_hint cookie (JS-readable, httpOnly:false).
@@ -53,6 +65,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
   status: 'unauthenticated',
   orgValidada: false,
+  orgChecked: false,
+
+  setOrgValidada(validada: boolean) {
+    set({ orgValidada: validada, orgChecked: true });
+  },
 
   hydrate() {
     if (hasCookie('session_hint')) {
@@ -83,7 +100,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     try {
       await api.post('/auth/logout');
     } finally {
-      set({ user: null, status: 'unauthenticated', orgValidada: false });
+      set({ user: null, status: 'unauthenticated', orgValidada: false, orgChecked: false });
       window.location.href = '/login';
     }
   },
