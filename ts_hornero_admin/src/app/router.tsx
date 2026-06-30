@@ -33,10 +33,12 @@ export const router = createBrowserRouter([
     ),
   },
 
-  // ── Pending validation (accessible while awaiting org approval) ────────
+  // ── Pending validation (REFERENTE only; both validated and pending) ────
   {
-    path: '/pending-validation',
-    element: <PendingValidationPage />,
+    element: <ProtectedRoute allow={['REFERENTE']} />,
+    children: [
+      { path: '/pending-validation', element: <PendingValidationPage /> },
+    ],
   },
 
   // ── ADMIN-only routes ─────────────────────────────────────────────────
