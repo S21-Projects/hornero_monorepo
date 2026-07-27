@@ -1,6 +1,8 @@
-import { Outlet, NavLink } from 'react-router-dom';
+import { Outlet, NavLink, useLocation } from 'react-router-dom';
+import { ErrorBoundary } from 'react-error-boundary';
 import { useAuthStore } from '../store/auth.store';
 import type { UserRole } from '../store/auth.store';
+import { AppErrorFallback } from './AppErrorFallback';
 
 interface NavItem {
   to: string;
@@ -27,6 +29,7 @@ const NAV_LINKS: Record<UserRole, NavItem[]> = {
 export default function AppShell() {
   const tipo = useAuthStore((s) => s.user?.tipo ?? null);
   const logout = useAuthStore((s) => s.logout);
+  const location = useLocation();
 
   const links: NavItem[] = tipo !== null ? NAV_LINKS[tipo] : [];
 
@@ -80,7 +83,9 @@ export default function AppShell() {
       </nav>
 
       <main style={{ flex: 1, padding: 24, overflowY: 'auto' }}>
-        <Outlet />
+        <ErrorBoundary FallbackComponent={AppErrorFallback} resetKeys={[location.pathname]}>
+          <Outlet />
+        </ErrorBoundary>
       </main>
     </div>
   );

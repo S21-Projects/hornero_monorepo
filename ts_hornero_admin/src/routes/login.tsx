@@ -7,6 +7,7 @@ import { Input } from '../components/ui/Input';
 import { Button } from '../components/ui/Button';
 import { Text } from '../components/ui/Typography';
 import { useAuthStore } from '../store/auth.store';
+import { roleHome } from '../lib/roleHome';
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -23,11 +24,12 @@ export default function LoginPage() {
     setSubmitting(true);
     try {
       await login(email, password);
-      // Read fresh store state after login completes (role comes from /auth/me, not cookies)
+      // Read fresh store state after login completes (role comes from /auth/me, not cookies).
+      // roleHome() is the single source of truth for a role's landing route — an unvalidated
+      // REFERENTE sent to /dashboard is then correctly bounced to /pending-validation by the
+      // route guard (ProtectedRoute requireValidated), not decided here.
       const tipo = useAuthStore.getState().user?.tipo;
-      if (tipo === 'ADMINISTRADOR') navigate('/panel');
-      else if (tipo === 'DONANTE') navigate('/mis-donaciones');
-      else navigate('/dashboard');
+      if (tipo) navigate(roleHome(tipo), { replace: true });
     } catch {
       setError('Credenciales inválidas');
     } finally {

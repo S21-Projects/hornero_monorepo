@@ -17,78 +17,95 @@ export default function PanelPage() {
   const [confirmingId, setConfirmingId] = useState<number | null>(null);
 
   return (
-    <AsyncSection
-      isLoading={isLoading}
-      isError={isError}
-      isEmpty={data?.length === 0}
-      emptyLabel="No hay organizaciones pendientes"
-    >
-      {data?.map((org) => {
-        const isPendiente = org.estado === 'PENDIENTE';
-        const isValidarError = validar.isError && validar.variables === org.id;
-        const isRechazarError = rechazar.isError && rechazar.variables === org.id;
+    <div>
+      <Text variant="h1">Organizaciones pendientes</Text>
 
-        return (
-          <Card key={org.id}>
-            <div>
-              <h2>{org.nombre}</h2>
-              <Badge {...(TIPO_ORGANIZACION[org.tipo] ?? { tone: 'neutral', label: org.tipo })} />
-              <Badge {...(ESTADO_ORGANIZACION[org.estado] ?? { tone: 'neutral', label: org.estado })} />
-            </div>
+      <AsyncSection
+        isLoading={isLoading}
+        isError={isError}
+        isEmpty={data?.length === 0}
+        emptyLabel="No hay organizaciones pendientes"
+      >
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
+            gap: 16,
+            marginTop: 20,
+          }}
+        >
+          {data?.map((org) => {
+            const isPendiente = org.estado === 'PENDIENTE';
+            const isValidarError = validar.isError && validar.variables === org.id;
+            const isRechazarError = rechazar.isError && rechazar.variables === org.id;
 
-            <div>
-              <p>{org.referenteNombre} — {org.referenteEmail}</p>
-              <p>{org.descripcion}</p>
-              <p>{org.direccion}</p>
-            </div>
+            return (
+              <Card key={org.id} style={{ padding: 20 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                  <Text variant="title" as="h2">{org.nombre}</Text>
+                  <Badge {...(TIPO_ORGANIZACION[org.tipo] ?? { tone: 'neutral', label: org.tipo })} />
+                  <Badge {...(ESTADO_ORGANIZACION[org.estado] ?? { tone: 'neutral', label: org.estado })} />
+                </div>
 
-            {isPendiente && (
-              <div>
-                <Button
-                  variant="ok"
-                  loading={validar.isPending && validar.variables === org.id}
-                  onClick={() => { validar.mutate(org.id); }}
-                >
-                  Validar
-                </Button>
+                <div style={{ marginTop: 12 }}>
+                  <Text variant="body-sm" color="ink-3">{org.referenteNombre} — {org.referenteEmail}</Text>
+                  <Text variant="body-sm" style={{ marginTop: 4 }}>{org.descripcion}</Text>
+                  <Text variant="body-sm" color="ink-3" style={{ marginTop: 4 }}>{org.direccion}</Text>
+                </div>
 
-                {confirmingId === org.id ? (
-                  <div>
-                    <Text color="urgent">Esta acción no se puede deshacer.</Text>
+                {isPendiente && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 16, flexWrap: 'wrap' }}>
                     <Button
-                      variant="danger"
-                      loading={rechazar.isPending && rechazar.variables === org.id}
-                      onClick={() => {
-                        // Close the dialog only after the rejection succeeds, so the
-                        // pending state is visible and a 409 keeps the dialog + error.
-                        rechazar.mutate(org.id, {
-                          onSuccess: () => { setConfirmingId(null); },
-                        });
-                      }}
+                      variant="ok"
+                      loading={validar.isPending && validar.variables === org.id}
+                      onClick={() => { validar.mutate(org.id); }}
                     >
-                      Confirmar
+                      Validar
                     </Button>
-                    <Button variant="ghost" onClick={() => { setConfirmingId(null); }}>
-                      Cancelar
-                    </Button>
-                  </div>
-                ) : (
-                  <Button variant="danger" onClick={() => { setConfirmingId(org.id); }}>
-                    Rechazar
-                  </Button>
-                )}
-              </div>
-            )}
 
-            {isValidarError && (
-              <Text color="urgent">{mapOrganizacionError(validar.error)}</Text>
-            )}
-            {isRechazarError && (
-              <Text color="urgent">{mapOrganizacionError(rechazar.error)}</Text>
-            )}
-          </Card>
-        );
-      })}
-    </AsyncSection>
+                    {confirmingId === org.id ? (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                        <Text color="urgent" variant="body-sm">Esta acción no se puede deshacer.</Text>
+                        <Button
+                          variant="danger"
+                          loading={rechazar.isPending && rechazar.variables === org.id}
+                          onClick={() => {
+                            // Close the dialog only after the rejection succeeds, so the
+                            // pending state is visible and a 409 keeps the dialog + error.
+                            rechazar.mutate(org.id, {
+                              onSuccess: () => { setConfirmingId(null); },
+                            });
+                          }}
+                        >
+                          Confirmar
+                        </Button>
+                        <Button variant="ghost" onClick={() => { setConfirmingId(null); }}>
+                          Cancelar
+                        </Button>
+                      </div>
+                    ) : (
+                      <Button variant="danger" onClick={() => { setConfirmingId(org.id); }}>
+                        Rechazar
+                      </Button>
+                    )}
+                  </div>
+                )}
+
+                {isValidarError && (
+                  <Text color="urgent" variant="micro" style={{ display: 'block', marginTop: 8 }}>
+                    {mapOrganizacionError(validar.error)}
+                  </Text>
+                )}
+                {isRechazarError && (
+                  <Text color="urgent" variant="micro" style={{ display: 'block', marginTop: 8 }}>
+                    {mapOrganizacionError(rechazar.error)}
+                  </Text>
+                )}
+              </Card>
+            );
+          })}
+        </div>
+      </AsyncSection>
+    </div>
   );
 }
