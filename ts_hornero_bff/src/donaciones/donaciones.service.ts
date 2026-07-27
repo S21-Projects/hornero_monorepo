@@ -51,6 +51,14 @@ export class DonacionesService {
     return data;
   }
 
+  async findDeMiOrganizacion(accessToken: string) {
+    const { data } = await this.httpService.axiosRef.get(
+      `${this.msUrl}/api/donaciones/mi-organizacion`,
+      { headers: this.authHeaders(accessToken) },
+    );
+    return data;
+  }
+
   async actualizarEstado(id: number, dto: UpdateEstadoDonacionDto, accessToken: string) {
     const { data } = await this.httpService.axiosRef.patch(
       `${this.msUrl}/api/donaciones/${id}/estado`,
