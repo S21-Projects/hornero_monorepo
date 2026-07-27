@@ -6,7 +6,9 @@ services:
       POSTGRES_USER: "${DB_USERNAME:-hornero}"
       POSTGRES_PASSWORD: "${DB_PASSWORD:-hornero}"
     ports:
-      - "${DB_PORT:-5432}:5432"
+      # Loopback only: the DB is reachable from the host (psql, pg_dump, local
+      # dev processes) but never from the LAN.
+      - "127.0.0.1:${DB_PORT:-5432}:5432"
     volumes:
       - hornero_pgdata:/var/lib/postgresql/data
     networks:
@@ -22,7 +24,9 @@ services:
     build:
       context: ./jar_hornero_ms
     ports:
-      - "${SERVER_PORT:-8081}:8081"
+      # Loopback only: the MS is the real authorization authority and must never
+      # be reachable directly — all traffic goes through the BFF.
+      - "127.0.0.1:${SERVER_PORT:-8081}:8081"
     environment:
       SERVER_PORT: "${SERVER_PORT:-8081}"
       JWT_SECRET: "${JWT_SECRET}"
@@ -49,7 +53,9 @@ services:
     build:
       context: ./ts_hornero_bff
     ports:
-      - "${BFF_PORT:-3001}:3001"
+      # Loopback only, like astro/admin: cloudflared runs on the host and reaches
+      # it at 127.0.0.1, so the LAN never needs direct access.
+      - "127.0.0.1:${BFF_PORT:-3001}:3001"
     environment:
       PORT: "3001"
       JAVA_MS_URL: "http://ms:8081"
