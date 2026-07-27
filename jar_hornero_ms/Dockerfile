@@ -12,7 +12,7 @@ COPY src ./src
 RUN mvn package -DskipTests -q
 
 # ---- Runtime stage ----
-FROM eclipse-temurin:17-jre-alpine AS runtime
+FROM eclipse-temurin:17-jre-jammy AS runtime
 
 WORKDIR /app
 
