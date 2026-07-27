@@ -45,22 +45,19 @@ function mockDonaciones(data: Donacion[] | undefined, overrides = {}) {
 
 const organizacion: Organizacion = {
   id: 7,
-  nombre: 'Comedor Sol',
   slug: 'comedor-sol',
-  tipo: 'COMEDOR',
-  descripcion: '',
-  direccion: '',
-  estado: 'APROBADA',
-} as Organizacion;
+  nombre: 'Comedor Sol',
+  validada: true,
+};
 
 const necesidades: Necesidad[] = [
-  { id: 1, titulo: 'Arroz', estado: 'ABIERTA' } as Necesidad,
-  { id: 2, titulo: 'Fideos', estado: 'CUMPLIDA' } as Necesidad,
+  { id: 1, descripcion: 'Arroz', prioridad: 'URGENTE', estado: 'ABIERTA', organizacionId: 7 },
+  { id: 2, descripcion: 'Fideos', prioridad: 'NORMAL', estado: 'CUMPLIDA', organizacionId: 7 },
 ];
 
 const donaciones: Donacion[] = [
-  { id: 1, estado: 'OFRECIDA' } as Donacion,
-  { id: 2, estado: 'ENTREGADA' } as Donacion,
+  { id: 1, estado: 'OFRECIDA', necesidadId: 1, organizacionId: 7 },
+  { id: 2, estado: 'ENTREGADA', necesidadId: 2, organizacionId: 7 },
 ];
 
 describe('DashboardPage', () => {

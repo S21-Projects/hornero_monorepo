@@ -4,15 +4,15 @@ Runbook para levantar el stack migrado (Astro + Admin SPA + BFF + MS + Postgres)
 en una Raspberry Pi, expuesto a internet mediante un Cloudflare Tunnel.
 
 - **Rama:** `feat/spa-scaffold-auth` (contiene los tres fronts + BFF + MS).
-- **Dominio:** `elhornero.com`.
+- **Dominio:** `elhornero.org`.
 
 ## Topología
 
 | Hostname público            | Servicio (contenedor) | Tipo                          |
 | --------------------------- | --------------------- | ----------------------------- |
-| `elhornero.com`             | `astro:4321`          | Astro SSR (público)           |
-| `panel.elhornero.com`       | `admin:80`            | Admin SPA (nginx estático)    |
-| `api.elhornero.com`         | `bff:3001`            | BFF (API)                     |
+| `elhornero.org`             | `astro:4321`          | Astro SSR (público)           |
+| `panel.elhornero.org`       | `admin:80`            | Admin SPA (nginx estático)    |
+| `api.elhornero.org`         | `bff:3001`            | BFF (API)                     |
 | —                           | `ms:8081`             | interno, sin exponer          |
 | —                           | `postgres:5432`       | interno, sin exponer          |
 
@@ -38,9 +38,17 @@ En el túnel → pestaña **Public Hostname**, creá tres entradas:
 
 | Subdomain | Domain          | Service (Type: HTTP) |
 | --------- | --------------- | -------------------- |
-| *(vacío)* | `elhornero.com` | `astro:4321`         |
-| `panel`   | `elhornero.com` | `admin:80`           |
-| `api`     | `elhornero.com` | `bff:3001`           |
+| *(vacío)* | `elhornero.org` | `localhost:4321`     |
+| `panel`   | `elhornero.org` | `localhost:5173`     |
+| `api`     | `elhornero.org` | `localhost:3001`     |
+
+> **El túnel corre como servicio systemd en el host, NO dentro del compose.**
+> Por eso los services apuntan a `localhost:<puerto>` y no a nombres de
+> contenedor: `cloudflared` no está en la red del compose, pero sí alcanza los
+> puertos que el compose publica en el host. En consecuencia, **no se usa el
+> profile `tunnel`** — levantar ese contenedor con el mismo token agregaría un
+> segundo connector al túnel y Cloudflare repartiría el tráfico entre ambos,
+> con fallos intermitentes en el que no puede resolver los nombres de servicio.
 
 Cloudflare crea los registros DNS (CNAME al túnel) automáticamente. No hace falta
 abrir ningún puerto en el router: el túnel sale desde la Pi hacia Cloudflare.
@@ -54,13 +62,13 @@ Creá `/…/hornero_app/.env` (NO se commitea) con:
 JWT_SECRET=<secreto-largo-aleatorio>
 
 # Fronts — se HORNEAN en build. Rebuild obligatorio si cambian.
-PUBLIC_BFF_URL=https://api.elhornero.com
-PUBLIC_SPA_URL=https://panel.elhornero.com
-VITE_BFF_URL=https://api.elhornero.com
+PUBLIC_BFF_URL=https://api.elhornero.org
+PUBLIC_SPA_URL=https://panel.elhornero.org
+VITE_BFF_URL=https://api.elhornero.org
 
 # CORS del BFF — los dos orígenes de navegador que le pegan.
-CORS_ORIGINS=https://elhornero.com,https://panel.elhornero.com
-FRONTEND_URL=https://elhornero.com
+CORS_ORIGINS=https://elhornero.org,https://panel.elhornero.org
+FRONTEND_URL=https://elhornero.org
 
 # Base de datos
 DB_NAME=hornero
@@ -87,16 +95,26 @@ TUNNEL_TOKEN=<token-de-A.1>
 
 ### A.4 — Levantar (en la Pi)
 
-El túnel vive en el profile `tunnel` (no arranca sin él):
+El túnel ya corre aparte como servicio systemd, así que el stack se levanta sin
+profiles:
 
 ```bash
 git checkout feat/spa-scaffold-auth
 # crear el .env de A.3
-docker compose --profile tunnel up --build -d
-docker compose logs -f cloudflared   # verificar "Registered tunnel connection"
+docker compose up --build -d
+docker compose ps                          # los 5 servicios healthy
+systemctl status cloudflared --no-pager    # el túnel, aparte del compose
 ```
 
-> Con MinIO self-host en vez de R2: `docker compose --profile tunnel --profile minio up --build -d`.
+Verificar que los tres puertos publicados responden antes de probar por el dominio:
+
+```bash
+curl -s -o /dev/null -w '%{http_code}\n' localhost:4321        # astro
+curl -s -o /dev/null -w '%{http_code}\n' localhost:5173        # admin
+curl -s -o /dev/null -w '%{http_code}\n' localhost:3001/api/docs  # bff
+```
+
+> Con MinIO self-host en vez de R2: `docker compose --profile minio up --build -d`.
 
 ### A.4-bis — Probar en local ANTES de subir (mismo stack, sin túnel)
 
@@ -117,9 +135,9 @@ docker compose up --build          # = make up
 
 ### A.5 — Verificar
 
-1. `https://elhornero.com` carga el front público (Astro).
-2. `https://api.elhornero.com/api/docs` responde (Swagger del BFF).
-3. `https://panel.elhornero.com` carga el login del panel.
+1. `https://elhornero.org` carga el front público (Astro).
+2. `https://api.elhornero.org/api/docs` responde (Swagger del BFF).
+3. `https://panel.elhornero.org` carga el login del panel.
 4. Login con un usuario admin → el panel resuelve el rol (`GET /auth/me`).
 5. Una organización con imagen muestra el banner (valida el bucket).
 
@@ -181,7 +199,7 @@ funciona, y R2 no cobra egress. Y al tener solo microSD, mantiene las imágenes
 perder fotos.
 
 > **R2 queda privado — sin CORS ni acceso público.** El navegador nunca le pega a
-> R2: pide `api.elhornero.com/images?key=…`, el BFF lee de R2 server-side (con
+> R2: pide `api.elhornero.org/images?key=…`, el BFF lee de R2 server-side (con
 > credenciales) y streamea. No necesitás bucket público ni dominio custom en R2.
 
 1. Cloudflare **R2 → Create bucket** (ej. `hornero-images`). Dejalo **privado**.
@@ -267,7 +285,7 @@ rclone sync railway:<bucket-viejo> minio:hornero-images --progress
 ## Troubleshooting
 
 - **Login falla con error de CORS** → revisá que `CORS_ORIGINS` liste EXACTO
-  `https://elhornero.com` y `https://panel.elhornero.com` (sin `/` final, con
+  `https://elhornero.org` y `https://panel.elhornero.org` (sin `/` final, con
   `https`). Reiniciá el BFF tras cambiarlo.
 - **Cookies no persisten** → con `NODE_ENV=production` el BFF setea
   `sameSite=none; secure`. Requiere HTTPS, que lo da Cloudflare en el borde. Si
