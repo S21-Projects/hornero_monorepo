@@ -58,7 +58,10 @@ services:
       # the BFF with credentials: the Astro front and the Admin SPA.
       CORS_ORIGINS: "${CORS_ORIGINS:-http://localhost:4321,http://localhost:5173}"
       JWT_SECRET: "${JWT_SECRET}"
-      NODE_ENV: "production"
+      # Drives the auth cookie flags: production => sameSite=none + secure, which
+      # requires HTTPS. Set NODE_ENV=development in .env to test over plain
+      # http://localhost, where secure cookies would be dropped by the browser.
+      NODE_ENV: "${NODE_ENV:-production}"
       # S3-compatible storage. Defaults to the local MinIO service; override the
       # AWS_* vars in .env to point at an external bucket (R2, AWS, etc.) instead.
       AWS_ENDPOINT_URL: "${AWS_ENDPOINT_URL:-http://minio:9000}"
