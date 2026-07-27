@@ -53,27 +53,112 @@ services:
     environment:
       PORT: "3001"
       JAVA_MS_URL: "http://ms:8081"
-      FRONTEND_URL: "${FRONTEND_URL:-http://localhost:3000}"
+      FRONTEND_URL: "${FRONTEND_URL:-http://localhost:4321}"
+      # Explicit CORS allowlist (prod). Must list every browser origin that calls
+      # the BFF with credentials: the Astro front and the Admin SPA.
+      CORS_ORIGINS: "${CORS_ORIGINS:-http://localhost:4321,http://localhost:5173}"
       JWT_SECRET: "${JWT_SECRET}"
       NODE_ENV: "production"
+      # S3-compatible storage. Defaults to the local MinIO service; override the
+      # AWS_* vars in .env to point at an external bucket (R2, AWS, etc.) instead.
+      AWS_ENDPOINT_URL: "${AWS_ENDPOINT_URL:-http://minio:9000}"
+      AWS_S3_BUCKET_NAME: "${AWS_S3_BUCKET_NAME:-hornero-images}"
+      AWS_ACCESS_KEY_ID: "${AWS_ACCESS_KEY_ID:-${MINIO_ROOT_USER:-hornero}}"
+      AWS_SECRET_ACCESS_KEY: "${AWS_SECRET_ACCESS_KEY:-${MINIO_ROOT_PASSWORD:-hornero-minio-secret}}"
+      AWS_DEFAULT_REGION: "${AWS_DEFAULT_REGION:-auto}"
     depends_on:
       ms:
         condition: service_healthy
     networks:
       - hornero
 
-  app:
+  astro:
     build:
-      context: ./ts_hornero_app
+      context: ./ts_hornero_astro
       args:
-        NEXT_PUBLIC_BFF_URL: "${NEXT_PUBLIC_BFF_URL:-http://localhost:3001}"
+        # Baked into the client bundle — must be the public, browser-reachable URLs.
+        PUBLIC_BFF_URL: "${PUBLIC_BFF_URL:-http://localhost:3001}"
+        PUBLIC_SPA_URL: "${PUBLIC_SPA_URL:-http://localhost:5173}"
+    # Bound to loopback: reachable for local testing; on the Pi it stays off the
+    # LAN — cloudflared reaches it over the compose network by service name.
     ports:
-      - "${APP_PORT:-3000}:3000"
+      - "127.0.0.1:4321:4321"
     environment:
       NODE_ENV: "production"
-      # Server-side internal URL — reached over the compose network, not localhost.
+      HOST: "0.0.0.0"
+      PORT: "4321"
+      # Server-only internal URL for SSR fetches — reached over the compose network.
       BFF_BASE_URL: "http://bff:3001"
     depends_on:
+      - bff
+    networks:
+      - hornero
+
+  admin:
+    build:
+      context: ./ts_hornero_admin
+      args:
+        # Baked into the SPA bundle — the browser calls the BFF directly.
+        VITE_BFF_URL: "${VITE_BFF_URL:-http://localhost:3001}"
+    # Loopback only (see astro). Host port 5173 matches PUBLIC_SPA_URL's default
+    # so Astro's links to the panel resolve during local testing.
+    ports:
+      - "127.0.0.1:5173:80"
+    depends_on:
+      - bff
+    networks:
+      - hornero
+
+  # Self-hosted S3-compatible storage for org images. OPT-IN: only runs with
+  # `docker compose --profile minio up`. Default deploy uses an external bucket
+  # (R2) via the AWS_* vars in .env. Stays internal — the BFF reads/writes it
+  # over the compose network; the browser never touches it.
+  minio:
+    image: minio/minio:latest
+    profiles: ["minio"]
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: "${MINIO_ROOT_USER:-hornero}"
+      MINIO_ROOT_PASSWORD: "${MINIO_ROOT_PASSWORD:-hornero-minio-secret}"
+    volumes:
+      # Bind this to a USB SSD/HDD path on the Pi, NOT the microSD, for durability.
+      - hornero_minio:/data
+    networks:
+      - hornero
+
+  # One-shot init: waits for MinIO, then creates the bucket if missing.
+  createbuckets:
+    image: minio/mc:latest
+    profiles: ["minio"]
+    depends_on:
+      - minio
+    environment:
+      MINIO_ROOT_USER: "${MINIO_ROOT_USER:-hornero}"
+      MINIO_ROOT_PASSWORD: "${MINIO_ROOT_PASSWORD:-hornero-minio-secret}"
+      AWS_S3_BUCKET_NAME: "${AWS_S3_BUCKET_NAME:-hornero-images}"
+    entrypoint: >
+      /bin/sh -c "
+      until mc alias set local http://minio:9000 $$MINIO_ROOT_USER $$MINIO_ROOT_PASSWORD; do
+        echo 'waiting for minio...'; sleep 2;
+      done;
+      mc mb --ignore-existing local/$$AWS_S3_BUCKET_NAME;
+      echo 'bucket ready: '$$AWS_S3_BUCKET_NAME;
+      "
+    networks:
+      - hornero
+
+  # OPT-IN: only runs with `docker compose --profile tunnel up`. Kept out of the
+  # default stack so local `docker compose up` (no token) doesn't crash-loop.
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    profiles: ["tunnel"]
+    command: tunnel --no-autoupdate run
+    environment:
+      TUNNEL_TOKEN: "${TUNNEL_TOKEN}"
+    restart: unless-stopped
+    depends_on:
+      - astro
+      - admin
       - bff
     networks:
       - hornero
@@ -84,3 +169,4 @@ networks:
 
 volumes:
   hornero_pgdata:
+  hornero_minio:
