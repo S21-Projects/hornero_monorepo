@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { createMemoryRouter, RouterProvider } from 'react-router-dom';
-import { ProtectedRoute } from './ProtectedRoute';
+import { ProtectedRoute, PublicOnlyRoute } from './ProtectedRoute';
 import { useAuthStore } from '../store/auth.store';
 import type { AuthUser } from '../store/auth.store';
 
@@ -26,6 +26,9 @@ function buildRouter(
       },
       { path: '/login', element: <div>Login Page</div> },
       { path: '/', element: <div>Home Page</div> },
+      { path: '/admin', element: <div>Admin Home</div> },
+      { path: '/dashboard', element: <div>Referente Dashboard</div> },
+      { path: '/explorar', element: <div>Explorar Page</div> },
       { path: '/pending-validation', element: <div>Pending Validation Page</div> },
     ],
     { initialEntries: [initialPath] },
@@ -75,15 +78,36 @@ describe('ProtectedRoute guard matrix', () => {
     expect(screen.queryByText('Login Page')).not.toBeInTheDocument();
   });
 
-  it('DONANTE on an ADMIN-only route is redirected (role not in allow list)', () => {
+  it('DONANTE on an ADMIN-only route is redirected to its role home (not /)', () => {
     useAuthStore.setState({ status: 'authenticated', user: DONANTE_USER });
 
     const router = buildRouter({ allow: ['ADMINISTRADOR'] });
     render(<RouterProvider router={router} />);
 
     expect(screen.queryByText('Protected Content')).not.toBeInTheDocument();
-    // Default redirectTo='/' → Home Page
-    expect(screen.getByText('Home Page')).toBeInTheDocument();
+    // Default redirectTo falls back to roleHome(tipo) → /explorar for DONANTE.
+    // This breaks the old cyclic trap where redirectTo='/' bounced back through
+    // PublicOnlyRoute/RootRedirect.
+    expect(screen.getByText('Explorar Page')).toBeInTheDocument();
+    expect(screen.queryByText('Home Page')).not.toBeInTheDocument();
+  });
+
+  it('ADMIN on a DONANTE-only route is redirected to its role home (explicit redirectTo still wins)', () => {
+    useAuthStore.setState({ status: 'authenticated', user: ADMIN_USER });
+
+    const router = buildRouter({ allow: ['DONANTE'] });
+    render(<RouterProvider router={router} />);
+
+    expect(screen.getByText('Admin Home')).toBeInTheDocument();
+  });
+
+  it('honors an explicit redirectTo over roleHome when provided', () => {
+    useAuthStore.setState({ status: 'authenticated', user: DONANTE_USER });
+
+    const router = buildRouter({ allow: ['ADMINISTRADOR'], redirectTo: '/pending-validation' });
+    render(<RouterProvider router={router} />);
+
+    expect(screen.getByText('Pending Validation Page')).toBeInTheDocument();
   });
 
   it('unvalidated REFERENTE on a requireValidated route is redirected to /pending-validation', () => {
@@ -153,5 +177,77 @@ describe('ProtectedRoute guard matrix', () => {
       expect(screen.getByText('Needs Content')).toBeInTheDocument();
       expect(screen.queryByText('Pending Validation Page')).not.toBeInTheDocument();
     });
+  });
+});
+
+// Helper: build a MemoryRouter placing PublicOnlyRoute at '/login', plus
+// role-home targets to verify the redirect breaks the old admin-only '/'
+// / DONANTE-only '/dashboard' hardcoded split.
+function buildPublicOnlyRouter(initialPath = '/login') {
+  return createMemoryRouter(
+    [
+      {
+        path: '/login',
+        element: (
+          <PublicOnlyRoute>
+            <div>Login Page</div>
+          </PublicOnlyRoute>
+        ),
+      },
+      { path: '/admin', element: <div>Admin Home</div> },
+      { path: '/dashboard', element: <div>Referente Dashboard</div> },
+      { path: '/explorar', element: <div>Explorar Page</div> },
+    ],
+    { initialEntries: [initialPath] },
+  );
+}
+
+describe('PublicOnlyRoute guard', () => {
+  beforeEach(() => {
+    useAuthStore.setState({
+      user: null,
+      status: 'unauthenticated',
+      orgValidada: false,
+      orgChecked: false,
+    });
+  });
+
+  it('renders a loader while status is loading', () => {
+    useAuthStore.setState({ status: 'loading' });
+
+    render(<RouterProvider router={buildPublicOnlyRouter()} />);
+
+    expect(screen.queryByText('Login Page')).not.toBeInTheDocument();
+    expect(document.querySelector('[aria-busy="true"]')).not.toBeNull();
+  });
+
+  it('renders the public page for an unauthenticated visitor', () => {
+    render(<RouterProvider router={buildPublicOnlyRouter()} />);
+
+    expect(screen.getByText('Login Page')).toBeInTheDocument();
+  });
+
+  it('redirects an authenticated ADMINISTRADOR to /admin (via roleHome)', () => {
+    useAuthStore.setState({ status: 'authenticated', user: ADMIN_USER });
+
+    render(<RouterProvider router={buildPublicOnlyRouter()} />);
+
+    expect(screen.getByText('Admin Home')).toBeInTheDocument();
+  });
+
+  it('redirects an authenticated REFERENTE to /dashboard (via roleHome)', () => {
+    useAuthStore.setState({ status: 'authenticated', user: REFERENTE_USER });
+
+    render(<RouterProvider router={buildPublicOnlyRouter()} />);
+
+    expect(screen.getByText('Referente Dashboard')).toBeInTheDocument();
+  });
+
+  it('redirects an authenticated DONANTE to /explorar (via roleHome, not the old hardcoded /dashboard)', () => {
+    useAuthStore.setState({ status: 'authenticated', user: DONANTE_USER });
+
+    render(<RouterProvider router={buildPublicOnlyRouter()} />);
+
+    expect(screen.getByText('Explorar Page')).toBeInTheDocument();
   });
 });

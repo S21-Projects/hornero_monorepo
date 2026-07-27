@@ -1,5 +1,7 @@
-import { createBrowserRouter, Navigate } from 'react-router-dom';
+import { createBrowserRouter } from 'react-router-dom';
 import { ProtectedRoute, PublicOnlyRoute } from './ProtectedRoute';
+import { RootRedirect } from './RootRedirect';
+import { NotFound } from './NotFound';
 import AppShell from './AppShell';
 import LoginPage from '../routes/login';
 import RegisterPage from '../routes/register';
@@ -56,9 +58,10 @@ export const router = createBrowserRouter([
     ],
   },
 
-  // ── REFERENTE dashboard (REFERENTE only; both validated and pending) ──
+  // ── REFERENTE dashboard (REFERENTE only; VALIDATED org required) ───────
+  // requireValidated: unvalidated REFERENTE → /pending-validation
   {
-    element: <ProtectedRoute allow={['REFERENTE']} />,
+    element: <ProtectedRoute allow={['REFERENTE']} requireValidated />,
     children: [
       {
         element: <AppShell />,
@@ -112,5 +115,12 @@ export const router = createBrowserRouter([
   },
 
   // ── Root redirect ─────────────────────────────────────────────────────
-  { path: '/', element: <Navigate to="/login" replace /> },
+  // Role-aware: was `<Navigate to="/login" replace />` unconditionally, which
+  // was the hub of the ADMIN/DONANTE redirect loop (see roleHome.ts, RootRedirect.tsx).
+  { path: '/', element: <RootRedirect /> },
+
+  // ── Catch-all 404 ────────────────────────────────────────────────────
+  // Must stay last — react-router matches routes in declaration order and
+  // '*' would otherwise shadow every route above it.
+  { path: '*', element: <NotFound /> },
 ]);

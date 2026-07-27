@@ -2,6 +2,7 @@ import { Navigate, Outlet } from 'react-router-dom';
 import type { ReactNode } from 'react';
 import { useAuthStore } from '../store/auth.store';
 import type { UserRole } from '../store/auth.store';
+import { roleHome } from '../lib/roleHome';
 
 interface ProtectedRouteProps {
   /** Roles permitted to access this route group. */
@@ -14,7 +15,8 @@ interface ProtectedRouteProps {
   requireValidated?: boolean;
   /**
    * Where to redirect when the authenticated user's role is not in `allow`.
-   * Defaults to '/'.
+   * Defaults to the denied user's own roleHome() — NOT '/', which used to be
+   * a redirect-only node and could cycle back through PublicOnlyRoute/RootRedirect.
    */
   redirectTo?: string;
 }
@@ -32,7 +34,7 @@ interface ProtectedRouteProps {
 export function ProtectedRoute({
   allow,
   requireValidated = false,
-  redirectTo = '/',
+  redirectTo,
 }: ProtectedRouteProps) {
   const status = useAuthStore((s) => s.status);
   const user = useAuthStore((s) => s.user);
@@ -51,7 +53,7 @@ export function ProtectedRoute({
   // status === 'authenticated'
   const tipo = user?.tipo;
   if (!tipo || !allow.includes(tipo)) {
-    return <Navigate to={redirectTo} replace />;
+    return <Navigate to={redirectTo ?? roleHome(tipo as UserRole)} replace />;
   }
 
   if (requireValidated && tipo === 'REFERENTE') {
@@ -86,9 +88,8 @@ export function PublicOnlyRoute({ children }: PublicOnlyRouteProps) {
     return <div aria-busy="true" aria-label="Loading..." />;
   }
 
-  if (status === 'authenticated') {
-    if (user?.tipo === 'ADMINISTRADOR') return <Navigate to="/" replace />;
-    return <Navigate to="/dashboard" replace />;
+  if (status === 'authenticated' && user) {
+    return <Navigate to={roleHome(user.tipo)} replace />;
   }
 
   return <>{children}</>;
