@@ -1,8 +1,7 @@
-.PHONY: up down dev dev-ms dev-bff dev-astro dev-admin dev-app \
+.PHONY: up down dev dev-ms dev-bff dev-astro dev-admin \
         postgres-up postgres-down \
         dev-ms-local dev-bff-local dev-astro-local dev-admin-local \
-        dev-ms-desa  dev-bff-desa  dev-astro-desa  dev-admin-desa \
-        start-local start-desa \
+        start-local \
         seed
 
 # Default env file — override with: make <target> ENV_FILE=.env.local
@@ -15,7 +14,8 @@ ADMIN_PORT ?= 5173
 
 export
 
-## Docker targets
+## Docker — local only. The Pi runs docker compose directly, not through this
+## Makefile (see docs/deploy-rpi-cloudflare.md).
 
 up:
 	docker compose up --build
@@ -47,10 +47,6 @@ dev-astro:
 dev-admin:
 	cd ts_hornero_admin && npm install && npm run dev -- --port $(ADMIN_PORT)
 
-# Legacy Next.js front — superseded by dev-astro + dev-admin
-dev-app:
-	cd ts_hornero_app && npm install && PORT=$(APP_PORT) npm run dev
-
 ## Local dev — local Postgres via Docker (.env.local)
 
 dev-ms-local:
@@ -66,21 +62,7 @@ dev-astro-local:
 dev-admin-local:
 	$(MAKE) dev-admin ENV_FILE=.env.local
 
-## Local dev — Railway DB (.env.desa)
-
-dev-ms-desa:
-	$(MAKE) dev-ms ENV_FILE=.env.desa
-
-dev-bff-desa:
-	$(MAKE) dev-bff ENV_FILE=.env.desa
-
-dev-astro-desa:
-	$(MAKE) dev-astro ENV_FILE=.env.desa
-
-dev-admin-desa:
-	$(MAKE) dev-admin ENV_FILE=.env.desa
-
-## One-command start (all services via concurrently)
+## One-command start (all services via concurrently, local Postgres via Docker)
 
 start-local: postgres-up
 	npx --yes concurrently \
@@ -91,15 +73,6 @@ start-local: postgres-up
 	  "$(MAKE) dev-astro ENV_FILE=.env.local" \
 	  "$(MAKE) dev-admin ENV_FILE=.env.local"
 
-start-desa:
-	npx --yes concurrently \
-	  --names "MS,BFF,ASTRO,ADMIN" \
-	  --prefix-colors "blue,yellow,green,magenta" \
-	  "$(MAKE) dev-ms ENV_FILE=.env.desa" \
-	  "$(MAKE) dev-bff ENV_FILE=.env.desa" \
-	  "$(MAKE) dev-astro ENV_FILE=.env.desa" \
-	  "$(MAKE) dev-admin ENV_FILE=.env.desa"
-
 ## Seed
 seed:
-	cd ts_hornero_app && npx tsx ../scripts/seed.ts
+	cd ts_hornero_bff && npx tsx ../scripts/seed.ts
