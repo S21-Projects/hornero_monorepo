@@ -1,0 +1,230 @@
+---
+export const prerender = true;
+import Layout from '../layouts/Layout.astro';
+import { Avatar } from '../components/ui/avatar.tsx';
+import { DESARROLLADORES, DISENO } from '../data/equipo';
+import { PROCESO } from '../data/proceso';
+
+// TODO(tesis): completar con los datos reales de la tesis.
+const FICHA = [
+  { termino: 'Carrera', definicion: 'TODO — carrera' },
+  { termino: 'Institución', definicion: 'TODO — universidad / facultad' },
+  { termino: 'Año', definicion: 'TODO — año de presentación' },
+  { termino: 'Cátedra', definicion: 'TODO — materia o cátedra' },
+];
+
+// If an image is missing, swap it for the labelled placeholder that follows it.
+// Same defensive pattern used for the logo in `Nav.astro`.
+const ON_IMG_ERROR =
+  "this.style.display='none';this.nextElementSibling.style.display='flex'";
+---
+
+<Layout
+  title="Quiénes somos — El Hornero"
+  description="La historia, el proceso de diseño y el equipo detrás de El Hornero, plataforma de donaciones para comedores de Córdoba."
+>
+  <!-- ── Hero ─────────────────────────────────────────────────────────── -->
+  <section class="mx-auto max-w-[900px] px-4 py-12 sm:px-6 sm:py-16">
+    <span
+      class="inline-block rounded-[var(--r-pill)] bg-[var(--straw)] px-3.5 py-1.5 text-[12.5px] font-extrabold text-[var(--earth)]"
+    >
+      Proyecto de tesis
+    </span>
+    <h1 class="mt-5 text-3xl font-black tracking-tight sm:text-[42px] sm:leading-[1.1]">
+      Quiénes somos
+    </h1>
+    <p class="mt-5 max-w-[62ch] text-[17px] leading-relaxed text-[var(--ink-2)]">
+      El Hornero nació de la voluntad de conectar comedores y organizaciones comunitarias
+      de Córdoba con personas que quieren ayudar. Nuestra misión es simple: hacer que donar
+      sea fácil y transparente.
+    </p>
+  </section>
+
+  <!-- ── La idea ──────────────────────────────────────────────────────── -->
+  <section class="border-t border-[var(--line-soft)] bg-[var(--card-2)]">
+    <div class="mx-auto max-w-[900px] px-4 py-14 sm:px-6 sm:py-16">
+      <h2 class="text-2xl font-black sm:text-3xl">Cómo nació</h2>
+
+      <div class="mt-6 flex flex-col gap-4">
+        <!-- TODO(tesis): reemplazar los tres párrafos por el relato real. -->
+        <p class="max-w-[68ch] text-[15px] leading-relaxed text-[var(--ink-2)]">
+          Este proyecto empezó como una tesis de grado. La consigna era resolver un problema
+          real con software, y lo que apareció una y otra vez en las conversaciones fue lo
+          mismo: los comedores de Córdoba reciben ayuda, pero de forma desordenada, por
+          mensajes sueltos y sin ningún registro de qué hace falta ni de qué llegó.
+        </p>
+        <p class="max-w-[68ch] text-[15px] leading-relaxed text-[var(--ink-2)]">
+          La primera idea fue mucho más chica que esto: un listado de comedores con un
+          teléfono al lado. Cuando empezamos a hablar con las organizaciones entendimos que
+          el problema no era encontrarlas, sino saber qué necesitaban en ese momento. Ahí
+          apareció el concepto de <strong class="font-extrabold text-[var(--earth)]">necesidad</strong>,
+          que terminó siendo el centro de toda la plataforma.
+        </p>
+        <p class="max-w-[68ch] text-[15px] leading-relaxed text-[var(--ink-2)]">
+          El resto fue iterar: bocetos en papel, prototipos, una primera versión que se caía,
+          y muchas decisiones técnicas discutidas entre cuatro personas que estaban aprendiendo
+          mientras construían.
+        </p>
+      </div>
+
+      <dl
+        class="mt-10 grid grid-cols-1 gap-px overflow-hidden rounded-[var(--r-card)] border border-[var(--line)] bg-[var(--line)] sm:grid-cols-2"
+      >
+        {FICHA.map(({ termino, definicion }) => (
+          <div class="bg-[var(--card)] px-5 py-4">
+            <dt class="text-[12px] font-extrabold tracking-wide text-[var(--ink-3)] uppercase">
+              {termino}
+            </dt>
+            <dd class="mt-1 ml-0 text-[15px] font-bold text-[var(--earth)]">{definicion}</dd>
+          </div>
+        ))}
+      </dl>
+    </div>
+  </section>
+
+  <!-- ── Proceso ──────────────────────────────────────────────────────── -->
+  <section class="border-t border-[var(--line-soft)]">
+    <div class="mx-auto max-w-[1100px] px-4 py-14 sm:px-6 sm:py-16">
+      <h2 class="text-2xl font-black sm:text-3xl">Del papel a la pantalla</h2>
+      <p class="mt-3 max-w-[60ch] text-[15px] leading-relaxed text-[var(--ink-2)]">
+        Las etapas por las que pasó el proyecto antes de ser lo que ves hoy.
+      </p>
+
+      <ol class="mt-9 grid list-none grid-cols-1 gap-7 p-0 sm:grid-cols-2">
+        {PROCESO.map(({ etapa, titulo, descripcion, src, alt }) => (
+          <li class="flex flex-col">
+            <div
+              class="relative overflow-hidden rounded-[var(--r-card)] border border-[var(--line)] bg-[var(--card-2)] shadow-[var(--sh-1)]"
+              style="aspect-ratio: 4 / 3"
+            >
+              <img
+                src={src}
+                alt={alt}
+                loading="lazy"
+                decoding="async"
+                class="h-full w-full object-cover"
+                onerror={ON_IMG_ERROR}
+              />
+              <!-- Placeholder shown until the real file exists in `public/proceso/`. -->
+              <div
+                style="display:none"
+                class="absolute inset-0 flex-col items-center justify-center gap-2 bg-[var(--card-2)] p-5 text-center"
+              >
+                <span class="text-2xl" aria-hidden="true">🖼️</span>
+                <span class="text-[13px] font-extrabold text-[var(--ink-2)]">Falta la imagen</span>
+                <code class="text-[11.5px] font-bold break-all text-[var(--ink-3)]">
+                  public{src}
+                </code>
+              </div>
+              <span
+                class="absolute top-3 left-3 rounded-[var(--r-pill)] bg-[var(--earth)] px-2.5 py-1 text-[11px] font-extrabold text-white"
+              >
+                {etapa}
+              </span>
+            </div>
+            <h3 class="mt-4 text-[17px] font-extrabold">{titulo}</h3>
+            <p class="mt-1.5 max-w-[52ch] text-[14px] leading-relaxed text-[var(--ink-2)]">
+              {descripcion}
+            </p>
+          </li>
+        ))}
+      </ol>
+    </div>
+  </section>
+
+  <!-- ── Equipo ───────────────────────────────────────────────────────── -->
+  <section class="border-t border-[var(--line-soft)] bg-[var(--card-2)]">
+    <div class="mx-auto max-w-[1200px] px-4 py-14 sm:px-6 sm:py-16">
+      <h2 class="text-2xl font-black sm:text-3xl">El equipo</h2>
+      <p class="mt-3 max-w-[60ch] text-[15px] leading-relaxed text-[var(--ink-2)]">
+        Cuatro estudiantes de desarrollo que creemos en el impacto real de la tecnología
+        aplicada a la comunidad.
+      </p>
+
+      <ul class="mt-9 grid list-none grid-cols-1 gap-5 p-0 sm:grid-cols-2 lg:grid-cols-4">
+        {DESARROLLADORES.map(({ nombre, rol, bio, foto, github, linkedin }, i) => (
+          <li
+            class="flex flex-col items-center rounded-[var(--r-card)] bg-[var(--card)] p-6 text-center shadow-[var(--sh-1)]"
+          >
+            {foto ? (
+              <img
+                src={foto}
+                alt={`Foto de ${nombre}`}
+                loading="lazy"
+                decoding="async"
+                width="88"
+                height="88"
+                class="h-[88px] w-[88px] rounded-full object-cover"
+              />
+            ) : (
+              <Avatar name={nombre} size={88} tintIndex={i} />
+            )}
+
+            <h3 class="mt-4 text-[17px] font-extrabold">{nombre}</h3>
+            <p class="mt-1 text-[13px] font-extrabold text-[var(--horn)]">{rol}</p>
+            <p class="mt-3 text-[14px] leading-relaxed text-[var(--ink-2)]">{bio}</p>
+
+            {(github || linkedin) && (
+              <div class="mt-4 flex items-center gap-4">
+                {github && (
+                  <a
+                    href={github}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="text-[13px] font-extrabold text-[var(--sky-tx)] no-underline hover:underline"
+                  >
+                    GitHub
+                  </a>
+                )}
+                {linkedin && (
+                  <a
+                    href={linkedin}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="text-[13px] font-extrabold text-[var(--sky-tx)] no-underline hover:underline"
+                  >
+                    LinkedIn
+                  </a>
+                )}
+              </div>
+            )}
+          </li>
+        ))}
+      </ul>
+    </div>
+  </section>
+
+  <!-- ── Diseño ───────────────────────────────────────────────────────── -->
+  <section class="border-t border-[var(--line-soft)]">
+    <div class="mx-auto max-w-[900px] px-4 py-14 sm:px-6 sm:py-16">
+      <div
+        class="flex flex-col items-start gap-5 rounded-[var(--r-card)] bg-[var(--straw)] p-7 sm:flex-row sm:items-center sm:gap-7 sm:p-9"
+      >
+        {DISENO.foto ? (
+          <img
+            src={DISENO.foto}
+            alt={`Foto de ${DISENO.nombre}`}
+            loading="lazy"
+            decoding="async"
+            width="80"
+            height="80"
+            class="h-20 w-20 flex-shrink-0 rounded-full object-cover"
+          />
+        ) : (
+          <Avatar name={DISENO.nombre} size={80} tintIndex={5} />
+        )}
+
+        <div>
+          <p class="text-[12px] font-extrabold tracking-wide text-[var(--earth)] uppercase">
+            Con el diseño de
+          </p>
+          <h2 class="mt-1.5 text-xl font-black sm:text-2xl">{DISENO.nombre}</h2>
+          <p class="mt-1 text-[13px] font-extrabold text-[var(--horn)]">{DISENO.rol}</p>
+          <p class="mt-3 max-w-[60ch] text-[14px] leading-relaxed text-[var(--ink-2)]">
+            {DISENO.bio}
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+</Layout>

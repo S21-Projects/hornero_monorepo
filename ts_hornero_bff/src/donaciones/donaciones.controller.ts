@@ -54,6 +54,13 @@ export class DonacionesController {
     return this.donacionesService.findMias(this.getToken(req));
   }
 
+  @Roles(Role.REFERENTE)
+  @Get('mi-organizacion')
+  @ApiOperation({ summary: 'Get donations received by the authenticated referente\'s organization (REFERENTE only)' })
+  findDeMiOrganizacion(@Req() req: Request) {
+    return this.donacionesService.findDeMiOrganizacion(this.getToken(req));
+  }
+
   @Public()
   @Get(':id')
   @ApiOperation({ summary: 'Get a donation by ID (public)' })
