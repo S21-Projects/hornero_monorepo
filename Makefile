@@ -1,77 +1,20 @@
-.PHONY: up down dev dev-ms dev-bff dev-astro dev-admin \
-        postgres-up postgres-down \
-        dev-ms-local dev-bff-local dev-astro-local dev-admin-local \
-        start-local \
-        seed
+.PHONY: up down up-local seed
 
-# Default env file — override with: make <target> ENV_FILE=.env.local
-ENV_FILE ?= .env
--include $(ENV_FILE)
+## Docker only — two modes, both full-stack including Postgres.
+## The Pi runs docker compose directly, not through this Makefile
+## (see docs/deploy-rpi-cloudflare.md).
 
-# Dev-server ports (override in the env file)
-ASTRO_PORT ?= 4321
-ADMIN_PORT ?= 5173
-
-export
-
-## Docker — local only. The Pi runs docker compose directly, not through this
-## Makefile (see docs/deploy-rpi-cloudflare.md).
-
+# Prod-parity: uses root .env as-is (whatever bucket/DB it points to).
 up:
 	docker compose up --build
 
 down:
-	docker compose down
+	docker compose --profile minio down
 
-## Local Postgres only (for make dev-*-local)
-
-postgres-up:
-	docker compose up postgres -d
-
-postgres-down:
-	docker compose stop postgres
-
-## Local dev — generic (run each in its own terminal)
-
-dev: dev-ms dev-bff dev-astro dev-admin
-
-dev-ms:
-	cd jar_hornero_ms && mvn spring-boot:run
-
-dev-bff:
-	cd ts_hornero_bff && npm install && npm run start:dev
-
-dev-astro:
-	cd ts_hornero_astro && npm install && npm run dev -- --port $(ASTRO_PORT)
-
-dev-admin:
-	cd ts_hornero_admin && npm install && npm run dev -- --port $(ADMIN_PORT)
-
-## Local dev — local Postgres via Docker (.env.local)
-
-dev-ms-local:
-	$(MAKE) postgres-up
-	$(MAKE) dev-ms ENV_FILE=.env.local
-
-dev-bff-local:
-	$(MAKE) dev-bff ENV_FILE=.env.local
-
-dev-astro-local:
-	$(MAKE) dev-astro ENV_FILE=.env.local
-
-dev-admin-local:
-	$(MAKE) dev-admin ENV_FILE=.env.local
-
-## One-command start (all services via concurrently, local Postgres via Docker)
-
-start-local: postgres-up
-	npx --yes concurrently \
-	  --names "MS,BFF,ASTRO,ADMIN" \
-	  --prefix-colors "blue,yellow,green,magenta" \
-	  "$(MAKE) dev-ms ENV_FILE=.env.local" \
-	  "$(MAKE) dev-bff ENV_FILE=.env.local" \
-	  "$(MAKE) dev-astro ENV_FILE=.env.local" \
-	  "$(MAKE) dev-admin ENV_FILE=.env.local"
+# Fast local: local Postgres + local MinIO bucket instead of R2, dummy
+# secrets. Never touches the real production bucket.
+up-local:
+	docker compose --env-file .env.local --profile minio up --build
 
 ## Seed
 seed:
