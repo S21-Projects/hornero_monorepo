@@ -7,6 +7,12 @@ interface ImportMetaEnv {
   readonly PUBLIC_BFF_URL: string;
   /** Client-exposed: ts_hornero_app (SPA) origin for login/donate CTA deep-links. */
   readonly PUBLIC_SPA_URL: string;
+  /** Server-only: mail provider key. Absent => contact form only logs to stdout. */
+  readonly RESEND_API_KEY?: string;
+  /** Server-only: verified sender, e.g. `web@elhornero.org`. Never the visitor's address. */
+  readonly CONTACTO_FROM_EMAIL?: string;
+  /** Server-only: inbox that receives contact submissions. */
+  readonly CONTACTO_TO_EMAIL?: string;
 }
 
 interface ImportMeta {
