@@ -98,6 +98,16 @@ services:
       PORT: "4321"
       # Server-only internal URL for SSR fetches — reached over the compose network.
       BFF_BASE_URL: "http://bff:3001"
+      # Turnstile secret for the contact form's siteverify call. Runtime-only:
+      # the site key is public and baked into the bundle, this one never is.
+      # When empty the bot gate is inert — the form itself keeps working.
+      TURNSTILE_SECRET: "${TURNSTILE_SECRET:-}"
+      # Contact form mail delivery (Resend). Runtime-only, same reasoning.
+      # If any of the three is missing, submissions are written to the log
+      # instead of being sent.
+      RESEND_API_KEY: "${RESEND_API_KEY:-}"
+      CONTACTO_FROM_EMAIL: "${CONTACTO_FROM_EMAIL:-}"
+      CONTACTO_TO_EMAIL: "${CONTACTO_TO_EMAIL:-}"
     depends_on:
       - bff
     networks:
