@@ -59,12 +59,13 @@ Create them with `make seed` against a running stack.
 
 ## Local Dev
 
-Two modes available, both loading env vars from a root `.env*` file via the Makefile.
+Docker only — no local Java or Node required. Two modes, both full-stack
+including Postgres:
 
-### Mode 1 — Docker Compose (full stack)
+### `make up` — prod-parity
 
-Everything runs in containers, including Postgres. No local Java or Node required.
-This is the same stack that runs in production — closest to what you'll deploy.
+Uses the root `.env` as-is. Whatever bucket/DB it points to is what you get —
+use this to test against the real thing before deploying.
 
 **Prerequisites:** Docker 24+ with Compose V2
 
@@ -89,28 +90,15 @@ make down        # stop
 docker compose down -v   # stop + delete DB volume
 ```
 
-Object storage defaults to a local MinIO container if you don't set `AWS_*` —
-opt in with `docker compose --profile minio up --build`.
+### `make up-local` — fast local, no real bucket
 
-### Mode 2 — Local processes + local Postgres
-
-Services run natively on your machine with hot-reload; only Postgres runs in Docker.
-Faster iteration than rebuilding containers on every change.
-
-**Prerequisites:** Java 17, Maven, Node 20, Docker
+Same stack, but with dummy secrets and a local MinIO container instead of R2 —
+never touches the real production bucket. Good for quick mockups/UI work.
 
 ```bash
 cp .env.local.example .env.local
-# Edit .env.local: set a real JWT_SECRET
 
-# One command (color-coded output, Ctrl+C kills all)
-make start-local
-
-# Or four terminals if you prefer
-make dev-ms-local     # terminal 1 — also starts Postgres
-make dev-bff-local    # terminal 2
-make dev-astro-local  # terminal 3
-make dev-admin-local  # terminal 4
+make up-local
 ```
 
 ---
@@ -136,7 +124,8 @@ reference with comments: `.env.example`.
 | `DB_NAME`, `DB_USERNAME`, `DB_PASSWORD` | MS, Postgres | Database credentials (`DB_HOST`/`DB_PORT` are hardcoded to `postgres:5432` in Docker) |
 | `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD` | Docker `postgres` service | Must match `DB_NAME`/`DB_USERNAME`/`DB_PASSWORD` |
 
-Env file templates: `.env.example`, `.env.local.example`
+Env file templates: `.env.example` (prod-parity), `.env.local.example` (fast
+local with MinIO, dummy secrets)
 
 ---
 
