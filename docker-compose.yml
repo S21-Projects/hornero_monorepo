@@ -6,7 +6,9 @@ services:
       POSTGRES_USER: "${DB_USERNAME:-hornero}"
       POSTGRES_PASSWORD: "${DB_PASSWORD:-hornero}"
     ports:
-      - "${DB_PORT:-5432}:5432"
+      # Loopback only: the DB is reachable from the host (psql, pg_dump, local
+      # dev processes) but never from the LAN.
+      - "127.0.0.1:${DB_PORT:-5432}:5432"
     volumes:
       - hornero_pgdata:/var/lib/postgresql/data
     networks:
@@ -22,7 +24,9 @@ services:
     build:
       context: ./jar_hornero_ms
     ports:
-      - "${SERVER_PORT:-8081}:8081"
+      # Loopback only: the MS is the real authorization authority and must never
+      # be reachable directly — all traffic goes through the BFF.
+      - "127.0.0.1:${SERVER_PORT:-8081}:8081"
     environment:
       SERVER_PORT: "${SERVER_PORT:-8081}"
       JWT_SECRET: "${JWT_SECRET}"
@@ -49,31 +53,131 @@ services:
     build:
       context: ./ts_hornero_bff
     ports:
-      - "${BFF_PORT:-3001}:3001"
+      # Loopback only, like astro/admin: cloudflared runs on the host and reaches
+      # it at 127.0.0.1, so the LAN never needs direct access.
+      - "127.0.0.1:${BFF_PORT:-3001}:3001"
     environment:
       PORT: "3001"
       JAVA_MS_URL: "http://ms:8081"
-      FRONTEND_URL: "${FRONTEND_URL:-http://localhost:3000}"
+      FRONTEND_URL: "${FRONTEND_URL:-http://localhost:4321}"
+      # Explicit CORS allowlist (prod). Must list every browser origin that calls
+      # the BFF with credentials: the Astro front and the Admin SPA.
+      CORS_ORIGINS: "${CORS_ORIGINS:-http://localhost:4321,http://localhost:5173}"
       JWT_SECRET: "${JWT_SECRET}"
-      NODE_ENV: "production"
+      # Drives the auth cookie flags: production => sameSite=none + secure, which
+      # requires HTTPS. Set NODE_ENV=development in .env to test over plain
+      # http://localhost, where secure cookies would be dropped by the browser.
+      NODE_ENV: "${NODE_ENV:-production}"
+      # S3-compatible storage. Defaults to the local MinIO service; override the
+      # AWS_* vars in .env to point at an external bucket (R2, AWS, etc.) instead.
+      AWS_ENDPOINT_URL: "${AWS_ENDPOINT_URL:-http://minio:9000}"
+      AWS_S3_BUCKET_NAME: "${AWS_S3_BUCKET_NAME:-hornero-images}"
+      AWS_ACCESS_KEY_ID: "${AWS_ACCESS_KEY_ID:-${MINIO_ROOT_USER:-hornero}}"
+      AWS_SECRET_ACCESS_KEY: "${AWS_SECRET_ACCESS_KEY:-${MINIO_ROOT_PASSWORD:-hornero-minio-secret}}"
+      AWS_DEFAULT_REGION: "${AWS_DEFAULT_REGION:-auto}"
     depends_on:
       ms:
         condition: service_healthy
     networks:
       - hornero
 
-  app:
+  astro:
     build:
-      context: ./ts_hornero_app
+      context: ./ts_hornero_astro
       args:
-        NEXT_PUBLIC_BFF_URL: "${NEXT_PUBLIC_BFF_URL:-http://localhost:3001}"
+        # Baked into the client bundle — must be the public, browser-reachable URLs.
+        PUBLIC_BFF_URL: "${PUBLIC_BFF_URL:-http://localhost:3001}"
+        PUBLIC_SPA_URL: "${PUBLIC_SPA_URL:-http://localhost:5173}"
+    # Bound to loopback: reachable for local testing; on the Pi it stays off the
+    # LAN — cloudflared reaches it over the compose network by service name.
     ports:
-      - "${APP_PORT:-3000}:3000"
+      - "127.0.0.1:4321:4321"
     environment:
       NODE_ENV: "production"
-      # Server-side internal URL — reached over the compose network, not localhost.
+      HOST: "0.0.0.0"
+      PORT: "4321"
+      # Server-only internal URL for SSR fetches — reached over the compose network.
       BFF_BASE_URL: "http://bff:3001"
+      # Turnstile secret for the contact form's siteverify call. Runtime-only:
+      # the site key is public and baked into the bundle, this one never is.
+      # When empty the bot gate is inert — the form itself keeps working.
+      TURNSTILE_SECRET: "${TURNSTILE_SECRET:-}"
+      # Contact form mail delivery (Resend). Runtime-only, same reasoning.
+      # If any of the three is missing, submissions are written to the log
+      # instead of being sent.
+      RESEND_API_KEY: "${RESEND_API_KEY:-}"
+      CONTACTO_FROM_EMAIL: "${CONTACTO_FROM_EMAIL:-}"
+      CONTACTO_TO_EMAIL: "${CONTACTO_TO_EMAIL:-}"
     depends_on:
+      - bff
+    networks:
+      - hornero
+
+  admin:
+    build:
+      context: ./ts_hornero_admin
+      args:
+        # Baked into the SPA bundle — the browser calls the BFF directly.
+        VITE_BFF_URL: "${VITE_BFF_URL:-http://localhost:3001}"
+    # Loopback only (see astro). Host port 5173 matches PUBLIC_SPA_URL's default
+    # so Astro's links to the panel resolve during local testing.
+    ports:
+      - "127.0.0.1:5173:80"
+    depends_on:
+      - bff
+    networks:
+      - hornero
+
+  # Self-hosted S3-compatible storage for org images. OPT-IN: only runs with
+  # `docker compose --profile minio up`. Default deploy uses an external bucket
+  # (R2) via the AWS_* vars in .env. Stays internal — the BFF reads/writes it
+  # over the compose network; the browser never touches it.
+  minio:
+    image: minio/minio:latest
+    profiles: ["minio"]
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: "${MINIO_ROOT_USER:-hornero}"
+      MINIO_ROOT_PASSWORD: "${MINIO_ROOT_PASSWORD:-hornero-minio-secret}"
+    volumes:
+      # Bind this to a USB SSD/HDD path on the Pi, NOT the microSD, for durability.
+      - hornero_minio:/data
+    networks:
+      - hornero
+
+  # One-shot init: waits for MinIO, then creates the bucket if missing.
+  createbuckets:
+    image: minio/mc:latest
+    profiles: ["minio"]
+    depends_on:
+      - minio
+    environment:
+      MINIO_ROOT_USER: "${MINIO_ROOT_USER:-hornero}"
+      MINIO_ROOT_PASSWORD: "${MINIO_ROOT_PASSWORD:-hornero-minio-secret}"
+      AWS_S3_BUCKET_NAME: "${AWS_S3_BUCKET_NAME:-hornero-images}"
+    entrypoint: >
+      /bin/sh -c "
+      until mc alias set local http://minio:9000 $$MINIO_ROOT_USER $$MINIO_ROOT_PASSWORD; do
+        echo 'waiting for minio...'; sleep 2;
+      done;
+      mc mb --ignore-existing local/$$AWS_S3_BUCKET_NAME;
+      echo 'bucket ready: '$$AWS_S3_BUCKET_NAME;
+      "
+    networks:
+      - hornero
+
+  # OPT-IN: only runs with `docker compose --profile tunnel up`. Kept out of the
+  # default stack so local `docker compose up` (no token) doesn't crash-loop.
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    profiles: ["tunnel"]
+    command: tunnel --no-autoupdate run
+    environment:
+      TUNNEL_TOKEN: "${TUNNEL_TOKEN}"
+    restart: unless-stopped
+    depends_on:
+      - astro
+      - admin
       - bff
     networks:
       - hornero
@@ -84,3 +188,4 @@ networks:
 
 volumes:
   hornero_pgdata:
+  hornero_minio:

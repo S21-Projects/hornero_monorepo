@@ -1,0 +1,28 @@
+---
+import Layout from '../layouts/Layout.astro';
+import OrgList from '../components/islands/OrgList';
+import { ErrorState } from '../components/ui/error-state';
+import { publicFetchSafe } from '../lib/publicFetch';
+import type { Org } from '../lib/types';
+
+// TODO: when the MS pagination/envelope cutover lands, switch to PageResponse<T> and read .content (see src/lib/types.ts)
+const result = await publicFetchSafe<Org[]>('/organizaciones');
+---
+
+<Layout
+  title="Organizaciones — El Hornero"
+  description="Listado de comedores y organizaciones validadas de Córdoba."
+>
+  <div class="flex-1 overflow-auto px-4 py-7 sm:px-10">
+    {
+      result.ok ? (
+        <OrgList client:load orgs={result.data} />
+      ) : (
+        <ErrorState
+          title="No pudimos cargar las organizaciones"
+          message="Ocurrió un error al conectar con el servidor. Intentá de nuevo más tarde."
+        />
+      )
+    }
+  </div>
+</Layout>

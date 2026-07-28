@@ -1,85 +1,21 @@
-.PHONY: up down dev dev-ms dev-bff dev-app \
-        postgres-up postgres-down \
-        dev-ms-local dev-bff-local dev-app-local \
-        dev-ms-desa  dev-bff-desa  dev-app-desa  \
-        start-local start-desa \
-        seed
+.PHONY: up down up-local seed
 
-# Default env file — override with: make <target> ENV_FILE=.env.local
-ENV_FILE ?= .env
--include $(ENV_FILE)
-export
+## Docker only — two modes, both full-stack including Postgres.
+## The Pi runs docker compose directly, not through this Makefile
+## (see docs/deploy-rpi-cloudflare.md).
 
-## Docker targets
-
+# Prod-parity: uses root .env as-is (whatever bucket/DB it points to).
 up:
 	docker compose up --build
 
 down:
-	docker compose down
+	docker compose --profile minio down
 
-## Local Postgres only (for make dev-*-local)
-
-postgres-up:
-	docker compose up postgres -d
-
-postgres-down:
-	docker compose stop postgres
-
-## Local dev — generic (run each in its own terminal)
-
-dev: dev-ms dev-bff dev-app
-
-dev-ms:
-	cd jar_hornero_ms && mvn spring-boot:run
-
-dev-bff:
-	cd ts_hornero_bff && npm install && npm run start:dev
-
-dev-app:
-	cd ts_hornero_app && npm install && PORT=$(APP_PORT) npm run dev
-
-## Local dev — local Postgres via Docker (.env.local)
-
-dev-ms-local:
-	$(MAKE) postgres-up
-	$(MAKE) dev-ms ENV_FILE=.env.local
-
-dev-bff-local:
-	$(MAKE) dev-bff ENV_FILE=.env.local
-
-dev-app-local:
-	$(MAKE) dev-app ENV_FILE=.env.local
-
-## Local dev — Railway DB (.env.desa)
-
-dev-ms-desa:
-	$(MAKE) dev-ms ENV_FILE=.env.desa
-
-dev-bff-desa:
-	$(MAKE) dev-bff ENV_FILE=.env.desa
-
-dev-app-desa:
-	$(MAKE) dev-app ENV_FILE=.env.desa
-
-## One-command start (all services via concurrently)
-
-start-local: postgres-up
-	npx --yes concurrently \
-	  --names "MS,BFF,APP" \
-	  --prefix-colors "blue,yellow,green" \
-	  "$(MAKE) dev-ms ENV_FILE=.env.local" \
-	  "$(MAKE) dev-bff ENV_FILE=.env.local" \
-	  "$(MAKE) dev-app ENV_FILE=.env.local"
-
-start-desa:
-	npx --yes concurrently \
-	  --names "MS,BFF,APP" \
-	  --prefix-colors "blue,yellow,green" \
-	  "$(MAKE) dev-ms ENV_FILE=.env.desa" \
-	  "$(MAKE) dev-bff ENV_FILE=.env.desa" \
-	  "$(MAKE) dev-app ENV_FILE=.env.desa"
+# Fast local: local Postgres + local MinIO bucket instead of R2, dummy
+# secrets. Never touches the real production bucket.
+up-local:
+	docker compose --env-file .env.local --profile minio up --build
 
 ## Seed
 seed:
-	cd ts_hornero_app && npx tsx ../scripts/seed.ts
+	cd ts_hornero_bff && npx tsx ../scripts/seed.ts

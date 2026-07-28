@@ -69,6 +69,14 @@ public class DonacionService {
                 .collect(Collectors.toList());
     }
 
+    public List<DonacionResponse> findByMiOrganizacion(Long referenteId) {
+        Organizacion org = organizacionRepository.findByReferente_Id(referenteId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.FORBIDDEN, "Access denied"));
+        return donacionRepository.findByOrganizacionId(org.getId()).stream()
+                .map(this::toResponse)
+                .collect(Collectors.toList());
+    }
+
     @Transactional
     public DonacionResponse actualizarEstado(Long id, EstadoDonacion nuevoEstado, Long referenteId) {
         Donacion d = donacionRepository.findByIdWithRelations(id)
