@@ -8,6 +8,12 @@ interface ProtectedRouteProps {
   /** Roles permitted to access this route group. */
   allow: UserRole[];
   /**
+   * When true, any role must have a verified email. Unverified → /verify-email.
+   * Checked BEFORE requireValidated — the two gates are independent and never
+   * merged (email verification is user-owned, org approval is admin-owned).
+   */
+  requireVerified?: boolean;
+  /**
    * When true, REFERENTE users must have their organization validated.
    * Unvalidated REFERENTE → /pending-validation.
    * Does not affect other roles.
@@ -33,6 +39,7 @@ interface ProtectedRouteProps {
  */
 export function ProtectedRoute({
   allow,
+  requireVerified = false,
   requireValidated = false,
   redirectTo,
 }: ProtectedRouteProps) {
@@ -54,6 +61,10 @@ export function ProtectedRoute({
   const tipo = user?.tipo;
   if (!tipo || !allow.includes(tipo)) {
     return <Navigate to={redirectTo ?? roleHome(tipo as UserRole)} replace />;
+  }
+
+  if (requireVerified && !user?.emailVerificado) {
+    return <Navigate to="/verify-email" replace />;
   }
 
   if (requireValidated && tipo === 'REFERENTE') {

@@ -28,7 +28,7 @@ const aprobada: Organizacion = {
 describe('AuthInitializer — org validation aggregation off the /mia array', () => {
   beforeEach(() => {
     useAuthStore.setState({
-      user: { userId: 1, email: 'r@test.com', nombre: 'Ref', tipo: 'REFERENTE' },
+      user: { userId: 1, email: 'r@test.com', nombre: 'Ref', tipo: 'REFERENTE', emailVerificado: true },
       status: 'authenticated',
       orgValidada: false,
       orgChecked: false,

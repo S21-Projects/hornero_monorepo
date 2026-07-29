@@ -10,6 +10,12 @@ export interface AuthUser {
   email: string;
   nombre: string;
   tipo: UserRole;
+  /**
+   * From GET /auth/me (populated by JwtStrategy.validate() → JWT claim).
+   * Can be stale for up to 15 min after verification — the MS enforcement on
+   * writes always reads the DB, this field is UI-gating only.
+   */
+  emailVerificado: boolean;
 }
 
 export interface AuthState {
