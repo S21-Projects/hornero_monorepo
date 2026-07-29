@@ -1,343 +1,109 @@
-# Implementation Plan — Email OTP Validation
+# Email Verification via OTP — Shipped Design
 
-## Goal
+> This document replaces an earlier plan (SMTP + `activo` gating + Next.js
+> frontend) that was never implemented. What actually shipped is described
+> below; it targets `ts_hornero_admin` (not the deprecated `ts_hornero_app`)
+> and uses `emailVerificado` as a new, independent field — it does **not**
+> touch `activo`, and registration keeps issuing tokens immediately
+> (soft gate, not a blocking gate).
 
-Require users to confirm ownership of their email address with a one-time
-password (OTP) before their account becomes usable. A newly registered user
-stays **inactive** until they submit a valid 6-digit code sent to their inbox.
+## Summary
 
-## Why this fits the current design
+New Usuario rows start with `emailVerificado = false`. Registration issues a
+6-digit OTP (BCrypt-hashed, 15-min TTL) via Resend and still returns tokens
+immediately — the session is never blocked on verification. `emailVerificado`
+becomes `true` once the user submits the correct code via
+`POST /api/auth/verify-otp`. Two endpoints in the MS gate content-producing
+writes (`POST /api/necesidades`, `POST /api/donaciones`) on the DB value of
+`emailVerificado`, never the JWT claim (which can be stale for up to 15
+minutes).
 
-The MS already has the activation gate we need:
+Pre-existing Usuario rows are grandfathered to `emailVerificado = true` via a
+DDL column default (`boolean not null default true`) — no blocking migration,
+compatible with `spring.jpa.hibernate.ddl-auto=update`.
 
-- `AuthService.register` (jar_hornero_ms) creates the user and issues tokens
-  immediately, passing `activo = true`.
-- `AuthService.login` already rejects any user with `activo == false` with
-  `401 "Credenciales inválidas"` (`Usuario.isActivo()` check).
-
-So the OTP feature is mostly: **register inactive → verify OTP → flip `activo` to
-true → issue tokens**. We are not inventing a new state machine; we are using the
-`activo` flag that already exists on `Usuario`.
-
-The MS is the JWT issuer and the real authority, so **all OTP logic lives in the
-MS**. The BFF stays a thin proxy (it only forwards and sets cookies), and the
-frontend gets one new screen.
-
----
-
-## Architecture overview
+## Architecture
 
 ```
-Register
-  App  POST /auth/register        →  BFF  →  MS  register(activo=false)
-                                                 ├─ generate OTP
-                                                 ├─ persist hashed OTP + expiry
-                                                 └─ send email (JavaMailSender)
-  MS returns { email, requiresVerification: true }   ← NO tokens, NO cookies yet
+register ─→ AuthService.register ─→ save Usuario(emailVerificado=false)
+                  │                        │
+                  │                        └─→ OtpService.issue(email)
+                  │                              ├ 6 digits (SecureRandom)
+                  │                              ├ BCrypt hash → codigos_verificacion
+                  │                              └ ResendClient.send(RestClient POST)
+                  └─→ tokens issued anyway (soft gate — session not blocked)
 
-Verify
-  App  POST /auth/verify-otp      →  BFF  →  MS  verifyOtp(email, code)
-                                                 ├─ validate code/expiry/attempts
-                                                 ├─ set activo=true
-                                                 └─ return AuthResponse (tokens)
-  BFF sets access_token / refresh_token / session_hint cookies   ← same as login today
+POST /verify-otp {email, codigo} ─→ throttle ─→ BCrypt.matches ─→ emailVerificado=true
+                                                 └─ fresh tokens + updated claim returned directly
 
-Resend
-  App  POST /auth/resend-otp      →  BFF  →  MS  resendOtp(email)  (rate-limited)
+POST /necesidades / POST /donaciones ─→ VerificacionService.requireVerified(userId)
+                                          └─ reads the DB, throws 403 EMAIL_NO_VERIFICADO
 ```
 
-**Key contract change:** `register` no longer returns tokens. The session is only
-established after a successful `verify-otp`. This is the single behavioral break
-the frontend must adapt to.
-
----
-
-## Part 1 — MS (jar_hornero_ms, Spring Boot)
-
-### 1.1 Add the mail dependency
-
-`pom.xml` currently has **no** mail starter. Add:
-
-```xml
-<dependency>
-    <groupId>org.springframework.boot</groupId>
-    <artifactId>spring-boot-starter-mail</artifactId>
-</dependency>
-```
-
-### 1.2 SMTP configuration
-
-`application.yml` — read credentials from env vars (never hardcode). Railway can
-inject these as service variables.
-
-```yaml
-spring:
-  mail:
-    host: ${MAIL_HOST:smtp.gmail.com}
-    port: ${MAIL_PORT:587}
-    username: ${MAIL_USERNAME:}
-    password: ${MAIL_PASSWORD:}
-    properties:
-      mail.smtp.auth: true
-      mail.smtp.starttls.enable: true
-
-app:
-  otp:
-    length: 6
-    ttl-minutes: 10
-    max-attempts: 5
-    resend-cooldown-seconds: 60
-    from-address: ${MAIL_FROM:no-reply@hornero.app}
-```
-
-> For local/dev without a real SMTP server, point `MAIL_HOST` at a
-> [MailHog](https://github.com/mailhog/MailHog) / Mailpit container, or log the
-> code to stdout behind a `dev` profile flag so you never block development on
-> SMTP.
-
-### 1.3 OTP persistence
-
-New entity `OtpCode` — keep it **separate** from `Usuario` so OTP churn doesn't
-touch the user row, and so we can store one active code per email.
+## Endpoints
 
 ```
-jar_hornero_ms/src/main/java/org/example/auth/otp/OtpCode.java
+POST /api/auth/verify-otp  {email, codigo} → 200 {accessToken, refreshToken, user}
+                                            | 400 CODIGO_INVALIDO
+                                            | 410 CODIGO_EXPIRADO
+                                            | 429 DEMASIADOS_INTENTOS
+POST /api/auth/resend-otp  {email}         → 204 | 429 ESPERA_ANTES_DE_REENVIAR
 ```
 
-| Column         | Type          | Notes                                            |
-|----------------|---------------|--------------------------------------------------|
-| `id`           | Long (PK)     |                                                  |
-| `email`        | String        | indexed; ties code to the pending account        |
-| `codeHash`     | String        | **BCrypt hash** of the code — never store plain  |
-| `expiresAt`    | Instant       | `now + ttl-minutes`                              |
-| `attempts`     | int           | increments on each wrong guess                   |
-| `lastSentAt`   | Instant       | for resend cooldown                              |
-| `consumedAt`   | Instant null  | set once verified, prevents reuse                |
+Both live under `/api/auth/**`, already `permitAll` in `SecurityConfig` — no
+security-matcher change needed, the gate is a business rule on an
+already-authenticated write, not a URL pattern. `resend-otp` always returns
+204 regardless of whether the email exists (no enumeration oracle).
 
-`ddl-auto=update` will create the table automatically (consistent with the rest
-of this project — no migration files).
+## Rate limiting
 
-`OtpCodeRepository extends JpaRepository<OtpCode, Long>` with
-`Optional<OtpCode> findByEmail(String email)`.
+In-memory (`OtpThrottle`), keyed by normalized email: max 3 resends per 15
+minutes, 60-second cooldown between requests, swept periodically via
+`@Scheduled`. Per-IP keying was rejected — every request arrives from the BFF
+container, so `getRemoteAddr()` is constant at the MS; per-IP would require
+the BFF forwarding `X-Forwarded-For` and the MS trusting it (deferred to a
+future version).
 
-> Hash the code with the **existing** `BCryptPasswordEncoder` bean. Treating the
-> OTP like a short-lived password means a DB leak doesn't expose live codes.
+## Mail transport
 
-### 1.4 Services
+`ResendClient` uses Spring's `RestClient` (already available via
+`spring-boot-starter-web`, no new dependency) to POST to the Resend API.
+`MailerConfig` falls back to a log-only mailer when `RESEND_API_KEY` /
+`OTP_FROM_EMAIL` are absent, mirroring the pattern in
+`ts_hornero_astro/src/lib/mailer.ts`. `OTP_FROM_EMAIL` is a dedicated env var,
+distinct from `CONTACTO_FROM_EMAIL` used by the contact form.
 
-**`OtpService`** — owns generation + validation:
+## Three-layer enforcement (per CLAUDE.md)
 
-- `generateAndSend(String email)`:
-  1. Generate a cryptographically secure numeric code with
-     `java.security.SecureRandom` (NOT `Math.random()`), zero-padded to
-     `otp.length`.
-  2. Upsert the `OtpCode` row for that email: store `BCrypt(code)`, set
-     `expiresAt`, reset `attempts = 0`, set `lastSentAt = now`.
-  3. Call `EmailService.sendOtp(email, code)`.
-- `verify(String email, String code)`:
-  1. Load the row; if missing/consumed/expired → `400 "Código inválido o expirado"`.
-  2. If `attempts >= max-attempts` → `429 "Demasiados intentos"`.
-  3. `passwordEncoder.matches(code, row.codeHash)` → on mismatch increment
-     `attempts`, save, throw `400`.
-  4. On match: set `consumedAt = now`, return success.
-- `assertCanResend(String email)`: enforce `resend-cooldown-seconds` against
-  `lastSentAt`, else `429`.
+| Layer | Change |
+|---|---|
+| MS `SecurityConfig` | None — new routes fall under existing `/api/auth/**` permitAll |
+| BFF `RolesGuard`/`JwtStrategy` | `JwtStrategy.validate()` forwards `emailVerificado`; two new `@Public()` proxy routes |
+| SPA `ProtectedRoute` | New `requireVerified` prop, checked **before** `requireValidated` |
 
-**`EmailService`** — wraps `JavaMailSender`:
+## SPA gate ordering
 
-```java
-public void sendOtp(String to, String code) {
-    SimpleMailMessage msg = new SimpleMailMessage();
-    msg.setFrom(fromAddress);
-    msg.setTo(to);
-    msg.setSubject("Tu código de verificación — Hornero");
-    msg.setText("Tu código es " + code + ". Vence en " + ttlMinutes + " minutos.");
-    mailSender.send(msg);
-}
-```
+`ProtectedRoute` evaluates, in order: role matrix → `requireVerified` (→
+`/verify-email`) → `requireValidated` for REFERENTE (→ `/pending-validation`).
+The two gates are independent and never merged — `emailVerificado` comes from
+`GET /auth/me`, org validation from `GET /organizaciones/mia`.
 
-> Send the email **outside** the registration transaction (or make SMTP failures
-> non-fatal to the row write) so a flaky mail server doesn't roll back a created
-> account. Log send failures; the user can always hit *resend*.
+`requireVerified` is applied to REFERENTE and ADMINISTRADOR route groups.
+It is intentionally **not** applied to Donante-only routes or the shared
+`/prefs` route: the Donante-facing "must verify" UX is out of scope pending
+explicit user sign-off (see Open Items below). The MS-side 403 gate on
+`POST /api/donaciones` is live regardless.
 
-### 1.5 Wire it into `AuthService`
+## Open items / deferred work
 
-Change `register` so it:
-
-1. Creates the user with **`activo = false`** (flip the `true` on lines 74/77).
-2. Calls `otpService.generateAndSend(email)`.
-3. Returns a lightweight DTO **without tokens**, e.g.
-   `RegisterResponse { email, requiresVerification = true }`.
-
-Add a new method:
-
-```java
-public AuthResponse verifyOtp(String email, String code) {
-    otpService.verify(email, code);                 // throws on failure
-    Usuario usuario = usuarioRepository.findByEmail(email)
-        .orElseThrow(() -> new ResponseStatusException(NOT_FOUND, "Usuario no encontrado"));
-    usuario.setActivo(true);
-    usuarioRepository.save(usuario);
-    String access = jwtService.generateAccessToken(usuario);
-    String refresh = jwtService.generateRefreshToken(usuario.getId());
-    return new AuthResponse(access, refresh, toUserResponse(usuario));
-}
-```
-
-`login` needs **no change** — it already blocks inactive users.
-
-### 1.6 Controller endpoints
-
-In `AuthController`, add (both public):
-
-```java
-@PostMapping("/verify-otp")
-public AuthResponse verifyOtp(@Valid @RequestBody VerifyOtpRequest req) {
-    return authService.verifyOtp(req.getEmail(), req.getCode());
-}
-
-@PostMapping("/resend-otp")
-public void resendOtp(@Valid @RequestBody ResendOtpRequest req) {
-    authService.resendOtp(req.getEmail());
-}
-```
-
-DTOs: `VerifyOtpRequest { @Email email, @NotBlank code }`,
-`ResendOtpRequest { @Email email }`.
-
-### 1.7 SecurityConfig
-
-`/api/auth/**` is already `permitAll` in `SecurityConfig`, so `verify-otp` and
-`resend-otp` are reachable without a token. **No change needed** — just confirm
-the wildcard still covers the new paths.
-
----
-
-## Part 2 — BFF (ts_hornero_bff, NestJS)
-
-The BFF stays a thin proxy. The only nuance is **when cookies get set**.
-
-### 2.1 `auth.service.ts`
-
-- `register`: forward to MS, but the MS no longer returns tokens, so **do not
-  call `setCookies`**. Just return `{ requiresVerification: true, email }`.
-- New `verifyOtp(dto, res)`: POST to `${javaUrl}/api/auth/verify-otp`; on success
-  the MS returns the full `AuthResponse` → call the **existing** `setCookies`
-  exactly like `login` does today, return `{ user }`.
-- New `resendOtp(dto)`: POST to `${javaUrl}/api/auth/resend-otp`, no cookies.
-
-### 2.2 `auth.controller.ts`
-
-Add two `@Public()` routes mirroring the register/login pattern:
-
-```ts
-@Public() @Post('verify-otp')
-verifyOtp(@Body() dto: VerifyOtpDto, @Res({ passthrough: true }) res: Response) {
-  return this.authService.verifyOtp(dto, res);
-}
-
-@Public() @Post('resend-otp')
-resendOtp(@Body() dto: ResendOtpDto) {
-  return this.authService.resendOtp(dto);
-}
-```
-
-DTOs under `auth/dto/`: `VerifyOtpDto { email, code }`, `ResendOtpDto { email }`,
-both `class-validator` decorated (`@IsEmail`, `@IsNotEmpty`).
-
----
-
-## Part 3 — Frontend (ts_hornero_app, Next.js 16)
-
-> Per `ts_hornero_app/AGENTS.md`: read the relevant guide in
-> `node_modules/next/dist/docs/` before writing frontend code. This is Next 16 /
-> React 19, not the version you may remember.
-
-### 3.1 API client (`src/lib/api/auth.ts`)
-
-`registerUser` currently returns `void` and implicitly logs the user in. After
-this change:
-
-- `registerUser` returns `{ requiresVerification: true; email: string }` and
-  **does not** establish a session.
-- Add `verifyOtp({ email, code })` → on success the session cookies are set by
-  the BFF; refetch `/auth/me` (or read the returned user) to populate the store.
-- Add `resendOtp({ email })`.
-
-### 3.2 UI flow
-
-`register/page.tsx`: on successful submit, instead of redirecting to the
-dashboard, navigate to a verification step carrying the email (route like
-`/register/verify?email=...` or a local step in the same page via state).
-
-New OTP screen:
-
-- 6-digit code input (one field or six boxes — your call).
-- Submit → `verifyOtp`; on success redirect to the post-login destination the
-  app uses today after register.
-- "Resend code" button, disabled during the cooldown returned by the BFF (or a
-  client-side 60s timer); surface `429` as "Esperá un momento antes de reenviar".
-- Map MS errors to friendly copy: `400` → "Código inválido o expirado",
-  `429 (attempts)` → "Demasiados intentos, pedí un código nuevo".
-
-### 3.3 `src/proxy.ts` (route guard)
-
-No new protected route is required — the verify screen is public (the user has no
-valid token yet). Just make sure the verify path isn't accidentally caught by an
-"authenticated-only" matcher.
-
----
-
-## Security checklist
-
-- [ ] Codes generated with `SecureRandom`, never `Math.random()`.
-- [ ] Codes stored **hashed** (BCrypt), never plaintext.
-- [ ] Short TTL (10 min) + single-use (`consumedAt`).
-- [ ] Per-code attempt cap (`max-attempts`) → blocks brute force of a 6-digit code.
-- [ ] Resend cooldown → blocks email-bombing and code-cycling.
-- [ ] `verify-otp` / `resend-otp` return generic messages; don't leak whether an
-      email exists (mirror the existing "Credenciales inválidas" discretion).
-- [ ] SMTP credentials only via env vars (`MAIL_USERNAME`/`MAIL_PASSWORD`).
-- [ ] Email send failures don't roll back account creation; user can resend.
-
----
-
-## Testing
-
-**MS (`mvn test`)**
-- `OtpService`: generate → verify happy path; wrong code increments attempts;
-  expired code rejected; consumed code can't be reused; attempt cap returns 429;
-  resend cooldown enforced.
-- `AuthService`: register leaves `activo=false`; `verifyOtp` flips it to true and
-  returns tokens; `login` on an unverified account still 401s.
-
-**BFF (`npm test`)**
-- `verify-otp` sets cookies on success; `register` does **not** set cookies.
-
-**Frontend**
-- Register → verify → land authenticated.
-- Resend disabled during cooldown; invalid code shows the right message.
-
----
-
-## Rollout notes
-
-- `ddl-auto=update` creates the `otp_code` table on MS startup — no manual
-  migration. Be deliberate against the shared Railway DB.
-- **Existing users** were created with `activo=true`; they are unaffected and keep
-  logging in normally. Only accounts created after this change go through OTP.
-- The seed/`DataInitializer` accounts are created active — they bypass OTP by
-  design, which is what you want for demo/admin accounts.
-- New env vars to set in each run mode (`.env*`) and on Railway:
-  `MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_FROM`.
-
----
-
-## Out of scope (possible follow-ups)
-
-- OTP for **password reset** (same `OtpCode` infra, add a `purpose` column).
-- OTP on **login** as a 2FA second factor.
-- HTML email templates (`MimeMessage` + Thymeleaf) instead of plain text.
-- Switching from SMTP to a transactional email API (Resend, SES) — only the
-  `EmailService` implementation changes.
-```
+- **Donante-facing verification UX** (blocking donation submission in the
+  SPA) is deferred. The MS already rejects `POST /api/donaciones` with 403
+  `EMAIL_NO_VERIFICADO` for unverified donantes — that enforcement is live —
+  but no SPA screen/messaging was built for it. Needs product sign-off on
+  placement/component before implementing.
+- Per-IP throttling (currently email-only keying).
+- `docker-compose.yml` env wiring for `RESEND_API_KEY`/`OTP_FROM_EMAIL`, and
+  documenting both vars in `.env.example`/`.env.local.example`, were not
+  completed in this batch (local sandbox permissions blocked touching those
+  files) — must be done by whoever merges this before deploying, or the
+  mailer silently falls back to log-only in every environment.
