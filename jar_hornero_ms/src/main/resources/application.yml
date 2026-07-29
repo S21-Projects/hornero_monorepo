@@ -1,10 +1,5 @@
 server:
   port: ${PORT:${SERVER_PORT:8081}}
-  error:
-    # Spring's DefaultErrorAttributes strips `message` unless this is set —
-    # our ResponseStatusException reason codes (EMAIL_NO_VERIFICADO,
-    # CODIGO_EXPIRADO, ...) rely on it reaching the client via that field.
-    include-message: always
 
 spring:
   datasource:
