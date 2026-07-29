@@ -1,5 +1,15 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsEnum, IsNotEmpty, IsNumber, IsOptional, IsString } from 'class-validator';
+import {
+  IsBoolean,
+  IsEnum,
+  IsNotEmpty,
+  IsNumber,
+  IsOptional,
+  IsString,
+  IsUrl,
+  MaxLength,
+  ValidateIf,
+} from 'class-validator';
 
 export const TipoOrganizacion = {
   COMEDOR: 'COMEDOR',
@@ -8,7 +18,8 @@ export const TipoOrganizacion = {
   MERENDERO: 'MERENDERO',
   OTRO: 'OTRO',
 } as const;
-export type TipoOrganizacion = typeof TipoOrganizacion[keyof typeof TipoOrganizacion];
+export type TipoOrganizacion =
+  (typeof TipoOrganizacion)[keyof typeof TipoOrganizacion];
 
 export class CrearOrganizacionDto {
   @ApiProperty({ example: 'Comedor La Esperanza' })
@@ -38,4 +49,25 @@ export class CrearOrganizacionDto {
   @ApiProperty({ example: -58.3816 })
   @IsNumber()
   longitud: number;
+
+  @ApiPropertyOptional({ example: false })
+  @IsOptional()
+  @IsBoolean()
+  aceptaDonaciones?: boolean;
+
+  // Mirrors the MS UrlSegura allowlist for fast feedback; the MS is the authority.
+  // '' is the explicit clear sentinel and must skip the @IsUrl check.
+  @ApiPropertyOptional({ example: 'https://miorganizacion.org' })
+  @IsOptional()
+  @MaxLength(500)
+  @ValidateIf((_o, v) => v !== '')
+  @IsUrl({ protocols: ['http', 'https'], require_protocol: true })
+  sitioWebUrl?: string;
+
+  @ApiPropertyOptional({ example: 'https://mpago.la/miorganizacion' })
+  @IsOptional()
+  @MaxLength(500)
+  @ValidateIf((_o, v) => v !== '')
+  @IsUrl({ protocols: ['http', 'https'], require_protocol: true })
+  donacionDirectaUrl?: string;
 }
