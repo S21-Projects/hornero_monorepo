@@ -51,15 +51,21 @@ export class DonacionesService {
     return data;
   }
 
-  async findDeMiOrganizacion(accessToken: string) {
-    const { data } = await this.httpService.axiosRef.get(
-      `${this.msUrl}/api/donaciones/mi-organizacion`,
-      { headers: this.authHeaders(accessToken) },
-    );
+  async findDeMiOrganizacion(accessToken: string, organizacionId?: string) {
+    const url = organizacionId
+      ? `${this.msUrl}/api/donaciones/mi-organizacion?organizacionId=${organizacionId}`
+      : `${this.msUrl}/api/donaciones/mi-organizacion`;
+    const { data } = await this.httpService.axiosRef.get(url, {
+      headers: this.authHeaders(accessToken),
+    });
     return data;
   }
 
-  async actualizarEstado(id: number, dto: UpdateEstadoDonacionDto, accessToken: string) {
+  async actualizarEstado(
+    id: number,
+    dto: UpdateEstadoDonacionDto,
+    accessToken: string,
+  ) {
     const { data } = await this.httpService.axiosRef.patch(
       `${this.msUrl}/api/donaciones/${id}/estado`,
       dto,

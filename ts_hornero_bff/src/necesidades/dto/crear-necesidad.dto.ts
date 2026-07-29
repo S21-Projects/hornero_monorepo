@@ -1,4 +1,11 @@
-import { IsString, IsNotEmpty, IsEnum, IsOptional, IsDateString } from 'class-validator';
+import {
+  IsString,
+  IsNotEmpty,
+  IsEnum,
+  IsOptional,
+  IsDateString,
+  IsInt,
+} from 'class-validator';
 
 export class CrearNecesidadDto {
   @IsString()
@@ -11,4 +18,7 @@ export class CrearNecesidadDto {
   @IsOptional()
   @IsDateString()
   fechaVencimiento?: string;
+
+  @IsInt()
+  organizacionId: number;
 }

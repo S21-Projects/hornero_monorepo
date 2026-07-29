@@ -36,5 +36,17 @@ describe('DonacionesService', () => {
       );
       expect(result).toEqual(data);
     });
+
+    it('forwards an optional organizacionId query param', async () => {
+      const data = [{ id: 1, organizacionId: 10, estado: 'OFRECIDA' }];
+      httpService.axiosRef.get.mockResolvedValue({ data });
+
+      await service.findDeMiOrganizacion('token-123', '10');
+
+      expect(httpService.axiosRef.get).toHaveBeenCalledWith(
+        'http://ms:8081/api/donaciones/mi-organizacion?organizacionId=10',
+        { headers: { Authorization: 'Bearer token-123' } },
+      );
+    });
   });
 });

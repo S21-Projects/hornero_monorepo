@@ -49,7 +49,11 @@ export class NecesidadesService {
     return data;
   }
 
-  async actualizar(id: number, dto: ActualizarNecesidadDto, accessToken: string) {
+  async actualizar(
+    id: number,
+    dto: ActualizarNecesidadDto,
+    accessToken: string,
+  ) {
     const { data } = await this.httpService.axiosRef.patch(
       `${this.msUrl}/api/necesidades/${id}`,
       dto,

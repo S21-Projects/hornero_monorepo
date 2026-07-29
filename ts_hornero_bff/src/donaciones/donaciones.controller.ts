@@ -34,7 +34,9 @@ export class DonacionesController {
 
   @Public()
   @Get()
-  @ApiOperation({ summary: 'List donations, optionally filtered by organization (public)' })
+  @ApiOperation({
+    summary: 'List donations, optionally filtered by organization (public)',
+  })
   getDonaciones(@Query('organizacionId') organizacionId?: string) {
     return this.donacionesService.getDonaciones(organizacionId);
   }
@@ -49,16 +51,27 @@ export class DonacionesController {
 
   @Roles(Role.DONANTE)
   @Get('mias')
-  @ApiOperation({ summary: 'Get donations of the authenticated donante (DONANTE only)' })
+  @ApiOperation({
+    summary: 'Get donations of the authenticated donante (DONANTE only)',
+  })
   findMias(@Req() req: Request) {
     return this.donacionesService.findMias(this.getToken(req));
   }
 
   @Roles(Role.REFERENTE)
   @Get('mi-organizacion')
-  @ApiOperation({ summary: 'Get donations received by the authenticated referente\'s organization (REFERENTE only)' })
-  findDeMiOrganizacion(@Req() req: Request) {
-    return this.donacionesService.findDeMiOrganizacion(this.getToken(req));
+  @ApiOperation({
+    summary:
+      "Get donations received by the authenticated referente's organization(s) (REFERENTE only)",
+  })
+  findDeMiOrganizacion(
+    @Req() req: Request,
+    @Query('organizacionId') organizacionId?: string,
+  ) {
+    return this.donacionesService.findDeMiOrganizacion(
+      this.getToken(req),
+      organizacionId,
+    );
   }
 
   @Public()
