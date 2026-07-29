@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, Link } from 'react-router-dom';
 import { useNecesidad } from '../lib/hooks/useNecesidad';
 import { useOrgNombre } from '../lib/hooks/useOrgNombre';
 import { useCrearDonacion } from '../lib/hooks/useCrearDonacion';
@@ -25,6 +25,10 @@ export default function NecesidadDetallePage() {
   const isNotFound =
     isError &&
     (error as { response?: { status?: number } })?.response?.status === 404;
+
+  const donacionErrorReason = (mutation.error as { response?: { data?: { message?: string } } })
+    ?.response?.data?.message;
+  const donacionEmailNoVerificado = donacionErrorReason === 'EMAIL_NO_VERIFICADO';
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -101,7 +105,16 @@ export default function NecesidadDetallePage() {
                     />
                   </div>
 
-                  {mutation.isError && (
+                  {mutation.isError && donacionEmailNoVerificado && (
+                    <Text variant="body-sm" color="urgent">
+                      Todavía no validaste tu cuenta.{' '}
+                      <Link to="/verify-email" style={{ color: 'inherit', textDecoration: 'underline' }}>
+                        Verificá tu email
+                      </Link>{' '}
+                      para poder ofrecer donaciones.
+                    </Text>
+                  )}
+                  {mutation.isError && !donacionEmailNoVerificado && (
                     <Text variant="body-sm" color="urgent">
                       No se pudo registrar la donación. Intentá de nuevo.
                     </Text>
