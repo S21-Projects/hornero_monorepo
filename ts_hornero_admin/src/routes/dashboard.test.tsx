@@ -1,13 +1,13 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import DashboardPage from './dashboard';
-import { useMiOrganizacion } from '../lib/hooks/useMiOrganizacion';
+import { useMisOrganizaciones } from '../lib/hooks/useMisOrganizaciones';
 import { useNecesidadesDeOrg } from '../lib/hooks/useNecesidadesDeOrg';
 import { useDonacionesDeMiOrg } from '../lib/hooks/useDonacionesDeMiOrg';
 import type { Organizacion, Necesidad, Donacion } from '../types/domain';
 
-vi.mock('../lib/hooks/useMiOrganizacion', () => ({
-  useMiOrganizacion: vi.fn(),
+vi.mock('../lib/hooks/useMisOrganizaciones', () => ({
+  useMisOrganizaciones: vi.fn(),
 }));
 vi.mock('../lib/hooks/useNecesidadesDeOrg', () => ({
   useNecesidadesDeOrg: vi.fn(),
@@ -16,13 +16,13 @@ vi.mock('../lib/hooks/useDonacionesDeMiOrg', () => ({
   useDonacionesDeMiOrg: vi.fn(),
 }));
 
-function mockOrganizacion(data: Organizacion | undefined, overrides = {}) {
-  vi.mocked(useMiOrganizacion).mockReturnValue({
+function mockOrganizacion(data: Organizacion[] | undefined, overrides = {}) {
+  vi.mocked(useMisOrganizaciones).mockReturnValue({
     data,
     isLoading: false,
     isError: false,
     ...overrides,
-  } as ReturnType<typeof useMiOrganizacion>);
+  } as ReturnType<typeof useMisOrganizaciones>);
 }
 
 function mockNecesidades(data: Necesidad[] | undefined, overrides = {}) {
@@ -48,6 +48,8 @@ const organizacion: Organizacion = {
   slug: 'comedor-sol',
   nombre: 'Comedor Sol',
   validada: true,
+  estado: 'APROBADA',
+  aceptaDonaciones: false,
 };
 
 const necesidades: Necesidad[] = [
@@ -62,7 +64,7 @@ const donaciones: Donacion[] = [
 
 describe('DashboardPage', () => {
   it('renders both chart sections when the org has necesidades and donaciones', () => {
-    mockOrganizacion(organizacion);
+    mockOrganizacion([organizacion]);
     mockNecesidades(necesidades);
     mockDonaciones(donaciones);
 
@@ -74,7 +76,7 @@ describe('DashboardPage', () => {
   });
 
   it('renders empty states when the org has no necesidades or donaciones', () => {
-    mockOrganizacion(organizacion);
+    mockOrganizacion([organizacion]);
     mockNecesidades([]);
     mockDonaciones([]);
 
@@ -84,18 +86,19 @@ describe('DashboardPage', () => {
     expect(screen.getByText('Todavía no hay donaciones recibidas.')).toBeInTheDocument();
   });
 
-  it('renders the loading state via AsyncSection while org is loading', () => {
+  it('renders the loading skeleton via AsyncSection while org is loading', () => {
     mockOrganizacion(undefined, { isLoading: true });
     mockNecesidades(undefined, { isLoading: true });
     mockDonaciones(undefined, { isLoading: true });
 
-    render(<DashboardPage />);
+    const { container } = render(<DashboardPage />);
 
-    expect(screen.getByText('Cargando…')).toBeInTheDocument();
+    expect(container.querySelectorAll('[aria-hidden="true"]').length).toBeGreaterThan(0);
+    expect(screen.queryByText('Resumen de')).not.toBeInTheDocument();
   });
 
   it('renders the error state via AsyncSection when a fetch fails', () => {
-    mockOrganizacion(organizacion);
+    mockOrganizacion([organizacion]);
     mockNecesidades(undefined, { isError: true });
     mockDonaciones(undefined, { isError: true });
 
