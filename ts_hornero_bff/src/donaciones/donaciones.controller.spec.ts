@@ -26,10 +26,30 @@ describe('DonacionesController', () => {
       const donaciones = [{ id: 1, organizacionId: 10 }];
       service.findDeMiOrganizacion.mockResolvedValue(donaciones);
 
-      const result = await controller.findDeMiOrganizacion(requestWithToken('token-123'));
+      const result = await controller.findDeMiOrganizacion(
+        requestWithToken('token-123'),
+      );
 
-      expect(service.findDeMiOrganizacion).toHaveBeenCalledWith('token-123');
+      expect(service.findDeMiOrganizacion).toHaveBeenCalledWith(
+        'token-123',
+        undefined,
+      );
       expect(result).toBe(donaciones);
+    });
+
+    it('forwards an optional organizacionId query param to the service', async () => {
+      const donaciones = [{ id: 1, organizacionId: 10 }];
+      service.findDeMiOrganizacion.mockResolvedValue(donaciones);
+
+      await controller.findDeMiOrganizacion(
+        requestWithToken('token-123'),
+        '10',
+      );
+
+      expect(service.findDeMiOrganizacion).toHaveBeenCalledWith(
+        'token-123',
+        '10',
+      );
     });
 
     it('throws UnauthorizedException when no access_token cookie is present', () => {

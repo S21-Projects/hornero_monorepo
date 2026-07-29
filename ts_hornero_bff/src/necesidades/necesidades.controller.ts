@@ -34,7 +34,9 @@ export class NecesidadesController {
 
   @Public()
   @Get()
-  @ApiOperation({ summary: 'List needs, optionally filtered by organization (public)' })
+  @ApiOperation({
+    summary: 'List needs, optionally filtered by organization (public)',
+  })
   getNecesidades(@Query('organizacionId') organizacionId?: string) {
     return this.necesidadesService.getNecesidades(organizacionId);
   }
@@ -42,7 +44,9 @@ export class NecesidadesController {
   @Roles(Role.REFERENTE)
   @Post()
   @HttpCode(201)
-  @ApiOperation({ summary: 'Create a need for the authenticated referente (REFERENTE only)' })
+  @ApiOperation({
+    summary: 'Create a need for the authenticated referente (REFERENTE only)',
+  })
   crear(@Body() dto: CrearNecesidadDto, @Req() req: Request) {
     return this.necesidadesService.crear(dto, this.getToken(req));
   }
