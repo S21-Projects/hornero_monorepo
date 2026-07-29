@@ -1,6 +1,7 @@
 package org.example.necesidad;
 
 import lombok.RequiredArgsConstructor;
+import org.example.auth.VerificacionService;
 import org.example.domain.EstadoNecesidad;
 import org.example.domain.Necesidad;
 import org.example.domain.NecesidadRepository;
@@ -24,9 +25,12 @@ public class NecesidadService {
 
     private final NecesidadRepository necesidadRepository;
     private final OrganizacionRepository organizacionRepository;
+    private final VerificacionService verificacionService;
 
     @Transactional
     public NecesidadResponse crear(CrearNecesidadRequest dto, Long referenteId) {
+        verificacionService.requireVerified(referenteId);
+
         Organizacion org = organizacionRepository.findByIdAndReferente_Id(dto.getOrganizacionId(), referenteId)
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.FORBIDDEN,

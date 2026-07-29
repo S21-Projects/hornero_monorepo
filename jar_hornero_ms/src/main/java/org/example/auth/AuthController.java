@@ -8,7 +8,9 @@ import org.example.auth.dto.AuthResponse;
 import org.example.auth.dto.LoginRequest;
 import org.example.auth.dto.RefreshRequest;
 import org.example.auth.dto.RegisterRequest;
+import org.example.auth.dto.ResendOtpRequest;
 import org.example.auth.dto.UserResponse;
+import org.example.auth.dto.VerifyOtpRequest;
 import org.example.user.Usuario;
 import org.example.user.UsuarioRepository;
 import org.springframework.http.HttpStatus;
@@ -44,6 +46,19 @@ public class AuthController {
         return authService.refresh(request.getRefreshToken());
     }
 
+    @Operation(summary = "Confirm an OTP and mark the account as email-verified")
+    @PostMapping("/verify-otp")
+    public AuthResponse verifyOtp(@Valid @RequestBody VerifyOtpRequest request) {
+        return authService.verifyOtp(request);
+    }
+
+    @Operation(summary = "Resend a fresh OTP (always 204, no enumeration oracle)")
+    @PostMapping("/resend-otp")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void resendOtp(@Valid @RequestBody ResendOtpRequest request) {
+        authService.resendOtp(request);
+    }
+
     @Operation(summary = "Get the currently authenticated user's profile")
     @GetMapping("/me")
     public UserResponse me() {
@@ -60,6 +75,6 @@ public class AuthController {
                 usuario.getClass().getAnnotation(jakarta.persistence.DiscriminatorValue.class);
         String tipo = annotation != null ? annotation.value() : usuario.getClass().getSimpleName().toUpperCase();
 
-        return new UserResponse(usuario.getId(), usuario.getNombre(), usuario.getEmail(), tipo);
+        return new UserResponse(usuario.getId(), usuario.getNombre(), usuario.getEmail(), tipo, usuario.isEmailVerificado());
     }
 }

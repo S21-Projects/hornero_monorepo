@@ -1,6 +1,7 @@
 package org.example.donacion;
 
 import lombok.RequiredArgsConstructor;
+import org.example.auth.VerificacionService;
 import org.example.domain.Donacion;
 import org.example.domain.DonacionRepository;
 import org.example.domain.EstadoDonacion;
@@ -29,6 +30,7 @@ public class DonacionService {
     private final NecesidadRepository necesidadRepository;
     private final UsuarioRepository usuarioRepository;
     private final OrganizacionRepository organizacionRepository;
+    private final VerificacionService verificacionService;
 
     public List<DonacionResponse> findAll() {
         return donacionRepository.findAllWithDonante().stream()
@@ -44,6 +46,8 @@ public class DonacionService {
 
     @Transactional
     public DonacionResponse crear(CreateDonacionRequest dto, Long donanteId) {
+        verificacionService.requireVerified(donanteId);
+
         Necesidad necesidad = necesidadRepository.findById(dto.getNecesidadId())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Necesidad not found"));
         Donante donante = (Donante) usuarioRepository.findById(donanteId)
