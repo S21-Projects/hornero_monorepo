@@ -23,4 +23,7 @@ public class CrearNecesidadRequest {
     private PrioridadNecesidad prioridad;
 
     private LocalDate fechaVencimiento;
+
+    @NotNull(message = "La organización es obligatoria")
+    private Long organizacionId;
 }

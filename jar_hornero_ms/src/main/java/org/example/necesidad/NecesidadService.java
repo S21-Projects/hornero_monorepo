@@ -27,10 +27,10 @@ public class NecesidadService {
 
     @Transactional
     public NecesidadResponse crear(CrearNecesidadRequest dto, Long referenteId) {
-        Organizacion org = organizacionRepository.findByReferente_Id(referenteId)
+        Organizacion org = organizacionRepository.findByIdAndReferente_Id(dto.getOrganizacionId(), referenteId)
                 .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.BAD_REQUEST,
-                        "No organization found for the authenticated referente"));
+                        HttpStatus.FORBIDDEN,
+                        "Access denied: not the referente of this organization"));
 
         Necesidad necesidad = new Necesidad();
         necesidad.setDescripcion(dto.getDescripcion());
@@ -83,10 +83,8 @@ public class NecesidadService {
     }
 
     private void checkOwnership(Necesidad n, Long referenteId) {
-        Organizacion org = organizacionRepository.findByReferente_Id(referenteId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.FORBIDDEN,
-                        "Access denied: not the referente of this organization"));
-        if (!n.getOrganizacion().getId().equals(org.getId())) {
+        var referente = n.getOrganizacion().getReferente();
+        if (referente == null || !referente.getId().equals(referenteId)) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN,
                     "Access denied: not the referente of this organization");
         }

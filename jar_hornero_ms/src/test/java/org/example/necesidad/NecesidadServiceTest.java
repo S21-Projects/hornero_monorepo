@@ -5,18 +5,24 @@ import org.example.domain.EstadoOrganizacion;
 import org.example.domain.Necesidad;
 import org.example.domain.NecesidadRepository;
 import org.example.domain.Organizacion;
+import org.example.domain.OrganizacionRepository;
 import org.example.domain.PrioridadNecesidad;
+import org.example.necesidad.dto.CrearNecesidadRequest;
+import org.example.user.Referente;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -25,17 +31,24 @@ class NecesidadServiceTest {
     @Mock
     private NecesidadRepository necesidadRepository;
 
+    @Mock
+    private OrganizacionRepository organizacionRepository;
+
     @InjectMocks
     private NecesidadService necesidadService;
 
     private Organizacion organizacion;
+    private Referente referente;
 
     @BeforeEach
     void setUp() {
+        referente = new Referente(1L, "Ref Test", "ref@test.com", "encoded", true);
+
         organizacion = new Organizacion();
         organizacion.setId(1L);
         organizacion.setNombre("Org Test");
         organizacion.setEstado(EstadoOrganizacion.APROBADA);
+        organizacion.setReferente(referente);
     }
 
     private Necesidad buildNecesidad(Long id) {
@@ -94,5 +107,47 @@ class NecesidadServiceTest {
 
         assertThat(result).isNotNull();
         assertThat(result).isEmpty();
+    }
+
+    // --- crear ---
+
+    @Test
+    void crear_foreignOrganizacionId_throwsForbidden() {
+        CrearNecesidadRequest dto = new CrearNecesidadRequest(
+                "Descripcion", PrioridadNecesidad.MEDIA, LocalDate.now().plusDays(10), 99L);
+
+        when(organizacionRepository.findByIdAndReferente_Id(99L, 1L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> necesidadService.crear(dto, 1L))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("403");
+    }
+
+    @Test
+    void crear_ownedOrganizacionId_succeeds() {
+        CrearNecesidadRequest dto = new CrearNecesidadRequest(
+                "Descripcion", PrioridadNecesidad.MEDIA, LocalDate.now().plusDays(10), 1L);
+
+        when(organizacionRepository.findByIdAndReferente_Id(1L, 1L)).thenReturn(Optional.of(organizacion));
+        when(necesidadRepository.save(org.mockito.ArgumentMatchers.any(Necesidad.class)))
+                .thenAnswer(inv -> inv.getArgument(0));
+
+        NecesidadResponse response = necesidadService.crear(dto, 1L);
+
+        assertThat(response.organizacionId()).isEqualTo(1L);
+    }
+
+    // --- checkOwnership via actualizar ---
+
+    @Test
+    void actualizar_organizacionWithNullReferente_throwsForbidden() {
+        organizacion.setReferente(null);
+        Necesidad n = buildNecesidad(1L);
+
+        when(necesidadRepository.findById(1L)).thenReturn(Optional.of(n));
+
+        assertThatThrownBy(() -> necesidadService.actualizar(1L, new org.example.necesidad.dto.ActualizarNecesidadRequest(), 1L))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("403");
     }
 }
