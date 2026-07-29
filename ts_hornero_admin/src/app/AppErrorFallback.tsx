@@ -1,5 +1,6 @@
 import type { FallbackProps } from 'react-error-boundary';
 import { ErrorState } from '../components/ErrorState';
+import { ErrorIcon } from '../components/ui/state-icons';
 
 /**
  * Full-page fallback for the top-level ErrorBoundary in main.tsx.
@@ -17,6 +18,7 @@ export function AppErrorFallback({ resetErrorBoundary }: FallbackProps) {
       }}
     >
       <ErrorState
+        illustration={ErrorIcon}
         title="Algo salió mal"
         message="La aplicación tuvo un error inesperado. Intentá de nuevo."
         onRetry={resetErrorBoundary}
