@@ -33,12 +33,19 @@ function linkClass(href: string) {
       aria-label="El Hornero — Inicio"
     >
       <img
+        src="/icon.svg"
+        alt="El Hornero"
+        class="block h-10 w-10 object-contain sm:hidden"
+        onerror="this.style.display='none';document.getElementById('logo-fallback').style.display='inline-flex'"
+      />
+      <img
         src="/logo_filled.svg"
         alt="El Hornero — Comedores Córdoba"
-        class="h-8 w-[150px] object-contain sm:h-9 sm:w-[180px]"
-        onerror="this.style.display='none';this.nextElementSibling.style.display='inline-flex'"
+        class="hidden h-11 w-auto object-contain sm:block"
+        onerror="this.style.display='none';document.getElementById('logo-fallback').style.display='inline-flex'"
       />
       <span
+        id="logo-fallback"
         class="hidden items-center gap-1.5 text-base font-black tracking-tight text-[var(--horn)] sm:text-lg"
         style="display:none"
       >
