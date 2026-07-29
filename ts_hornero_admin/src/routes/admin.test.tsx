@@ -41,6 +41,7 @@ const pendientes: OrganizacionAdmin[] = [
     estado: 'PENDIENTE',
     referenteNombre: 'Ana',
     referenteEmail: 'ana@example.com',
+    aceptaDonaciones: false,
   },
 ];
 

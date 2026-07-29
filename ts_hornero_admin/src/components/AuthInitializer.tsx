@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import type { ReactNode } from 'react';
 import { useAuthStore } from '../store/auth.store';
-import { useMiOrganizacion } from '../lib/hooks/useMiOrganizacion';
+import { useMisOrganizaciones } from '../lib/hooks/useMisOrganizaciones';
 
 interface AuthInitializerProps {
   children: ReactNode;
@@ -15,8 +15,10 @@ interface AuthInitializerProps {
  * 2. If status is 'loading' after hydrate, calls loadUser() → GET /auth/me
  *    to resolve the role. On success: status='authenticated'. On failure: 'unauthenticated'.
  * 3. For REFERENTE sessions, fetches GET /organizaciones/mia reactively so that
- *    orgChecked + orgValidada are set both on cold boot and after in-session login.
- *    Uses the shared queryKey ['organizaciones','mia'] — NeedsPage deduplicates.
+ *    orgChecked + orgValidada + orgCount are set both on cold boot and after
+ *    in-session login. /mia now returns a list (a referente may own up to 3
+ *    organizaciones) — orgValidada is true when ANY owned org is validated.
+ *    Uses the shared queryKey ['organizaciones','mias'] — NeedsPage deduplicates.
  */
 export function AuthInitializer({ children }: AuthInitializerProps) {
   const hydrate = useAuthStore((s) => s.hydrate);
@@ -35,17 +37,18 @@ export function AuthInitializer({ children }: AuthInitializerProps) {
 
   // Drive org-check from reactive query so it fires both on cold boot and after
   // in-session login() (status transitions from 'unauthenticated' → 'authenticated').
-  const orgQuery = useMiOrganizacion({
+  const orgQuery = useMisOrganizaciones({
     enabled: status === 'authenticated' && tipo === 'REFERENTE',
   });
 
   useEffect(() => {
-    // Any successful response must advance orgChecked, even a 200 with a null
-    // body — otherwise a REFERENTE would be stuck on the loader indefinitely.
+    // Any successful response must advance orgChecked, even a 200 with an empty
+    // array — otherwise a REFERENTE would be stuck on the loader indefinitely.
     if (orgQuery.isSuccess) {
-      setOrgValidada(orgQuery.data?.validada ?? false);
+      const orgs = orgQuery.data ?? [];
+      setOrgValidada(orgs.some((o) => o.validada), orgs.length);
     } else if (orgQuery.isError) {
-      setOrgValidada(false);
+      setOrgValidada(false, 0);
     }
   }, [orgQuery.isSuccess, orgQuery.isError, orgQuery.data, setOrgValidada]);
 

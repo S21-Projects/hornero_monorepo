@@ -3,7 +3,7 @@ import { AsyncSection } from '../components/AsyncSection';
 import { Badge } from '../components/Badge';
 import { Button } from '../components/ui/Button';
 import { Text } from '../components/ui/Typography';
-import { useMiOrganizacion } from '../lib/hooks/useMiOrganizacion';
+import { useMisOrganizaciones } from '../lib/hooks/useMisOrganizaciones';
 import { useNecesidadesDeOrg } from '../lib/hooks/useNecesidadesDeOrg';
 import { useCrearNecesidad } from '../lib/hooks/useCrearNecesidad';
 import { useActualizarNecesidad } from '../lib/hooks/useActualizarNecesidad';
@@ -226,8 +226,18 @@ export default function NeedsPage() {
   const { view, pendingDeleteId, goToList, goToCreate, goToEdit, armDelete, clearDelete } =
     useNeedsViewState();
 
-  const orgQuery = useMiOrganizacion();
-  const orgId = orgQuery.data?.id ?? null;
+  const orgsQuery = useMisOrganizaciones();
+  const orgs = orgsQuery.data ?? [];
+
+  // Referentes owning >1 organización pick which one they're managing needs
+  // for; single-org referentes never see the selector. Derived (not effect-set)
+  // so it also self-heals if the selected org disappears from the list (e.g.
+  // reassigned away by an admin mid-session) — falls back to the first org.
+  const [explicitOrgId, setExplicitOrgId] = useState<number | null>(null);
+  const orgId =
+    explicitOrgId != null && orgs.some((o) => o.id === explicitOrgId)
+      ? explicitOrgId
+      : (orgs[0]?.id ?? null);
 
   const needsQuery = useNecesidadesDeOrg(orgId);
   const eliminarMutation = useEliminarNecesidad(orgId ?? 0);
@@ -251,8 +261,8 @@ export default function NeedsPage() {
     }
   }
 
-  // Loading org query first
-  if (orgQuery.isLoading) {
+  // Loading orgs query first
+  if (orgsQuery.isLoading) {
     return (
       <div style={{ padding: '32px 0', textAlign: 'center' }}>
         <Text variant="body" color="ink-3">Cargando…</Text>
@@ -260,7 +270,7 @@ export default function NeedsPage() {
     );
   }
 
-  if (orgQuery.isError || !orgId) {
+  if (orgsQuery.isError || !orgId) {
     return (
       <div style={{ padding: '32px 0', textAlign: 'center' }}>
         <Text variant="body" color="urgent">
@@ -269,6 +279,21 @@ export default function NeedsPage() {
       </div>
     );
   }
+
+  const orgSelector = orgs.length > 1 && (
+    <label style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 20 }}>
+      <Text variant="label">Organización</Text>
+      <select
+        value={orgId}
+        onChange={(e) => setExplicitOrgId(Number(e.target.value))}
+        style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid var(--line)', fontSize: 'var(--fs-body)', maxWidth: 320 }}
+      >
+        {orgs.map((o) => (
+          <option key={o.id} value={o.id}>{o.nombre}</option>
+        ))}
+      </select>
+    </label>
+  );
 
   if (view === 'create') {
     return (
@@ -304,6 +329,8 @@ export default function NeedsPage() {
           + Nueva necesidad
         </Button>
       </div>
+
+      {orgSelector}
 
       {deleteError && (
         <div style={{ marginBottom: 16 }}>

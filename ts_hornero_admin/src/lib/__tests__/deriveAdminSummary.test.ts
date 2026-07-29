@@ -13,6 +13,7 @@ function makeOrg(estado: OrganizacionAdmin['estado'] = 'PENDIENTE'): Organizacio
     estado,
     referenteNombre: 'Ref',
     referenteEmail: 'ref@test.com',
+    aceptaDonaciones: false,
   };
 }
 
