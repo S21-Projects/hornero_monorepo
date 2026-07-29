@@ -2,19 +2,26 @@ import { AsyncSection } from '../components/AsyncSection';
 import { Text } from '../components/ui/Typography';
 import { ChartCard } from '../components/panel/ChartCard';
 import { ChartEmptyState } from '../components/panel/ChartEmptyState';
+import { DashboardSkeleton } from '../components/panel/DashboardSkeleton';
 import { MetricBarChart, MetricPieChart } from '../components/panel/MetricCharts';
-import { useMiOrganizacion } from '../lib/hooks/useMiOrganizacion';
+import { useMisOrganizaciones } from '../lib/hooks/useMisOrganizaciones';
 import { useNecesidadesDeOrg } from '../lib/hooks/useNecesidadesDeOrg';
 import { useDonacionesDeMiOrg } from '../lib/hooks/useDonacionesDeMiOrg';
 import { necesidadesPorEstado, donacionesPorEstado } from '../lib/metricas';
 
 export default function DashboardPage() {
-  const organizacion = useMiOrganizacion();
-  const necesidades = useNecesidadesDeOrg(organizacion.data?.id);
+  // A referente can own several organizaciones (up to 3). The dashboard summary
+  // currently shows an aggregate across every organización they own — a
+  // per-organización breakdown is left for a future slice (see /mis-organizaciones
+  // and /needs for per-org views).
+  const organizaciones = useMisOrganizaciones();
+  const orgs = organizaciones.data ?? [];
+  const primaryOrg = orgs[0];
+  const necesidades = useNecesidadesDeOrg(primaryOrg?.id);
   const donaciones = useDonacionesDeMiOrg();
 
-  const isLoading = organizacion.isLoading || necesidades.isLoading || donaciones.isLoading;
-  const isError = organizacion.isError || necesidades.isError || donaciones.isError;
+  const isLoading = organizaciones.isLoading || necesidades.isLoading || donaciones.isLoading;
+  const isError = organizaciones.isError || necesidades.isError || donaciones.isError;
 
   const hasNecesidades = (necesidades.data?.length ?? 0) > 0;
   const hasDonaciones = (donaciones.data?.length ?? 0) > 0;
@@ -22,10 +29,15 @@ export default function DashboardPage() {
   const necesidadesData = necesidadesPorEstado(necesidades.data ?? []);
   const donacionesData = donacionesPorEstado(donaciones.data ?? []);
 
+  const heading =
+    orgs.length > 1
+      ? `Resumen de ${primaryOrg?.nombre ?? 'mi organización'} y otras ${orgs.length - 1}`
+      : `Resumen de ${primaryOrg?.nombre ?? 'mi organización'}`;
+
   return (
-    <AsyncSection isLoading={isLoading} isError={isError} isEmpty={false}>
+    <AsyncSection isLoading={isLoading} isError={isError} isEmpty={false} loadingFallback={<DashboardSkeleton />}>
       <div>
-        <Text variant="h1">Resumen de {organizacion.data?.nombre ?? 'mi organización'}</Text>
+        <Text variant="h1">{heading}</Text>
 
         <div
           style={{
