@@ -23,6 +23,7 @@ function OrgRow({ org }: { org: Org }) {
             <Text variant="title" as="h3">{org.nombre}</Text>
             <Pill variant="cat">{TIPO_ORGANIZACION_LABELS[org.tipo as TipoOrganizacion] ?? org.tipo}</Pill>
             {org.validada && <Pill variant="ok">Validada</Pill>}
+            {org.aceptaDonaciones && <Pill variant="ghost">Recibe donaciones</Pill>}
           </div>
           <Text
             as="div"

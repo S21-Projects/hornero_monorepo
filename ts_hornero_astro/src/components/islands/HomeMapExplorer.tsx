@@ -74,6 +74,7 @@ function OrgCard({
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
           <Pill variant="cat">{TIPO_ORGANIZACION_LABELS[org.tipo as TipoOrganizacion] ?? org.tipo}</Pill>
+          {org.aceptaDonaciones && <Pill variant="ghost">Recibe donaciones</Pill>}
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
@@ -279,12 +280,12 @@ export default function HomeMapExplorer({ orgs }: HomeMapExplorerProps) {
       </div>
 
       {/* CTA to full SPA for donations */}
-      <div style={{ textAlign: 'center', padding: '10px 0 6px', fontSize: 13, color: 'var(--ink-3)' }}>
+      {/* <div style={{ textAlign: 'center', padding: '10px 0 6px', fontSize: 13, color: 'var(--ink-3)' }}>
         ¿Querés donar?{' '}
         <a href={`${PUBLIC_SPA_URL}/donaciones`} style={{ color: 'var(--sky)', fontWeight: 700 }}>
           Ingresá a la plataforma
         </a>
-      </div>
+      </div> */}
     </div>
   );
 }
