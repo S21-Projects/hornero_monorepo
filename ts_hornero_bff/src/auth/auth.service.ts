@@ -4,6 +4,8 @@ import { ConfigService } from '@nestjs/config';
 import { Response } from 'express';
 import { LoginDto } from './dto/login.dto.js';
 import { RegisterDto } from './dto/register.dto.js';
+import { VerifyOtpDto } from './dto/verify-otp.dto.js';
+import { ResendOtpDto } from './dto/resend-otp.dto.js';
 
 @Injectable()
 export class AuthService {
@@ -40,6 +42,21 @@ export class AuthService {
     );
     this.setCookies(res, data.accessToken, data.refreshToken);
     return { user: data.user };
+  }
+
+  async verifyOtp(dto: VerifyOtpDto, res: Response) {
+    const javaUrl = this.configService.get<string>('JAVA_MS_URL');
+    const { data } = await this.httpService.axiosRef.post(
+      `${javaUrl}/api/auth/verify-otp`,
+      dto,
+    );
+    this.setCookies(res, data.accessToken, data.refreshToken);
+    return { user: data.user };
+  }
+
+  async resendOtp(dto: ResendOtpDto) {
+    const javaUrl = this.configService.get<string>('JAVA_MS_URL');
+    await this.httpService.axiosRef.post(`${javaUrl}/api/auth/resend-otp`, dto);
   }
 
   logout(res: Response) {
