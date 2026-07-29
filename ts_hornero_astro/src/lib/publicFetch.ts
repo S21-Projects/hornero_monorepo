@@ -4,7 +4,7 @@
  * Does NOT forward cookies or any auth header.
  */
 export async function publicFetch<T>(path: string): Promise<T> {
-  const bffBase = import.meta.env.BFF_BASE_URL;
+  const bffBase = process.env.BFF_BASE_URL;
   if (!bffBase) throw new Error(`publicFetch: BFF_BASE_URL is not set`);
 
   const url = `${bffBase}${path}`;
