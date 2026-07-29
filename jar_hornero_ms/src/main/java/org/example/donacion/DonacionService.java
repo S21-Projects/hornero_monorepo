@@ -69,10 +69,15 @@ public class DonacionService {
                 .collect(Collectors.toList());
     }
 
-    public List<DonacionResponse> findByMiOrganizacion(Long referenteId) {
-        Organizacion org = organizacionRepository.findByReferente_Id(referenteId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.FORBIDDEN, "Access denied"));
-        return donacionRepository.findByOrganizacionId(org.getId()).stream()
+    public List<DonacionResponse> findDeMisOrganizaciones(Long referenteId, Long organizacionId) {
+        if (organizacionId != null) {
+            Organizacion org = organizacionRepository.findByIdAndReferente_Id(organizacionId, referenteId)
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.FORBIDDEN, "Access denied"));
+            return donacionRepository.findByOrganizacionId(org.getId()).stream()
+                    .map(this::toResponse)
+                    .collect(Collectors.toList());
+        }
+        return donacionRepository.findByOrganizacion_Referente_Id(referenteId).stream()
                 .map(this::toResponse)
                 .collect(Collectors.toList());
     }
@@ -81,9 +86,8 @@ public class DonacionService {
     public DonacionResponse actualizarEstado(Long id, EstadoDonacion nuevoEstado, Long referenteId) {
         Donacion d = donacionRepository.findByIdWithRelations(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Donacion not found"));
-        Organizacion org = organizacionRepository.findByReferente_Id(referenteId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.FORBIDDEN, "Access denied"));
-        if (!d.getNecesidad().getOrganizacion().getId().equals(org.getId())) {
+        var referente = d.getNecesidad().getOrganizacion().getReferente();
+        if (referente == null || !referente.getId().equals(referenteId)) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Access denied");
         }
         validateTransition(d.getEstado(), nuevoEstado);

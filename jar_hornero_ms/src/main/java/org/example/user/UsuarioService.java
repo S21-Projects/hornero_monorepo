@@ -1,6 +1,8 @@
 package org.example.user;
 
 import lombok.RequiredArgsConstructor;
+import org.example.domain.Organizacion;
+import org.example.domain.OrganizacionRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -15,6 +17,7 @@ import java.util.stream.Collectors;
 public class UsuarioService {
 
     private final UsuarioRepository usuarioRepository;
+    private final OrganizacionRepository organizacionRepository;
 
     public List<UsuarioResponse> findAll() {
         return usuarioRepository.findAll()
@@ -28,7 +31,15 @@ public class UsuarioService {
         Usuario u = usuarioRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Usuario not found"));
         u.setActivo(activo);
-        return toResponse(usuarioRepository.save(u));
+        Usuario saved = usuarioRepository.save(u);
+
+        if (!activo && u instanceof Referente referente) {
+            List<Organizacion> organizaciones = organizacionRepository.findByReferente_Id(referente.getId());
+            organizaciones.forEach(org -> org.setReferente(null));
+            organizacionRepository.saveAll(organizaciones);
+        }
+
+        return toResponse(saved);
     }
 
     private UsuarioResponse toResponse(Usuario u) {

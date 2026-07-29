@@ -73,53 +73,61 @@ class DonacionServiceTest {
         return d;
     }
 
-    // --- findByMiOrganizacion ---
+    // --- findDeMisOrganizaciones ---
 
     @Test
-    void findByMiOrganizacion_resolvesOrgFromReferenteAndReturnsItsDonaciones() {
+    void findDeMisOrganizaciones_noOrgIdFilter_returnsAcrossAllOwnedOrgs() {
         Donacion d1 = donacionFor(1L, miOrganizacion);
         Donacion d2 = donacionFor(2L, miOrganizacion);
 
-        when(organizacionRepository.findByReferente_Id(1L)).thenReturn(Optional.of(miOrganizacion));
-        when(donacionRepository.findByOrganizacionId(10L)).thenReturn(List.of(d1, d2));
+        when(donacionRepository.findByOrganizacion_Referente_Id(1L)).thenReturn(List.of(d1, d2));
 
-        List<DonacionResponse> result = donacionService.findByMiOrganizacion(1L);
+        List<DonacionResponse> result = donacionService.findDeMisOrganizaciones(1L, null);
 
         assertThat(result).hasSize(2);
         assertThat(result).allSatisfy(r -> assertThat(r.organizacionId()).isEqualTo(10L));
     }
 
     @Test
-    void findByMiOrganizacion_referenteWithNoOrg_throwsForbidden() {
-        when(organizacionRepository.findByReferente_Id(99L)).thenReturn(Optional.empty());
+    void findDeMisOrganizaciones_withOrgIdFilter_scopesToThatOrg() {
+        when(organizacionRepository.findByIdAndReferente_Id(10L, 1L)).thenReturn(Optional.of(miOrganizacion));
+        when(donacionRepository.findByOrganizacionId(10L)).thenReturn(List.of(donacionFor(1L, miOrganizacion)));
 
-        assertThatThrownBy(() -> donacionService.findByMiOrganizacion(99L))
+        List<DonacionResponse> result = donacionService.findDeMisOrganizaciones(1L, 10L);
+
+        assertThat(result).hasSize(1);
+        org.mockito.Mockito.verify(donacionRepository).findByOrganizacionId(10L);
+    }
+
+    @Test
+    void findDeMisOrganizaciones_foreignOrgIdFilter_throwsForbidden() {
+        when(organizacionRepository.findByIdAndReferente_Id(20L, 1L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> donacionService.findDeMisOrganizaciones(1L, 20L))
                 .isInstanceOf(ResponseStatusException.class)
                 .hasMessageContaining("403");
     }
 
     @Test
-    void findByMiOrganizacion_neverReturnsAnotherOrgsDonaciones() {
-        // org resolution is derived strictly from the referente's own org id;
-        // the repository call itself proves cross-org isolation by construction —
-        // we assert the repository is queried with THIS referente's org id, not any other.
-        when(organizacionRepository.findByReferente_Id(1L)).thenReturn(Optional.of(miOrganizacion));
-        when(donacionRepository.findByOrganizacionId(10L)).thenReturn(List.of(donacionFor(1L, miOrganizacion)));
+    void findDeMisOrganizaciones_noOrgs_returnsEmptyList() {
+        when(donacionRepository.findByOrganizacion_Referente_Id(1L)).thenReturn(List.of());
 
-        List<DonacionResponse> result = donacionService.findByMiOrganizacion(1L);
-
-        assertThat(result).hasSize(1);
-        org.mockito.Mockito.verify(donacionRepository).findByOrganizacionId(10L);
-        org.mockito.Mockito.verify(donacionRepository, org.mockito.Mockito.never()).findByOrganizacionId(20L);
-    }
-
-    @Test
-    void findByMiOrganizacion_orgWithNoDonaciones_returnsEmptyList() {
-        when(organizacionRepository.findByReferente_Id(1L)).thenReturn(Optional.of(miOrganizacion));
-        when(donacionRepository.findByOrganizacionId(10L)).thenReturn(List.of());
-
-        List<DonacionResponse> result = donacionService.findByMiOrganizacion(1L);
+        List<DonacionResponse> result = donacionService.findDeMisOrganizaciones(1L, null);
 
         assertThat(result).isEmpty();
+    }
+
+    // --- actualizarEstado ownership traversal ---
+
+    @Test
+    void actualizarEstado_organizacionWithNullReferente_throwsForbidden() {
+        miOrganizacion.setReferente(null);
+        Donacion d = donacionFor(1L, miOrganizacion);
+
+        when(donacionRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(d));
+
+        assertThatThrownBy(() -> donacionService.actualizarEstado(1L, EstadoDonacion.EN_CAMINO, 1L))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("403");
     }
 }

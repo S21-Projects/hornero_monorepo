@@ -60,13 +60,14 @@ public class DonacionController {
         return donacionService.findMias(donanteId);
     }
 
-    @Operation(summary = "List donations received by my organization")
+    @Operation(summary = "List donations received by my organization(s), optionally filtered by one")
     @GetMapping("/mi-organizacion")
     @PreAuthorize("hasRole('REFERENTE')")
-    public List<DonacionResponse> findDeMiOrganizacion() {
+    public List<DonacionResponse> findDeMiOrganizacion(
+            @RequestParam(required = false) Long organizacionId) {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         Long referenteId = (Long) auth.getPrincipal();
-        return donacionService.findByMiOrganizacion(referenteId);
+        return donacionService.findDeMisOrganizaciones(referenteId, organizacionId);
     }
 
     @Operation(summary = "Get a donation by ID")
