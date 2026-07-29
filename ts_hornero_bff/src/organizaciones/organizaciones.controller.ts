@@ -17,6 +17,8 @@ import { Role } from '../common/enums/role.enum.js';
 import { OrganizacionesService } from './organizaciones.service.js';
 import { CrearOrganizacionDto } from './dto/crear-organizacion.dto.js';
 import { ActualizarOrganizacionDto } from './dto/actualizar-organizacion.dto.js';
+import { ActualizarInfoPublicaDto } from './dto/actualizar-info-publica.dto.js';
+import { AsignarReferenteDto } from './dto/asignar-referente.dto.js';
 
 @ApiTags('organizaciones')
 @Controller('organizaciones')
@@ -36,9 +38,20 @@ export class OrganizacionesController {
   }
 
   @Get('mia')
-  @ApiOperation({ summary: 'Get the organization of the authenticated referente' })
-  miOrganizacion(@Req() req: Request) {
-    return this.organizacionesService.miOrganizacion(this.getToken(req));
+  @ApiOperation({
+    summary: 'Get the organizations of the authenticated referente',
+  })
+  misOrganizaciones(@Req() req: Request) {
+    return this.organizacionesService.misOrganizaciones(this.getToken(req));
+  }
+
+  @Roles(Role.ADMINISTRADOR)
+  @Get('todas')
+  @ApiOperation({
+    summary: 'List all organizations, any estado/referente (admin only)',
+  })
+  listarTodas(@Req() req: Request) {
+    return this.organizacionesService.listarTodas(this.getToken(req));
   }
 
   @Public()
@@ -85,5 +98,71 @@ export class OrganizacionesController {
     @Req() req: Request,
   ) {
     return this.organizacionesService.actualizar(id, dto, this.getToken(req));
+  }
+
+  @Roles(Role.ADMINISTRADOR)
+  @Patch(':id/referente')
+  @ApiOperation({
+    summary: "Reassign or unassign an organization's referente (admin only)",
+  })
+  asignarReferente(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: AsignarReferenteDto,
+    @Req() req: Request,
+  ) {
+    return this.organizacionesService.asignarReferente(
+      id,
+      dto,
+      this.getToken(req),
+    );
+  }
+
+  @Roles(Role.ADMINISTRADOR)
+  @Patch(':id/info-publica')
+  @ApiOperation({
+    summary: 'Directly edit info pública fields, live immediately (admin only)',
+  })
+  actualizarInfoPublica(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: ActualizarInfoPublicaDto,
+    @Req() req: Request,
+  ) {
+    return this.organizacionesService.actualizarInfoPublica(
+      id,
+      dto,
+      this.getToken(req),
+    );
+  }
+
+  @Roles(Role.ADMINISTRADOR)
+  @Patch(':id/info-publica/aprobar')
+  @ApiOperation({
+    summary:
+      "Approve a referente's pending info pública submission (admin only)",
+  })
+  aprobarInfoPublica(
+    @Param('id', ParseIntPipe) id: number,
+    @Req() req: Request,
+  ) {
+    return this.organizacionesService.aprobarInfoPublica(
+      id,
+      this.getToken(req),
+    );
+  }
+
+  @Roles(Role.ADMINISTRADOR)
+  @Patch(':id/info-publica/rechazar')
+  @ApiOperation({
+    summary:
+      "Reject a referente's pending info pública submission (admin only)",
+  })
+  rechazarInfoPublica(
+    @Param('id', ParseIntPipe) id: number,
+    @Req() req: Request,
+  ) {
+    return this.organizacionesService.rechazarInfoPublica(
+      id,
+      this.getToken(req),
+    );
   }
 }
