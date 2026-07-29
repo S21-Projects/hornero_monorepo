@@ -27,11 +27,42 @@ export const EstadoDonacion = {
 } as const;
 export type EstadoDonacion = typeof EstadoDonacion[keyof typeof EstadoDonacion];
 
-export interface Organizacion {
+// --- Info pública (aceptaDonaciones, sitioWebUrl, donacionDirectaUrl) ---
+// Live values are always present on any authenticated response. Pending
+// values are populated only while a referente-submitted change awaits
+// admin approval (infoPublicaPendienteEn non-null); the public Astro site
+// never sees the pending trio (server-side gating at the MS, D6).
+export interface InfoPublica {
+  aceptaDonaciones: boolean;
+  sitioWebUrl?: string | null;
+  donacionDirectaUrl?: string | null;
+}
+
+export interface InfoPublicaPendiente {
+  aceptaDonacionesPendiente?: boolean | null;
+  sitioWebUrlPendiente?: string | null;
+  donacionDirectaUrlPendiente?: string | null;
+  infoPublicaPendienteEn?: string | null;
+}
+
+export interface Organizacion extends InfoPublica, InfoPublicaPendiente {
   id: number;
   slug: string;
   nombre: string;
   validada: boolean;
+  estado: EstadoOrganizacion;
+  referenteId?: number | null;
+  profileImageKey?: string | null;
+  bannerKey?: string | null;
+}
+
+export interface CrearOrganizacionInput {
+  nombre: string;
+  tipo: TipoOrganizacion;
+  direccion?: string;
+  descripcion?: string;
+  latitud: number;
+  longitud: number;
 }
 
 export interface Necesidad {
@@ -95,7 +126,7 @@ export const TipoOrganizacion = {
 } as const;
 export type TipoOrganizacion = typeof TipoOrganizacion[keyof typeof TipoOrganizacion];
 
-export interface OrganizacionAdmin {
+export interface OrganizacionAdmin extends InfoPublica, InfoPublicaPendiente {
   id: number;
   nombre: string;
   slug: string;
@@ -105,8 +136,9 @@ export interface OrganizacionAdmin {
   latitud?: number;
   longitud?: number;
   estado: EstadoOrganizacion;
-  referenteNombre: string;
-  referenteEmail: string;
+  referenteId?: number | null;
+  referenteNombre?: string;
+  referenteEmail?: string;
   validadoPorNombre?: string;
   profileImageKey?: string;
   bannerKey?: string;

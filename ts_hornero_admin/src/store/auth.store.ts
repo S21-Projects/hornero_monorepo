@@ -21,6 +21,7 @@ export interface AuthState {
    * - 'authenticated': user + role loaded from /auth/me
    */
   status: 'loading' | 'authenticated' | 'unauthenticated';
+  /** True when at least one owned organización has estado APROBADA. */
   orgValidada: boolean;
   /**
    * True once GET /organizaciones/mia has settled (success or error) for the current
@@ -28,12 +29,19 @@ export interface AuthState {
    * during the window between status='authenticated' and the mia query resolving.
    */
   orgChecked: boolean;
+  /**
+   * Count of organizaciones owned by the current referente (0..3). Lets
+   * /pending-validation distinguish "no org yet, resume registration" (0)
+   * from "org(s) exist but none validated yet" (>0).
+   */
+  orgCount: number;
 
   /**
-   * Sets orgValidada AND marks orgChecked=true. Called by AuthInitializer once
-   * GET /organizaciones/mia settles (with true/false on success, false on error).
+   * Sets orgValidada + orgCount from the list of owned organizaciones AND marks
+   * orgChecked=true. Called by AuthInitializer once GET /organizaciones/mia
+   * settles (with the real list on success, count 0 / validada false on error).
    */
-  setOrgValidada(validada: boolean): void;
+  setOrgValidada(validada: boolean, count?: number): void;
 
   /**
    * Synchronous boot step: checks session_hint cookie (JS-readable, httpOnly:false).
@@ -66,9 +74,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   status: 'unauthenticated',
   orgValidada: false,
   orgChecked: false,
+  orgCount: 0,
 
-  setOrgValidada(validada: boolean) {
-    set({ orgValidada: validada, orgChecked: true });
+  setOrgValidada(validada: boolean, count = 0) {
+    set({ orgValidada: validada, orgChecked: true, orgCount: count });
   },
 
   hydrate() {
@@ -100,7 +109,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     try {
       await api.post('/auth/logout');
     } finally {
-      set({ user: null, status: 'unauthenticated', orgValidada: false, orgChecked: false });
+      set({ user: null, status: 'unauthenticated', orgValidada: false, orgChecked: false, orgCount: 0 });
       window.location.href = '/login';
     }
   },

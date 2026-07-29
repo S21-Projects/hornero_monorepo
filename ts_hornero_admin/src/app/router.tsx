@@ -14,7 +14,9 @@ import NecesidadDetallePage from '../routes/necesidad-detalle';
 import PanelPage from '../routes/panel';
 import AdminPage from '../routes/admin';
 import UsersPage from '../routes/users';
+import ReferentesPage from '../routes/referentes';
 import PendingValidationPage from '../routes/pending-validation';
+import MisOrganizacionesPage from '../routes/mis-organizaciones';
 
 export const router = createBrowserRouter([
   // ── Public-only routes (redirect away when authenticated) ──────────────
@@ -43,6 +45,21 @@ export const router = createBrowserRouter([
     ],
   },
 
+  // ── /mis-organizaciones — REFERENTE only, no org validation required.
+  // Self-service org list + "add organization" (capped at 3). Also the
+  // resumable entry point linked from /pending-validation when orgCount===0.
+  {
+    element: <ProtectedRoute allow={['REFERENTE']} />,
+    children: [
+      {
+        element: <AppShell />,
+        children: [
+          { path: '/mis-organizaciones', element: <MisOrganizacionesPage /> },
+        ],
+      },
+    ],
+  },
+
   // ── ADMIN-only routes ─────────────────────────────────────────────────
   {
     element: <ProtectedRoute allow={['ADMINISTRADOR']} />,
@@ -53,6 +70,7 @@ export const router = createBrowserRouter([
           { path: '/panel', element: <PanelPage /> },
           { path: '/admin', element: <AdminPage /> },
           { path: '/users', element: <UsersPage /> },
+          { path: '/referentes', element: <ReferentesPage /> },
         ],
       },
     ],
