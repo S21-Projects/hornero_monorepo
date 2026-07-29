@@ -35,6 +35,8 @@ services:
       DB_NAME: "${DB_NAME:-hornero}"
       DB_USERNAME: "${DB_USERNAME:-hornero}"
       DB_PASSWORD: "${DB_PASSWORD:-hornero}"
+      RESEND_API_KEY: "${RESEND_API_KEY:-}"
+      OTP_FROM_EMAIL: "${OTP_FROM_EMAIL:-}"
     depends_on:
       postgres:
         condition: service_healthy
