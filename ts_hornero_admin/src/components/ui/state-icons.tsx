@@ -1,5 +1,5 @@
 import type { CSSProperties, ReactNode } from 'react';
-import { Box1, Warning2 } from 'iconsax-reactjs';
+import { Box1, Clock, Warning2 } from 'iconsax-reactjs';
 
 const badgeStyle = (background: string): CSSProperties => ({
   width: 56,
@@ -20,3 +20,5 @@ const badge = (background: string, children: ReactNode) => (
 export const EmptyIcon = badge('#F6ECDC', <Box1 size={26} color="var(--horn)" variant="Bulk" />);
 
 export const ErrorIcon = badge('var(--urgent-bg)', <Warning2 size={26} color="var(--urgent)" variant="Bulk" />);
+
+export const ComingSoonIcon = badge('#F6ECDC', <Clock size={26} color="var(--horn)" variant="Bulk" />);

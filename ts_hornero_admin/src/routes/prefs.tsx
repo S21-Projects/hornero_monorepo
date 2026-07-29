@@ -1,8 +1,12 @@
+import { StatePanel } from '../components/ui/StatePanel';
+import { ComingSoonIcon } from '../components/ui/state-icons';
+
 export default function PrefsPage() {
   return (
-    <div>
-      <h1>Preferencias</h1>
-      <p>Próximamente</p>
-    </div>
+    <StatePanel
+      icon={ComingSoonIcon}
+      title="Preferencias"
+      subtitle="Próximamente vas a poder configurar tu cuenta desde acá."
+    />
   );
 }
