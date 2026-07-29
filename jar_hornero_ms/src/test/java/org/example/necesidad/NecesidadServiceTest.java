@@ -1,5 +1,6 @@
 package org.example.necesidad;
 
+import org.example.auth.VerificacionService;
 import org.example.domain.EstadoNecesidad;
 import org.example.domain.EstadoOrganizacion;
 import org.example.domain.Necesidad;
@@ -15,6 +16,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDate;
@@ -23,6 +25,8 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -33,6 +37,9 @@ class NecesidadServiceTest {
 
     @Mock
     private OrganizacionRepository organizacionRepository;
+
+    @Mock
+    private VerificacionService verificacionService;
 
     @InjectMocks
     private NecesidadService necesidadService;
@@ -135,6 +142,22 @@ class NecesidadServiceTest {
         NecesidadResponse response = necesidadService.crear(dto, 1L);
 
         assertThat(response.organizacionId()).isEqualTo(1L);
+        verify(verificacionService).requireVerified(1L);
+    }
+
+    @Test
+    void crear_unverifiedEmail_throwsForbiddenBeforeTouchingOrganizacion() {
+        CrearNecesidadRequest dto = new CrearNecesidadRequest(
+                "Descripcion", PrioridadNecesidad.MEDIA, LocalDate.now().plusDays(10), 1L);
+
+        doThrow(new ResponseStatusException(HttpStatus.FORBIDDEN, "EMAIL_NO_VERIFICADO"))
+                .when(verificacionService).requireVerified(1L);
+
+        assertThatThrownBy(() -> necesidadService.crear(dto, 1L))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("EMAIL_NO_VERIFICADO");
+
+        org.mockito.Mockito.verifyNoInteractions(organizacionRepository);
     }
 
     // --- checkOwnership via actualizar ---

@@ -1,5 +1,6 @@
 package org.example.donacion;
 
+import org.example.auth.VerificacionService;
 import org.example.domain.Donacion;
 import org.example.domain.DonacionRepository;
 import org.example.domain.EstadoDonacion;
@@ -7,6 +8,7 @@ import org.example.domain.Necesidad;
 import org.example.domain.NecesidadRepository;
 import org.example.domain.Organizacion;
 import org.example.domain.OrganizacionRepository;
+import org.example.donacion.dto.CreateDonacionRequest;
 import org.example.user.Donante;
 import org.example.user.Referente;
 import org.example.user.UsuarioRepository;
@@ -16,6 +18,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDate;
@@ -24,6 +27,10 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -40,6 +47,9 @@ class DonacionServiceTest {
 
     @Mock
     private OrganizacionRepository organizacionRepository;
+
+    @Mock
+    private VerificacionService verificacionService;
 
     @InjectMocks
     private DonacionService donacionService;
@@ -115,6 +125,43 @@ class DonacionServiceTest {
         List<DonacionResponse> result = donacionService.findDeMisOrganizaciones(1L, null);
 
         assertThat(result).isEmpty();
+    }
+
+    // --- crear ---
+
+    @Test
+    void crear_verifiedDonante_succeeds() {
+        Necesidad necesidad = new Necesidad();
+        necesidad.setId(100L);
+        necesidad.setOrganizacion(miOrganizacion);
+
+        CreateDonacionRequest dto = new CreateDonacionRequest();
+        dto.setNecesidadId(100L);
+        dto.setObservaciones("Puedo traer 10 litros esta semana");
+
+        when(necesidadRepository.findById(100L)).thenReturn(Optional.of(necesidad));
+        when(usuarioRepository.findById(2L)).thenReturn(Optional.of(donante));
+        when(donacionRepository.save(any(Donacion.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        DonacionResponse response = donacionService.crear(dto, 2L);
+
+        assertThat(response.necesidadId()).isEqualTo(100L);
+        verify(verificacionService).requireVerified(2L);
+    }
+
+    @Test
+    void crear_unverifiedDonante_throwsForbiddenBeforeTouchingNecesidad() {
+        CreateDonacionRequest dto = new CreateDonacionRequest();
+        dto.setNecesidadId(100L);
+
+        doThrow(new ResponseStatusException(HttpStatus.FORBIDDEN, "EMAIL_NO_VERIFICADO"))
+                .when(verificacionService).requireVerified(2L);
+
+        assertThatThrownBy(() -> donacionService.crear(dto, 2L))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("EMAIL_NO_VERIFICADO");
+
+        verifyNoInteractions(necesidadRepository);
     }
 
     // --- actualizarEstado ownership traversal ---
