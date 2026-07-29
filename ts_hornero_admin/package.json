@@ -14,9 +14,13 @@
   "dependencies": {
     "@tanstack/react-query": "^5.101.2",
     "axios": "^1.18.1",
+    "iconsax-reactjs": "^0.0.8",
+    "leaflet": "^1.9.4",
+    "motion": "^12.43.0",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
     "react-error-boundary": "^6.1.2",
+    "react-leaflet": "^5.0.0",
     "react-router-dom": "^7.18.0",
     "recharts": "^3.9.2",
     "zustand": "^5.0.14"
@@ -30,6 +34,7 @@
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^14.6.1",
     "@types/babel__core": "^7.20.5",
+    "@types/leaflet": "^1.9.20",
     "@types/node": "^24.13.2",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
