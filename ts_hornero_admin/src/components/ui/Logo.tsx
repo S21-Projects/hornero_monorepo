@@ -16,15 +16,16 @@ export function Logo({ height, size }: LogoProps) {
         alt="El Hornero — Comedores Córdoba"
         height={h}
         className="hidden sm:block"
-        style={{ width: '250px' }}
+        style={{ width: 'auto', objectFit: 'contain' }}
       />
       {/* icon mark — visible on mobile only */}
       <img
         src="/icon.svg"
         alt="El Hornero"
         height={h}
+        width={h}
         className="block sm:hidden"
-        style={{ width: '70px' }}
+        style={{ objectFit: 'contain' }}
       />
     </Link>
   );
