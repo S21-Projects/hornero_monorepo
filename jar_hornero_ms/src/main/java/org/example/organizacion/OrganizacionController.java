@@ -4,7 +4,9 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.example.organizacion.dto.ActualizarInfoPublicaRequest;
 import org.example.organizacion.dto.ActualizarOrganizacionRequest;
+import org.example.organizacion.dto.AsignarReferenteRequest;
 import org.example.organizacion.dto.CrearOrganizacionRequest;
 import org.example.organizacion.dto.OrganizacionResponse;
 import org.springframework.http.HttpStatus;
@@ -36,13 +38,13 @@ public class OrganizacionController {
         return organizacionService.crear(request, userId);
     }
 
-    @Operation(summary = "Get the organization owned by the authenticated referente")
+    @Operation(summary = "Get the organizations owned by the authenticated referente")
     @GetMapping("/mia")
     @PreAuthorize("hasRole('REFERENTE')")
-    public OrganizacionResponse miOrganizacion() {
+    public List<OrganizacionResponse> misOrganizaciones() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         Long userId = (Long) auth.getPrincipal();
-        return organizacionService.findByReferente(userId);
+        return organizacionService.listarPorReferente(userId);
     }
 
     @Operation(summary = "List validated organizations (any authenticated user)")
@@ -56,6 +58,13 @@ public class OrganizacionController {
     @PreAuthorize("hasRole('ADMINISTRADOR')")
     public List<OrganizacionResponse> listarPendientes() {
         return organizacionService.listarPendientes();
+    }
+
+    @Operation(summary = "List all organizations, any estado/referente (admin only)")
+    @GetMapping("/todas")
+    @PreAuthorize("hasRole('ADMINISTRADOR')")
+    public List<OrganizacionResponse> listarTodas() {
+        return organizacionService.listarTodas();
     }
 
     @Operation(summary = "Get organization by slug (access policy enforced by service)")
@@ -94,5 +103,35 @@ public class OrganizacionController {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         Long userId = (Long) auth.getPrincipal();
         return ResponseEntity.ok(organizacionService.actualizar(id, request, userId));
+    }
+
+    @Operation(summary = "Reassign or unassign an organization's referente (admin only)")
+    @PatchMapping("/{id}/referente")
+    @PreAuthorize("hasRole('ADMINISTRADOR')")
+    public OrganizacionResponse asignarReferente(@PathVariable Long id,
+                                                 @Valid @RequestBody AsignarReferenteRequest request) {
+        return organizacionService.asignarReferente(id, request);
+    }
+
+    @Operation(summary = "Directly edit info pública fields for any organization, live immediately (admin only)")
+    @PatchMapping("/{id}/info-publica")
+    @PreAuthorize("hasRole('ADMINISTRADOR')")
+    public OrganizacionResponse actualizarInfoPublica(@PathVariable Long id,
+                                                       @Valid @RequestBody ActualizarInfoPublicaRequest request) {
+        return organizacionService.actualizarInfoPublica(id, request);
+    }
+
+    @Operation(summary = "Approve a referente's pending info pública submission (admin only)")
+    @PatchMapping("/{id}/info-publica/aprobar")
+    @PreAuthorize("hasRole('ADMINISTRADOR')")
+    public OrganizacionResponse aprobarInfoPublica(@PathVariable Long id) {
+        return organizacionService.aprobarInfoPublica(id);
+    }
+
+    @Operation(summary = "Reject a referente's pending info pública submission (admin only)")
+    @PatchMapping("/{id}/info-publica/rechazar")
+    @PreAuthorize("hasRole('ADMINISTRADOR')")
+    public OrganizacionResponse rechazarInfoPublica(@PathVariable Long id) {
+        return organizacionService.rechazarInfoPublica(id);
     }
 }

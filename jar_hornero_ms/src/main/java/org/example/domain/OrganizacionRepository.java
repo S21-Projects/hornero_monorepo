@@ -11,7 +11,13 @@ public interface OrganizacionRepository extends JpaRepository<Organizacion, Long
 
     List<Organizacion> findByEstado(EstadoOrganizacion estado);
 
-    Optional<Organizacion> findByReferente_Id(Long referenteId);
+    List<Organizacion> findByReferente_Id(Long referenteId);
+
+    Optional<Organizacion> findByIdAndReferente_Id(Long id, Long referenteId);
+
+    long countByReferente_IdAndEstadoNot(Long referenteId, EstadoOrganizacion estado);
+
+    List<Organizacion> findByReferenteIsNull();
 
     Optional<Organizacion> findBySlug(String slug);
 }
