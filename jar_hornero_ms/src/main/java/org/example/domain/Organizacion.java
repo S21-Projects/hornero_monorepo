@@ -5,6 +5,7 @@ import lombok.*;
 import org.example.user.Administrador;
 import org.example.user.Referente;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -51,7 +52,7 @@ public class Organizacion {
     private Administrador validadoPor;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "referente_id")
+    @JoinColumn(name = "referente_id", nullable = true)
     private Referente referente;
 
     @Column(name = "profile_image_key")
@@ -62,4 +63,31 @@ public class Organizacion {
 
     @OneToMany(mappedBy = "organizacion", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Necesidad> necesidades = new ArrayList<>();
+
+    // --- Info pública (aceptaDonaciones, sitioWebUrl, donacionDirectaUrl) ---
+    // Nullable at the DB level (D4): ddl-auto=update cannot add a NOT NULL
+    // column with no DEFAULT to a non-empty table. Java-side default + the
+    // toResponse() coalescing give the same effective semantics.
+    @Column(name = "acepta_donaciones")
+    private Boolean aceptaDonaciones = false;
+
+    @Column(name = "sitio_web_url", length = 500)
+    private String sitioWebUrl;
+
+    @Column(name = "donacion_directa_url", length = 500)
+    private String donacionDirectaUrl;
+
+    // Pending snapshot (D1/D2): populated only while a referente-submitted
+    // change awaits admin approval. infoPublicaPendienteEn non-null == pending.
+    @Column(name = "acepta_donaciones_pendiente")
+    private Boolean aceptaDonacionesPendiente;
+
+    @Column(name = "sitio_web_url_pendiente", length = 500)
+    private String sitioWebUrlPendiente;
+
+    @Column(name = "donacion_directa_url_pendiente", length = 500)
+    private String donacionDirectaUrlPendiente;
+
+    @Column(name = "info_publica_pendiente_en")
+    private LocalDateTime infoPublicaPendienteEn;
 }

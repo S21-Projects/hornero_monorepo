@@ -27,6 +27,17 @@ public class OrganizacionResponse {
     private String validadoPorNombre;
     private String profileImageKey;
     private String bannerKey;
+    private Long referenteId;
+
+    // --- Info pública (D6: live fields are always present; pending fields are
+    // populated only by toResponseAutenticado, nulled by the public toResponse) ---
+    private Boolean aceptaDonaciones;
+    private String sitioWebUrl;
+    private String donacionDirectaUrl;
+    private Boolean aceptaDonacionesPendiente;
+    private String sitioWebUrlPendiente;
+    private String donacionDirectaUrlPendiente;
+    private java.time.LocalDateTime infoPublicaPendienteEn;
 
     public boolean isValidada() {
         return EstadoOrganizacion.APROBADA.equals(this.estado);
