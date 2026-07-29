@@ -34,7 +34,7 @@ function buildRouter() {
 
 beforeEach(() => {
   useAuthStore.setState({
-    user: { userId: 1, email: 'admin@test.com', nombre: 'Admin', tipo: 'ADMINISTRADOR' },
+    user: { userId: 1, email: 'admin@test.com', nombre: 'Admin', tipo: 'ADMINISTRADOR', emailVerificado: true },
     status: 'authenticated',
     orgValidada: false,
     orgChecked: false,

@@ -17,6 +17,7 @@ import UsersPage from '../routes/users';
 import ReferentesPage from '../routes/referentes';
 import PendingValidationPage from '../routes/pending-validation';
 import MisOrganizacionesPage from '../routes/mis-organizaciones';
+import VerifyEmailPage from '../routes/verify-email';
 
 export const router = createBrowserRouter([
   // ── Public-only routes (redirect away when authenticated) ──────────────
@@ -37,9 +38,20 @@ export const router = createBrowserRouter([
     ),
   },
 
+  // ── /verify-email — any authenticated role, no gates of its own ────────
+  // First of the two independent, sequential gates. requireValidated routes
+  // below carry requireVerified so an unverified+unvalidated referente lands
+  // here first, not on /pending-validation.
+  {
+    element: <ProtectedRoute allow={['ADMINISTRADOR', 'REFERENTE', 'DONANTE']} />,
+    children: [
+      { path: '/verify-email', element: <VerifyEmailPage /> },
+    ],
+  },
+
   // ── Pending validation (REFERENTE only; both validated and pending) ────
   {
-    element: <ProtectedRoute allow={['REFERENTE']} />,
+    element: <ProtectedRoute allow={['REFERENTE']} requireVerified />,
     children: [
       { path: '/pending-validation', element: <PendingValidationPage /> },
     ],
@@ -49,7 +61,7 @@ export const router = createBrowserRouter([
   // Self-service org list + "add organization" (capped at 3). Also the
   // resumable entry point linked from /pending-validation when orgCount===0.
   {
-    element: <ProtectedRoute allow={['REFERENTE']} />,
+    element: <ProtectedRoute allow={['REFERENTE']} requireVerified />,
     children: [
       {
         element: <AppShell />,
@@ -62,7 +74,7 @@ export const router = createBrowserRouter([
 
   // ── ADMIN-only routes ─────────────────────────────────────────────────
   {
-    element: <ProtectedRoute allow={['ADMINISTRADOR']} />,
+    element: <ProtectedRoute allow={['ADMINISTRADOR']} requireVerified />,
     children: [
       {
         element: <AppShell />,
@@ -79,7 +91,7 @@ export const router = createBrowserRouter([
   // ── REFERENTE dashboard (REFERENTE only; VALIDATED org required) ───────
   // requireValidated: unvalidated REFERENTE → /pending-validation
   {
-    element: <ProtectedRoute allow={['REFERENTE']} requireValidated />,
+    element: <ProtectedRoute allow={['REFERENTE']} requireVerified requireValidated />,
     children: [
       {
         element: <AppShell />,
@@ -93,7 +105,7 @@ export const router = createBrowserRouter([
   // ── /needs — ADMIN + validated REFERENTE ─────────────────────────────
   // requireValidated: unvalidated REFERENTE → /pending-validation
   {
-    element: <ProtectedRoute allow={['ADMINISTRADOR', 'REFERENTE']} requireValidated />,
+    element: <ProtectedRoute allow={['ADMINISTRADOR', 'REFERENTE']} requireVerified requireValidated />,
     children: [
       {
         element: <AppShell />,
@@ -105,6 +117,10 @@ export const router = createBrowserRouter([
   },
 
   // ── /prefs — any authenticated user (mirrors proxy.ts PROXY-06) ──────
+  // NOTE: intentionally NOT gated by requireVerified — the Donante-facing
+  // "must verify" UX (spec's open item, Group G5) is out of scope for this
+  // batch and awaits explicit user sign-off; gating a shared route here
+  // would force that experience on Donante prematurely.
   {
     element: <ProtectedRoute allow={['ADMINISTRADOR', 'REFERENTE', 'DONANTE']} />,
     children: [
@@ -118,6 +134,9 @@ export const router = createBrowserRouter([
   },
 
   // ── DONANTE-only routes ───────────────────────────────────────────────
+  // NOTE: intentionally NOT gated by requireVerified — see G5 note above.
+  // MS-side enforcement (403 EMAIL_NO_VERIFICADO on POST /donaciones) is
+  // already live regardless of this SPA route gate.
   {
     element: <ProtectedRoute allow={['DONANTE']} />,
     children: [

@@ -5,9 +5,10 @@ import { ProtectedRoute, PublicOnlyRoute } from './ProtectedRoute';
 import { useAuthStore } from '../store/auth.store';
 import type { AuthUser } from '../store/auth.store';
 
-const ADMIN_USER: AuthUser = { userId: 1, email: 'admin@test.com', nombre: 'Admin', tipo: 'ADMINISTRADOR' };
-const DONANTE_USER: AuthUser = { userId: 2, email: 'd@test.com', nombre: 'Donante', tipo: 'DONANTE' };
-const REFERENTE_USER: AuthUser = { userId: 3, email: 'r@test.com', nombre: 'Ref', tipo: 'REFERENTE' };
+const ADMIN_USER: AuthUser = { userId: 1, email: 'admin@test.com', nombre: 'Admin', tipo: 'ADMINISTRADOR', emailVerificado: true };
+const DONANTE_USER: AuthUser = { userId: 2, email: 'd@test.com', nombre: 'Donante', tipo: 'DONANTE', emailVerificado: true };
+const REFERENTE_USER: AuthUser = { userId: 3, email: 'r@test.com', nombre: 'Ref', tipo: 'REFERENTE', emailVerificado: true };
+const UNVERIFIED_REFERENTE_USER: AuthUser = { userId: 4, email: 'unverified@test.com', nombre: 'Ref Sin Verificar', tipo: 'REFERENTE', emailVerificado: false };
 
 // Helper: build a MemoryRouter that places the ProtectedRoute guard at '/'
 // with a protected child page, plus redirect targets.
@@ -30,6 +31,7 @@ function buildRouter(
       { path: '/dashboard', element: <div>Referente Dashboard</div> },
       { path: '/explorar', element: <div>Explorar Page</div> },
       { path: '/pending-validation', element: <div>Pending Validation Page</div> },
+      { path: '/verify-email', element: <div>Verify Email Page</div> },
     ],
     { initialEntries: [initialPath] },
   );
@@ -176,6 +178,75 @@ describe('ProtectedRoute guard matrix', () => {
 
       expect(screen.getByText('Needs Content')).toBeInTheDocument();
       expect(screen.queryByText('Pending Validation Page')).not.toBeInTheDocument();
+    });
+  });
+
+  // HIGH PRIORITY (design's flagged risk area): the two gates are independent
+  // and sequential — requireVerified must win over requireValidated so an
+  // unverified+unvalidated referente sees /verify-email first, never a merged
+  // or wrong-order message.
+  describe('requireVerified + requireValidated — gate ordering', () => {
+    const GUARD_PROPS = {
+      allow: ['ADMINISTRADOR', 'REFERENTE'] as Array<typeof REFERENTE_USER['tipo']>,
+      requireVerified: true,
+      requireValidated: true,
+    };
+
+    it('unverified AND unvalidated REFERENTE is routed to /verify-email, not /pending-validation', () => {
+      useAuthStore.setState({
+        status: 'authenticated',
+        user: UNVERIFIED_REFERENTE_USER,
+        orgValidada: false,
+        orgChecked: true,
+      });
+
+      const router = buildRouter(GUARD_PROPS, '/needs');
+      render(<RouterProvider router={router} />);
+
+      expect(screen.getByText('Verify Email Page')).toBeInTheDocument();
+      expect(screen.queryByText('Pending Validation Page')).not.toBeInTheDocument();
+      expect(screen.queryByText('Needs Content')).not.toBeInTheDocument();
+    });
+
+    it('verified email + still-pending org shows /pending-validation unchanged', () => {
+      useAuthStore.setState({
+        status: 'authenticated',
+        user: REFERENTE_USER,
+        orgValidada: false,
+        orgChecked: true,
+      });
+
+      const router = buildRouter(GUARD_PROPS, '/needs');
+      render(<RouterProvider router={router} />);
+
+      expect(screen.getByText('Pending Validation Page')).toBeInTheDocument();
+      expect(screen.queryByText('Verify Email Page')).not.toBeInTheDocument();
+    });
+
+    it('verified email + approved org shows neither gate', () => {
+      useAuthStore.setState({
+        status: 'authenticated',
+        user: REFERENTE_USER,
+        orgValidada: true,
+        orgChecked: true,
+      });
+
+      const router = buildRouter(GUARD_PROPS, '/needs');
+      render(<RouterProvider router={router} />);
+
+      expect(screen.getByText('Needs Content')).toBeInTheDocument();
+      expect(screen.queryByText('Verify Email Page')).not.toBeInTheDocument();
+      expect(screen.queryByText('Pending Validation Page')).not.toBeInTheDocument();
+    });
+
+    it('unverified user on a requireVerified-only route (no requireValidated) still redirects to /verify-email', () => {
+      useAuthStore.setState({ status: 'authenticated', user: UNVERIFIED_REFERENTE_USER });
+
+      const router = buildRouter({ allow: ['REFERENTE'], requireVerified: true });
+      render(<RouterProvider router={router} />);
+
+      expect(screen.getByText('Verify Email Page')).toBeInTheDocument();
+      expect(screen.queryByText('Protected Content')).not.toBeInTheDocument();
     });
   });
 });
