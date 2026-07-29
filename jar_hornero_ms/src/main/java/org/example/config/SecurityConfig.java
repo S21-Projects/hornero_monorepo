@@ -28,6 +28,12 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers("/h2-console/**").permitAll()
+                        // Spring Security 6.1+ re-runs AuthorizationFilter on the internal
+                        // /error forward too. JwtAuthFilter doesn't repopulate auth for that
+                        // dispatch, so without this, every ResponseStatusException (403/404/etc.)
+                        // thrown from a controller/service loses its JSON body — the forward to
+                        // /error itself gets denied, producing an empty response.
+                        .requestMatchers("/error").permitAll()
                         .requestMatchers(
                                 "/swagger-ui/**",
                                 "/swagger-ui.html",
