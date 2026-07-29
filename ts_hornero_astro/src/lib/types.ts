@@ -18,6 +18,9 @@ export interface Org {
   validadoPorNombre?: string;
   profileImageKey?: string | null;
   bannerKey?: string | null;
+  aceptaDonaciones?: boolean;
+  sitioWebUrl?: string | null;
+  donacionDirectaUrl?: string | null;
 }
 
 // ─── Necesidad ─────────────────────────────────────────────────────────────────

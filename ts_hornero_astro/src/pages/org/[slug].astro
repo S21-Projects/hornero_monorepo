@@ -122,6 +122,11 @@ const ESTADO_DONACION_PILL: Record<string, 'warn' | 'open' | 'ok' | 'bad'> = {
             <Pill variant="solid" style={{ background: 'rgba(255,255,255,.22)' }}>
               {org.validada ? 'Validado' : 'Pendiente'}
             </Pill>
+            {org.aceptaDonaciones && (
+              <Pill variant="solid" style={{ background: 'rgba(255,255,255,.22)' }}>
+                Recibe donaciones
+              </Pill>
+            )}
           </div>
           <Text variant="h1" as="h1" className="text-2xl sm:text-[32px]" style={{ color: '#fff' }}>{org.nombre}</Text>
           <Text
@@ -148,17 +153,38 @@ const ESTADO_DONACION_PILL: Record<string, 'warn' | 'open' | 'ok' | 'bad'> = {
           <Text variant="body" color="ink-2">
             {org.descripcion ?? ''}
           </Text>
-          {org.referenteEmail && (
+          {(org.referenteEmail || org.sitioWebUrl) && (
             <div class="mt-[18px] flex flex-wrap gap-7">
-              <div class="flex items-center gap-[11px]">
-                <div class="flex h-10 w-10 items-center justify-center rounded-[11px]" style={{ background: 'var(--card-2)' }}>
-                  ✉️
+              {org.referenteEmail && (
+                <div class="flex items-center gap-[11px]">
+                  <div class="flex h-10 w-10 items-center justify-center rounded-[11px]" style={{ background: 'var(--card-2)' }}>
+                    ✉️
+                  </div>
+                  <div>
+                    <Text as="div" variant="caption" color="ink-3">Contacto</Text>
+                    <Text as="div" variant="body-sm">{org.referenteEmail}</Text>
+                  </div>
                 </div>
-                <div>
-                  <Text as="div" variant="caption" color="ink-3">Contacto</Text>
-                  <Text as="div" variant="body-sm">{org.referenteEmail}</Text>
+              )}
+              {org.sitioWebUrl && (
+                <div class="flex items-center gap-[11px]">
+                  <div class="flex h-10 w-10 items-center justify-center rounded-[11px]" style={{ background: 'var(--card-2)' }}>
+                    🌐
+                  </div>
+                  <div class="min-w-0">
+                    <Text as="div" variant="caption" color="ink-3">Sitio web</Text>
+                    <a
+                      href={org.sitioWebUrl}
+                      target="_blank"
+                      rel="noopener noreferrer nofollow"
+                      class="truncate"
+                      style={{ color: 'var(--sky)', fontWeight: 700, fontSize: 'var(--fs-body-sm)', textDecoration: 'none' }}
+                    >
+                      {org.sitioWebUrl}
+                    </a>
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
           )}
         </Card>
@@ -240,6 +266,33 @@ const ESTADO_DONACION_PILL: Record<string, 'warn' | 'open' | 'ok' | 'bad'> = {
           >
             Ir a donar
           </a>
+          {org.donacionDirectaUrl && (
+            <>
+              <a
+                href={org.donacionDirectaUrl}
+                target="_blank"
+                rel="noopener noreferrer nofollow"
+                style={{
+                  display: 'block',
+                  textAlign: 'center',
+                  marginTop: 10,
+                  padding: '10px 20px',
+                  background: 'transparent',
+                  color: 'var(--earth)',
+                  border: '1.5px solid var(--earth)',
+                  borderRadius: 'var(--r-btn)',
+                  fontWeight: 700,
+                  fontSize: 14,
+                  textDecoration: 'none',
+                }}
+              >
+                Donar directo a la organización
+              </a>
+              <Text variant="caption" color="ink-3" style={{ marginTop: 6 }}>
+                Este canal lo administra la organización — El Hornero no interviene ni hace seguimiento.
+              </Text>
+            </>
+          )}
         </Card>
 
         <Card style={{ padding: 20 }}>
