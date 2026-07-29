@@ -102,6 +102,7 @@ public class DataInitializer {
         admin.setEmail(superAdminEmail);
         admin.setPassword(passwordEncoder.encode(superAdminPassword));
         admin.setActivo(true);
+        admin.setEmailVerificado(true);
 
         usuarioRepository.save(admin);
         log.info("Seeded super admin: {}", superAdminEmail);
@@ -114,6 +115,7 @@ public class DataInitializer {
             referente.setEmail("referente@hornero.ar");
             referente.setPassword(passwordEncoder.encode("Ref123!"));
             referente.setActivo(true);
+            referente.setEmailVerificado(true);
             usuarioRepository.save(referente);
             log.info("Seeded referente@hornero.ar");
         }
@@ -124,6 +126,7 @@ public class DataInitializer {
             referente2.setEmail("referente2@hornero.ar");
             referente2.setPassword(passwordEncoder.encode("Ref123!"));
             referente2.setActivo(true);
+            referente2.setEmailVerificado(true);
             usuarioRepository.save(referente2);
             log.info("Seeded referente2@hornero.ar");
         }
@@ -134,6 +137,7 @@ public class DataInitializer {
             referente3.setEmail("referente3@hornero.ar");
             referente3.setPassword(passwordEncoder.encode("Ref123!"));
             referente3.setActivo(true);
+            referente3.setEmailVerificado(true);
             usuarioRepository.save(referente3);
             log.info("Seeded referente3@hornero.ar");
         }
@@ -144,6 +148,7 @@ public class DataInitializer {
             donante.setEmail("donante@hornero.ar");
             donante.setPassword(passwordEncoder.encode("Don123!"));
             donante.setActivo(true);
+            donante.setEmailVerificado(true);
             usuarioRepository.save(donante);
             log.info("Seeded donante@hornero.ar");
         }
@@ -154,6 +159,7 @@ public class DataInitializer {
             donante2.setEmail("donante2@hornero.ar");
             donante2.setPassword(passwordEncoder.encode("Don123!"));
             donante2.setActivo(true);
+            donante2.setEmailVerificado(true);
             usuarioRepository.save(donante2);
             log.info("Seeded donante2@hornero.ar");
         }

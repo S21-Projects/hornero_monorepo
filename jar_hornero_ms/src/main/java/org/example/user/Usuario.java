@@ -10,7 +10,6 @@ import lombok.*;
 @Getter
 @Setter
 @NoArgsConstructor
-@AllArgsConstructor
 public abstract class Usuario {
 
     @Id
@@ -28,4 +27,20 @@ public abstract class Usuario {
 
     @Column(nullable = false)
     private boolean activo = true;
+
+    /**
+     * Grandfathering: existing rows get {@code true} via the column default
+     * (see design decision #2), new rows written through this Java field get
+     * {@code false} until they confirm an OTP.
+     */
+    @Column(nullable = false, columnDefinition = "boolean not null default true")
+    private boolean emailVerificado = false;
+
+    protected Usuario(Long id, String nombre, String email, String password, boolean activo) {
+        this.id = id;
+        this.nombre = nombre;
+        this.email = email;
+        this.password = password;
+        this.activo = activo;
+    }
 }
