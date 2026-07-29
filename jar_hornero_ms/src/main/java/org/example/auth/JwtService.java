@@ -36,6 +36,7 @@ public class JwtService {
         claims.put("email", usuario.getEmail());
         claims.put("nombre", usuario.getNombre());
         claims.put("tipo", resolveDiscriminatorValue(usuario));
+        claims.put("emailVerificado", usuario.isEmailVerificado());
 
         return Jwts.builder()
                 .claims(claims)
