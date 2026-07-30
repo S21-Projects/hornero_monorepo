@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { HttpService } from '@nestjs/axios';
 import { ConfigService } from '@nestjs/config';
+import { buildQuery } from '../common/build-query.js';
 import { CrearNecesidadDto } from './dto/crear-necesidad.dto.js';
 import { ActualizarNecesidadDto } from './dto/actualizar-necesidad.dto.js';
 
@@ -19,18 +20,15 @@ export class NecesidadesService {
     return { Authorization: `Bearer ${accessToken}` };
   }
 
-  async getNecesidades(organizacionId?: string) {
-    const url = organizacionId
-      ? `${this.msUrl}/api/necesidades?organizacionId=${organizacionId}`
-      : `${this.msUrl}/api/necesidades`;
-    try {
-      const { data } = await this.httpService.axiosRef.get(url);
-      return data;
-    } catch (err: any) {
-      const status = err?.response?.status;
-      const body = JSON.stringify(err?.response?.data);
-      throw new Error(`MS ${status} on GET ${url}: ${body}`);
-    }
+  async getNecesidades(
+    organizacionId?: string,
+    page?: string,
+    size?: string,
+    sort?: string,
+  ) {
+    const url = `${this.msUrl}/api/necesidades${buildQuery({ organizacionId, page, size, sort })}`;
+    const { data } = await this.httpService.axiosRef.get(url);
+    return data;
   }
 
   async crear(dto: CrearNecesidadDto, accessToken: string) {

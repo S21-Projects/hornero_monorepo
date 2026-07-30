@@ -12,6 +12,8 @@ import org.example.domain.OrganizacionRepository;
 import org.example.donacion.dto.CreateDonacionRequest;
 import org.example.user.Donante;
 import org.example.user.UsuarioRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -32,16 +34,14 @@ public class DonacionService {
     private final OrganizacionRepository organizacionRepository;
     private final VerificacionService verificacionService;
 
-    public List<DonacionResponse> findAll() {
-        return donacionRepository.findAllWithDonante().stream()
-                .map(this::toResponse)
-                .collect(Collectors.toList());
+    public Page<DonacionResponse> findAll(Pageable pageable) {
+        return donacionRepository.findAllWithDonante(pageable)
+                .map(this::toResponse);
     }
 
-    public List<DonacionResponse> findByOrganizacion(Long orgId) {
-        return donacionRepository.findByOrganizacionId(orgId).stream()
-                .map(this::toResponse)
-                .collect(Collectors.toList());
+    public Page<DonacionResponse> findByOrganizacion(Long orgId, Pageable pageable) {
+        return donacionRepository.findByOrganizacionId(orgId, pageable)
+                .map(this::toResponse);
     }
 
     @Transactional
@@ -66,11 +66,9 @@ public class DonacionService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Donacion not found")));
     }
 
-    public List<DonacionResponse> findMias(Long donanteId) {
-        return donacionRepository.findByDonante_IdWithRelations(donanteId)
-                .stream()
-                .map(this::toResponse)
-                .collect(Collectors.toList());
+    public Page<DonacionResponse> findMias(Long donanteId, Pageable pageable) {
+        return donacionRepository.findByDonante_IdWithRelations(donanteId, pageable)
+                .map(this::toResponse);
     }
 
     public List<DonacionResponse> findDeMisOrganizaciones(Long referenteId, Long organizacionId) {
@@ -131,6 +129,10 @@ public class DonacionService {
     }
 
     private DonacionResponse toResponse(Donacion d) {
+        String necesidadDescripcion = d.getNecesidad() != null && d.getNecesidad().getDescripcion() != null
+                ? d.getNecesidad().getDescripcion() : "";
+        String organizacionNombre = d.getNecesidad() != null && d.getNecesidad().getOrganizacion() != null
+                ? d.getNecesidad().getOrganizacion().getNombre() : "";
         return new DonacionResponse(
                 d.getId(),
                 d.getFechaOferta(),
@@ -139,7 +141,9 @@ public class DonacionService {
                 d.getObservaciones(),
                 d.getDonante().getNombre(),
                 d.getNecesidad().getId(),
-                d.getNecesidad().getOrganizacion().getId()
+                d.getNecesidad().getOrganizacion().getId(),
+                necesidadDescripcion,
+                organizacionNombre
         );
     }
 }

@@ -4,8 +4,12 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.example.common.PageData;
 import org.example.donacion.dto.CreateDonacionRequest;
 import org.example.donacion.dto.UpdateEstadoDonacionRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
@@ -33,12 +37,13 @@ public class DonacionController {
 
     @Operation(summary = "List donations, optionally filtered by organization")
     @GetMapping
-    public List<DonacionResponse> getByOrganizacion(
-            @RequestParam(required = false) Long organizacionId) {
+    public PageData<DonacionResponse> getByOrganizacion(
+            @RequestParam(required = false) Long organizacionId,
+            @PageableDefault(size = 20, sort = {"fechaOferta", "id"}, direction = Sort.Direction.DESC) Pageable pageable) {
         if (organizacionId != null) {
-            return donacionService.findByOrganizacion(organizacionId);
+            return PageData.from(donacionService.findByOrganizacion(organizacionId, pageable));
         }
-        return donacionService.findAll();
+        return PageData.from(donacionService.findAll(pageable));
     }
 
     @Operation(summary = "Create a donation offer")
@@ -54,10 +59,11 @@ public class DonacionController {
     @Operation(summary = "List my donations")
     @GetMapping("/mias")
     @PreAuthorize("hasRole('DONANTE')")
-    public List<DonacionResponse> findMias() {
+    public PageData<DonacionResponse> findMias(
+            @PageableDefault(size = 20, sort = {"fechaOferta", "id"}, direction = Sort.Direction.DESC) Pageable pageable) {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         Long donanteId = (Long) auth.getPrincipal();
-        return donacionService.findMias(donanteId);
+        return PageData.from(donacionService.findMias(donanteId, pageable));
     }
 
     @Operation(summary = "List donations received by my organization(s), optionally filtered by one")

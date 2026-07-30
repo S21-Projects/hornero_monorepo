@@ -5,6 +5,7 @@ import {
   Param,
   ParseIntPipe,
   Patch,
+  Query,
   Req,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -28,8 +29,13 @@ export class UsuariosController {
   @Roles(Role.ADMINISTRADOR)
   @Get()
   @ApiOperation({ summary: 'List all users (ADMINISTRADOR only)' })
-  findAll(@Req() req: Request) {
-    return this.usuariosService.findAll(this.getToken(req));
+  findAll(
+    @Req() req: Request,
+    @Query('page') page?: string,
+    @Query('size') size?: string,
+    @Query('sort') sort?: string,
+  ) {
+    return this.usuariosService.findAll(this.getToken(req), page, size, sort);
   }
 
   @Roles(Role.ADMINISTRADOR)

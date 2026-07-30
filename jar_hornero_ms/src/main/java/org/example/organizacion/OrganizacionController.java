@@ -4,11 +4,14 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.example.common.PageData;
 import org.example.organizacion.dto.ActualizarInfoPublicaRequest;
 import org.example.organizacion.dto.ActualizarOrganizacionRequest;
 import org.example.organizacion.dto.AsignarReferenteRequest;
 import org.example.organizacion.dto.CrearOrganizacionRequest;
 import org.example.organizacion.dto.OrganizacionResponse;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.lang.Nullable;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -49,15 +52,17 @@ public class OrganizacionController {
 
     @Operation(summary = "List validated organizations (any authenticated user)")
     @GetMapping
-    public List<OrganizacionResponse> listarValidadas() {
-        return organizacionService.listarValidadas();
+    public PageData<OrganizacionResponse> listarValidadas(
+            @PageableDefault(size = 20, sort = "id") Pageable pageable) {
+        return PageData.from(organizacionService.listarValidadas(pageable));
     }
 
     @Operation(summary = "List pending organizations (admin only)")
     @GetMapping("/pendientes")
     @PreAuthorize("hasRole('ADMINISTRADOR')")
-    public List<OrganizacionResponse> listarPendientes() {
-        return organizacionService.listarPendientes();
+    public PageData<OrganizacionResponse> listarPendientes(
+            @PageableDefault(size = 20, sort = "id") Pageable pageable) {
+        return PageData.from(organizacionService.listarPendientes(pageable));
     }
 
     @Operation(summary = "List all organizations, any estado/referente (admin only)")
