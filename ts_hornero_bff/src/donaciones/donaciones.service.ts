@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { HttpService } from '@nestjs/axios';
 import { ConfigService } from '@nestjs/config';
+import { buildQuery } from '../common/build-query.js';
 import { CrearDonacionDto } from './dto/crear-donacion.dto.js';
 import { UpdateEstadoDonacionDto } from './dto/update-estado-donacion.dto.js';
 
@@ -19,10 +20,8 @@ export class DonacionesService {
     return { Authorization: `Bearer ${accessToken}` };
   }
 
-  async getDonaciones(organizacionId?: string) {
-    const url = organizacionId
-      ? `${this.msUrl}/api/donaciones?organizacionId=${organizacionId}`
-      : `${this.msUrl}/api/donaciones`;
+  async getDonaciones(organizacionId?: string, page?: string, size?: string, sort?: string) {
+    const url = `${this.msUrl}/api/donaciones${buildQuery({ organizacionId, page, size, sort })}`;
     const { data } = await this.httpService.axiosRef.get(url);
     return data;
   }
@@ -43,11 +42,11 @@ export class DonacionesService {
     return data;
   }
 
-  async findMias(accessToken: string) {
-    const { data } = await this.httpService.axiosRef.get(
-      `${this.msUrl}/api/donaciones/mias`,
-      { headers: this.authHeaders(accessToken) },
-    );
+  async findMias(accessToken: string, page?: string, size?: string, sort?: string) {
+    const url = `${this.msUrl}/api/donaciones/mias${buildQuery({ page, size, sort })}`;
+    const { data } = await this.httpService.axiosRef.get(url, {
+      headers: this.authHeaders(accessToken),
+    });
     return data;
   }
 
