@@ -22,6 +22,18 @@ describe('ESTADO_DONACION', () => {
     const cfg = ESTADO_DONACION['UNKNOWN_ESTADO'] ?? FALLBACK_BADGE;
     expect(cfg.tone).toBe('neutral');
   });
+
+  it('ACEPTADA maps to ok tone', () => {
+    expect(ESTADO_DONACION.ACEPTADA.tone).toBe('ok');
+  });
+
+  it('RECHAZADA maps to danger tone', () => {
+    expect(ESTADO_DONACION.RECHAZADA.tone).toBe('danger');
+  });
+
+  it('PENDIENTE_CONFIRMACION maps to neutral tone', () => {
+    expect(ESTADO_DONACION.PENDIENTE_CONFIRMACION.tone).toBe('neutral');
+  });
 });
 
 describe('ESTADO_NECESIDAD', () => {

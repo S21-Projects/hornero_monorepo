@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { AsyncSection } from '../components/AsyncSection';
 import { Badge } from '../components/Badge';
 import { Button } from '../components/ui/Button';
+import { Pager } from '../components/ui/Pager';
 import { Text } from '../components/ui/Typography';
 import { useMisOrganizaciones } from '../lib/hooks/useMisOrganizaciones';
 import { useNecesidadesDeOrg } from '../lib/hooks/useNecesidadesDeOrg';
@@ -9,10 +10,13 @@ import { useCrearNecesidad } from '../lib/hooks/useCrearNecesidad';
 import { useActualizarNecesidad } from '../lib/hooks/useActualizarNecesidad';
 import { useEliminarNecesidad } from '../lib/hooks/useEliminarNecesidad';
 import { mapNecesidadError } from '../lib/hooks/mapNecesidadError';
+import { usePageClamp } from '../lib/hooks/usePageClamp';
 import { PRIORIDAD, ESTADO_NECESIDAD, FALLBACK_BADGE } from '../lib/domain-ui';
 import { formatFecha } from '../lib/format';
 import type { Necesidad, PrioridadNecesidad, EstadoNecesidad } from '../types/domain';
 import { useNeedsViewState } from './needs-view-state';
+
+const PAGE_SIZE = 20;
 
 // ---------------------------------------------------------------------------
 // Create form
@@ -239,7 +243,10 @@ export default function NeedsPage() {
       ? explicitOrgId
       : (orgs[0]?.id ?? null);
 
-  const needsQuery = useNecesidadesDeOrg(orgId);
+  const [page, setPage] = useState(0);
+  const needsQuery = useNecesidadesDeOrg(orgId, { page, size: PAGE_SIZE });
+  usePageClamp(page, setPage, needsQuery.data?.totalPages);
+  const needsContent = needsQuery.data?.content ?? [];
   const eliminarMutation = useEliminarNecesidad(orgId ?? 0);
 
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -247,7 +254,7 @@ export default function NeedsPage() {
   // Resolve which need is being edited (if view is an object)
   const editingNeed: Necesidad | undefined =
     typeof view === 'object'
-      ? (needsQuery.data ?? []).find((n) => n.id === view.id)
+      ? needsContent.find((n) => n.id === view.id)
       : undefined;
 
   async function handleConfirmDelete(id: number) {
@@ -319,7 +326,7 @@ export default function NeedsPage() {
   }
 
   // List view
-  const needs = needsQuery.data ?? [];
+  const needs = needsContent;
 
   return (
     <div style={{ maxWidth: 800, margin: '0 auto', padding: '24px 16px' }}>
@@ -414,6 +421,10 @@ export default function NeedsPage() {
             );
           })}
         </div>
+
+        {needsQuery.data && (
+          <Pager page={needsQuery.data} onPageChange={setPage} disabled={needsQuery.isFetching} />
+        )}
       </AsyncSection>
     </div>
   );

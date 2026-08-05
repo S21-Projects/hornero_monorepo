@@ -1,5 +1,6 @@
 package org.example.donacion;
 
+import java.time.Instant;
 import java.time.LocalDate;
 
 public record DonacionResponse(
@@ -12,5 +13,8 @@ public record DonacionResponse(
         Long necesidadId,
         Long organizacionId,
         String necesidadDescripcion,
-        String organizacionNombre
+        String organizacionNombre,
+        Long donanteId,
+        Instant confirmadaDonanteEn,
+        Instant confirmadaReferenteEn
 ) {}

@@ -1,11 +1,13 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { api } from '../axios';
 import type { OrganizacionAdmin } from '../../types/domain';
+import type { PageData, PageParams } from '../../types/api';
 
-export function useOrganizacionesPendientes() {
-  return useQuery<OrganizacionAdmin[]>({
-    queryKey: ['organizaciones', 'pendientes'],
+export function useOrganizacionesPendientes(params?: PageParams) {
+  return useQuery<PageData<OrganizacionAdmin>>({
+    queryKey: ['organizaciones', 'pendientes', params ?? {}],
     queryFn: () =>
-      api.get<OrganizacionAdmin[]>('/organizaciones/pendientes').then((r) => r.data),
+      api.get<PageData<OrganizacionAdmin>>('/organizaciones/pendientes', { params }).then((r) => r.data),
+    placeholderData: keepPreviousData,
   });
 }

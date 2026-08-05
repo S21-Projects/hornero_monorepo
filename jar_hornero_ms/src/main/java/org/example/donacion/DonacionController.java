@@ -5,7 +5,10 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.example.common.PageData;
+import org.example.domain.EstadoDonacion;
 import org.example.donacion.dto.CreateDonacionRequest;
+import org.example.donacion.dto.DecisionDonacionRequest;
+import org.example.donacion.dto.OverrideEstadoRequest;
 import org.example.donacion.dto.UpdateEstadoDonacionRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -76,20 +79,59 @@ public class DonacionController {
         return donacionService.findDeMisOrganizaciones(referenteId, organizacionId);
     }
 
+    @Operation(summary = "List active (non-terminal) donations for admin oversight, paginated and searchable")
+    @GetMapping("/activas")
+    @PreAuthorize("hasRole('ADMINISTRADOR')")
+    public PageData<DonacionActivaResponse> findActivas(
+            @RequestParam(required = false) String q,
+            @RequestParam(required = false) EstadoDonacion estado,
+            @PageableDefault(size = 20, sort = {"fechaOferta", "id"}, direction = Sort.Direction.DESC) Pageable pageable) {
+        return PageData.from(donacionService.findActivas(q, estado, pageable));
+    }
+
     @Operation(summary = "Get a donation by ID")
     @GetMapping("/{id}")
     public DonacionResponse findById(@PathVariable Long id) {
         return donacionService.findById(id);
     }
 
-    @Operation(summary = "Update donation state")
-    @PatchMapping("/{id}/estado")
+    @Operation(summary = "Referente decides to accept or reject a donation offer")
+    @PatchMapping("/{id}/decision")
     @PreAuthorize("hasRole('REFERENTE')")
+    public DonacionResponse decidir(@PathVariable Long id,
+                                     @Valid @RequestBody DecisionDonacionRequest request) {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        Long referenteId = (Long) auth.getPrincipal();
+        return donacionService.decidir(id, request.getEstado(), referenteId);
+    }
+
+    @Operation(summary = "Update donation state (donante logistics: EN_CAMINO, CANCELADA)")
+    @PatchMapping("/{id}/estado")
+    @PreAuthorize("hasRole('DONANTE')")
     public DonacionResponse actualizarEstado(@PathVariable Long id,
                                              @Valid @RequestBody UpdateEstadoDonacionRequest request) {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        Long referenteId = (Long) auth.getPrincipal();
-        return donacionService.actualizarEstado(id, request.getEstado(), referenteId);
+        Long donanteId = (Long) auth.getPrincipal();
+        return donacionService.actualizarEstado(id, request.getEstado(), donanteId);
+    }
+
+    @Operation(summary = "Confirm delivery (donante or referente); becomes ENTREGADA once both confirm")
+    @PostMapping("/{id}/confirmar-entrega")
+    @PreAuthorize("hasAnyRole('DONANTE', 'REFERENTE')")
+    public DonacionResponse confirmarEntrega(@PathVariable Long id) {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        Long actorId = (Long) auth.getPrincipal();
+        return donacionService.confirmarEntrega(id, actorId);
+    }
+
+    @Operation(summary = "Admin override: force a non-terminal donation into any state, with audit trail")
+    @PatchMapping("/{id}/estado-admin")
+    @PreAuthorize("hasRole('ADMINISTRADOR')")
+    public DonacionResponse overrideEstado(@PathVariable Long id,
+                                            @Valid @RequestBody OverrideEstadoRequest request) {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        Long adminId = (Long) auth.getPrincipal();
+        return donacionService.overrideEstado(id, request.getEstado(), request.getMotivo(), adminId);
     }
 
     @Operation(summary = "Delete a donation (only if OFRECIDA)")

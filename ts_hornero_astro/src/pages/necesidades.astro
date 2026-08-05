@@ -3,21 +3,23 @@ import Layout from '../layouts/Layout.astro';
 import NeedsBoard from '../components/islands/NeedsBoard';
 import { publicFetch } from '../lib/publicFetch';
 import { Text } from '../components/ui/typography';
-import type { Necesidad, Org } from '../lib/types';
+import type { Necesidad, Org, PageData } from '../lib/types';
 
 let needs: Necesidad[] = [];
 let orgs: Org[] = [];
 
 try {
-  // TODO: when the MS pagination/envelope cutover lands, switch to PageResponse<T> and read .content (see src/lib/types.ts)
-  needs = await publicFetch<Necesidad[]>('/necesidades');
+  // TODO [tech-debt]: no UI pager yet, fixed size=50 ceiling
+  const page = await publicFetch<PageData<Necesidad>>('/necesidades?size=50');
+  needs = page.content;
 } catch {
   needs = [];
 }
 
 try {
-  // TODO: when the MS pagination/envelope cutover lands, switch to PageResponse<T> and read .content (see src/lib/types.ts)
-  orgs = await publicFetch<Org[]>('/organizaciones');
+  // TODO [tech-debt]: no UI pager yet, fixed size=50 ceiling
+  const page = await publicFetch<PageData<Org>>('/organizaciones?size=50');
+  orgs = page.content;
 } catch {
   orgs = [];
 }

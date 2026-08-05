@@ -6,9 +6,12 @@ import { Badge } from '../components/Badge';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Dropdown } from '../components/ui/Dropdown';
+import { Input } from '../components/ui/Input';
+import { Pager } from '../components/ui/Pager';
 import { Text } from '../components/ui/Typography';
 import { useUsuarios } from '../lib/hooks/useUsuarios';
 import { useTodasOrganizaciones } from '../lib/hooks/useTodasOrganizaciones';
+import { usePageClamp } from '../lib/hooks/usePageClamp';
 import { useAsignarReferente } from '../lib/hooks/useAsignarReferente';
 import { useAdminInfoPublica } from '../lib/hooks/useAdminInfoPublica';
 import { mapAsignarReferenteError } from '../lib/hooks/mapAsignarReferenteError';
@@ -133,15 +136,35 @@ function OrgRow({ org, referentesActivos }: OrgRowProps) {
   );
 }
 
+const PAGE_SIZE = 20;
+
 export default function ReferentesPage() {
-  const usuariosQuery = useUsuarios();
+  const [page, setPage] = useState(0);
+  const [search, setSearch] = useState('');
+  const usuariosQuery = useUsuarios({ page, size: PAGE_SIZE });
   const orgsQuery = useTodasOrganizaciones();
 
   const isLoading = usuariosQuery.isLoading || orgsQuery.isLoading;
   const isError = usuariosQuery.isError || orgsQuery.isError;
 
-  const referentes = (usuariosQuery.data ?? []).filter((u) => u.tipo === 'REFERENTE');
-  const referentesActivos = referentes.filter((r) => r.activo);
+  usePageClamp(page, setPage, usuariosQuery.data?.totalPages);
+  const usuariosPage = usuariosQuery.data;
+  const allReferentes = (usuariosPage?.content ?? []).filter((u) => u.tipo === 'REFERENTE');
+  // NOTE: search filters only the current server-fetched page (server-paginated,
+  // size 20); the `Pager`'s result-count caption still reflects the unfiltered
+  // page total, not the filtered count. Same root cause as BACKLOG-03.
+  const referentes = search.trim()
+    ? allReferentes.filter(
+        (r) =>
+          r.nombre.toLowerCase().includes(search.trim().toLowerCase()) ||
+          r.email.toLowerCase().includes(search.trim().toLowerCase()),
+      )
+    : allReferentes;
+  // NOTE: "activos" pool for the reassignment dropdown is scoped to the current
+  // page of `useUsuarios` (server-paginated). If referentes ever exceed one
+  // page, an active referente on another page won't appear as an assignment
+  // option here. Acceptable for now — tracked as tech debt alongside BACKLOG-02.
+  const referentesActivos = allReferentes.filter((r) => r.activo);
   const orgs = orgsQuery.data ?? [];
 
   const orgsPorReferente = new Map<number, OrganizacionAdmin[]>();
@@ -163,7 +186,26 @@ export default function ReferentesPage() {
         Reasigná una organización a otro referente activo, o dejala sin referente.
       </Text>
 
-      <AsyncSection isLoading={isLoading} isError={isError} isEmpty={referentes.length === 0 && orgs.length === 0}>
+      <div style={{ maxWidth: 360, marginBottom: 16 }}>
+        <Input
+          type="search"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Buscar referente por nombre o email"
+          aria-label="Buscar referente"
+        />
+      </div>
+
+      <AsyncSection
+        isLoading={isLoading}
+        isError={isError}
+        isEmpty={allReferentes.length === 0 && orgs.length === 0}
+      >
+        {referentes.length === 0 && allReferentes.length > 0 && (
+          <Text variant="body-sm" color="ink-2" style={{ marginBottom: 16 }}>
+            No hay referentes en esta página que coincidan con la búsqueda — probá con otra.
+          </Text>
+        )}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           {referentes.map((referente) => {
             const misOrgs = orgsPorReferente.get(referente.id) ?? [];
@@ -199,6 +241,10 @@ export default function ReferentesPage() {
             )}
           </Card>
         </div>
+
+        {usuariosPage && (
+          <Pager page={usuariosPage} onPageChange={setPage} disabled={usuariosQuery.isFetching} />
+        )}
       </AsyncSection>
     </div>
   );

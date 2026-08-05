@@ -3,6 +3,8 @@ import { HttpService } from '@nestjs/axios';
 import { ConfigService } from '@nestjs/config';
 import { buildQuery } from '../common/build-query.js';
 import { CrearDonacionDto } from './dto/crear-donacion.dto.js';
+import { DecisionDonacionDto } from './dto/decision-donacion.dto.js';
+import { OverrideEstadoDto } from './dto/override-estado.dto.js';
 import { UpdateEstadoDonacionDto } from './dto/update-estado-donacion.dto.js';
 
 @Injectable()
@@ -78,6 +80,48 @@ export class DonacionesService {
       `${this.msUrl}/api/donaciones/${id}`,
       { headers: this.authHeaders(accessToken) },
     );
+    return data;
+  }
+
+  async decidir(id: number, dto: DecisionDonacionDto, accessToken: string) {
+    const { data } = await this.httpService.axiosRef.patch(
+      `${this.msUrl}/api/donaciones/${id}/decision`,
+      dto,
+      { headers: this.authHeaders(accessToken) },
+    );
+    return data;
+  }
+
+  async confirmarEntrega(id: number, accessToken: string) {
+    const { data } = await this.httpService.axiosRef.post(
+      `${this.msUrl}/api/donaciones/${id}/confirmar-entrega`,
+      null,
+      { headers: this.authHeaders(accessToken) },
+    );
+    return data;
+  }
+
+  async overrideEstado(id: number, dto: OverrideEstadoDto, accessToken: string) {
+    const { data } = await this.httpService.axiosRef.patch(
+      `${this.msUrl}/api/donaciones/${id}/estado-admin`,
+      dto,
+      { headers: this.authHeaders(accessToken) },
+    );
+    return data;
+  }
+
+  async findActivas(
+    accessToken: string,
+    page?: string,
+    size?: string,
+    sort?: string,
+    q?: string,
+    estado?: string,
+  ) {
+    const url = `${this.msUrl}/api/donaciones/activas${buildQuery({ page, size, sort, q, estado })}`;
+    const { data } = await this.httpService.axiosRef.get(url, {
+      headers: this.authHeaders(accessToken),
+    });
     return data;
   }
 }

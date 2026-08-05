@@ -20,10 +20,13 @@ export const EstadoNecesidad = {
 export type EstadoNecesidad = typeof EstadoNecesidad[keyof typeof EstadoNecesidad];
 
 export const EstadoDonacion = {
-  OFRECIDA:  'OFRECIDA',
-  EN_CAMINO: 'EN_CAMINO',
-  ENTREGADA: 'ENTREGADA',
-  CANCELADA: 'CANCELADA',
+  OFRECIDA:                'OFRECIDA',
+  ACEPTADA:                'ACEPTADA',
+  RECHAZADA:               'RECHAZADA',
+  EN_CAMINO:               'EN_CAMINO',
+  PENDIENTE_CONFIRMACION:  'PENDIENTE_CONFIRMACION',
+  ENTREGADA:               'ENTREGADA',
+  CANCELADA:               'CANCELADA',
 } as const;
 export type EstadoDonacion = typeof EstadoDonacion[keyof typeof EstadoDonacion];
 
@@ -82,8 +85,11 @@ export interface Donacion {
   estado: EstadoDonacion;
   observaciones?: string;
   donanteName?: string;
+  donanteId?: number;
   necesidadId: number;
   organizacionId?: number;
+  confirmadaDonanteEn?: string;
+  confirmadaReferenteEn?: string;
 }
 
 export interface CrearDonacionInput {
@@ -150,4 +156,24 @@ export interface Usuario {
   email: string;
   tipo: UserRole;
   activo: boolean;
+}
+
+/** Mirrors `DonacionActivaResponse` (MS) — the row shape for `/donaciones/activas` (Slice 6). */
+export interface DonacionActiva {
+  id: number;
+  fechaOferta?: string;
+  fechaEntrega?: string;
+  estado: EstadoDonacion;
+  observaciones?: string;
+  donanteId?: number;
+  donanteNombre?: string;
+  necesidadId: number;
+  necesidadDescripcion?: string;
+  organizacionId?: number;
+  organizacionNombre?: string;
+  confirmadaDonanteEn?: string;
+  confirmadaReferenteEn?: string;
+  overrideMotivo?: string;
+  overrideAdminId?: number;
+  overrideEn?: string;
 }

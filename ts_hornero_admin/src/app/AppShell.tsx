@@ -17,6 +17,7 @@ const NAV_LINKS: Record<UserRole, NavItem[]> = {
     { to: '/admin', label: 'Admin' },
     { to: '/users', label: 'Usuarios' },
     { to: '/referentes', label: 'Referentes' },
+    { to: '/control-donaciones', label: 'Donaciones' },
   ],
   REFERENTE: [
     { to: '/dashboard', label: 'Dashboard' },

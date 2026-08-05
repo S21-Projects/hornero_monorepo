@@ -1,18 +1,26 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useNecesidades } from '../lib/hooks/useNecesidades';
 import { useOrgNombre } from '../lib/hooks/useOrgNombre';
+import { usePageClamp } from '../lib/hooks/usePageClamp';
 import { PRIORIDAD, FALLBACK_BADGE } from '../lib/domain-ui';
 import { formatFecha } from '../lib/format';
 import { AsyncSection } from '../components/AsyncSection';
 import { Badge } from '../components/Badge';
 import { Card } from '../components/ui/Card';
+import { Pager } from '../components/ui/Pager';
 import { Text } from '../components/ui/Typography';
 
+const PAGE_SIZE = 20;
+
 export default function ExplorarPage() {
-  const { data: necesidades, isLoading, isError } = useNecesidades();
+  const [page, setPage] = useState(0);
+  const { data, isLoading, isError, isFetching } = useNecesidades({ page, size: PAGE_SIZE });
+  usePageClamp(page, setPage, data?.totalPages);
   const { getNombre } = useOrgNombre();
 
-  const abiertas = (necesidades ?? []).filter((n) => n.estado === 'ABIERTA');
+  const necesidades = data?.content ?? [];
+  const abiertas = necesidades.filter((n) => n.estado === 'ABIERTA');
 
   return (
     <div style={{ maxWidth: 720 }}>
@@ -21,9 +29,14 @@ export default function ExplorarPage() {
       <AsyncSection
         isLoading={isLoading}
         isError={isError}
-        isEmpty={!isLoading && !isError && abiertas.length === 0}
+        isEmpty={!isLoading && !isError && necesidades.length === 0}
         emptyLabel="No hay necesidades abiertas en este momento."
       >
+        {abiertas.length === 0 && (
+          <Text variant="body-sm" color="ink-2" style={{ marginBottom: 16 }}>
+            No hay necesidades abiertas en esta página — probá con otra.
+          </Text>
+        )}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           {abiertas.map((n) => {
             const prioridadCfg = PRIORIDAD[n.prioridad] ?? FALLBACK_BADGE;
@@ -58,6 +71,8 @@ export default function ExplorarPage() {
             );
           })}
         </div>
+
+        {data && <Pager page={data} onPageChange={setPage} disabled={isFetching} />}
       </AsyncSection>
     </div>
   );

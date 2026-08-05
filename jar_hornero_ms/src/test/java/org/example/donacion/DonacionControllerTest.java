@@ -60,7 +60,10 @@ class DonacionControllerTest {
                 10L,
                 20L,
                 descripcion,
-                orgNombre
+                orgNombre,
+                30L,
+                null,
+                null
         );
     }
 
@@ -130,5 +133,26 @@ class DonacionControllerTest {
         Sort.Order fechaOfertaOrder = sort.getOrderFor("fechaOferta");
         assertThat(fechaOfertaOrder).isNotNull();
         assertThat(fechaOfertaOrder.getDirection()).isEqualTo(Sort.Direction.DESC);
+    }
+
+    // ─── GET /activas: admin-only paginated active-donations list ────────────
+
+    @Test
+    void getActivas_anonymous_isUnauthorized() throws Exception {
+        mockMvc.perform(get("/api/donaciones/activas"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMINISTRADOR")
+    void getActivas_sizeAboveMaxPageSize_clampsTo100() throws Exception {
+        ArgumentCaptor<Pageable> captor = ArgumentCaptor.forClass(Pageable.class);
+        var emptyPage = new PageImpl<org.example.donacion.DonacionActivaResponse>(List.of());
+        when(donacionService.findActivas(any(), any(), captor.capture())).thenReturn(emptyPage);
+
+        mockMvc.perform(get("/api/donaciones/activas").param("size", "9999"))
+                .andExpect(status().isOk());
+
+        assertThat(captor.getValue().getPageSize()).isEqualTo(100);
     }
 }

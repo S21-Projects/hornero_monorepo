@@ -9,7 +9,10 @@ export const ESTADO_NECESIDAD_LABELS: Record<string, string> = {
 
 export const ESTADO_DONACION_LABELS: Record<string, string> = {
   OFRECIDA: 'Ofrecida',
+  ACEPTADA: 'Aceptada',
+  RECHAZADA: 'Rechazada',
   EN_CAMINO: 'En camino',
+  PENDIENTE_CONFIRMACION: 'Pendiente de confirmación',
   ENTREGADA: 'Entregada',
   CANCELADA: 'Cancelada',
 };

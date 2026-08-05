@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { isApiEnvelope } from '../types/api';
 
 // BFF base URL — NO /api prefix (gotcha #252: BFF routes have no /api prefix,
 // only the MS does).
@@ -17,7 +18,15 @@ const processQueue = (error: unknown) => {
 };
 
 api.interceptors.response.use(
-  (res) => res,
+  (res) => {
+    // Unwrap the MS `{status,message,timestamp,data,errors}` envelope so
+    // domain code never sees it. `/api/auth/**` responses fail the shape
+    // guard (no `status`/`timestamp` fields) and pass through raw.
+    if (isApiEnvelope(res.data)) {
+      res.data = res.data.data;
+    }
+    return res;
+  },
   async (error) => {
     const originalRequest = error.config;
     if (

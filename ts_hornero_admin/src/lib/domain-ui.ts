@@ -30,10 +30,13 @@ export const ESTADO_NECESIDAD: Record<string, BadgeConfig> = {
 };
 
 export const ESTADO_DONACION: Record<string, BadgeConfig> = {
-  OFRECIDA:  { tone: 'sky',     label: 'Ofrecida' },
-  EN_CAMINO: { tone: 'neutral', label: 'En camino' },
-  ENTREGADA: { tone: 'ok',      label: 'Entregada' },
-  CANCELADA: { tone: 'danger',  label: 'Cancelada' },
+  OFRECIDA:                { tone: 'sky',     label: 'Ofrecida' },
+  ACEPTADA:                { tone: 'ok',      label: 'Aceptada' },
+  RECHAZADA:               { tone: 'danger',  label: 'Rechazada' },
+  EN_CAMINO:               { tone: 'neutral', label: 'En camino' },
+  PENDIENTE_CONFIRMACION:  { tone: 'neutral', label: 'Pendiente de confirmación' },
+  ENTREGADA:               { tone: 'ok',      label: 'Entregada' },
+  CANCELADA:               { tone: 'danger',  label: 'Cancelada' },
 };
 
 /** Fallback for any unknown enum value. Never throws. */

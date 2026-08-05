@@ -48,14 +48,12 @@ export interface Donacion {
   organizacionId: number;
 }
 
-// ─── API envelope (paginated responses) ───────────────────────────────────────
+// ─── Paginated response (mirrors MS `PageData.java`) ──────────────────────────
 
-export interface PageResponse<T> {
+export interface PageData<T> {
   content: T[];
   totalElements: number;
   totalPages: number;
   number: number;
   size: number;
-  first: boolean;
-  last: boolean;
 }

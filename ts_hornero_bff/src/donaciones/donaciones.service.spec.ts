@@ -5,11 +5,15 @@ import { DonacionesService } from './donaciones.service';
 
 describe('DonacionesService', () => {
   let service: DonacionesService;
-  let httpService: { axiosRef: { get: jest.Mock } };
+  let httpService: {
+    axiosRef: { get: jest.Mock; post: jest.Mock; patch: jest.Mock };
+  };
   let configService: { get: jest.Mock };
 
   beforeEach(async () => {
-    httpService = { axiosRef: { get: jest.fn() } };
+    httpService = {
+      axiosRef: { get: jest.fn(), post: jest.fn(), patch: jest.fn() },
+    };
     configService = { get: jest.fn().mockReturnValue('http://ms:8081') };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -45,6 +49,90 @@ describe('DonacionesService', () => {
 
       expect(httpService.axiosRef.get).toHaveBeenCalledWith(
         'http://ms:8081/api/donaciones/mi-organizacion?organizacionId=10',
+        { headers: { Authorization: 'Bearer token-123' } },
+      );
+    });
+  });
+
+  describe('decidir', () => {
+    it('PATCHes the MS /decision endpoint with a Bearer header', async () => {
+      const data = { id: 1, estado: 'ACEPTADA' };
+      httpService.axiosRef.patch.mockResolvedValue({ data });
+      const dto = { estado: 'ACEPTADA' };
+
+      const result = await service.decidir(1, dto, 'token-123');
+
+      expect(httpService.axiosRef.patch).toHaveBeenCalledWith(
+        'http://ms:8081/api/donaciones/1/decision',
+        dto,
+        { headers: { Authorization: 'Bearer token-123' } },
+      );
+      expect(result).toEqual(data);
+    });
+  });
+
+  describe('confirmarEntrega', () => {
+    it('POSTs the MS /confirmar-entrega endpoint with a Bearer header', async () => {
+      const data = { id: 1, estado: 'PENDIENTE_CONFIRMACION' };
+      httpService.axiosRef.post.mockResolvedValue({ data });
+
+      const result = await service.confirmarEntrega(1, 'token-123');
+
+      expect(httpService.axiosRef.post).toHaveBeenCalledWith(
+        'http://ms:8081/api/donaciones/1/confirmar-entrega',
+        null,
+        { headers: { Authorization: 'Bearer token-123' } },
+      );
+      expect(result).toEqual(data);
+    });
+  });
+
+  describe('overrideEstado', () => {
+    it('PATCHes the MS /estado-admin endpoint with a Bearer header', async () => {
+      const data = { id: 1, estado: 'CANCELADA' };
+      httpService.axiosRef.patch.mockResolvedValue({ data });
+      const dto = { estado: 'CANCELADA', motivo: 'Duplicada' };
+
+      const result = await service.overrideEstado(1, dto, 'token-123');
+
+      expect(httpService.axiosRef.patch).toHaveBeenCalledWith(
+        'http://ms:8081/api/donaciones/1/estado-admin',
+        dto,
+        { headers: { Authorization: 'Bearer token-123' } },
+      );
+      expect(result).toEqual(data);
+    });
+  });
+
+  describe('findActivas', () => {
+    it('GETs the MS /activas endpoint with a Bearer header and no query params', async () => {
+      const data = { content: [], totalElements: 0 };
+      httpService.axiosRef.get.mockResolvedValue({ data });
+
+      const result = await service.findActivas('token-123');
+
+      expect(httpService.axiosRef.get).toHaveBeenCalledWith(
+        'http://ms:8081/api/donaciones/activas',
+        { headers: { Authorization: 'Bearer token-123' } },
+      );
+      expect(result).toEqual(data);
+    });
+
+    it('forwards page/size/sort/q/estado query params to the MS', async () => {
+      const data = { content: [], totalElements: 0 };
+      httpService.axiosRef.get.mockResolvedValue({ data });
+
+      await service.findActivas(
+        'token-123',
+        '0',
+        '20',
+        'fechaOferta,desc',
+        'org',
+        'OFRECIDA',
+      );
+
+      expect(httpService.axiosRef.get).toHaveBeenCalledWith(
+        'http://ms:8081/api/donaciones/activas?page=0&size=20&sort=fechaOferta%2Cdesc&q=org&estado=OFRECIDA',
         { headers: { Authorization: 'Bearer token-123' } },
       );
     });
