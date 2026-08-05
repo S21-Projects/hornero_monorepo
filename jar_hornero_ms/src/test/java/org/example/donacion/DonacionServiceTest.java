@@ -164,17 +164,392 @@ class DonacionServiceTest {
         verifyNoInteractions(necesidadRepository);
     }
 
-    // --- actualizarEstado ownership traversal ---
+    // --- decidir (referente: OFRECIDA -> ACEPTADA | RECHAZADA) ---
 
     @Test
-    void actualizarEstado_organizacionWithNullReferente_throwsForbidden() {
+    void decidir_organizacionWithNullReferente_throwsForbidden() {
         miOrganizacion.setReferente(null);
         Donacion d = donacionFor(1L, miOrganizacion);
 
         when(donacionRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(d));
 
-        assertThatThrownBy(() -> donacionService.actualizarEstado(1L, EstadoDonacion.EN_CAMINO, 1L))
+        assertThatThrownBy(() -> donacionService.decidir(1L, EstadoDonacion.ACEPTADA, 1L))
                 .isInstanceOf(ResponseStatusException.class)
                 .hasMessageContaining("403");
+    }
+
+    @Test
+    void decidir_foreignReferente_throwsForbidden() {
+        Donacion d = donacionFor(1L, miOrganizacion);
+        when(donacionRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(d));
+
+        assertThatThrownBy(() -> donacionService.decidir(1L, EstadoDonacion.ACEPTADA, 999L))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("403");
+    }
+
+    @Test
+    void decidir_ofrecidaToAceptada_succeeds() {
+        Donacion d = donacionFor(1L, miOrganizacion);
+        when(donacionRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(d));
+        when(donacionRepository.save(any(Donacion.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        DonacionResponse response = donacionService.decidir(1L, EstadoDonacion.ACEPTADA, 1L);
+
+        assertThat(response.estado()).isEqualTo("ACEPTADA");
+    }
+
+    @Test
+    void decidir_ofrecidaToRechazada_succeeds() {
+        Donacion d = donacionFor(1L, miOrganizacion);
+        when(donacionRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(d));
+        when(donacionRepository.save(any(Donacion.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        DonacionResponse response = donacionService.decidir(1L, EstadoDonacion.RECHAZADA, 1L);
+
+        assertThat(response.estado()).isEqualTo("RECHAZADA");
+    }
+
+    @Test
+    void decidir_invalidTargetEstado_throwsBadRequest() {
+        Donacion d = donacionFor(1L, miOrganizacion);
+        when(donacionRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(d));
+
+        assertThatThrownBy(() -> donacionService.decidir(1L, EstadoDonacion.EN_CAMINO, 1L))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("400");
+    }
+
+    @Test
+    void decidir_notOfrecida_throwsBadRequest() {
+        Donacion d = donacionFor(1L, miOrganizacion);
+        d.setEstado(EstadoDonacion.ACEPTADA);
+        when(donacionRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(d));
+
+        assertThatThrownBy(() -> donacionService.decidir(1L, EstadoDonacion.RECHAZADA, 1L))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("400");
+    }
+
+    // --- actualizarEstado (donante logistics: ACEPTADA -> EN_CAMINO, {OFRECIDA,ACEPTADA,EN_CAMINO} -> CANCELADA) ---
+
+    @Test
+    void actualizarEstado_foreignDonante_throwsForbidden() {
+        Donacion d = donacionFor(1L, miOrganizacion);
+        when(donacionRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(d));
+
+        assertThatThrownBy(() -> donacionService.actualizarEstado(1L, EstadoDonacion.CANCELADA, 999L))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("403");
+    }
+
+    @Test
+    void actualizarEstado_aceptadaToEnCamino_succeeds() {
+        Donacion d = donacionFor(1L, miOrganizacion);
+        d.setEstado(EstadoDonacion.ACEPTADA);
+        when(donacionRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(d));
+        when(donacionRepository.save(any(Donacion.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        DonacionResponse response = donacionService.actualizarEstado(1L, EstadoDonacion.EN_CAMINO, 2L);
+
+        assertThat(response.estado()).isEqualTo("EN_CAMINO");
+    }
+
+    @Test
+    void actualizarEstado_ofrecidaToCancelada_succeeds() {
+        Donacion d = donacionFor(1L, miOrganizacion);
+        when(donacionRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(d));
+        when(donacionRepository.save(any(Donacion.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        DonacionResponse response = donacionService.actualizarEstado(1L, EstadoDonacion.CANCELADA, 2L);
+
+        assertThat(response.estado()).isEqualTo("CANCELADA");
+    }
+
+    @Test
+    void actualizarEstado_enCaminoToCancelada_succeeds() {
+        Donacion d = donacionFor(1L, miOrganizacion);
+        d.setEstado(EstadoDonacion.EN_CAMINO);
+        when(donacionRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(d));
+        when(donacionRepository.save(any(Donacion.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        DonacionResponse response = donacionService.actualizarEstado(1L, EstadoDonacion.CANCELADA, 2L);
+
+        assertThat(response.estado()).isEqualTo("CANCELADA");
+    }
+
+    @Test
+    void actualizarEstado_invalidTargetEstado_throwsBadRequest() {
+        Donacion d = donacionFor(1L, miOrganizacion);
+        when(donacionRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(d));
+
+        assertThatThrownBy(() -> donacionService.actualizarEstado(1L, EstadoDonacion.ACEPTADA, 2L))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("400");
+    }
+
+    @Test
+    void actualizarEstado_ofrecidaToEnCamino_throwsBadRequest_mustGoThroughAceptadaFirst() {
+        Donacion d = donacionFor(1L, miOrganizacion);
+        when(donacionRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(d));
+
+        assertThatThrownBy(() -> donacionService.actualizarEstado(1L, EstadoDonacion.EN_CAMINO, 2L))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("400");
+    }
+
+    @Test
+    void actualizarEstado_terminalState_throwsBadRequest() {
+        Donacion d = donacionFor(1L, miOrganizacion);
+        d.setEstado(EstadoDonacion.RECHAZADA);
+        when(donacionRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(d));
+
+        assertThatThrownBy(() -> donacionService.actualizarEstado(1L, EstadoDonacion.CANCELADA, 2L))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("400");
+    }
+
+    // --- confirmarEntrega (mutual confirmation) ---
+
+    @Test
+    void confirmarEntrega_foreignActor_throwsForbidden() {
+        Donacion d = donacionFor(1L, miOrganizacion);
+        d.setEstado(EstadoDonacion.ACEPTADA);
+        when(donacionRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(d));
+
+        assertThatThrownBy(() -> donacionService.confirmarEntrega(1L, 999L))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("403");
+    }
+
+    @Test
+    void confirmarEntrega_donanteFirst_setsOnlyDonanteTimestampAndPendiente() {
+        Donacion d = donacionFor(1L, miOrganizacion);
+        d.setEstado(EstadoDonacion.ACEPTADA);
+        when(donacionRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(d));
+        when(donacionRepository.save(any(Donacion.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        DonacionResponse response = donacionService.confirmarEntrega(1L, 2L); // donante id
+
+        assertThat(response.estado()).isEqualTo("PENDIENTE_CONFIRMACION");
+        assertThat(response.confirmadaDonanteEn()).isNotNull();
+        assertThat(response.confirmadaReferenteEn()).isNull();
+    }
+
+    @Test
+    void confirmarEntrega_secondConfirmerCompletesDelivery() {
+        Donacion d = donacionFor(1L, miOrganizacion);
+        d.setEstado(EstadoDonacion.PENDIENTE_CONFIRMACION);
+        d.setConfirmadaDonanteEn(java.time.Instant.now());
+        when(donacionRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(d));
+        when(donacionRepository.save(any(Donacion.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        DonacionResponse response = donacionService.confirmarEntrega(1L, 1L); // referente id
+
+        assertThat(response.estado()).isEqualTo("ENTREGADA");
+        assertThat(response.confirmadaDonanteEn()).isNotNull();
+        assertThat(response.confirmadaReferenteEn()).isNotNull();
+        assertThat(response.fechaEntrega()).isEqualTo(LocalDate.now());
+    }
+
+    @Test
+    void confirmarEntrega_sameActorConfirmsTwice_isIdempotentNoOp() {
+        Donacion d = donacionFor(1L, miOrganizacion);
+        d.setEstado(EstadoDonacion.PENDIENTE_CONFIRMACION);
+        java.time.Instant firstConfirm = java.time.Instant.now().minusSeconds(60);
+        d.setConfirmadaDonanteEn(firstConfirm);
+        when(donacionRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(d));
+        when(donacionRepository.save(any(Donacion.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        DonacionResponse response = donacionService.confirmarEntrega(1L, 2L); // donante again
+
+        assertThat(response.estado()).isEqualTo("PENDIENTE_CONFIRMACION");
+        assertThat(response.confirmadaDonanteEn()).isEqualTo(firstConfirm);
+        assertThat(response.confirmadaReferenteEn()).isNull();
+    }
+
+    @Test
+    void confirmarEntrega_enCaminoSkipsStraightToPendiente() {
+        Donacion d = donacionFor(1L, miOrganizacion);
+        d.setEstado(EstadoDonacion.EN_CAMINO);
+        when(donacionRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(d));
+        when(donacionRepository.save(any(Donacion.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        DonacionResponse response = donacionService.confirmarEntrega(1L, 1L); // referente
+
+        assertThat(response.estado()).isEqualTo("PENDIENTE_CONFIRMACION");
+        assertThat(response.confirmadaReferenteEn()).isNotNull();
+    }
+
+    @Test
+    void confirmarEntrega_terminalState_throwsBadRequest() {
+        Donacion d = donacionFor(1L, miOrganizacion);
+        d.setEstado(EstadoDonacion.CANCELADA);
+        when(donacionRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(d));
+
+        assertThatThrownBy(() -> donacionService.confirmarEntrega(1L, 1L))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("400");
+    }
+
+    @Test
+    void confirmarEntrega_ofrecidaState_throwsBadRequest() {
+        Donacion d = donacionFor(1L, miOrganizacion);
+        when(donacionRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(d));
+
+        assertThatThrownBy(() -> donacionService.confirmarEntrega(1L, 1L))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("400");
+    }
+
+    // --- overrideEstado (admin escape hatch) ---
+
+    @Test
+    void overrideEstado_entregadaTerminal_throwsBadRequest() {
+        Donacion d = donacionFor(1L, miOrganizacion);
+        d.setEstado(EstadoDonacion.ENTREGADA);
+        when(donacionRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(d));
+
+        assertThatThrownBy(() -> donacionService.overrideEstado(1L, EstadoDonacion.CANCELADA, "motivo", 99L))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("400");
+    }
+
+    @Test
+    void overrideEstado_rechazadaTerminal_throwsBadRequest() {
+        Donacion d = donacionFor(1L, miOrganizacion);
+        d.setEstado(EstadoDonacion.RECHAZADA);
+        when(donacionRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(d));
+
+        assertThatThrownBy(() -> donacionService.overrideEstado(1L, EstadoDonacion.ENTREGADA, "motivo", 99L))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("400");
+    }
+
+    @Test
+    void overrideEstado_canceladaTerminal_throwsBadRequest() {
+        Donacion d = donacionFor(1L, miOrganizacion);
+        d.setEstado(EstadoDonacion.CANCELADA);
+        when(donacionRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(d));
+
+        assertThatThrownBy(() -> donacionService.overrideEstado(1L, EstadoDonacion.ENTREGADA, "motivo", 99L))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("400");
+    }
+
+    @Test
+    void overrideEstado_blankMotivo_throwsBadRequestAndDoesNotChangeEstado() {
+        Donacion d = donacionFor(1L, miOrganizacion);
+        d.setEstado(EstadoDonacion.PENDIENTE_CONFIRMACION);
+        when(donacionRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(d));
+
+        assertThatThrownBy(() -> donacionService.overrideEstado(1L, EstadoDonacion.ENTREGADA, "   ", 99L))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("400");
+
+        assertThat(d.getEstado()).isEqualTo(EstadoDonacion.PENDIENTE_CONFIRMACION);
+    }
+
+    @Test
+    void overrideEstado_noOpTarget_throwsBadRequest() {
+        Donacion d = donacionFor(1L, miOrganizacion);
+        d.setEstado(EstadoDonacion.ACEPTADA);
+        when(donacionRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(d));
+
+        assertThatThrownBy(() -> donacionService.overrideEstado(1L, EstadoDonacion.ACEPTADA, "motivo", 99L))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("400");
+    }
+
+    @Test
+    void overrideEstado_pendienteToEntregada_bypassesConfirmationRequirement() {
+        Donacion d = donacionFor(1L, miOrganizacion);
+        d.setEstado(EstadoDonacion.PENDIENTE_CONFIRMACION);
+        // Neither party has confirmed -- override must still succeed.
+        when(donacionRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(d));
+        when(donacionRepository.save(any(Donacion.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        DonacionResponse response = donacionService.overrideEstado(1L, EstadoDonacion.ENTREGADA, "Entrega verificada por soporte", 99L);
+
+        assertThat(response.estado()).isEqualTo("ENTREGADA");
+        assertThat(response.fechaEntrega()).isEqualTo(LocalDate.now());
+    }
+
+    @Test
+    void overrideEstado_entregada_neverFabricatesConfirmationTimestamps() {
+        Donacion d = donacionFor(1L, miOrganizacion);
+        d.setEstado(EstadoDonacion.PENDIENTE_CONFIRMACION);
+        when(donacionRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(d));
+        when(donacionRepository.save(any(Donacion.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        DonacionResponse response = donacionService.overrideEstado(1L, EstadoDonacion.ENTREGADA, "Forzado por soporte", 99L);
+
+        assertThat(response.estado()).isEqualTo("ENTREGADA");
+        assertThat(response.confirmadaDonanteEn()).isNull();
+        assertThat(response.confirmadaReferenteEn()).isNull();
+    }
+
+    @Test
+    void overrideEstado_toNonTerminalNonPendiente_clearsConfirmationTimestamps() {
+        Donacion d = donacionFor(1L, miOrganizacion);
+        d.setEstado(EstadoDonacion.EN_CAMINO);
+        d.setConfirmadaDonanteEn(java.time.Instant.now());
+        when(donacionRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(d));
+        when(donacionRepository.save(any(Donacion.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        DonacionResponse response = donacionService.overrideEstado(1L, EstadoDonacion.ACEPTADA, "Reversion manual", 99L);
+
+        assertThat(response.estado()).isEqualTo("ACEPTADA");
+        assertThat(response.confirmadaDonanteEn()).isNull();
+        assertThat(response.confirmadaReferenteEn()).isNull();
+    }
+
+    @Test
+    void overrideEstado_persistsAuditFields() {
+        Donacion d = donacionFor(1L, miOrganizacion);
+        d.setEstado(EstadoDonacion.ACEPTADA);
+        when(donacionRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(d));
+        when(donacionRepository.save(any(Donacion.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        donacionService.overrideEstado(1L, EstadoDonacion.CANCELADA, "Donante inalcanzable", 42L);
+
+        assertThat(d.getOverrideMotivo()).isEqualTo("Donante inalcanzable");
+        assertThat(d.getOverrideAdminId()).isEqualTo(42L);
+        assertThat(d.getOverrideEn()).isNotNull();
+    }
+
+    // ─── findActivas ───────────────────────────────────────────────────────
+
+    @Test
+    void findActivas_noEstadoFilter_queriesNoTerminales() {
+        var pageable = org.springframework.data.domain.PageRequest.of(0, 20);
+        when(donacionRepository.findActivas(EstadoDonacion.NO_TERMINALES, null, pageable))
+                .thenReturn(org.springframework.data.domain.Page.empty());
+
+        donacionService.findActivas(null, null, pageable);
+
+        verify(donacionRepository).findActivas(EstadoDonacion.NO_TERMINALES, null, pageable);
+    }
+
+    @Test
+    void findActivas_estadoFilter_queriesSingleEstado() {
+        var pageable = org.springframework.data.domain.PageRequest.of(0, 20);
+        when(donacionRepository.findActivas(java.util.EnumSet.of(EstadoDonacion.ACEPTADA), "org", pageable))
+                .thenReturn(org.springframework.data.domain.Page.empty());
+
+        donacionService.findActivas("org", EstadoDonacion.ACEPTADA, pageable);
+
+        verify(donacionRepository).findActivas(java.util.EnumSet.of(EstadoDonacion.ACEPTADA), "org", pageable);
+    }
+
+    @Test
+    void findActivas_terminalEstadoFilter_rejectedWith400() {
+        var pageable = org.springframework.data.domain.PageRequest.of(0, 20);
+
+        assertThatThrownBy(() -> donacionService.findActivas(null, EstadoDonacion.ENTREGADA, pageable))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("400")
+                .hasMessageContaining("ENTREGADA");
+        verifyNoInteractions(donacionRepository);
     }
 }

@@ -18,6 +18,8 @@ import { Public } from '../auth/decorators/public.decorator.js';
 import { Roles } from '../auth/decorators/roles.decorator.js';
 import { Role } from '../common/enums/role.enum.js';
 import { CrearDonacionDto } from './dto/crear-donacion.dto.js';
+import { DecisionDonacionDto } from './dto/decision-donacion.dto.js';
+import { OverrideEstadoDto } from './dto/override-estado.dto.js';
 import { UpdateEstadoDonacionDto } from './dto/update-estado-donacion.dto.js';
 import { DonacionesService } from './donaciones.service.js';
 
@@ -84,6 +86,29 @@ export class DonacionesController {
     );
   }
 
+  @Roles(Role.ADMINISTRADOR)
+  @Get('activas')
+  @ApiOperation({
+    summary: 'List active (non-terminal) donations, paginated (ADMINISTRADOR only)',
+  })
+  findActivas(
+    @Req() req: Request,
+    @Query('page') page?: string,
+    @Query('size') size?: string,
+    @Query('sort') sort?: string,
+    @Query('q') q?: string,
+    @Query('estado') estado?: string,
+  ) {
+    return this.donacionesService.findActivas(
+      this.getToken(req),
+      page,
+      size,
+      sort,
+      q,
+      estado,
+    );
+  }
+
   @Public()
   @Get(':id')
   @ApiOperation({ summary: 'Get a donation by ID (public)' })
@@ -92,14 +117,47 @@ export class DonacionesController {
   }
 
   @Roles(Role.REFERENTE)
+  @Patch(':id/decision')
+  @ApiOperation({
+    summary: 'Accept or reject an offered donation (REFERENTE only)',
+  })
+  decidir(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: DecisionDonacionDto,
+    @Req() req: Request,
+  ) {
+    return this.donacionesService.decidir(id, dto, this.getToken(req));
+  }
+
+  @Roles(Role.DONANTE)
   @Patch(':id/estado')
-  @ApiOperation({ summary: 'Update donation status (REFERENTE only)' })
+  @ApiOperation({ summary: 'Update donation status (DONANTE only)' })
   actualizarEstado(
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateEstadoDonacionDto,
     @Req() req: Request,
   ) {
     return this.donacionesService.actualizarEstado(id, dto, this.getToken(req));
+  }
+
+  @Roles(Role.DONANTE, Role.REFERENTE)
+  @Post(':id/confirmar-entrega')
+  @ApiOperation({
+    summary: 'Confirm delivery of a donation (DONANTE or REFERENTE)',
+  })
+  confirmarEntrega(@Param('id', ParseIntPipe) id: number, @Req() req: Request) {
+    return this.donacionesService.confirmarEntrega(id, this.getToken(req));
+  }
+
+  @Roles(Role.ADMINISTRADOR)
+  @Patch(':id/estado-admin')
+  @ApiOperation({ summary: 'Override donation status (ADMINISTRADOR only)' })
+  overrideEstado(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: OverrideEstadoDto,
+    @Req() req: Request,
+  ) {
+    return this.donacionesService.overrideEstado(id, dto, this.getToken(req));
   }
 
   @Roles(Role.DONANTE)

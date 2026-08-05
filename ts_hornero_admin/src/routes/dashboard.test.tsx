@@ -4,6 +4,8 @@ import DashboardPage from './dashboard';
 import { useMisOrganizaciones } from '../lib/hooks/useMisOrganizaciones';
 import { useNecesidadesDeOrg } from '../lib/hooks/useNecesidadesDeOrg';
 import { useDonacionesDeMiOrg } from '../lib/hooks/useDonacionesDeMiOrg';
+import { useDecidirDonacion } from '../lib/hooks/useDecidirDonacion';
+import { makePage } from '../test/fixtures/page';
 import type { Organizacion, Necesidad, Donacion } from '../types/domain';
 
 vi.mock('../lib/hooks/useMisOrganizaciones', () => ({
@@ -14,6 +16,9 @@ vi.mock('../lib/hooks/useNecesidadesDeOrg', () => ({
 }));
 vi.mock('../lib/hooks/useDonacionesDeMiOrg', () => ({
   useDonacionesDeMiOrg: vi.fn(),
+}));
+vi.mock('../lib/hooks/useDecidirDonacion', () => ({
+  useDecidirDonacion: vi.fn(),
 }));
 
 function mockOrganizacion(data: Organizacion[] | undefined, overrides = {}) {
@@ -27,7 +32,7 @@ function mockOrganizacion(data: Organizacion[] | undefined, overrides = {}) {
 
 function mockNecesidades(data: Necesidad[] | undefined, overrides = {}) {
   vi.mocked(useNecesidadesDeOrg).mockReturnValue({
-    data,
+    data: data ? makePage(data) : undefined,
     isLoading: false,
     isError: false,
     ...overrides,
@@ -42,6 +47,13 @@ function mockDonaciones(data: Donacion[] | undefined, overrides = {}) {
     ...overrides,
   } as ReturnType<typeof useDonacionesDeMiOrg>);
 }
+
+vi.mocked(useDecidirDonacion).mockReturnValue({
+  mutate: vi.fn(),
+  isPending: false,
+  isError: false,
+  variables: undefined,
+} as unknown as ReturnType<typeof useDecidirDonacion>);
 
 const organizacion: Organizacion = {
   id: 7,

@@ -16,7 +16,11 @@ const ACTIVO_LABELS: Record<string, string> = {
 
 export default function AdminPage() {
   const pendientes = useOrganizacionesPendientes();
-  const usuarios = useUsuarios();
+  // size:100 — a single reshaped fetch feeds the charts, the active count,
+  // and totalUserCount (free via totalElements); no separate probe request.
+  // TODO [tech-debt]: replace with MS ?activo= filter or dedicated aggregation
+  // endpoint — see backlog.
+  const usuarios = useUsuarios({ page: 0, size: 100 });
 
   const isLoading = pendientes.isLoading || usuarios.isLoading;
   const isError = pendientes.isError || usuarios.isError;
@@ -26,9 +30,10 @@ export default function AdminPage() {
       ? deriveAdminSummary(pendientes.data, usuarios.data)
       : null;
 
-  const hasUsuarios = (usuarios.data?.length ?? 0) > 0;
-  const usuariosPorRolData = usuariosPorRol(usuarios.data ?? []);
-  const usuariosPorActivoData = countByField(usuarios.data ?? [], 'activo', ACTIVO_LABELS);
+  const usuariosContent = usuarios.data?.content ?? [];
+  const hasUsuarios = usuariosContent.length > 0;
+  const usuariosPorRolData = usuariosPorRol(usuariosContent);
+  const usuariosPorActivoData = countByField(usuariosContent, 'activo', ACTIVO_LABELS);
 
   return (
     <AsyncSection
@@ -58,6 +63,11 @@ export default function AdminPage() {
           <Card style={{ padding: 20 }}>
             <Text variant="caption">Usuarios activos</Text>
             <Text variant="stat" style={{ marginTop: 8 }}>{summary?.activeUserCount ?? '—'}</Text>
+            {summary?.activeUserCountIsPartial && (
+              <Text variant="micro" color="ink-3" style={{ marginTop: 4 }}>
+                Sobre los primeros {usuariosContent.length}
+              </Text>
+            )}
           </Card>
         </div>
 

@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import lombok.*;
 import org.example.user.Donante;
 
+import java.time.Instant;
 import java.time.LocalDate;
 
 @Entity
@@ -36,4 +37,19 @@ public class Donacion {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "necesidad_id", nullable = false)
     private Necesidad necesidad;
+
+    @Column(name = "confirmada_donante_en")
+    private Instant confirmadaDonanteEn;
+
+    @Column(name = "confirmada_referente_en")
+    private Instant confirmadaReferenteEn;
+
+    @Column(name = "override_motivo", length = 500)
+    private String overrideMotivo;
+
+    @Column(name = "override_admin_id")
+    private Long overrideAdminId;
+
+    @Column(name = "override_en")
+    private Instant overrideEn;
 }

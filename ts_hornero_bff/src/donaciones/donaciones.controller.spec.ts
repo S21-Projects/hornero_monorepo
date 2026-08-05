@@ -1,17 +1,33 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import type { Request } from 'express';
+import { ROLES_KEY } from '../auth/decorators/roles.decorator.js';
+import { Role } from '../common/enums/role.enum.js';
 import { DonacionesController } from './donaciones.controller';
 import { DonacionesService } from './donaciones.service';
 
 describe('DonacionesController', () => {
   let controller: DonacionesController;
-  let service: { findDeMiOrganizacion: jest.Mock };
+  let service: {
+    findDeMiOrganizacion: jest.Mock;
+    decidir: jest.Mock;
+    actualizarEstado: jest.Mock;
+    confirmarEntrega: jest.Mock;
+    overrideEstado: jest.Mock;
+    findActivas: jest.Mock;
+  };
 
   const requestWithToken = (token?: string) =>
     ({ cookies: token ? { access_token: token } : {} }) as unknown as Request;
 
   beforeEach(async () => {
-    service = { findDeMiOrganizacion: jest.fn() };
+    service = {
+      findDeMiOrganizacion: jest.fn(),
+      decidir: jest.fn(),
+      actualizarEstado: jest.fn(),
+      confirmarEntrega: jest.fn(),
+      overrideEstado: jest.fn(),
+      findActivas: jest.fn(),
+    };
 
     const module: TestingModule = await Test.createTestingModule({
       controllers: [DonacionesController],
@@ -20,6 +36,10 @@ describe('DonacionesController', () => {
 
     controller = module.get<DonacionesController>(DonacionesController);
   });
+
+  const rolesOf = (methodName: keyof DonacionesController): Role[] =>
+    Reflect.getMetadata(ROLES_KEY, DonacionesController.prototype[methodName]) ??
+    [];
 
   describe('findDeMiOrganizacion', () => {
     it('reads the access_token cookie and forwards it to the service', async () => {
@@ -56,6 +76,103 @@ describe('DonacionesController', () => {
       expect(() => controller.findDeMiOrganizacion(requestWithToken())).toThrow(
         'No access token',
       );
+    });
+  });
+
+  describe('decidir', () => {
+    it('reads the access_token cookie and forwards id + dto to the service', async () => {
+      const donacion = { id: 1, estado: 'ACEPTADA' };
+      service.decidir.mockResolvedValue(donacion);
+      const dto = { estado: 'ACEPTADA' };
+
+      const result = await controller.decidir(
+        1,
+        dto,
+        requestWithToken('token-123'),
+      );
+
+      expect(service.decidir).toHaveBeenCalledWith(1, dto, 'token-123');
+      expect(result).toBe(donacion);
+    });
+
+    it('is restricted to REFERENTE, matching the MS @PreAuthorize', () => {
+      expect(rolesOf('decidir')).toEqual([Role.REFERENTE]);
+    });
+  });
+
+  describe('actualizarEstado', () => {
+    it('is restricted to DONANTE, matching the MS @PreAuthorize flip', () => {
+      expect(rolesOf('actualizarEstado')).toEqual([Role.DONANTE]);
+    });
+  });
+
+  describe('confirmarEntrega', () => {
+    it('reads the access_token cookie and forwards id to the service', async () => {
+      const donacion = { id: 1, estado: 'PENDIENTE_CONFIRMACION' };
+      service.confirmarEntrega.mockResolvedValue(donacion);
+
+      const result = await controller.confirmarEntrega(
+        1,
+        requestWithToken('token-123'),
+      );
+
+      expect(service.confirmarEntrega).toHaveBeenCalledWith(1, 'token-123');
+      expect(result).toBe(donacion);
+    });
+
+    it('is restricted to DONANTE and REFERENTE, matching the MS @PreAuthorize', () => {
+      expect(rolesOf('confirmarEntrega')).toEqual([Role.DONANTE, Role.REFERENTE]);
+    });
+  });
+
+  describe('overrideEstado', () => {
+    it('reads the access_token cookie and forwards id + dto to the service', async () => {
+      const donacion = { id: 1, estado: 'CANCELADA' };
+      service.overrideEstado.mockResolvedValue(donacion);
+      const dto = { estado: 'CANCELADA', motivo: 'Duplicada' };
+
+      const result = await controller.overrideEstado(
+        1,
+        dto,
+        requestWithToken('token-123'),
+      );
+
+      expect(service.overrideEstado).toHaveBeenCalledWith(1, dto, 'token-123');
+      expect(result).toBe(donacion);
+    });
+
+    it('is restricted to ADMINISTRADOR, matching the MS @PreAuthorize', () => {
+      expect(rolesOf('overrideEstado')).toEqual([Role.ADMINISTRADOR]);
+    });
+  });
+
+  describe('findActivas', () => {
+    it('reads the access_token cookie and forwards query params to the service', async () => {
+      const page = { content: [], totalElements: 0 };
+      service.findActivas.mockResolvedValue(page);
+
+      const result = await controller.findActivas(
+        requestWithToken('token-123'),
+        '0',
+        '20',
+        'fechaOferta,desc',
+        'org',
+        'OFRECIDA',
+      );
+
+      expect(service.findActivas).toHaveBeenCalledWith(
+        'token-123',
+        '0',
+        '20',
+        'fechaOferta,desc',
+        'org',
+        'OFRECIDA',
+      );
+      expect(result).toBe(page);
+    });
+
+    it('is restricted to ADMINISTRADOR, matching the MS @PreAuthorize', () => {
+      expect(rolesOf('findActivas')).toEqual([Role.ADMINISTRADOR]);
     });
   });
 });

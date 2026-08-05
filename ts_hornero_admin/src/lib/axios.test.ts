@@ -72,3 +72,33 @@ describe('single-flight 401 refresh', () => {
     }
   });
 });
+
+describe('envelope unwrap', () => {
+  it('unwraps an ApiResponse-shaped body to its .data payload', async () => {
+    mock.onGet('/organizaciones').reply(200, {
+      status: 200,
+      message: 'OK',
+      timestamp: new Date().toISOString(),
+      data: { content: [{ id: 1, nombre: 'Comedor Sol' }], number: 0, size: 20, totalElements: 1, totalPages: 1 },
+    });
+
+    const res = await api.get('/organizaciones');
+
+    expect(res.data).toEqual({
+      content: [{ id: 1, nombre: 'Comedor Sol' }],
+      number: 0,
+      size: 20,
+      totalElements: 1,
+      totalPages: 1,
+    });
+  });
+
+  it('leaves an /auth/me-shaped body untouched (no status/timestamp fields)', async () => {
+    const authMeBody = { userId: 1, email: 'a@b.com', nombre: 'Ana', tipo: 'DONANTE' };
+    mock.onGet('/auth/me').reply(200, authMeBody);
+
+    const res = await api.get('/auth/me');
+
+    expect(res.data).toEqual(authMeBody);
+  });
+});

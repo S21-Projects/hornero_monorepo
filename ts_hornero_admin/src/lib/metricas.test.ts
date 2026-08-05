@@ -89,7 +89,10 @@ describe('donacionesPorEstado', () => {
 
     expect(result).toEqual([
       { key: 'OFRECIDA', label: 'Ofrecida', value: 1 },
+      { key: 'ACEPTADA', label: 'Aceptada', value: 0 },
+      { key: 'RECHAZADA', label: 'Rechazada', value: 0 },
       { key: 'EN_CAMINO', label: 'En camino', value: 0 },
+      { key: 'PENDIENTE_CONFIRMACION', label: 'Pendiente de confirmación', value: 0 },
       { key: 'ENTREGADA', label: 'Entregada', value: 1 },
       { key: 'CANCELADA', label: 'Cancelada', value: 0 },
     ]);

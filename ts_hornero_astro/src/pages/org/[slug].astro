@@ -7,7 +7,7 @@ import { Pill } from '../../components/ui/pill';
 import { Avatar } from '../../components/ui/avatar';
 import { Text } from '../../components/ui/typography';
 import { TIPO_ORGANIZACION_LABELS, type TipoOrganizacion } from '../../lib/tipos-organizacion';
-import type { Org, Necesidad, Donacion } from '../../lib/types';
+import type { Org, Necesidad, Donacion, PageData } from '../../lib/types';
 
 const { slug } = Astro.params;
 
@@ -21,7 +21,6 @@ let needs: Necesidad[] = [];
 let donations: Donacion[] = [];
 
 try {
-  // TODO: when the MS pagination/envelope cutover lands, switch to PageResponse<T> and read .content (see src/lib/types.ts)
   org = await publicFetch<Org>(`/organizaciones/${encodeURIComponent(slug)}`);
 } catch {
   return new Response(null, { status: 404 });
@@ -32,15 +31,17 @@ if (!org) {
 }
 
 try {
-  // TODO: when the MS pagination/envelope cutover lands, switch to PageResponse<T> and read .content (see src/lib/types.ts)
-  needs = await publicFetch<Necesidad[]>(`/necesidades?organizacionId=${org.id}`);
+  // TODO [tech-debt]: no UI pager yet, fixed size=50 ceiling
+  const page = await publicFetch<PageData<Necesidad>>(`/necesidades?organizacionId=${org.id}&size=50`);
+  needs = page.content;
 } catch {
   needs = [];
 }
 
 try {
-  // TODO: when the MS pagination/envelope cutover lands, switch to PageResponse<T> and read .content (see src/lib/types.ts)
-  donations = await publicFetch<Donacion[]>(`/donaciones?organizacionId=${org.id}`);
+  // TODO [tech-debt]: no UI pager yet, fixed size=50 ceiling
+  const page = await publicFetch<PageData<Donacion>>(`/donaciones?organizacionId=${org.id}&size=50`);
+  donations = page.content;
 } catch {
   donations = [];
 }
@@ -195,10 +196,10 @@ const ESTADO_DONACION_PILL: Record<string, 'warn' | 'open' | 'ok' | 'bad'> = {
               <Text variant="h3" as="h3">Necesidades activas</Text>
               <Pill variant="ghost">{needs.length} abiertas</Pill>
             </div>
-            {needs.map((n) => {
+            {needs.map((n, index) => {
               const priority = mapPrioridad(n.prioridad);
               return (
-                <div class="flex items-center gap-4 py-4" style={{ borderBottom: '1px solid var(--line-soft)' }}>
+                <div class="flex items-center gap-4 py-4" style={index < needs.length - 1 ? { borderBottom: '1px solid var(--line-soft)' } : {}}>
                   <div style={{ width: 44, height: 44, borderRadius: 12, background: 'var(--card-2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                     📦
                   </div>
@@ -211,7 +212,7 @@ const ESTADO_DONACION_PILL: Record<string, 'warn' | 'open' | 'ok' | 'bad'> = {
                   </div>
                   {/* DonateButton removed — CTA deep-links to authenticated SPA */}
                   <a
-                    href={`${PUBLIC_SPA_URL}/donaciones?orgSlug=${org.slug}&returnTo=/org/${org.slug}`}
+                    href={`${PUBLIC_SPA_URL}/necesidades/${n.id}`}
                     style={{ fontSize: 13, fontWeight: 700, color: 'var(--sky)', textDecoration: 'none', flexShrink: 0 }}
                   >
                     Donar
@@ -225,8 +226,8 @@ const ESTADO_DONACION_PILL: Record<string, 'warn' | 'open' | 'ok' | 'bad'> = {
         {donations.length > 0 && (
           <Card style={{ padding: '20px 24px 8px' }}>
             <Text variant="h3" as="h3" style={{ marginBottom: 4 }}>Donaciones recientes</Text>
-            {donations.map((d) => (
-              <div class="flex items-center gap-3.5 py-3.5" style={{ borderBottom: '1px solid var(--line-soft)' }}>
+            {donations.map((d, index) => (
+              <div class="flex items-center gap-3.5 py-3.5" style={index < donations.length - 1 ? { borderBottom: '1px solid var(--line-soft)' } : {}}>
                 <Avatar name={d.donanteName} size={40} tintIndex={d.donanteName.length % 6} />
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <Text as="div" variant="body-sm">{d.donanteName}</Text>
@@ -251,7 +252,7 @@ const ESTADO_DONACION_PILL: Record<string, 'warn' | 'open' | 'ok' | 'bad'> = {
             Ingresá a la plataforma para ver las necesidades activas y hacer tu donación.
           </Text>
           <a
-            href={`${PUBLIC_SPA_URL}/donaciones?orgSlug=${org.slug}&returnTo=/org/${org.slug}`}
+            href={`${PUBLIC_SPA_URL}/explorar`}
             style={{
               display: 'block',
               textAlign: 'center',

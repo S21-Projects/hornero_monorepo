@@ -39,6 +39,13 @@ public class SecurityConfig {
                                 "/swagger-ui.html",
                                 "/v3/api-docs/**",
                                 "/v3/api-docs.yaml").permitAll()
+                        // Defense in depth: /activas is also gated by @PreAuthorize on the
+                        // controller, but this explicit matcher must be declared before the
+                        // permitAll GET-donaciones block below (Spring evaluates matchers in
+                        // declaration order), so an anonymous request never reaches the
+                        // method-security layer expecting to be allowed through.
+                        .requestMatchers(org.springframework.http.HttpMethod.GET,
+                                "/api/donaciones/activas").hasRole("ADMINISTRADOR")
                         // Public read-only endpoints — no account required
                         .requestMatchers(org.springframework.http.HttpMethod.GET,
                                 "/api/organizaciones",

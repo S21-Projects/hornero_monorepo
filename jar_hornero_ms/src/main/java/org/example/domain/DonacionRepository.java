@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -45,4 +46,30 @@ public interface DonacionRepository extends JpaRepository<Donacion, Long> {
             countQuery = "SELECT COUNT(d) FROM Donacion d WHERE d.donante.id = :donanteId"
     )
     Page<Donacion> findByDonante_IdWithRelations(@Param("donanteId") Long donanteId, Pageable pageable);
+
+    @Query(
+            value = """
+                SELECT d FROM Donacion d
+                  JOIN FETCH d.donante dn
+                  JOIN FETCH d.necesidad n
+                  JOIN FETCH n.organizacion o
+                WHERE d.estado IN :estados
+                  AND (:q IS NULL OR :q = ''
+                    OR LOWER(o.nombre)       LIKE LOWER(CONCAT('%', :q, '%'))
+                    OR LOWER(dn.nombre)      LIKE LOWER(CONCAT('%', :q, '%'))
+                    OR LOWER(n.descripcion)  LIKE LOWER(CONCAT('%', :q, '%'))
+                    OR CAST(d.id AS string) = :q)
+                """,
+            countQuery = """
+                SELECT COUNT(d) FROM Donacion d
+                WHERE d.estado IN :estados
+                  AND (:q IS NULL OR :q = ''
+                    OR LOWER(d.necesidad.organizacion.nombre) LIKE LOWER(CONCAT('%', :q, '%'))
+                    OR LOWER(d.donante.nombre)                LIKE LOWER(CONCAT('%', :q, '%'))
+                    OR LOWER(d.necesidad.descripcion)         LIKE LOWER(CONCAT('%', :q, '%'))
+                    OR CAST(d.id AS string) = :q)
+                """
+    )
+    Page<Donacion> findActivas(@Param("estados") Collection<EstadoDonacion> estados,
+                                @Param("q") String q, Pageable pageable);
 }

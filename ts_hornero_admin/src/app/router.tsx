@@ -15,6 +15,7 @@ import PanelPage from '../routes/panel';
 import AdminPage from '../routes/admin';
 import UsersPage from '../routes/users';
 import ReferentesPage from '../routes/referentes';
+import ControlDonacionesPage from '../routes/control-donaciones';
 import PendingValidationPage from '../routes/pending-validation';
 import MisOrganizacionesPage from '../routes/mis-organizaciones';
 import VerifyEmailPage from '../routes/verify-email';
@@ -83,6 +84,7 @@ export const router = createBrowserRouter([
           { path: '/admin', element: <AdminPage /> },
           { path: '/users', element: <UsersPage /> },
           { path: '/referentes', element: <ReferentesPage /> },
+          { path: '/control-donaciones', element: <ControlDonacionesPage /> },
         ],
       },
     ],

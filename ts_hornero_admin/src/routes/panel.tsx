@@ -4,14 +4,21 @@ import { Card } from '../components/ui/Card';
 import { Badge } from '../components/Badge';
 import { Text } from '../components/ui/Typography';
 import { Button } from '../components/ui/Button';
+import { Pager } from '../components/ui/Pager';
 import { useOrganizacionesPendientes } from '../lib/hooks/useOrganizacionesPendientes';
 import { useValidarOrganizacion } from '../lib/hooks/useValidarOrganizacion';
 import { useRechazarOrganizacion } from '../lib/hooks/useRechazarOrganizacion';
 import { mapOrganizacionError } from '../lib/hooks/mapOrganizacionError';
+import { usePageClamp } from '../lib/hooks/usePageClamp';
 import { ESTADO_ORGANIZACION, TIPO_ORGANIZACION } from '../lib/domain-ui';
 
+const PAGE_SIZE = 20;
+
 export default function PanelPage() {
-  const { data, isLoading, isError } = useOrganizacionesPendientes();
+  const [page, setPage] = useState(0);
+  const { data, isLoading, isError, isFetching } = useOrganizacionesPendientes({ page, size: PAGE_SIZE });
+  usePageClamp(page, setPage, data?.totalPages);
+  const pendientes = data?.content ?? [];
   const validar = useValidarOrganizacion();
   const rechazar = useRechazarOrganizacion();
   const [confirmingId, setConfirmingId] = useState<number | null>(null);
@@ -23,7 +30,7 @@ export default function PanelPage() {
       <AsyncSection
         isLoading={isLoading}
         isError={isError}
-        isEmpty={data?.length === 0}
+        isEmpty={pendientes.length === 0}
         emptyLabel="No hay organizaciones pendientes"
       >
         <div
@@ -34,7 +41,7 @@ export default function PanelPage() {
             marginTop: 20,
           }}
         >
-          {data?.map((org) => {
+          {pendientes.map((org) => {
             const isPendiente = org.estado === 'PENDIENTE';
             const isValidarError = validar.isError && validar.variables === org.id;
             const isRechazarError = rechazar.isError && rechazar.variables === org.id;
@@ -105,6 +112,8 @@ export default function PanelPage() {
             );
           })}
         </div>
+
+        {data && <Pager page={data} onPageChange={setPage} disabled={isFetching} />}
       </AsyncSection>
     </div>
   );

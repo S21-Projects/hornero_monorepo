@@ -3,6 +3,7 @@ import { render, screen } from '@testing-library/react';
 import AdminPage from './admin';
 import { useOrganizacionesPendientes } from '../lib/hooks/useOrganizacionesPendientes';
 import { useUsuarios } from '../lib/hooks/useUsuarios';
+import { makePage } from '../test/fixtures/page';
 import type { OrganizacionAdmin, Usuario } from '../types/domain';
 
 vi.mock('../lib/hooks/useOrganizacionesPendientes', () => ({
@@ -14,7 +15,7 @@ vi.mock('../lib/hooks/useUsuarios', () => ({
 
 function mockPendientes(data: OrganizacionAdmin[] | undefined, overrides = {}) {
   vi.mocked(useOrganizacionesPendientes).mockReturnValue({
-    data,
+    data: data ? makePage(data, { totalElements: data.length }) : undefined,
     isLoading: false,
     isError: false,
     ...overrides,
@@ -23,7 +24,7 @@ function mockPendientes(data: OrganizacionAdmin[] | undefined, overrides = {}) {
 
 function mockUsuarios(data: Usuario[] | undefined, overrides = {}) {
   vi.mocked(useUsuarios).mockReturnValue({
-    data,
+    data: data ? makePage(data, { totalElements: data.length }) : undefined,
     isLoading: false,
     isError: false,
     ...overrides,
