@@ -280,7 +280,7 @@ class AcreditacionControllerSecurityTest {
         org.setReferente(owner);
         when(organizacionRepository.findById(1L)).thenReturn(Optional.of(org));
         when(acreditacionService.cargarEvidencia(org, RequisitoAcreditacion.CONDICIONES_SANITARIAS_ADECUADAS,
-                TipoEvidencia.FOTO, null, null, null, 7L))
+                TipoEvidencia.FOTO, null, null, null, 7L, "org-evidencia/1/x.jpg"))
                 .thenReturn(sampleEvidenciaFoto(org));
 
         mockMvc.perform(post("/api/organizaciones/1/acreditacion/evidencias")
@@ -295,6 +295,6 @@ class AcreditacionControllerSecurityTest {
     private OrganizacionEvidencia sampleEvidenciaFoto(Organizacion organizacion) {
         return OrganizacionEvidencia.nueva(
                 organizacion, RequisitoAcreditacion.CONDICIONES_SANITARIAS_ADECUADAS, TipoEvidencia.FOTO,
-                null, null, null, 7L);
+                null, null, null, 7L, "org-evidencia/1/x.jpg");
     }
 }

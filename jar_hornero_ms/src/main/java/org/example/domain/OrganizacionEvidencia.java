@@ -97,10 +97,12 @@ public class OrganizacionEvidencia {
             String declaracion,
             LocalDate validoDesde,
             LocalDate validoHasta,
-            Long cargadoPor) {
+            Long cargadoPor,
+            String objectKey) {
         this.organizacion = organizacion;
         this.requisito = requisito;
         this.tipoEvidencia = tipoEvidencia;
+        this.objectKey = objectKey;
         this.declaracion = declaracion;
         this.validoDesde = validoDesde != null ? validoDesde : LocalDate.now();
         this.validoHasta = validoHasta;
@@ -109,7 +111,11 @@ public class OrganizacionEvidencia {
         this.cargadoEn = Instant.now();
     }
 
-    /** Builds one new {@code PENDIENTE} evidencia row. {@code validoDesde} defaults to today. */
+    /**
+     * Builds one new {@code PENDIENTE} evidencia row. {@code validoDesde} defaults to today.
+     * Delegates to the {@code objectKey}-carrying overload with {@code null} — Slice A callers
+     * (and every existing positional call site) keep compiling untouched.
+     */
     public static OrganizacionEvidencia nueva(
             Organizacion organizacion,
             RequisitoAcreditacion requisito,
@@ -118,8 +124,27 @@ public class OrganizacionEvidencia {
             LocalDate validoDesde,
             LocalDate validoHasta,
             Long cargadoPor) {
+        return nueva(organizacion, requisito, tipoEvidencia, declaracion, validoDesde, validoHasta,
+                cargadoPor, null);
+    }
+
+    /**
+     * Slice B overload: carries {@code objectKey} through to the persisted row for FOTO/DOCUMENTO
+     * submissions. {@code specs/organizacion-evidencia/spec.md} — content fields are set once at
+     * construction and never rewritten in place.
+     */
+    public static OrganizacionEvidencia nueva(
+            Organizacion organizacion,
+            RequisitoAcreditacion requisito,
+            TipoEvidencia tipoEvidencia,
+            String declaracion,
+            LocalDate validoDesde,
+            LocalDate validoHasta,
+            Long cargadoPor,
+            String objectKey) {
         return new OrganizacionEvidencia(
-                organizacion, requisito, tipoEvidencia, declaracion, validoDesde, validoHasta, cargadoPor);
+                organizacion, requisito, tipoEvidencia, declaracion, validoDesde, validoHasta, cargadoPor,
+                objectKey);
     }
 
     /**
