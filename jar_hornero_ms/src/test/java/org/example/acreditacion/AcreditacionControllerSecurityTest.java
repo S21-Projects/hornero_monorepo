@@ -10,6 +10,7 @@ import org.example.auth.JwtService;
 import org.example.domain.EstadoOrganizacion;
 import org.example.domain.NivelAcreditacion;
 import org.example.domain.Organizacion;
+import org.example.domain.OrganizacionEvidencia;
 import org.example.domain.OrganizacionRepository;
 import org.example.config.SecurityConfig;
 import org.example.user.Referente;
@@ -238,16 +239,17 @@ class AcreditacionControllerSecurityTest {
                 .andExpect(status().isOk());
     }
 
-    // --- Threat Matrix row 5: evidence key smuggling (Slice A) ---
+    // --- Threat Matrix row 5: evidence key smuggling ---
 
     /**
-     * Deviation from strict RED-before-GREEN ordering: the {@code objectKey}-non-null guard
-     * (task 2.14/2.15) was written into {@code AcreditacionController} at controller-creation time
-     * (task 2.13), since a controller method with no body at all cannot compile with a partial
-     * validation branch added later in isolation. This test triangulates the guard.
+     * Slice A (task 2.14/2.15): the {@code objectKey}-non-null guard rejected every submission
+     * carrying one, since no authenticated route existed to serve a file at that key. Task 6.7
+     * (Slice B) scopes that guard to non-{@code FOTO}/{@code DOCUMENTO} submissions only, now that
+     * the BFF's ownership-checked {@code evidencia-files} route exists — this test pins the
+     * narrowed rule: a {@code DECLARACION} row still cannot carry an {@code objectKey}.
      */
     @Test
-    void postEvidencia_withNonNullObjectKey_isRejectedWith400() throws Exception {
+    void postEvidencia_declaracionWithNonNullObjectKey_isRejectedWith400() throws Exception {
         Referente owner = new Referente(7L, "Owner", "owner@test.com", "x", true);
         Organizacion org = new Organizacion();
         org.setId(1L);
@@ -259,8 +261,40 @@ class AcreditacionControllerSecurityTest {
                         .with(authentication(auth(7L, "REFERENTE")))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"requisito":"NO_DISCRIMINACION","tipoEvidencia":"FOTO","objectKey":"org-evidencia/1/x.jpg"}
+                                {"requisito":"NO_DISCRIMINACION","tipoEvidencia":"DECLARACION","objectKey":"org-evidencia/1/x.jpg"}
                                 """))
                 .andExpect(status().isBadRequest());
+    }
+
+    /**
+     * Task 6.7's controlled widening: a {@code FOTO} submission with an {@code objectKey} is now
+     * accepted (the guard no longer rejects it outright) — the request reaches the service layer
+     * instead of failing validation.
+     */
+    @Test
+    void postEvidencia_fotoWithObjectKey_isAccepted() throws Exception {
+        Referente owner = new Referente(7L, "Owner", "owner@test.com", "x", true);
+        Organizacion org = new Organizacion();
+        org.setId(1L);
+        org.setEstado(EstadoOrganizacion.PENDIENTE);
+        org.setReferente(owner);
+        when(organizacionRepository.findById(1L)).thenReturn(Optional.of(org));
+        when(acreditacionService.cargarEvidencia(org, RequisitoAcreditacion.CONDICIONES_SANITARIAS_ADECUADAS,
+                TipoEvidencia.FOTO, null, null, null, 7L))
+                .thenReturn(sampleEvidenciaFoto(org));
+
+        mockMvc.perform(post("/api/organizaciones/1/acreditacion/evidencias")
+                        .with(authentication(auth(7L, "REFERENTE")))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"requisito":"CONDICIONES_SANITARIAS_ADECUADAS","tipoEvidencia":"FOTO","objectKey":"org-evidencia/1/x.jpg"}
+                                """))
+                .andExpect(status().isCreated());
+    }
+
+    private OrganizacionEvidencia sampleEvidenciaFoto(Organizacion organizacion) {
+        return OrganizacionEvidencia.nueva(
+                organizacion, RequisitoAcreditacion.CONDICIONES_SANITARIAS_ADECUADAS, TipoEvidencia.FOTO,
+                null, null, null, 7L);
     }
 }
