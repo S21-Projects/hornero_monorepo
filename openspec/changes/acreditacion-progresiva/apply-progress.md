@@ -284,3 +284,14 @@ them. The class therefore never executed in an ordinary `mvn test`, which is why
 than 226. The replay-equals-stored assembly proof, arguably this change's most load-bearing test, was dead code
 the moment it was written. Renamed to `AcreditacionInvariantTest`; a clean full run now reports 226 and writes
 its Surefire report. The defect is in the task plan's chosen filename, not in the phase's execution of it.
+
+**Coverage gap found by the Phase 2 contract validation and closed by the parent:** the controller honours
+amendment D-01 correctly — `requireAdminOrOwningReferente` admits `ADMINISTRADOR` and the owning `REFERENTE`
+and rejects a non-owning one — but no test authenticated as a `REFERENTE` against `GET /{id}/legajo` or
+`GET /{id}/acreditacion`. The only referente-ownership test covered `POST /acreditacion/evidencias`, and
+`AcreditacionServiceLegajoTest` is service-level and never reaches the controller's ownership check. D-01 is the
+amendment that overrides the design's admin-only restriction, so both of its halves were unproven on exactly the
+two routes it amends. Added four tests to `AcreditacionControllerSecurityTest` — owning-succeeds and
+non-owning-rejected on each route — forming a discriminating pair per route: same path, same role, different
+user id, 200 against 403. The class goes from 8 to 12 tests. No RED was observed, because this is regression
+protection for behaviour that was already correct, not new behaviour.
