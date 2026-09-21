@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { AnimatePresence, motion } from 'motion/react';
 import { ArrowDown2, ArrowUp2 } from 'iconsax-reactjs';
 import { AsyncSection } from '../components/AsyncSection';
@@ -102,6 +103,12 @@ function OrgRow({ org, referentesActivos }: OrgRowProps) {
             {showInfoPublica ? 'Cerrar' : 'Editar info pública'}
             {showInfoPublica ? <ArrowUp2 size={14} /> : <ArrowDown2 size={14} />}
           </Button>
+
+          <Link to={`/organizaciones/${org.id}/legajo`}>
+            <Button type="button" variant="ghost" size="sm">
+              Ver legajo / auditar acreditación
+            </Button>
+          </Link>
         </div>
       </div>
 

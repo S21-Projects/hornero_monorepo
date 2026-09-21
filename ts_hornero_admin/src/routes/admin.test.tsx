@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 import AdminPage from './admin';
 import { useOrganizacionesPendientes } from '../lib/hooks/useOrganizacionesPendientes';
 import { useUsuarios } from '../lib/hooks/useUsuarios';
@@ -57,7 +58,7 @@ describe('AdminPage', () => {
     mockPendientes(pendientes);
     mockUsuarios(usuarios);
 
-    render(<AdminPage />);
+    render(<MemoryRouter><AdminPage /></MemoryRouter>);
 
     expect(screen.getByText('Organizaciones pendientes')).toBeInTheDocument();
     expect(screen.getByText('1')).toBeInTheDocument();
@@ -74,7 +75,7 @@ describe('AdminPage', () => {
     mockPendientes([]);
     mockUsuarios([]);
 
-    render(<AdminPage />);
+    render(<MemoryRouter><AdminPage /></MemoryRouter>);
 
     expect(screen.getAllByText('Todavía no hay usuarios cargados.')).toHaveLength(2);
   });
@@ -83,7 +84,7 @@ describe('AdminPage', () => {
     mockPendientes(undefined, { isLoading: true });
     mockUsuarios(undefined, { isLoading: true });
 
-    render(<AdminPage />);
+    render(<MemoryRouter><AdminPage /></MemoryRouter>);
 
     expect(screen.getByText('Cargando…')).toBeInTheDocument();
   });
@@ -92,7 +93,7 @@ describe('AdminPage', () => {
     mockPendientes(undefined, { isError: true });
     mockUsuarios(undefined, { isError: true });
 
-    render(<AdminPage />);
+    render(<MemoryRouter><AdminPage /></MemoryRouter>);
 
     expect(screen.getByText('Algo salió mal')).toBeInTheDocument();
   });

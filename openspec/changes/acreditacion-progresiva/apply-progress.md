@@ -381,3 +381,155 @@ Phase 4 (A4) through Phase 6 (B2) — 31 tasks — are explicitly out of scope f
 ## Status
 
 8/8 Phase 3 tasks complete. Ready for next batch (Phase 4 / A4, admin SPA) in a future `sdd-apply` run.
+
+---
+
+# Apply Progress — Phase 4 (A4)
+
+**Scope this run**: Phase 4 (A4) only — admin SPA hooks, components and routes — `ts_hornero_admin`. Last
+work unit of Slice A (A1→A2→A3→A4).
+**Mode**: Strict TDD (RED → GREEN, per `openspec/config.yaml` `strict_tdd: true`).
+
+## Completed Tasks (13/13 in Phase 4)
+
+- [x] 4.1 RED `useAcreditacion.test.tsx` (axios-mock-adapter) — 5 hooks, expected BFF routes + TanStack Query states
+- [x] 4.2 GREEN `useAcreditacion.ts` — `useAcreditacion`, `useLegajo`, `useCargarEvidencia`, `useAuditarEvidencia`, `useCambiarNivel`
+- [x] 4.3 RED `NivelBadge.test.tsx`
+- [x] 4.4 GREEN `NivelBadge.tsx` (reuses `components/Badge.tsx`)
+- [x] 4.5 RED `NivelPanel.test.tsx`
+- [x] 4.6 GREEN `NivelPanel.tsx`
+- [x] 4.7 RED `AuditQueue.test.tsx`
+- [x] 4.8 GREEN `AuditQueue.tsx`
+- [x] 4.9 RED `EvidenciaForm.test.tsx`
+- [x] 4.10 GREEN `EvidenciaForm.tsx`
+- [x] 4.11 RED extend `router.test.tsx`
+- [x] 4.12 GREEN `acreditacion.tsx` + `legajo.tsx` routes, `router.tsx` wiring, `admin.tsx` audit-queue link
+- [x] 4.13 Full SPA suite + `npm run build`
+
+## Files Changed
+
+| File | Action | What Was Done |
+|------|--------|---------------|
+| `ts_hornero_admin/src/types/domain.ts` | Modified | Added `NivelAcreditacion`, `RequisitoAcreditacion`, `TipoEvidencia`, `EstadoEvidencia`, `EstadoRequisitoLegajo` union types + `AcreditacionResponse`, `EvidenciaResponse`, `EventoResponse`, `RequisitoEnLegajo`, `LegajoResponse` interfaces, mirroring the frozen BFF/MS DTOs field-for-field |
+| `ts_hornero_admin/src/lib/hooks/useAcreditacion.ts` | Created | `useAcreditacion`, `useLegajo` (queries); `useCargarEvidencia`, `useAuditarEvidencia`, `useCambiarNivel` (mutations, invalidate `['acreditacion', id]`/`['legajo', id]` on success) |
+| `ts_hornero_admin/src/lib/hooks/useAcreditacion.test.tsx` | Created | axios-mock-adapter against the real `api` instance (task 4.1's explicit instruction); 7 tests covering all 5 hooks' routes/bodies/states |
+| `ts_hornero_admin/src/components/acreditacion/NivelBadge.tsx` | Created | Wraps `Badge`; N0-N3 → REGISTRADA/IDENTIFICADA/OPERATIVA/ACREDITADA labels |
+| `ts_hornero_admin/src/components/acreditacion/NivelBadge.test.tsx` | Created | 5 tests |
+| `ts_hornero_admin/src/components/acreditacion/NivelPanel.tsx` | Created | Admin raise/lower control; submit disabled while `motivo` is blank (`CambiarNivelRequest`'s `@NotBlank`, AD-9) |
+| `ts_hornero_admin/src/components/acreditacion/NivelPanel.test.tsx` | Created | 2 tests |
+| `ts_hornero_admin/src/components/acreditacion/AuditQueue.tsx` | Created | Admin approve/observe per requisito; renders NO level-change control (separate-admin-actions note); shows a `Vencida` badge for `expirada: true` |
+| `ts_hornero_admin/src/components/acreditacion/AuditQueue.test.tsx` | Created | 3 tests |
+| `ts_hornero_admin/src/components/acreditacion/EvidenciaForm.tsx` | Created | Referente submission; `tipoEvidencia` select is DECLARACION-only, disabled, with an explanatory note — FOTO/DOCUMENTO never selectable in Slice A (design's Slicing section, the MS rejects non-null `objectKey` with 400) |
+| `ts_hornero_admin/src/components/acreditacion/EvidenciaForm.test.tsx` | Created | 3 tests, incl. a structural-separation assertion against `InfoPublicaForm` (organizacion-self-edit spec delta) |
+| `ts_hornero_admin/src/routes/acreditacion.tsx` | Created | Referente view: own org's `nivel` badge + one row per requisito (via `useLegajo`, D-01-granted) with a resubmit entry point for `FALTANTE`/`OBSERVADA` rows |
+| `ts_hornero_admin/src/routes/legajo.tsx` | Created | Printable dossier (`nivel`, requisitos, event log, disclosure) with a `@media print` stylesheet (`.legajo-no-print` hides admin controls when printing); for `ADMINISTRADOR`, additionally renders `NivelPanel` + `AuditQueue` below the printable area, visually and structurally separate from the read-only dossier |
+| `ts_hornero_admin/src/app/router.tsx` | Modified | Registered `/acreditacion` inside the existing REFERENTE/`requireVerified` group (was going to be lines 61-74) alongside `/mis-organizaciones`; added a new `ProtectedRoute allow={['ADMINISTRADOR','REFERENTE']}` group for `/organizaciones/:id/legajo` — see Deviations for why this isn't the ADMIN-only group tasks.md's literal text describes |
+| `ts_hornero_admin/src/app/router.test.tsx` | Modified | Extended the existing structural-wiring precedent with 2 tests for the new route groups |
+| `ts_hornero_admin/src/routes/admin.tsx` | Modified | Added an "Auditoría de acreditación" card linking to `/referentes` (the audit-queue entry point — see Deviations) |
+| `ts_hornero_admin/src/routes/admin.test.tsx` | Modified | Wrapped the 4 existing `render(<AdminPage />)` calls in `<MemoryRouter>` — required once `admin.tsx` renders a `<Link>` (react-router-dom hooks need a Router context even in tests); no assertions changed |
+| `ts_hornero_admin/src/routes/referentes.tsx` | Modified | Added a "Ver legajo / auditar acreditación" link per org row, routing to `/organizaciones/{id}/legajo` — the actual admin audit-queue destination `admin.tsx`'s new link leads to (see Deviations) |
+| `openspec/changes/acreditacion-progresiva/tasks.md` | Modified | Tasks 4.1-4.13 marked `[x]` |
+
+## TDD Cycle Evidence
+
+| Task | RED (observed) | GREEN (observed) | Notes |
+|------|------|------|-------|
+| 4.1/4.2 | Compile failure: `Failed to resolve import "./useAcreditacion"` | 7/7 pass | |
+| 4.3/4.4 | Compile failure: `Failed to resolve import "./NivelBadge"` | 5/5 pass | |
+| 4.5/4.6 | Compile failure: `Failed to resolve import "./NivelPanel"` | 2/2 pass | |
+| 4.7/4.8 | Compile failure: `Failed to resolve import "./AuditQueue"` | 3/3 pass | |
+| 4.9/4.10 | Compile failure: `Failed to resolve import "./EvidenciaForm"` | 3/3 pass | |
+| 4.11/4.12 | 2/4 `router.test.tsx` tests fail: `expected undefined to be defined` (routes don't exist) | 4/4 pass | |
+
+## Deviations from Design
+
+**`/organizaciones/:id/legajo` admits `ADMINISTRADOR` **and** `REFERENTE`, not `ADMINISTRADOR` only**, and
+lives in its own new `ProtectedRoute` group rather than being folded into the existing ADMIN-only group
+(lines 77-91) tasks.md's literal text points at. This follows amendment D-01
+(`decisiones-posteriores.md`), which overrides `design.md`'s admin-only restriction and the orchestrator's
+explicit instruction for this run ("The SPA must actually expose the referente's own-organizacion export,
+not hide it behind an admin-only route"). Ownership for a non-admin caller (D-01's `org.referente.id ==
+principal` check) is enforced server-side by the MS and mirrored by the BFF's `@Roles(ADMINISTRADOR,
+REFERENTE)` — this SPA gate only excludes DONANTE, which can never own an organización. `router.test.tsx`
+tests this exact amended behavior, not the pre-amendment tasks.md wording.
+
+**`admin.tsx`'s "link into the audit queue" resolves to `/referentes`, not a new dedicated audit-queue
+route.** Phase 4's task list creates `AuditQueue.tsx` as a component and `legajo.tsx` as a route, but no
+task defines a *route* whose sole purpose is a cross-organización audit queue. The coherent integration
+point already exists: `referentes.tsx` (pre-existing admin org-management page) now carries a
+"Ver legajo / auditar acreditación" link per org row → `/organizaciones/{id}/legajo`, and that page hosts
+`NivelPanel` + `AuditQueue` for admins (see next paragraph). `admin.tsx` links to `/referentes` as the
+audit queue's actual entry point. This is additive, mechanical, and touches no file outside what a
+"link into the audit queue" instruction implies; `referentes.tsx` was not explicitly named in the task
+text but required no new hook, no new state, and no design decision beyond an anchor.
+
+**`NivelPanel` and `AuditQueue` are both rendered inside `legajo.tsx`, gated on `tipo === 'ADMINISTRADOR'`,
+not on a separate route.** The organizacion-legajo spec calls the legajo "a server-assembled export...
+rendered as a printable view," and task 4.7 requires `AuditQueue` to render no level-change control so the
+two admin actions stay visually distinct — but neither the spec, design, nor tasks.md names a second admin
+route for those actions, and both need exactly the per-org evidence list `legajo.tsx` already fetches via
+`useLegajo`. Placing them in a `.legajo-no-print` block below the printable dossier keeps the printable
+export (nivel, requisitos, eventos, disclosure) byte-for-byte what an admin *or the owning referente* sees,
+while admin-only controls never print and never render for a referente. `AuditQueue`'s `evidenciaIds` prop
+is currently always `{}` here: `LegajoResponse`'s `RequisitoEnLegajo` (frozen at 2.11/3.4) carries no
+`evidenciaId` field, so approve/observe buttons don't render for any row yet from this page — `AuditQueue`
+itself is fully wired and tested against a supplied `evidenciaIds` map (see its own test file), but wiring
+a real evidencia-id source (e.g. extending `LegajoResponse` or adding a dedicated evidence-list fetch) is
+out of this task's scope and is flagged as a follow-up, not silently patched.
+
+**`admin.test.tsx`'s 4 existing `render(<AdminPage />)` calls now wrap in `<MemoryRouter>`.** Adding a
+`<Link>` to `admin.tsx` means any render without a Router context throws
+(`useHref() may be used only in the context of a <Router>`). This is a mechanical test-harness fix with no
+assertion changes — confirmed by re-running the suite (still 4/4 pass, same assertions).
+
+No spec or design requirement text was reinterpreted otherwise. `EvidenciaForm` genuinely offers no way to
+select FOTO/DOCUMENTO (Phase 4's explicit acceptance criterion) — the `<select>` is hardcoded to
+`DECLARACION`, disabled, with FOTO/DOCUMENTO rendered as disabled `<option>`s plus a visible note.
+
+## Work Unit Evidence (A4)
+
+| Evidence | Value |
+|---|---|
+| Focused test command and result | `npm test -- useAcreditacion` → 7/7; `npm test -- NivelBadge` → 5/5; `npm test -- NivelPanel` → 2/2; `npm test -- AuditQueue` → 3/3; `npm test -- EvidenciaForm` → 3/3; `npm test -- router` → 4/4; `npm test -- admin` → 16/16 (3 suites, incl. `admin.test.tsx`'s now-Router-wrapped 4) |
+| Full suite | `npm test` (from `ts_hornero_admin/`) → **39 suites, 188/188 pass** |
+| Build | `npm run build` (`tsc -b && vite build`) → **PASS**. `tsc -b` reports no type errors; `vite build` emits `dist/` successfully (1,158 modules transformed, built in 1.35s). Only output is a pre-existing informational chunk-size warning (`index-*.js` > 500kB), not an error, not introduced by this change (the same warning is a Vite `build.chunkSizeWarningLimit` note about the whole app bundle, unrelated to the files this run touched) |
+| Lint | `npm run lint` (`eslint .`, no `--fix` in this package's script — confirmed via `package.json`) → **0 errors/warnings, full repo**. `git status`/`git diff --stat` immediately after confirms no unrelated file was touched (only `AppShell.tsx`/`Topbar.tsx` carry the pre-existing, not-mine diffs noted in the launch prompt) |
+| Runtime harness | No live browser/E2E harness exists in this package (Vitest + Testing Library only, per `strict-tdd.md`'s runner). Equivalent coverage: `router.test.tsx` exercises the actual `router.routes` tree (not a synthetic fixture) for both new route groups, and `npm run build` is the closest available proxy for "does this actually boot" since `vite build` fails on any unresolvable import or type error across the full module graph |
+| Rollback boundary | Revert `ts_hornero_admin/src/app/router.tsx`, `router.test.tsx`, `src/routes/admin.tsx`, `admin.test.tsx`, `src/routes/referentes.tsx`, `src/types/domain.ts`'s acreditación-section addition (all isolated, additive diffs), and delete `src/lib/hooks/useAcreditacion.ts`, `useAcreditacion.test.tsx`, `src/components/acreditacion/`, `src/routes/acreditacion.tsx`, `src/routes/legajo.tsx` entirely. No other file depends on any of this — Phase 5/6 (Slice B) has not started, and `AppShell.tsx`/`Topbar.tsx`'s pre-existing uncommitted changes are untouched by this rollback either way. |
+
+## Issues Found
+
+None new. The `admin.test.tsx` Router-wrapping requirement (above) is a mechanical consequence of adding
+navigation, not a defect.
+
+## Review Budget Note
+
+Forecast for A4 was 600-800 changed lines. Actual: **~190 lines of diff to 6 existing tracked files + ~1,153
+authored lines across 12 new files** (5 production files — hooks, `NivelBadge`, `NivelPanel`, `AuditQueue`,
+`EvidenciaForm`, `acreditacion.tsx`, `legajo.tsx` — and 5 test files) ≈ **~1,343 total**, roughly 1.7x the
+forecast. Reported honestly rather than trimmed: the bulk is genuinely new UI surface (4 components + 2
+routes + 5 hooks, each with its own RED/GREEN test file under strict TDD) plus the D-01 amendment forcing a
+new route group instead of reusing an existing one. No test was omitted, compressed, or merged to fit the
+number. A4 is the last unit of the A1→A2→A3→A4 chain per the launch prompt ("A4 is the last unit of Slice
+A"), so no further chaining decision is needed; no `size:exception` is requested since this is disclosure
+on the terminal slice, not a request to reopen the chain-strategy decision.
+
+## Remaining Tasks (this change, not this run)
+
+Phase 5 (B1) and Phase 6 (B2) — 17 tasks — are explicitly deferred until the user schedules Slice B
+(`tasks.md`: "Do not start before the user schedules Slice B") and are unchanged in `tasks.md`.
+
+## Workload / PR Boundary
+
+- Mode: chained PR slice (`feature-branch-chain`), work unit A4 of A1→A2→A3→A4 — **last unit of Slice A**
+- Current work unit: A4 — admin SPA hooks, components, routes
+- Boundary: starts from A3's commit on `feat/acreditacion-trazabilidad`; ends at one work-unit commit
+  containing exactly the files listed above
+- Estimated review budget impact: see "Review Budget Note" above — ~1.7x the 600-800 forecast, disclosed
+  not hidden
+
+## Status
+
+13/13 Phase 4 tasks complete. **62/79 tasks complete overall.** Slice A (A1→A2→A3→A4) is now fully
+implemented and independently tested per unit. Phase 5 (B1)/Phase 6 (B2) — Slice B — remain deferred per
+the user's own scheduling instruction; not started in this run.

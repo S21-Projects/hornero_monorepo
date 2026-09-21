@@ -334,43 +334,43 @@ returns `403` with no auth header at all (unauthenticated request, per the spec'
 Depends on Phase 3 (hooks call the BFF routes). UI components can be scaffolded against a mocked `axios` before
 Phase 3 lands, but final acceptance needs the real BFF contract frozen (DTOs from 2.11/3.4).
 
-- [ ] 4.1 RED: create `src/lib/hooks/useAcreditacion.test.ts` (axios-mock-adapter) — `useAcreditacion`,
+- [x] 4.1 RED: create `src/lib/hooks/useAcreditacion.test.ts` (axios-mock-adapter) — `useAcreditacion`,
       `useCargarEvidencia`, `useAuditarEvidencia`, `useCambiarNivel`, `useLegajo` call the expected BFF routes and
       expose TanStack Query's loading/error/success states. Run `npm test -- useAcreditacion` — expect compile
       failure.
-- [ ] 4.2 GREEN: create `src/lib/hooks/useAcreditacion.ts`. Run `npm test -- useAcreditacion` — expect pass.
-- [ ] 4.3 RED: create `src/components/acreditacion/NivelBadge.test.tsx` — renders a distinguishable badge for
+- [x] 4.2 GREEN: create `src/lib/hooks/useAcreditacion.ts`. Run `npm test -- useAcreditacion` — expect pass.
+- [x] 4.3 RED: create `src/components/acreditacion/NivelBadge.test.tsx` — renders a distinguishable badge for
       each of `N0`–`N3`. Run `npm test -- NivelBadge` — expect compile failure.
-- [ ] 4.4 GREEN: create `src/components/acreditacion/NivelBadge.tsx`, reusing `components/Badge.tsx`. Run `npm
+- [x] 4.4 GREEN: create `src/components/acreditacion/NivelBadge.tsx`, reusing `components/Badge.tsx`. Run `npm
       test -- NivelBadge` — expect pass.
-- [ ] 4.5 RED: create `src/components/acreditacion/NivelPanel.test.tsx` — submit is disabled while `motivo` is
+- [x] 4.5 RED: create `src/components/acreditacion/NivelPanel.test.tsx` — submit is disabled while `motivo` is
       blank; enabled once non-blank; calls `useCambiarNivel` with the typed `motivo` on submit. Run `npm test --
       NivelPanel` — expect compile failure.
-- [ ] 4.6 GREEN: create `src/components/acreditacion/NivelPanel.tsx` (raise/lower with mandatory `motivo`). Run
+- [x] 4.6 GREEN: create `src/components/acreditacion/NivelPanel.tsx` (raise/lower with mandatory `motivo`). Run
       `npm test -- NivelPanel` — expect pass.
-- [ ] 4.7 RED: create `src/components/acreditacion/AuditQueue.test.tsx` — shows an expiry warning when
+- [x] 4.7 RED: create `src/components/acreditacion/AuditQueue.test.tsx` — shows an expiry warning when
       `expirada: true` on a listed evidencia, and explicitly does **not** render a level-change control inline
       (raising/lowering stays in `NivelPanel`, keeping approve-evidence and assert-level visually distinct per
       the design's data-flow note that they are separate admin actions). Run `npm test -- AuditQueue` — expect
       compile failure.
-- [ ] 4.8 GREEN: create `src/components/acreditacion/AuditQueue.tsx` (admin approve/observe per requisito,
+- [x] 4.8 GREEN: create `src/components/acreditacion/AuditQueue.tsx` (admin approve/observe per requisito,
       expiry warning). Run `npm test -- AuditQueue` — expect pass.
-- [ ] 4.9 RED: create `src/components/acreditacion/EvidenciaForm.test.tsx` — offers `DECLARACION` only in Slice A
+- [x] 4.9 RED: create `src/components/acreditacion/EvidenciaForm.test.tsx` — offers `DECLARACION` only in Slice A
       (`FOTO`/`DOCUMENTO` options are absent or disabled with an explanatory note); assert the component renders
       as a visually and structurally separate section from `components/org/InfoPublicaForm.tsx` when both are
       mounted together (per `specs/organizacion-self-edit/spec.md` delta, "The two flows are visually and
       structurally separate"). Run `npm test -- EvidenciaForm` — expect compile failure.
-- [ ] 4.10 GREEN: create `src/components/acreditacion/EvidenciaForm.tsx` — referente submission, `DECLARACION`
+- [x] 4.10 GREEN: create `src/components/acreditacion/EvidenciaForm.tsx` — referente submission, `DECLARACION`
       only (AD-4, Slicing section). Run `npm test -- EvidenciaForm` — expect pass.
-- [ ] 4.11 RED: extend `src/app/router.test.tsx` (existing `ProtectedRoute` precedent) — the new `/acreditacion`
+- [x] 4.11 RED: extend `src/app/router.test.tsx` (existing `ProtectedRoute` precedent) — the new `/acreditacion`
       route requires the `REFERENTE` role; the new `/organizaciones/:id/legajo` route requires `ADMINISTRADOR`;
       an unauthenticated or wrong-role user is redirected, not shown the route. Run `npm test -- router` —
       expect failure (routes don't exist).
-- [ ] 4.12 GREEN: create `src/routes/acreditacion.tsx` (referente view) and `src/routes/legajo.tsx` (printable
+- [x] 4.12 GREEN: create `src/routes/acreditacion.tsx` (referente view) and `src/routes/legajo.tsx` (printable
       dossier + `@media print` stylesheet). Modify `src/app/router.tsx` to register both inside the existing
       `ProtectedRoute` groups (lines 61-91). Modify `src/routes/admin.tsx` to link into the audit queue. Run `npm
       test -- router` — expect pass.
-- [ ] 4.13 Run the full SPA suite: `npm test` from `ts_hornero_admin/`. Then run `npm run build` (`tsc -b && vite
+- [x] 4.13 Run the full SPA suite: `npm test` from `ts_hornero_admin/`. Then run `npm run build` (`tsc -b && vite
       build`) — vitest does not typecheck the full build graph, so this is a separate required check, not
       redundant with 4.1–4.12.
 

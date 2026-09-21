@@ -19,6 +19,8 @@ import ControlDonacionesPage from '../routes/control-donaciones';
 import PendingValidationPage from '../routes/pending-validation';
 import MisOrganizacionesPage from '../routes/mis-organizaciones';
 import VerifyEmailPage from '../routes/verify-email';
+import AcreditacionPage from '../routes/acreditacion';
+import LegajoPage from '../routes/legajo';
 
 export const router = createBrowserRouter([
   // ── Public-only routes (redirect away when authenticated) ──────────────
@@ -68,6 +70,11 @@ export const router = createBrowserRouter([
         element: <AppShell />,
         children: [
           { path: '/mis-organizaciones', element: <MisOrganizacionesPage /> },
+          // Evidence self-submission (organizacion-evidencia spec). No
+          // requireValidated: a referente needs this route precisely while
+          // their org is still below N1 — gating it on validation would make
+          // self-service accreditation impossible to reach.
+          { path: '/acreditacion', element: <AcreditacionPage /> },
         ],
       },
     ],
@@ -85,6 +92,24 @@ export const router = createBrowserRouter([
           { path: '/users', element: <UsersPage /> },
           { path: '/referentes', element: <ReferentesPage /> },
           { path: '/control-donaciones', element: <ControlDonacionesPage /> },
+        ],
+      },
+    ],
+  },
+
+  // ── Legajo (printable dossier) — ADMINISTRADOR or the owning REFERENTE ──
+  // Amendment D-01 (decisiones-posteriores.md) overrides design.md's
+  // admin-only restriction: the legajo exists so an organizacion can present
+  // its own evidence to a third party, so the owning referente must reach it
+  // too. Ownership for a non-admin caller is enforced server-side (MS +
+  // BFF); this gate only keeps out roles that can never own an org.
+  {
+    element: <ProtectedRoute allow={['ADMINISTRADOR', 'REFERENTE']} requireVerified />,
+    children: [
+      {
+        element: <AppShell />,
+        children: [
+          { path: '/organizaciones/:id/legajo', element: <LegajoPage /> },
         ],
       },
     ],
