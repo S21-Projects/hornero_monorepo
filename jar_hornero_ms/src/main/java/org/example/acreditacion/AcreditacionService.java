@@ -3,6 +3,7 @@ package org.example.acreditacion;
 import lombok.RequiredArgsConstructor;
 import org.example.acreditacion.dto.AcreditacionResponse;
 import org.example.acreditacion.dto.EventoResponse;
+import org.example.acreditacion.dto.EvidenciaResponse;
 import org.example.acreditacion.dto.LegajoResponse;
 import org.example.acreditacion.dto.RequisitoEnLegajo;
 import org.example.domain.EstadoEvidencia;
@@ -282,6 +283,21 @@ public class AcreditacionService {
         }
 
         return org;
+    }
+
+    /**
+     * `decisiones-posteriores.md` D-02: backing method for
+     * {@code GET /{id}/acreditacion/evidencias}, the admin audit queue. Reuses the existing
+     * {@code findByOrganizacion_Id} finder and the pre-existing {@code EvidenciaResponse.from}
+     * mapper — no new repository method, no second mapper. {@code filtro == null} returns every
+     * row (including {@code REEMPLAZADA} ones, unlike {@link #legajo}, since the queue is an audit
+     * trail, not a current-state dossier); an organizacion with no evidence returns an empty list.
+     */
+    List<EvidenciaResponse> evidencias(Long orgId, EstadoEvidencia filtro) {
+        return evidenciaRepository.findByOrganizacion_Id(orgId).stream()
+                .filter(e -> filtro == null || e.getEstado() == filtro)
+                .map(EvidenciaResponse::from)
+                .toList();
     }
 
     /** Backing method for {@code GET /{id}/acreditacion}: current level + since-date, no legajo detail. */

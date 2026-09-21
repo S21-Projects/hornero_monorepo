@@ -1,7 +1,11 @@
 package org.example.acreditacion;
 
 import org.example.acreditacion.dto.AcreditacionResponse;
+import org.example.acreditacion.dto.EvidenciaResponse;
 import org.example.acreditacion.dto.LegajoResponse;
+import org.example.domain.EstadoEvidencia;
+import org.example.domain.RequisitoAcreditacion;
+import org.example.domain.TipoEvidencia;
 import org.example.auth.JwtService;
 import org.example.domain.EstadoOrganizacion;
 import org.example.domain.NivelAcreditacion;
@@ -20,6 +24,7 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
@@ -191,6 +196,46 @@ class AcreditacionControllerSecurityTest {
                                 {"requisito":"NO_DISCRIMINACION","tipoEvidencia":"DECLARACION","declaracion":"d"}
                                 """))
                 .andExpect(status().isForbidden());
+    }
+
+    // --- GET /{id}/acreditacion/evidencias — D-02 audit queue, ADMINISTRADOR only ---
+
+    /**
+     * D-02 is deliberately narrower than D-01: the owning REFERENTE already reads its evidence
+     * state through the legajo and has no approve/observe action, so it needs no row identifiers.
+     */
+    private EvidenciaResponse sampleEvidencia() {
+        return new EvidenciaResponse(10L, 1L, RequisitoAcreditacion.NO_DISCRIMINACION, TipoEvidencia.DECLARACION,
+                "declaración", LocalDate.now(), null, EstadoEvidencia.PENDIENTE, false, 5L, Instant.now(),
+                null, null, null);
+    }
+
+    @Test
+    void listEvidencias_anonymous_isDenied() throws Exception {
+        mockMvc.perform(get("/api/organizaciones/1/acreditacion/evidencias"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void listEvidencias_donante_isForbidden() throws Exception {
+        mockMvc.perform(get("/api/organizaciones/1/acreditacion/evidencias").with(authentication(auth(9L, "DONANTE"))))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void listEvidencias_owningReferente_isForbidden() throws Exception {
+        when(organizacionRepository.findById(1L)).thenReturn(Optional.of(orgOwnedBy(5L)));
+
+        mockMvc.perform(get("/api/organizaciones/1/acreditacion/evidencias").with(authentication(auth(5L, "REFERENTE"))))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void listEvidencias_admin_isOk() throws Exception {
+        when(acreditacionService.evidencias(1L, null)).thenReturn(List.of(sampleEvidencia()));
+
+        mockMvc.perform(get("/api/organizaciones/1/acreditacion/evidencias").with(authentication(auth(2L, "ADMINISTRADOR"))))
+                .andExpect(status().isOk());
     }
 
     // --- Threat Matrix row 5: evidence key smuggling (Slice A) ---

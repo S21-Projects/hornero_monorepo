@@ -10,6 +10,7 @@ import org.example.acreditacion.dto.CambiarNivelRequest;
 import org.example.acreditacion.dto.CargarEvidenciaRequest;
 import org.example.acreditacion.dto.EvidenciaResponse;
 import org.example.acreditacion.dto.LegajoResponse;
+import org.example.domain.EstadoEvidencia;
 import org.example.domain.Organizacion;
 import org.example.domain.OrganizacionRepository;
 import org.springframework.http.HttpStatus;
@@ -22,9 +23,12 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
+
+import java.util.List;
 
 /**
  * The six accreditation endpoints from design's "Interfaces / Contracts" table. Every route here
@@ -70,6 +74,14 @@ public class AcreditacionController {
         var evidencia = acreditacionService.cargarEvidencia(org, request.requisito(), request.tipoEvidencia(),
                 request.declaracion(), request.validoDesde(), request.validoHasta(), currentUserId());
         return EvidenciaResponse.from(evidencia);
+    }
+
+    @Operation(summary = "List the organizacion's evidence for the audit queue (admin only — D-02)")
+    @GetMapping("/acreditacion/evidencias")
+    @PreAuthorize("hasRole('ADMINISTRADOR')")
+    public List<EvidenciaResponse> evidencias(@PathVariable Long id,
+                                               @RequestParam(required = false) EstadoEvidencia estado) {
+        return acreditacionService.evidencias(id, estado);
     }
 
     @Operation(summary = "Approve a pending evidence row (admin only)")

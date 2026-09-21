@@ -5,7 +5,7 @@ import { Text } from '../components/ui/Typography';
 import { NivelBadge } from '../components/acreditacion/NivelBadge';
 import { NivelPanel } from '../components/acreditacion/NivelPanel';
 import { AuditQueue } from '../components/acreditacion/AuditQueue';
-import { useLegajo } from '../lib/hooks/useAcreditacion';
+import { useEvidenciasPendientes, useLegajo } from '../lib/hooks/useAcreditacion';
 import { useAuthStore } from '../store/auth.store';
 import { formatFecha } from '../lib/format';
 import type { RequisitoAcreditacion } from '../types/domain';
@@ -32,10 +32,19 @@ export default function LegajoPage() {
 
   const legajo = useLegajo(organizacionId);
 
-  // Evidence rows without a legajo-carried evidenciaId cannot be audited from
-  // here yet (LegajoResponse's RequisitoEnLegajo has no evidenciaId field);
-  // AuditQueue degrades gracefully — see its own evidenciaId-optional prop.
+  // Task 4b.6 (D-02): LegajoResponse's RequisitoEnLegajo carries no evidenciaId field (that's
+  // the whole point of the separate audit-queue endpoint), so the id map AuditQueue needs is
+  // built from the dedicated PENDIENTE-filtered read instead — only PENDIENTE rows ever render
+  // approve/observe buttons, so no other estado needs to be represented here. The endpoint is
+  // ADMINISTRADOR-only server-side (D-02, narrower than D-01), so it is only fetched for admins
+  // — a referente viewing its own legajo never issues this request.
+  const evidenciasPendientes = useEvidenciasPendientes(
+    tipo === 'ADMINISTRADOR' ? organizacionId : undefined,
+  );
   const evidenciaIds: Partial<Record<RequisitoAcreditacion, number>> = {};
+  for (const evidencia of evidenciasPendientes.data ?? []) {
+    evidenciaIds[evidencia.requisito] = evidencia.id;
+  }
 
   return (
     <div className="legajo-printable" style={{ maxWidth: 840, margin: '0 auto', padding: '24px 16px' }}>

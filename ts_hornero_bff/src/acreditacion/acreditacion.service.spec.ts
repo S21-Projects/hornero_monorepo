@@ -104,4 +104,26 @@ describe('AcreditacionService', () => {
       },
     );
   });
+
+  // --- Task 4b.5 (D-02): audit-queue read — GET .../acreditacion/evidencias ---
+
+  it('forwards the token as Authorization: Bearer for evidencias() with no filter', async () => {
+    await service.evidencias(1, undefined, TOKEN);
+    expect(getMock).toHaveBeenCalledWith(
+      `${MS_URL}/api/organizaciones/1/acreditacion/evidencias`,
+      {
+        headers: { Authorization: `Bearer ${TOKEN}` },
+      },
+    );
+  });
+
+  it('mirrors the MS estado query param exactly when a filter is supplied', async () => {
+    await service.evidencias(1, 'PENDIENTE', TOKEN);
+    expect(getMock).toHaveBeenCalledWith(
+      `${MS_URL}/api/organizaciones/1/acreditacion/evidencias?estado=PENDIENTE`,
+      {
+        headers: { Authorization: `Bearer ${TOKEN}` },
+      },
+    );
+  });
 });
