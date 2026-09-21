@@ -1,8 +1,58 @@
-import { Controller, Get, Query, Res, StreamableFile } from '@nestjs/common';
+import {
+  Controller,
+  ForbiddenException,
+  Get,
+  Query,
+  Res,
+  StreamableFile,
+} from '@nestjs/common';
 import { ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
 import { Public } from '../auth/decorators/public.decorator.js';
 import { ImagesService } from './images.service.js';
+
+/**
+ * Object-key prefix reserved for accreditation evidence (see
+ * `specs/organizacion-acreditacion/spec.md`). Slice A has no authenticated, ownership-checked
+ * route to serve these files yet — until Slice B ships one, this public route must never leak
+ * them, so any key resolving under this prefix is denied outright (Threat Matrix "Evidence key
+ * smuggling" row).
+ */
+const EVIDENCIA_PREFIX = 'org-evidencia/';
+
+/**
+ * Normalizes an S3 object key before the deny-list check: repeatedly URL-decodes it (catching
+ * single and double encoding of path separators), strips leading slashes, and collapses `.` /
+ * `..` segments — so a leading slash, an encoded `%2F`, a `../` traversal attempt, or mixed case
+ * cannot smuggle a key that still resolves under `org-evidencia/` past a naive exact-string check.
+ */
+function isEvidenciaKey(rawKey: string): boolean {
+  let key = rawKey;
+  for (let i = 0; i < 3; i += 1) {
+    try {
+      const decoded = decodeURIComponent(key);
+      if (decoded === key) break;
+      key = decoded;
+    } catch {
+      break;
+    }
+  }
+
+  key = key.replace(/^\/+/, '');
+
+  const segments: string[] = [];
+  for (const segment of key.split('/')) {
+    if (segment === '' || segment === '.') continue;
+    if (segment === '..') {
+      segments.pop();
+      continue;
+    }
+    segments.push(segment);
+  }
+
+  const normalized = segments.join('/').toLowerCase();
+  return normalized.startsWith(EVIDENCIA_PREFIX);
+}
 
 @ApiTags('images')
 @Public()
@@ -17,6 +67,12 @@ export class ImagesController {
     @Query('key') key: string,
     @Res({ passthrough: true }) res: Response,
   ): Promise<StreamableFile> {
+    if (isEvidenciaKey(key)) {
+      throw new ForbiddenException(
+        'Accreditation evidence is not readable through the public image route',
+      );
+    }
+
     const { body, contentType } = await this.imagesService.getObject(key);
     res.set('Content-Type', contentType ?? 'application/octet-stream');
     return new StreamableFile(body);

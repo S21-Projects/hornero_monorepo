@@ -297,32 +297,32 @@ still passes unmodified outside the two touched methods.
 Depends on Phase 2 (MS endpoints must exist to proxy against, though BFF tests mock `HttpService` so this can start
 once Phase 2's DTO shapes are frozen).
 
-- [ ] 3.1 RED: create `src/images/images.controller.spec.ts` (or extend existing) — Supertest:
+- [x] 3.1 RED: create `src/images/images.controller.spec.ts` (or extend existing) — Supertest:
       `GET /images?key=org-evidencia/1/x.jpg` → `403` (Slice A pre-commitment guard, Threat Matrix row 4). Run
       `npm test -- images.controller` — expect failure (current controller streams any key).
-- [ ] 3.2 GREEN: modify `src/images/images.controller.ts` — reject any key beginning `org-evidencia/` with `403`
+- [x] 3.2 GREEN: modify `src/images/images.controller.ts` — reject any key beginning `org-evidencia/` with `403`
       before the existing stream logic. Run `npm test -- images.controller` — expect pass.
-- [ ] 3.3 RED: create `src/acreditacion/acreditacion.service.spec.ts` — mocked `HttpService.axiosRef`: verifies
+- [x] 3.3 RED: create `src/acreditacion/acreditacion.service.spec.ts` — mocked `HttpService.axiosRef`: verifies
       the service forwards the `access_token` cookie as an `Authorization: Bearer` header to
       `${JAVA_MS_URL}/api/organizaciones/{id}/...`, mirroring the `NecesidadesService.crear` precedent. Run `npm
       test -- acreditacion.service` — expect compile failure (module doesn't exist).
-- [ ] 3.4 GREEN: create `src/acreditacion/acreditacion.module.ts`, `acreditacion.service.ts` (thin `HttpService`
+- [x] 3.4 GREEN: create `src/acreditacion/acreditacion.module.ts`, `acreditacion.service.ts` (thin `HttpService`
       proxy, no domain logic), and `dto/*.ts` (request DTOs with `class-validator`, mirroring the MS request
       shapes from 2.11). Run `npm test -- acreditacion.service` — expect pass.
-- [ ] 3.5 RED: create `src/acreditacion/acreditacion.controller.spec.ts` — DTO validation rejects a blank
+- [x] 3.5 RED: create `src/acreditacion/acreditacion.controller.spec.ts` — DTO validation rejects a blank
       `motivo` and an unknown `destino` on the `cambiarNivel` route; `@Roles(ADMINISTRADOR)` routes reject
       REFERENTE and DONANTE via `RolesGuard` (Threat Matrix "Role escalation" row, BFF layer). Run `npm test --
       acreditacion.controller` — expect compile failure.
-- [ ] 3.6 GREEN: create `src/acreditacion/acreditacion.controller.ts` — `@Roles(...)` per route matching design's
+- [x] 3.6 GREEN: create `src/acreditacion/acreditacion.controller.ts` — `@Roles(...)` per route matching design's
       "Interfaces / Contracts" table, cookie→Bearer per the `OrganizacionesController` precedent
       (`organizaciones.controller.ts:29-33`). Modify `src/app.module.ts` to import `AcreditacionModule`. Run `npm
       test -- acreditacion.controller` — expect pass.
-- [ ] 3.7 RED: create a BFF route-shadowing assertion (Threat Matrix "BFF route shadowing" row) — `GET
+- [x] 3.7 RED: create a BFF route-shadowing assertion (Threat Matrix "BFF route shadowing" row) — `GET
       /organizaciones/:slug` (`organizaciones.controller.ts:97-102`, single-segment) never intercepts the new
       two-segment `GET /organizaciones/:id/acreditacion` path. Run as an e2e/Supertest case — expect pass on
       first run if NestJS's most-specific-match already resolves it correctly; if it fails, this is a genuine
       routing conflict to fix before continuing, not a false RED to skip.
-- [ ] 3.8 Run the full BFF suite: `npm test` from `ts_hornero_bff/`. Run `npm run lint`.
+- [x] 3.8 Run the full BFF suite: `npm test` from `ts_hornero_bff/`. Run `npm run lint`.
 
 **Phase 3 acceptance criterion**: `npm test` passes; `npm run lint` passes; `GET /images?key=org-evidencia/...`
 returns `403` with no auth header at all (unauthenticated request, per the spec's evidence-access requirement).
