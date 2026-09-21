@@ -688,3 +688,148 @@ Phase 4b added 8 new tasks to `tasks.md` after Slice A's 79-task count, bringing
 plus the D-02 audit-queue fix (A5) are now fully implemented, tested, and independently verified. Phase 5
 (B1)/Phase 6 (B2) — Slice B — remain deferred per the user's own scheduling instruction; not started in
 this run.
+
+---
+
+## Phase 5 (B1): `CategoriaAlimento` + worker filter — `jar_hornero_ms` + `go_algorithms_worker`
+
+**Scope this run**: Phase 5 (B1) only — tasks 5.1–5.6. Level-Driven Food Category Caps: the level
+caps category, never quantity, as a hard filter in the worker's `acepta()`, never a fifth scoring
+term. Phase 6 (B2) was explicitly out of scope and untouched.
+**Mode**: Strict TDD (RED → GREEN, per `openspec/config.yaml` `strict_tdd: true`).
+
+## Completed Tasks (6/6 in Phase 5)
+
+- [x] 5.1 RED `NecesidadServiceCategoriaCapTest` — confirmed compile failure (`CategoriaAlimento`,
+      `CrearNecesidadRequest.categoria` didn't exist).
+- [x] 5.2 GREEN — created `domain/CategoriaAlimento.java` (`NO_PERECEDERO`→N1, `REFRIGERADO`→N2,
+      `CONGELADO`→N2, each carrying its own `nivelMinimo`); added additive nullable `categoria` to
+      `Necesidad.java`; added the category cap check to `NecesidadService.crear()`; exposed
+      `categoria` on `CrearNecesidadRequest`, `ActualizarNecesidadRequest`, and `NecesidadResponse`.
+- [x] 5.3 RED `AcreditacionServiceCategoriasPermitidasTest` (new file — no `AcreditacionServiceTest`
+      existed to extend, same situation the launch prompt flagged for `scoring_test.go`) — confirmed
+      compile failure (`categoriasPermitidas` didn't exist).
+- [x] 5.4 GREEN — added `AcreditacionService.categoriasPermitidas(nivel)`, public, derived from
+      `CategoriaAlimento.getNivelMinimo()` rather than a second hand-maintained per-level table.
+- [x] 5.5 RED — created `go_algorithms_worker/internal/assign/scoring_test.go` (did not exist) —
+      confirmed compile failure (`unknown field CategoriasPermitidas in struct literal of type
+      Candidato`, 3 occurrences).
+- [x] 5.6 GREEN — added `CategoriasPermitidas []string` to `Candidato` and a second hard-filter
+      check in `acepta()` (factored into a shared `aceptaSegun()` helper so both sets use the same
+      empty-means-anything rule). `Score()` and `MatrizCosto()` are byte-unchanged.
+
+## Files Changed
+
+| File | Action | What Was Done |
+|------|--------|---------------|
+| `jar_hornero_ms/src/main/java/org/example/domain/CategoriaAlimento.java` | Created | 3-value food category enum, each carrying `nivelMinimo` |
+| `jar_hornero_ms/src/main/java/org/example/domain/Necesidad.java` | Modified | additive nullable `categoria` column |
+| `jar_hornero_ms/src/main/java/org/example/necesidad/NecesidadService.java` | Modified | category-cap check in `crear()`, `categoria` passthrough in `actualizar()`/`toResponse()` |
+| `jar_hornero_ms/src/main/java/org/example/necesidad/dto/CrearNecesidadRequest.java` | Modified | added `categoria` field (positional-constructor call sites updated) |
+| `jar_hornero_ms/src/main/java/org/example/necesidad/dto/ActualizarNecesidadRequest.java` | Modified | added `categoria` field |
+| `jar_hornero_ms/src/main/java/org/example/necesidad/NecesidadResponse.java` | Modified | added `categoria` field (record — call sites updated) |
+| `jar_hornero_ms/src/main/java/org/example/acreditacion/AcreditacionService.java` | Modified | added `categoriasPermitidas(NivelAcreditacion)` |
+| `jar_hornero_ms/src/test/java/org/example/necesidad/NecesidadServiceCategoriaCapTest.java` | Created | 5 tests for the category cap on `crear()` |
+| `jar_hornero_ms/src/test/java/org/example/acreditacion/AcreditacionServiceCategoriasPermitidasTest.java` | Created | 4 tests for `categoriasPermitidas(nivel)` |
+| `jar_hornero_ms/src/test/java/org/example/necesidad/NecesidadServiceTest.java` | Modified | 3 `CrearNecesidadRequest` call sites given the new trailing `categoria` arg (`null`) |
+| `jar_hornero_ms/src/test/java/org/example/necesidad/NecesidadServiceConcurrencyCapTest.java` | Modified | 1 `CrearNecesidadRequest` call site updated |
+| `jar_hornero_ms/src/test/java/org/example/necesidad/NecesidadControllerTest.java` | Modified | 2 `NecesidadResponse` call sites updated |
+| `go_algorithms_worker/internal/assign/scoring.go` | Modified | `CategoriasPermitidas` field on `Candidato`; `acepta()` now checks both sets via a shared `aceptaSegun()` helper; `Score()`/`MatrizCosto()` untouched |
+| `go_algorithms_worker/internal/assign/scoring_test.go` | Created | table-driven `TestAceptaCategoriasPermitidas` (4 cases) + `TestEmptyCategoriasPermitidasLeavesExistingRoundResultsUnchanged` |
+| `openspec/changes/acreditacion-progresiva/tasks.md` | Modified | tasks 5.1–5.6 marked `[x]` |
+
+## TDD Cycle Evidence
+
+| Task | RED (observed) | GREEN (observed) | Notes |
+|------|------|------|-------|
+| 5.1/5.2 | Compile failure: `cannot find symbol class CategoriaAlimento` (2 occurrences) | 5/5 pass (`NecesidadServiceCategoriaCapTest`) | |
+| 5.3/5.4 | Compile failure: `cannot find symbol method categoriasPermitidas(NivelAcreditacion)` (4 occurrences) | 4/4 pass (`AcreditacionServiceCategoriasPermitidasTest`) | |
+| 5.5/5.6 | Compile failure: `unknown field CategoriasPermitidas in struct literal of type Candidato` (3 occurrences, both `go vet` and `go test`) | `go test ./internal/assign/...` → `ok`; `-run` by name confirms `TestAceptaCategoriasPermitidas` (4 subtests) and `TestEmptyCategoriasPermitidasLeavesExistingRoundResultsUnchanged` all PASS | `TestHungarianMatchesBruteForce`, `TestHungarianAssignsDistinctColumns`, `TestHungarianPanicsWhenColumnsAreScarce` confirmed still PASS in the same `-v` run |
+
+## Deviations from Design
+
+**`AcreditacionService.categoriasPermitidas(nivel)` is NOT wired into `NecesidadService.crear()`.**
+The task ordering in `tasks.md` requires this: 5.2 (GREEN for the `NecesidadService` cap) precedes
+5.3/5.4 (which create `categoriasPermitidas` itself), so `NecesidadService`'s cap check cannot
+depend on a method that doesn't exist yet at that point in the sequence. Both checks are instead
+derived from the same single source of truth — `CategoriaAlimento.getNivelMinimo()` — so they
+cannot drift apart even though they are two call sites. This mirrors the existing
+`RequisitoAcreditacion.nivelExigido` convention already used by `AcreditacionService.requisitosCompletos()`.
+No spec text was reinterpreted; this is an implementation-ordering consequence, not a scope change.
+
+**`CategoriaAlimento` has exactly 3 values**: `NO_PERECEDERO` (N1), `REFRIGERADO` (N2), `CONGELADO`
+(N2). The spec text ("N1 permits non-perishable categories only; N2 additionally permits
+refrigerated and frozen categories; N3 permits all categories") and the one concrete example
+(`REFRIGERADO`) name exactly these three; no other category is named anywhere in the spec, design,
+or existing worker vocabulary (`ronda_test.go`'s `otraCategoria = []string{"ROPA"}` is an
+unrelated ad hoc string, not part of this enum). "N3 permits all categories" holds trivially since
+N3 ≥ N2 ≥ N1 and there is no fourth value; if a future change adds one, `categoriasPermitidas` and
+the worker filter both derive from the same enum and need no separate update.
+
+**Category-cap rejection uses HTTP 409 (`CONFLICT`)**, matching the existing concurrency-cap
+rejection in the same method (`NecesidadService.crear()`) rather than introducing a different
+status code for a sibling business-rule violation in the same call.
+
+**`CrearNecesidadRequest`, `ActualizarNecesidadRequest`, and `NecesidadResponse` (a Lombok
+`@AllArgsConstructor` class, a Lombok `@AllArgsConstructor` class, and a Java record respectively)
+all use positional all-args constructors elsewhere in the test suite.** Adding `categoria` as the
+last field broke 6 existing call sites at compile time (the exact positional-constructor hazard
+flagged in the launch prompt, previously hit by `OrganizacionResponse` in Phase 2) — all 6 were
+found via `rg` and fixed with an explicit trailing `null`, not assumed.
+
+No spec or design requirement text was reinterpreted.
+
+## Work Unit Evidence (B1 / Phase 5)
+
+| Evidence | Value |
+|---|---|
+| Focused test command and result | MS: `mvn test -Dtest=NecesidadServiceCategoriaCapTest,AcreditacionServiceCategoriasPermitidasTest` → **9/9 pass**. Worker: `go test ./internal/assign/... -run "TestAceptaCategoriasPermitidas\|TestEmptyCategoriasPermitidasLeavesExistingRoundResultsUnchanged\|TestHungarian" -v` → **7/7 named tests PASS** (4 category subtests + 1 no-op test + 3 pre-existing Hungarian tests, confirmed unaffected) |
+| Runtime harness | No live boot (`spring-boot:run`/`docker compose up`) was available in this sandbox — same limitation recorded in Phase 4b (task 4b.8). No curl/browser confirmation was performed for the MS endpoint; this is disclosed, not silently skipped. On the worker side, `TestEmptyCategoriasPermitidasLeavesExistingRoundResultsUnchanged` exercises the real `Ronda()` orchestration (not just `Score()` in isolation), which is the closest available proxy to the worker's actual round-processing boundary. |
+| Rollback boundary | Split across two commits by component. MS commit reverts cleanly: `CategoriaAlimento.java`, `Necesidad.java`'s `categoria` column, `NecesidadService.java`'s cap check, the three DTO additions, `AcreditacionService.java`'s `categoriasPermitidas()`, and the 4 test files (2 new, 2 with call-site fixes) — no other file added in this run depends on any of it, and Phase 1–4b work is untouched. Worker commit reverts independently: `scoring.go`'s `CategoriasPermitidas` field/`acepta()` change and `scoring_test.go` — `hungarian.go`, `hungarian_test.go`, `ronda.go`, `ronda_test.go` are all untouched by this run. |
+
+## Verification Gate — real numbers
+
+| Command | Result | Baseline | Delta |
+|---|---|---|---|
+| `mvn clean test` (`jar_hornero_ms/`) | **246/246 pass, 0 failures, 0 errors, BUILD SUCCESS** | 237/237 | +9 |
+| `go build ./...` (`go_algorithms_worker/`) | **clean** | clean | unchanged |
+| `go test ./...` (`go_algorithms_worker/`) | **ok** across `internal/assign`, `internal/metrics`, `internal/renacom` | ok across the same 3 packages | `internal/assign` gained 2 new top-level test functions (4 + 1 subtests) |
+| `hungarian_test.go` byte-identity | **Confirmed unmodified** — absent from `git status --porcelain` after all Phase 5 edits; its 3 tests (`TestHungarianMatchesBruteForce` incl. the 200-random-matrix oracle, `TestHungarianAssignsDistinctColumns`, `TestHungarianPanicsWhenColumnsAreScarce`) all still PASS | n/a | n/a |
+| `categoria=null` unaffected | **Confirmed** — `NecesidadServiceCategoriaCapTest.categoriaNullBehavesExactlyAsBeforeAtN1` asserts a null-category `crear()` at N1 succeeds and `response.categoria()` is `null` | n/a | n/a |
+
+`ts_hornero_bff`/`ts_hornero_admin` were not touched — no DTO change on the Java side forced a
+compile break on either (they consume the MS over HTTP/JSON, not Java types), so per the launch
+prompt's instruction ("unless a DTO change genuinely forces a compile break") they were correctly
+left alone this run. Their pre-Phase-5 baselines (91/91, 192/192 + build PASS) are unaffected and
+were not re-run in this scope.
+
+## Issues Found
+
+None.
+
+## Review Budget Note
+
+Split into two commits by component, each independently under the ~400-line delivery budget:
+- `feat(ms): cap necesidad food categories by accreditation level` — **301 changed lines** (13 files:
+  7 production, 3 new tests, 3 existing-test call-site fixes) + `tasks.md`.
+- `feat(worker): add accreditation-level category hard filter` — **137 changed lines** (2 files: 1
+  modified, 1 new test file).
+
+No `size:exception` needed.
+
+## Workload / PR Boundary
+
+- Mode: chained PR slice (`feature-branch-chain`), work unit B1 (Phase 5), following A1→A2→A3→A4→A5
+- Current work unit: B1 — `CategoriaAlimento` + worker filter (MS → worker), split into 2 commits
+  by component as the launch prompt explicitly permitted ("one per component if that reads better")
+- Boundary: starts from A5's commit (`644b7f4`) on `feat/acreditacion-trazabilidad`; ends at two
+  work-unit commits — `feat(ms): cap necesidad food categories by accreditation level` and
+  `feat(worker): add accreditation-level category hard filter`
+- Estimated review budget impact: 301 + 137 = 438 total authored changed lines across 2 independent
+  reviewable commits, each individually well under the ~400 budget
+
+## Status
+
+6/6 Phase 5 tasks complete. **76/87 tasks complete overall** (70 before this run + 6 from Phase 5).
+Phase 6 (B2) — 11 tasks — remains deferred and untouched, per this run's explicit scope boundary
+("Do not start Phase 6").
