@@ -987,3 +987,34 @@ individual commit is independently well under it, same pattern as Phase 5's 301+
 last implementation phase is done. One disclosed follow-up item remains (objectKey persistence,
 see Issues Found) but every task literally scoped by tasks.md 6.1–6.7/R.1–R.4 is implemented,
 tested, and green.
+
+## Post-Phase-6 fix (parent, 2026-09-21) — commit `e9dffa5`
+
+Phase 6 scoped the Slice-A guard so the MS accepts `objectKey` for `FOTO` and `DOCUMENTO`, but nothing threaded
+the value to the database: `AcreditacionService.cargarEvidencia(...)` took no such parameter and
+`OrganizacionEvidencia.nueva(...)` was called without one. A referente uploaded a photo, the BFF stored it under
+`org-evidencia/{orgId}/`, the MS answered 200, and the row meant to reference that file kept a null `objectKey` —
+the file orphaned in the bucket, the evidence unusable. The phase disclosed this rather than hiding it, and
+stopped because adding a parameter would break roughly twenty positional call sites across six test classes.
+
+Fixed with trailing-parameter **overloads** on both `OrganizacionEvidencia.nueva(...)` and
+`AcreditacionService.cargarEvidencia(...)`, the old signatures delegating with `null`. Every existing positional
+call site compiles untouched. This is the fourth time in this change that appending to a signature would have
+broken call sites en masse — `OrganizacionResponse` in Phase 2, `CrearNecesidadRequest` and `NecesidadResponse` in
+Phase 5, and this.
+
+**The diagnosis was wrong in one respect, and the correction matters**: `OrganizacionEvidencia` declares an
+`objectKey` field, but its private constructor never assigned it. The value was therefore always null, before
+Phase 6 as well — the field had never once been written since the entity was created in Phase 2. The fix adds the
+assignment inside the constructor, so this closes an older latent defect, not only the Phase 6 gap.
+
+**A call-site category overloads do not insulate**: `AcreditacionControllerSecurityTest` pins
+`acreditacionService.cargarEvidencia(...)` with a Mockito stub on the 7-argument signature. Once the controller
+called the 8-argument overload, the unstubbed call returned null and surfaced as a 500 instead of a 201 — an
+error that points nowhere near its cause. Mock stubs are positional call sites too, and they fail at runtime
+rather than at compile time.
+
+Tests: `mvn clean test` **249/249**, up from 247. Two new tests in `AcreditacionServiceEvidenciaTest` —
+`submittingFotoEvidenceWithObjectKeyPersistsItOnTheSavedRow` and
+`submittingDeclaracionEvidenceWithNullObjectKeyPersistsNullOnTheSavedRow` — assert against the repository, not the
+request object. Re-verified independently by the parent.
