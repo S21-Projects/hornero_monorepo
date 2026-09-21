@@ -1,9 +1,12 @@
 package org.example.organizacion;
 
 import lombok.RequiredArgsConstructor;
+import org.example.acreditacion.AcreditacionService;
 import org.example.domain.EstadoOrganizacion;
+import org.example.domain.NivelAcreditacion;
 import org.example.domain.Organizacion;
 import org.example.domain.OrganizacionRepository;
+import org.example.domain.TipoEventoOrganizacion;
 import org.example.organizacion.dto.ActualizarInfoPublicaRequest;
 import org.example.organizacion.dto.ActualizarOrganizacionRequest;
 import org.example.organizacion.dto.AsignarReferenteRequest;
@@ -33,6 +36,7 @@ public class OrganizacionService {
 
     private final OrganizacionRepository organizacionRepository;
     private final UsuarioRepository usuarioRepository;
+    private final AcreditacionService acreditacionService;
 
     @Transactional
     public OrganizacionResponse crear(CrearOrganizacionRequest request, Long referenteUserId) {
@@ -67,6 +71,7 @@ public class OrganizacionService {
         organizacion.setDonacionDirectaUrl(normalizarUrl(request.getDonacionDirectaUrl()));
 
         Organizacion saved = organizacionRepository.save(organizacion);
+        acreditacionService.registrarRegistroOrganizacion(saved);
         return toResponse(saved);
     }
 
@@ -98,8 +103,10 @@ public class OrganizacionService {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Solo los administradores pueden validar organizaciones");
         }
 
-        organizacion.setEstado(EstadoOrganizacion.APROBADA);
-        organizacion.setValidada(true);
+        // AD-6: delegates to AcreditacionService so this legacy action and the new ladder cannot
+        // disagree — nivel, estado/validada and the event log are written by one single method.
+        acreditacionService.aplicarTransicionLegacy(organizacion, NivelAcreditacion.N1, administrador,
+                "Validación administrativa", TipoEventoOrganizacion.NIVEL_ELEVADO);
         organizacion.setValidadoPor(administrador);
 
         Organizacion saved = organizacionRepository.save(organizacion);
@@ -107,7 +114,7 @@ public class OrganizacionService {
     }
 
     @Transactional
-    public OrganizacionResponse rechazar(Long orgId) {
+    public OrganizacionResponse rechazar(Long orgId, Long adminUserId) {
         Organizacion organizacion = organizacionRepository.findById(orgId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Organización no encontrada"));
 
@@ -115,7 +122,12 @@ public class OrganizacionService {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Solo se pueden rechazar organizaciones en estado PENDIENTE");
         }
 
-        organizacion.setEstado(EstadoOrganizacion.RECHAZADA);
+        Usuario usuario = usuarioRepository.findById(adminUserId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Usuario no encontrado"));
+        Administrador administrador = usuario instanceof Administrador a ? a : null;
+
+        // AD-6: never raises nivel (a never-validated org stays N0) — see rechazarRegistro's doc.
+        acreditacionService.rechazarRegistro(organizacion, administrador, "Registro rechazado por un administrador");
 
         Organizacion saved = organizacionRepository.save(organizacion);
         return toResponseAutenticado(saved);
@@ -150,9 +162,12 @@ public class OrganizacionService {
         Organizacion organizacion = organizacionRepository.findById(orgId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Organización no encontrada"));
 
+        Long referenteAnteriorId = organizacion.getReferente() != null ? organizacion.getReferente().getId() : null;
+
         Long referenteId = request.getReferenteId();
         if (referenteId == null) {
             organizacion.setReferente(null);
+            acreditacionService.registrarReasignacionReferente(organizacion, referenteAnteriorId, null);
             return toResponse(organizacionRepository.save(organizacion));
         }
 
@@ -178,6 +193,7 @@ public class OrganizacionService {
         }
 
         organizacion.setReferente(referente);
+        acreditacionService.registrarReasignacionReferente(organizacion, referenteAnteriorId, referente.getId());
         return toResponseAutenticado(organizacionRepository.save(organizacion));
     }
 
@@ -347,6 +363,9 @@ public class OrganizacionService {
                 organizacion.getProfileImageKey(),
                 organizacion.getBannerKey(),
                 organizacion.getReferente() != null ? organizacion.getReferente().getId() : null,
+                // D8/AD-6: additive, coalesced the same way AcreditacionService.nivelActual does —
+                // a row the backfill hasn't touched yet (or in tests that never set it) reads N0.
+                organizacion.getNivel() == null ? org.example.domain.NivelAcreditacion.N0 : organizacion.getNivel(),
                 // D6: public mapper — coalesce the nullable live flag (D4), never leak pending.
                 Boolean.TRUE.equals(organizacion.getAceptaDonaciones()),
                 organizacion.getSitioWebUrl(),

@@ -2,9 +2,11 @@ package org.example.necesidad;
 
 import lombok.RequiredArgsConstructor;
 import org.example.auth.VerificacionService;
+import org.example.config.AcreditacionProperties;
 import org.example.domain.EstadoNecesidad;
 import org.example.domain.Necesidad;
 import org.example.domain.NecesidadRepository;
+import org.example.domain.NivelAcreditacion;
 import org.example.domain.Organizacion;
 import org.example.domain.OrganizacionRepository;
 import org.example.necesidad.dto.ActualizarNecesidadRequest;
@@ -17,15 +19,20 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDate;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class NecesidadService {
 
+    private static final Set<EstadoNecesidad> ESTADOS_ABIERTOS =
+            Set.of(EstadoNecesidad.ABIERTA, EstadoNecesidad.EN_PROGRESO);
+
     private final NecesidadRepository necesidadRepository;
     private final OrganizacionRepository organizacionRepository;
     private final VerificacionService verificacionService;
+    private final AcreditacionProperties acreditacionProperties;
 
     @Transactional
     public NecesidadResponse crear(CrearNecesidadRequest dto, Long referenteId) {
@@ -35,6 +42,15 @@ public class NecesidadService {
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.FORBIDDEN,
                         "Access denied: not the referente of this organization"));
+
+        // `specs/organizacion-acreditacion/spec.md` "Level-Driven Concurrency Caps".
+        NivelAcreditacion nivel = org.getNivel() == null ? NivelAcreditacion.N0 : org.getNivel();
+        long cap = acreditacionProperties.capPara(nivel);
+        long abiertas = necesidadRepository.countByOrganizacion_IdAndEstadoIn(org.getId(), ESTADOS_ABIERTOS);
+        if (abiertas >= cap) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Alcanzaste el máximo de " + cap + " necesidades abiertas para el nivel " + nivel);
+        }
 
         Necesidad necesidad = new Necesidad();
         necesidad.setDescripcion(dto.getDescripcion());

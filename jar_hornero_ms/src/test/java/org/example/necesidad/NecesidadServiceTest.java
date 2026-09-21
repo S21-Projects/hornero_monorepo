@@ -1,10 +1,12 @@
 package org.example.necesidad;
 
 import org.example.auth.VerificacionService;
+import org.example.config.AcreditacionProperties;
 import org.example.domain.EstadoNecesidad;
 import org.example.domain.EstadoOrganizacion;
 import org.example.domain.Necesidad;
 import org.example.domain.NecesidadRepository;
+import org.example.domain.NivelAcreditacion;
 import org.example.domain.Organizacion;
 import org.example.domain.OrganizacionRepository;
 import org.example.domain.PrioridadNecesidad;
@@ -45,6 +47,9 @@ class NecesidadServiceTest {
     @Mock
     private VerificacionService verificacionService;
 
+    @Mock
+    private AcreditacionProperties acreditacionProperties;
+
     @InjectMocks
     private NecesidadService necesidadService;
 
@@ -60,6 +65,9 @@ class NecesidadServiceTest {
         organizacion.setId(1L);
         organizacion.setNombre("Org Test");
         organizacion.setEstado(EstadoOrganizacion.APROBADA);
+        // AD-6: APROBADA <=> nivel >= N1 — an APROBADA fixture must carry a matching nivel now
+        // that the concurrency cap (N0 = 0) reads it.
+        organizacion.setNivel(NivelAcreditacion.N1);
         organizacion.setReferente(referente);
         defaultPageable = PageRequest.of(0, 20);
     }
@@ -149,6 +157,7 @@ class NecesidadServiceTest {
                 "Descripcion", PrioridadNecesidad.MEDIA, LocalDate.now().plusDays(10), 1L);
 
         when(organizacionRepository.findByIdAndReferente_Id(1L, 1L)).thenReturn(Optional.of(organizacion));
+        when(acreditacionProperties.capPara(NivelAcreditacion.N1)).thenReturn(3L);
         when(necesidadRepository.save(org.mockito.ArgumentMatchers.any(Necesidad.class)))
                 .thenAnswer(inv -> inv.getArgument(0));
 

@@ -163,16 +163,16 @@ Depends on Phase 1 (`AcreditacionService`, `NivelAcreditacion`, `OrganizacionEve
 entity/repository → evidence submit/audit → requisito-completeness gate on `cambiarNivel` → controller → DTOs →
 `SecurityConfig` (breakage risk) → legacy-flow delegation → concurrency cap → legajo assembly.
 
-- [ ] 2.1 RED: create `domain/OrganizacionEvidenciaRepositoryTest.java` (`@DataJpaTest`) asserting
+- [x] 2.1 RED: create `domain/OrganizacionEvidenciaRepositoryTest.java` (`@DataJpaTest`) asserting
       `findByOrganizacion_Id` and `findByOrganizacion_IdAndRequisitoAndEstadoNot` return expected rows and that no
       delete method exists on the repository interface (evidence rows are also never hard-deleted — only their
       `estado` field mutates). Run `mvn test -Dtest=OrganizacionEvidenciaRepositoryTest` — expect compile failure.
-- [ ] 2.2 GREEN: create `domain/OrganizacionEvidencia.java` (only `estado`/`revisadoPor`/`revisadoEn`/
+- [x] 2.2 GREEN: create `domain/OrganizacionEvidencia.java` (only `estado`/`revisadoPor`/`revisadoEn`/
       `observacion` mutable; `objectKey`, `declaracion`, validity window never rewritten in place, per
       `specs/organizacion-evidencia/spec.md` "Replacement Never Overwrites History") and
       `domain/OrganizacionEvidenciaRepository.java` (save + the two finders above). Run `mvn test
       -Dtest=OrganizacionEvidenciaRepositoryTest` — expect pass.
-- [ ] 2.3 RED: create `acreditacion/AcreditacionServiceEvidenciaTest.java` — submitting evidence for a requisito
+- [x] 2.3 RED: create `acreditacion/AcreditacionServiceEvidenciaTest.java` — submitting evidence for a requisito
       with an existing `APROBADA` row inserts a new `PENDIENTE` row, marks the prior row `REEMPLAZADA` (content
       unchanged), and appends `EVIDENCIA_ADJUNTADA` + `EVIDENCIA_REEMPLAZADA`; a referente attempting to set
       `estado=APROBADA` directly on their own submission is rejected (`specs/organizacion-evidencia/spec.md`,
@@ -180,50 +180,50 @@ entity/repository → evidence submit/audit → requisito-completeness gate on `
       appends `REQUISITO_APROBADO`; an admin observing with a reason sets `estado=OBSERVADA` and the reason lands
       on the accompanying event's `motivo`, not just the evidencia row. Run `mvn test
       -Dtest=AcreditacionServiceEvidenciaTest` — expect compile failure.
-- [ ] 2.4 GREEN: add `cargarEvidencia(...)`, `aprobarEvidencia(...)`, `observarEvidencia(...)` to
+- [x] 2.4 GREEN: add `cargarEvidencia(...)`, `aprobarEvidencia(...)`, `observarEvidencia(...)` to
       `AcreditacionService.java` per the "Evidence submission → audit" data-flow sequence in design (each its own
       `@Transactional` unit). Run `mvn test -Dtest=AcreditacionServiceEvidenciaTest` — expect pass.
-- [ ] 2.5 RED: extend expiry-derivation coverage in `acreditacion/AcreditacionServiceEvidenciaTest.java` (or a
+- [x] 2.5 RED: extend expiry-derivation coverage in `acreditacion/AcreditacionServiceEvidenciaTest.java` (or a
       sibling `ExpiracionTest`): `validoHasta=null` → `expirada=false`; `validoHasta` in the past → `expirada=
       true`; `validoHasta=today` → `expirada=false`; an `APROBADA`-but-expired evidencia does not change `nivel`
       on read and is not touched by any scheduled process (there is none — assert no `@Scheduled` method exists
       in the package). Run the class — expect the new assertions to fail (method not yet returning derived value
       where expected, or field not exposed).
-- [ ] 2.6 GREEN: expose `expirada` as a derived-on-read value (computed in the DTO mapping step, not persisted)
+- [x] 2.6 GREEN: expose `expirada` as a derived-on-read value (computed in the DTO mapping step, not persisted)
       per AD-9/`specs/organizacion-evidencia/spec.md` "Record-and-Warn Expiry". Run the same test class — expect
       pass.
-- [ ] 2.7 RED: create `acreditacion/AcreditacionServiceCambiarNivelTest.java` — raising to `N2` with every N1+N2
+- [x] 2.7 RED: create `acreditacion/AcreditacionServiceCambiarNivelTest.java` — raising to `N2` with every N1+N2
       requisito `APROBADA` and non-expired succeeds and appends `NIVEL_ELEVADO`; raising with one requisito still
       `PENDIENTE` → `409`, no `nivel` change, no event; raising with an `APROBADA` but `expirada=true` requisito →
       `409` (AD-9); lowering with a blank `motivo` → `400`; lowering with a non-blank `motivo` succeeds and
       appends `NIVEL_REDUCIDO` carrying that reason. Run `mvn test
       -Dtest=AcreditacionServiceCambiarNivelTest` — expect compile failure.
-- [ ] 2.8 GREEN: add `cambiarNivel(orgId, destino, motivo, actor)` to `AcreditacionService.java` — calls
+- [x] 2.8 GREEN: add `cambiarNivel(orgId, destino, motivo, actor)` to `AcreditacionService.java` — calls
       `validateTransition`, then `requisitosCompletos(org, destino)` (every `RequisitoAcreditacion` with
       `nivelExigido <= destino` has a non-expired `APROBADA` evidencia) before `aplicarTransicion`, per AD-9. Run
       `mvn test -Dtest=AcreditacionServiceCambiarNivelTest` — expect pass.
-- [ ] 2.9 RED: create `acreditacion/AcreditacionServiceLegajoTest.java` — assembling a legajo for an `N1` org
+- [x] 2.9 RED: create `acreditacion/AcreditacionServiceLegajoTest.java` — assembling a legajo for an `N1` org
       lists all 8 `RequisitoAcreditacion` entries, with N2/N3-only requisitos showing `FALTANTE`; an
       `OBSERVADA` requisito shows `OBSERVADA` (not `PENDIENTE`/`FALTANTE`); `VIGENTE`/`VENCIDA` flags match
       `validoHasta` per requisito; the disclosure string is present and identical regardless of level; events
       appear in chronological order. Run `mvn test -Dtest=AcreditacionServiceLegajoTest` — expect compile
       failure.
-- [ ] 2.10 GREEN: add `legajo(orgId) -> LegajoResponse` to `AcreditacionService.java` per the `LegajoAssembler`
+- [x] 2.10 GREEN: add `legajo(orgId) -> LegajoResponse` to `AcreditacionService.java` per the `LegajoAssembler`
       shape in design's "Legajo export" data flow and the `LegajoResponse`/`RequisitoEnLegajo` records in
       "Interfaces / Contracts". Run `mvn test -Dtest=AcreditacionServiceLegajoTest` — expect pass.
-- [ ] 2.11 Create `acreditacion/dto/*.java`: `CargarEvidenciaRequest` (`objectKey` MUST be accepted as a field but
+- [x] 2.11 Create `acreditacion/dto/*.java`: `CargarEvidenciaRequest` (`objectKey` MUST be accepted as a field but
       **rejected with 400 if non-null in Slice A** — see task 2.14), `AuditarEvidenciaRequest`,
       `CambiarNivelRequest`, `AcreditacionResponse`, `EvidenciaResponse`, `EventoResponse`, `LegajoResponse`, per
       the exact record shapes in design's "DTO shapes" section. No RED — these are plain records exercised by the
       controller security test below.
-- [ ] 2.12 RED: create `acreditacion/AcreditacionControllerSecurityTest.java` (`@WebMvcTest` +
+- [x] 2.12 RED: create `acreditacion/AcreditacionControllerSecurityTest.java` (`@WebMvcTest` +
       `spring-security-test`, full filter chain) — anonymous `GET /api/organizaciones/{id}/legajo` → `401`;
       DONANTE → `403`; ADMINISTRADOR → `200`; same three assertions for `GET /api/organizaciones/{id}/
       acreditacion`; a non-owning REFERENTE posting evidence → `403` (per the Threat Matrix's first three rows).
       Run `mvn test -Dtest=AcreditacionControllerSecurityTest` — expect **both** a compile failure (controller
       doesn't exist) **and**, once the controller exists without the matcher, a false-`200` on the anonymous case
       demonstrating the `permitAll` leak the design's AD-8 warns about.
-- [ ] 2.13 **[breakage risk — highest severity in this change, per AD-8]** GREEN, in this exact order:
+- [x] 2.13 **[breakage risk — highest severity in this change, per AD-8]** GREEN, in this exact order:
       1. Modify `config/SecurityConfig.java`: add
          `.requestMatchers(HttpMethod.GET, "/api/organizaciones/*/acreditacion",
          "/api/organizaciones/*/acreditacion/**", "/api/organizaciones/*/legajo").authenticated()`
@@ -237,17 +237,17 @@ entity/repository → evidence submit/audit → requisito-completeness gate on `
          authority; `@PreAuthorize` does not run before the filter chain grants access).
       Run `mvn test -Dtest=AcreditacionControllerSecurityTest` — expect pass, and confirm by temporarily reverting
       only the matcher-order change that the anonymous-`GET`-returns-401 assertion fails, then re-apply it.
-- [ ] 2.14 RED: extend `AcreditacionControllerSecurityTest.java` (or a sibling validation test) — `POST
+- [x] 2.14 RED: extend `AcreditacionControllerSecurityTest.java` (or a sibling validation test) — `POST
       .../evidencias` with `CargarEvidenciaRequest.objectKey` non-null → `400` (Slice A evidence-key-smuggling
       guard, Threat Matrix row 5). Run — expect compile failure/false pass depending on stub state.
-- [ ] 2.15 GREEN: add the `objectKey`-non-null-rejects-400 validation to `AcreditacionController.java` (Bean
+- [x] 2.15 GREEN: add the `objectKey`-non-null-rejects-400 validation to `AcreditacionController.java` (Bean
       Validation custom check or explicit guard in the handler). Run `mvn test
       -Dtest=AcreditacionControllerSecurityTest` — expect pass.
-- [ ] 2.16 RED: create `organizacion/OrganizacionServiceValidarRechazarTest.java` (or extend the existing
+- [x] 2.16 RED: create `organizacion/OrganizacionServiceValidarRechazarTest.java` (or extend the existing
       `OrganizacionServiceTest` if present) — `validar()` on a `PENDIENTE` org yields `nivel=N1` **and**
       `estado=APROBADA` **and** one event (back-compat regression); `findBySlugPublic` still 404s for `N0` and
       200s for `N1+`. Run — expect failure (current `validar()`/`rechazar()` don't touch `nivel`/events).
-- [ ] 2.17 **[breakage risk — positional constructor]** GREEN, in this exact order:
+- [x] 2.17 **[breakage risk — positional constructor]** GREEN, in this exact order:
       1. Modify `organizacion/dto/OrganizacionResponse.java`: add `nivel` as an additive field.
       2. Modify `organizacion/OrganizacionService.java`: update the positional constructor call at
          `OrganizacionService.java:334-358` to supply the new `nivel` argument — this call site breaks at compile
@@ -257,29 +257,29 @@ entity/repository → evidence submit/audit → requisito-completeness gate on `
          `AcreditacionService.cambiarNivel`/an equivalent internal call so the two paths cannot disagree (AD-6).
       Run `mvn test -Dtest=OrganizacionServiceValidarRechazarTest` — expect pass; run `mvn compile` first to
       confirm the constructor call site compiles before running tests.
-- [ ] 2.18 RED: extend `organizacion/OrganizacionServiceAsignarReferenteTest.java` (or create it) —
+- [x] 2.18 RED: extend `organizacion/OrganizacionServiceAsignarReferenteTest.java` (or create it) —
       `asignarReferente` appends `REFERENTE_REASIGNADO` and leaves `nivel`, `estado`, `validada` byte-identical
       before/after (per `specs/organizacion-evento-log/spec.md` "Reassignment Is a Logged Non-Accreditation
       Event" and the `referente-organizacion-assignment` delta's regression scenario). Run — expect failure.
-- [ ] 2.19 GREEN: add exactly one line to `asignarReferente` (`OrganizacionService.java:148-182`) — the event
+- [x] 2.19 GREEN: add exactly one line to `asignarReferente` (`OrganizacionService.java:148-182`) — the event
       append — leaving its existing 3-organizacion cap check and `null`-unassign branch unchanged. Run the same
       test — expect pass.
-- [ ] 2.20 RED: create `organizacion/OrganizacionServiceCrearEventoTest.java` — `crear()`
+- [x] 2.20 RED: create `organizacion/OrganizacionServiceCrearEventoTest.java` — `crear()`
       (`OrganizacionService.java:38-71`) appends `ORGANIZACION_REGISTRADA` with `nivelAntes=null,
       nivelDespues=N0` (per `specs/organizacion-evento-log/spec.md` "Registration emits its event"). Run —
       expect failure.
-- [ ] 2.21 GREEN: add the event append to `crear()`. Run the same test — expect pass.
-- [ ] 2.22 RED: create `necesidad/NecesidadServiceConcurrencyCapTest.java` — creating a necesidad beyond the
+- [x] 2.21 GREEN: add the event append to `crear()`. Run the same test — expect pass.
+- [x] 2.22 RED: create `necesidad/NecesidadServiceConcurrencyCapTest.java` — creating a necesidad beyond the
       level cap → `409`; at cap−1 → `201`; `N0` → `409` on the first attempt; closing a necesidad frees cap room;
       overriding the N2 cap via configuration takes effect with no code change (`specs/organizacion-acreditacion/
       spec.md` "Level-Driven Concurrency Caps"). Run `mvn test
       -Dtest=NecesidadServiceConcurrencyCapTest` — expect compile failure.
-- [ ] 2.23 GREEN: add `long countByOrganizacion_IdAndEstadoIn(Long, Collection<EstadoNecesidad>)` to
+- [x] 2.23 GREEN: add `long countByOrganizacion_IdAndEstadoIn(Long, Collection<EstadoNecesidad>)` to
       `domain/NecesidadRepository.java`; add the cap check to `NecesidadService.crear` (30-48); create
       `config/AcreditacionProperties.java` (`@Value("${app.acreditacion.cap-n1:3}")` etc., per the `app.otp.*`
       precedent at `OtpService.java:38-41`); add `app.acreditacion.cap-n0=0, cap-n1=3, cap-n2=6, cap-n3=12` to
       `resources/application.properties`. Run `mvn test -Dtest=NecesidadServiceConcurrencyCapTest` — expect pass.
-- [ ] 2.24 **Integration**: create `acreditacion/AcreditacionInvariantIT.java` (`@SpringBootTest` + H2) —
+- [x] 2.24 **Integration**: create `acreditacion/AcreditacionInvariantIT.java` (`@SpringBootTest` + H2) —
       **the change's headline invariant**: drive an organizacion through a full `N0→N1→N2→N3→N2` sequence via
       the real service methods, then assert `AcreditacionReplay.reconstruir(eventoRepository.
       findByOrganizacion_IdOrderByOcurridoEnAscIdAsc(org.getId())) == org.getNivel()`. Run `mvn test

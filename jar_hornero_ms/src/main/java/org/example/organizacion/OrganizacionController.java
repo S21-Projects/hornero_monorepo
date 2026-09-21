@@ -96,7 +96,9 @@ public class OrganizacionController {
     @PatchMapping("/{id}/rechazar")
     @PreAuthorize("hasRole('ADMINISTRADOR')")
     public OrganizacionResponse rechazar(@PathVariable Long id) {
-        return organizacionService.rechazar(id);
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        Long userId = (Long) auth.getPrincipal();
+        return organizacionService.rechazar(id, userId);
     }
 
     @Operation(summary = "Update an organization (referente owner only)")
