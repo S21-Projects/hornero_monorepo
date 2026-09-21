@@ -121,6 +121,58 @@ class AcreditacionControllerSecurityTest {
                 .andExpect(status().isOk());
     }
 
+    // --- Amendment D-01: the owning REFERENTE reads its own organizacion ---
+
+    /**
+     * {@code decisiones-posteriores.md} D-01 amends the design, which had restricted
+     * {@code GET /{id}/legajo} and {@code GET /{id}/acreditacion} to {@code ADMINISTRADOR}: the
+     * owning {@code REFERENTE} exports its own organizacion's information. These four tests pin
+     * both halves of that rule on both routes. They are regression protection for behaviour the
+     * controller already implements correctly, so no RED was observed for them.
+     */
+    private Organizacion orgOwnedBy(long referenteId) {
+        Referente owner = new Referente(referenteId, "Owner", "owner@test.com", "x", true);
+        Organizacion org = new Organizacion();
+        org.setId(1L);
+        org.setEstado(EstadoOrganizacion.PENDIENTE);
+        org.setReferente(owner);
+        return org;
+    }
+
+    @Test
+    void legajo_owningReferente_isOk() throws Exception {
+        when(organizacionRepository.findById(1L)).thenReturn(Optional.of(orgOwnedBy(5L)));
+        when(acreditacionService.legajo(1L)).thenReturn(sampleLegajo());
+
+        mockMvc.perform(get("/api/organizaciones/1/legajo").with(authentication(auth(5L, "REFERENTE"))))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void legajo_nonOwningReferente_isForbidden() throws Exception {
+        when(organizacionRepository.findById(1L)).thenReturn(Optional.of(orgOwnedBy(5L)));
+
+        mockMvc.perform(get("/api/organizaciones/1/legajo").with(authentication(auth(7L, "REFERENTE"))))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void acreditacion_owningReferente_isOk() throws Exception {
+        when(organizacionRepository.findById(1L)).thenReturn(Optional.of(orgOwnedBy(5L)));
+        when(acreditacionService.acreditacion(1L)).thenReturn(sampleAcreditacion());
+
+        mockMvc.perform(get("/api/organizaciones/1/acreditacion").with(authentication(auth(5L, "REFERENTE"))))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void acreditacion_nonOwningReferente_isForbidden() throws Exception {
+        when(organizacionRepository.findById(1L)).thenReturn(Optional.of(orgOwnedBy(5L)));
+
+        mockMvc.perform(get("/api/organizaciones/1/acreditacion").with(authentication(auth(7L, "REFERENTE"))))
+                .andExpect(status().isForbidden());
+    }
+
     // --- Ownership: non-owning REFERENTE posting evidence ---
 
     @Test
