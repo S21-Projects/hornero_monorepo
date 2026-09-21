@@ -1,5 +1,7 @@
+import { Link } from 'react-router-dom';
 import { AsyncSection } from '../components/AsyncSection';
 import { Card } from '../components/ui/Card';
+import { Button } from '../components/ui/Button';
 import { Text } from '../components/ui/Typography';
 import { ChartCard } from '../components/panel/ChartCard';
 import { ChartEmptyState } from '../components/panel/ChartEmptyState';
@@ -43,6 +45,18 @@ export default function AdminPage() {
     >
       <div>
         <Text variant="h1">Resumen</Text>
+
+        <Card style={{ padding: 20, marginTop: 20, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
+          <div>
+            <Text variant="title">Auditoría de acreditación</Text>
+            <Text variant="body-sm" color="ink-3">
+              Revisá la evidencia enviada por cada organización y confirmá o rechazá su nivel.
+            </Text>
+          </div>
+          <Link to="/referentes">
+            <Button variant="secondary" size="sm">Ir a la cola de auditoría</Button>
+          </Link>
+        </Card>
 
         <div
           style={{

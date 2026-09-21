@@ -43,4 +43,28 @@ describe('router.tsx — real route wiring', () => {
       requireValidated: true,
     });
   });
+
+  it('/acreditacion requires the REFERENTE role (evidence self-submission, no org validation required)', () => {
+    const guard = findGuardElementForPath(router.routes, '/acreditacion');
+
+    expect(guard).toBeDefined();
+    expect((guard!.type as { name?: string }).name).toBe('ProtectedRoute');
+    expect(guard!.props).toMatchObject({
+      allow: ['REFERENTE'],
+    });
+  });
+
+  // Amendment D-01 (decisiones-posteriores.md): GET /{id}/legajo admits
+  // ADMINISTRADOR and the owning REFERENTE, not admin-only as tasks.md's
+  // original wording assumed — the SPA gate must not hide the referente's
+  // own-organizacion export behind an admin-only route.
+  it('/organizaciones/:id/legajo admits ADMINISTRADOR and REFERENTE (D-01)', () => {
+    const guard = findGuardElementForPath(router.routes, '/organizaciones/:id/legajo');
+
+    expect(guard).toBeDefined();
+    expect((guard!.type as { name?: string }).name).toBe('ProtectedRoute');
+    expect(guard!.props).toMatchObject({
+      allow: expect.arrayContaining(['ADMINISTRADOR', 'REFERENTE']),
+    });
+  });
 });

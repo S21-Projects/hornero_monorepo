@@ -158,6 +158,121 @@ export interface Usuario {
   activo: boolean;
 }
 
+// ---------------------------------------------------------------------------
+// Acreditación progresiva (Slice A) — mirrors jar_hornero_ms's
+// `acreditacion/dto/*.java` and ts_hornero_bff's `acreditacion/dto/*.ts`.
+// Slice A never offers FOTO/DOCUMENTO in the SPA (see EvidenciaForm) even
+// though the union type includes them — the MS itself rejects a non-null
+// `objectKey` with 400 until Slice B ships the authenticated evidence route.
+// ---------------------------------------------------------------------------
+
+export const NivelAcreditacion = {
+  N0: 'N0',
+  N1: 'N1',
+  N2: 'N2',
+  N3: 'N3',
+} as const;
+export type NivelAcreditacion = typeof NivelAcreditacion[keyof typeof NivelAcreditacion];
+
+export const RequisitoAcreditacion = {
+  SERVICIO_REGULAR_GRATUITO: 'SERVICIO_REGULAR_GRATUITO',
+  NO_DISCRIMINACION: 'NO_DISCRIMINACION',
+  SEDE_INSCRIPTA_INDIVIDUALMENTE: 'SEDE_INSCRIPTA_INDIVIDUALMENTE',
+  CONDICIONES_SANITARIAS_ADECUADAS: 'CONDICIONES_SANITARIAS_ADECUADAS',
+  SIN_KIOSCO_MISMO_DOMICILIO: 'SIN_KIOSCO_MISMO_DOMICILIO',
+  RADIO_50KM_BANCO_ALIMENTOS: 'RADIO_50KM_BANCO_ALIMENTOS',
+  PERSONERIA_JURIDICA_O_AVAL: 'PERSONERIA_JURIDICA_O_AVAL',
+  ACEPTA_AUDITORIAS_SIN_AVISO: 'ACEPTA_AUDITORIAS_SIN_AVISO',
+} as const;
+export type RequisitoAcreditacion = typeof RequisitoAcreditacion[keyof typeof RequisitoAcreditacion];
+
+export const TipoEvidencia = {
+  DECLARACION: 'DECLARACION',
+  FOTO: 'FOTO',
+  DOCUMENTO: 'DOCUMENTO',
+} as const;
+export type TipoEvidencia = typeof TipoEvidencia[keyof typeof TipoEvidencia];
+
+export const EstadoEvidencia = {
+  PENDIENTE: 'PENDIENTE',
+  APROBADA: 'APROBADA',
+  OBSERVADA: 'OBSERVADA',
+  REEMPLAZADA: 'REEMPLAZADA',
+} as const;
+export type EstadoEvidencia = typeof EstadoEvidencia[keyof typeof EstadoEvidencia];
+
+export const EstadoRequisitoLegajo = {
+  APROBADA: 'APROBADA',
+  OBSERVADA: 'OBSERVADA',
+  PENDIENTE: 'PENDIENTE',
+  FALTANTE: 'FALTANTE',
+} as const;
+export type EstadoRequisitoLegajo = typeof EstadoRequisitoLegajo[keyof typeof EstadoRequisitoLegajo];
+
+/** Mirrors `AcreditacionResponse` (MS) / `GET /{id}/acreditacion` (BFF). */
+export interface AcreditacionResponse {
+  organizacionId: number;
+  nivel: NivelAcreditacion;
+  nivelDesde: string;
+}
+
+/** Mirrors `EvidenciaResponse` (MS) / evidence-mutation responses (BFF). */
+export interface EvidenciaResponse {
+  id: number;
+  organizacionId: number;
+  requisito: RequisitoAcreditacion;
+  tipoEvidencia: TipoEvidencia;
+  declaracion?: string | null;
+  validoDesde?: string | null;
+  validoHasta?: string | null;
+  estado: EstadoEvidencia;
+  expirada: boolean;
+  cargadoPor?: number | null;
+  cargadoEn?: string | null;
+  revisadoPor?: number | null;
+  revisadoEn?: string | null;
+  observacion?: string | null;
+}
+
+/** Mirrors `EventoResponse` (MS). `actorUsuarioId` is null on a referente-facing legajo (D-01). */
+export interface EventoResponse {
+  tipo: string;
+  ocurridoEn: string;
+  actorTipo: string;
+  actorUsuarioId?: number | null;
+  nivelAntes?: NivelAcreditacion | null;
+  nivelDespues?: NivelAcreditacion | null;
+  requisito?: RequisitoAcreditacion | null;
+  motivo?: string | null;
+}
+
+/** Mirrors `RequisitoEnLegajo` (MS). */
+export interface RequisitoEnLegajo {
+  requisito: RequisitoAcreditacion;
+  nivelExigido: NivelAcreditacion;
+  estado: EstadoRequisitoLegajo;
+  tipoEvidencia?: TipoEvidencia | null;
+  declaracion?: string | null;
+  validoDesde?: string | null;
+  validoHasta?: string | null;
+  expirada: boolean;
+  auditorNombre?: string | null;
+  auditadoEn?: string | null;
+}
+
+/** Mirrors `LegajoResponse` (MS) — server-assembled, proxied unmodified by the BFF (AD-11). */
+export interface LegajoResponse {
+  organizacionId: number;
+  nombre: string;
+  slug: string;
+  direccion: string;
+  nivel: NivelAcreditacion;
+  nivelDesde: string;
+  requisitos: RequisitoEnLegajo[];
+  eventos: EventoResponse[];
+  disclosure: string;
+}
+
 /** Mirrors `DonacionActivaResponse` (MS) — the row shape for `/donaciones/activas` (Slice 6). */
 export interface DonacionActiva {
   id: number;
