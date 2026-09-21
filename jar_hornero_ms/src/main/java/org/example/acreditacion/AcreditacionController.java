@@ -13,6 +13,7 @@ import org.example.acreditacion.dto.LegajoResponse;
 import org.example.domain.EstadoEvidencia;
 import org.example.domain.Organizacion;
 import org.example.domain.OrganizacionRepository;
+import org.example.domain.TipoEvidencia;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
@@ -63,11 +64,18 @@ public class AcreditacionController {
     @PreAuthorize("hasRole('REFERENTE')")
     public EvidenciaResponse cargarEvidencia(@PathVariable Long id,
                                               @Valid @RequestBody CargarEvidenciaRequest request) {
-        // Threat Matrix "Evidence key smuggling": objectKey MUST be null in Slice A — there is no
-        // authenticated route yet to serve a file at that key (Slice B only).
-        if (request.objectKey() != null) {
+        // Threat Matrix "Evidence key smuggling", scoped by task 6.7 (Slice B): objectKey is now
+        // accepted for FOTO/DOCUMENTO submissions, since the BFF's authenticated,
+        // ownership-checked evidencia-files route exists to serve them. It stays rejected for
+        // every other tipoEvidencia (DECLARACION today) — a text declaration has no business
+        // carrying an object key, and the BFF's images.controller.ts deny-list on
+        // `org-evidencia/` keys is untouched, so this is a controlled widening of the guard, not
+        // its removal (see decisiones-posteriores.md and design.md's Slicing section).
+        boolean requiresFile = request.tipoEvidencia() == TipoEvidencia.FOTO
+                || request.tipoEvidencia() == TipoEvidencia.DOCUMENTO;
+        if (!requiresFile && request.objectKey() != null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "objectKey is not accepted yet — Slice A supports DECLARACION evidence only");
+                    "objectKey is only accepted for FOTO/DOCUMENTO evidence");
         }
 
         Organizacion org = requireOwningReferente(id);

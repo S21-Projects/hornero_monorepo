@@ -833,3 +833,157 @@ No `size:exception` needed.
 6/6 Phase 5 tasks complete. **76/87 tasks complete overall** (70 before this run + 6 from Phase 5).
 Phase 6 (B2) — 11 tasks — remains deferred and untouched, per this run's explicit scope boundary
 ("Do not start Phase 6").
+
+---
+
+# Apply Progress: Phase 6 (B2) + Cross-Phase Regression Checks
+
+**Scope this run**: Phase 6 (B2) tasks 6.1–6.7 (authenticated evidence-file route + photo
+upload) and R.1–R.4 (cross-phase regression checks) — the last implementation phase. Components:
+`ts_hornero_bff`, `ts_hornero_admin`, a small controlled change in `jar_hornero_ms`. No code
+touched in `ts_hornero_astro` (R.4 is a smoke check only, as expected).
+**Mode**: Strict TDD (RED → GREEN, per `openspec/config.yaml` `strict_tdd: true`).
+
+## Completed Tasks (11/11 this run)
+
+- [x] 6.1 RED `evidencia-files.controller.spec.ts` — owning REFERENTE / ADMINISTRADOR / non-owning REFERENTE 403
+- [x] 6.2 GREEN `ts_hornero_bff/src/evidencia-files/*` — authenticated, ownership-checked streaming route
+- [x] 6.3 RED `upload.service.spec.ts` (new) + extended `upload.controller.spec.ts` — `uploadOrgEvidencia()`
+- [x] 6.4 GREEN `upload.service.ts` (`uploadOrgEvidencia()`) + `upload.controller.ts` (`POST upload/org-evidencia/:id`)
+- [x] 6.5 RED extended `EvidenciaForm.test.tsx` — FOTO/DOCUMENTO selectable, upload flow triggered
+- [x] 6.6 GREEN `EvidenciaForm.tsx` — tipo select enabled, file input for FOTO/DOCUMENTO, `npm run build` passes
+- [x] 6.7 `AcreditacionController.java` — scoped the Slice-A `objectKey`-non-null guard to non-FOTO/DOCUMENTO only
+- [x] R.1 `mvn test` full suite (`jar_hornero_ms/`) — 247/247
+- [x] R.2 `npm test` + `npm run lint` (`ts_hornero_bff/`) — 100/100; lint pre-existing baseline debt, no regression
+- [x] R.3 `npm test` + `npm run build` (`ts_hornero_admin/`) — 194/194 + build PASS
+- [x] R.4 `ts_hornero_astro` — confirmed zero files touched; public page's `GET /images?key=` calls only ever
+      use `org-profile/`/`org-banner/` keys, untouched by this phase (static verification; no live boot
+      available in this sandbox, same limitation as Phase 4b/5)
+
+## Files Changed
+
+| File | Action | What Was Done |
+|------|--------|---------------|
+| `ts_hornero_bff/src/evidencia-files/evidencia-files.controller.ts` | Created | `GET evidencia-files/:orgId/:filename` — REFERENTE (owner-checked via `misOrganizaciones`, same pattern as `UploadController.assertOwnership`) or ADMINISTRADOR (no ownership check); streams `org-evidencia/{orgId}/{filename}` via `ImagesService.getObject` |
+| `ts_hornero_bff/src/evidencia-files/evidencia-files.module.ts` | Created | Registers the controller, imports `OrganizacionesModule`, provides `ImagesService` |
+| `ts_hornero_bff/src/evidencia-files/evidencia-files.controller.spec.ts` | Created | 4 tests: owning referente OK, admin OK (no ownership check), non-owning referente 403, referente owning nothing 403 |
+| `ts_hornero_bff/src/app.module.ts` | Modified | Registered `EvidenciaFilesModule` |
+| `ts_hornero_bff/src/upload/upload.service.ts` | Modified | `uploadOrgEvidencia(orgId, file)` → `upload('org-evidencia/{orgId}', file)`, same helper as profile/banner |
+| `ts_hornero_bff/src/upload/upload.service.spec.ts` | Created | Confirms the key shape `org-evidencia/{orgId}/{timestamp}.{ext}` and that the S3 client is invoked |
+| `ts_hornero_bff/src/upload/upload.controller.ts` | Modified | `POST upload/org-evidencia/:id` — REFERENTE/ADMINISTRADOR, ownership-checked for referente, **never persists the key server-side** (unlike profile/banner) — the key flows into `POST .../acreditacion/evidencias` as `objectKey` instead |
+| `ts_hornero_bff/src/upload/upload.controller.spec.ts` | Modified | 4 new tests: owning referente upload, non-owning referente 403, admin bypass, key never persisted via `actualizar`/`actualizarInfoPublica` |
+| `ts_hornero_admin/src/lib/hooks/useUploadOrgImagen.ts` | Modified | Broadened the internal endpoint union to include `'org-evidencia'`; added `useUploadOrgEvidencia()` |
+| `ts_hornero_admin/src/lib/hooks/useAcreditacion.ts` | Modified | `CargarEvidenciaInput` gained `objectKey?: string` |
+| `ts_hornero_admin/src/components/acreditacion/EvidenciaForm.tsx` | Modified | Tipo select enabled with all 3 options; FOTO/DOCUMENTO show a file input that uploads through `useUploadOrgEvidencia` before submit is enabled; submit sends `objectKey` (FOTO/DOCUMENTO) or `declaracion` (DECLARACION) |
+| `ts_hornero_admin/src/components/acreditacion/EvidenciaForm.test.tsx` | Modified | Replaced the Slice-A "disabled options" test with an "all selectable" test; added upload-trigger and objectKey-submission tests |
+| `jar_hornero_ms/.../acreditacion/AcreditacionController.java` | Modified | `cargarEvidencia()`'s `objectKey`-non-null 400 guard now only fires when `tipoEvidencia` is neither `FOTO` nor `DOCUMENTO` |
+| `jar_hornero_ms/.../acreditacion/AcreditacionControllerSecurityTest.java` | Modified | Renamed/re-scoped the old test to `postEvidencia_declaracionWithNonNullObjectKey_isRejectedWith400`; added `postEvidencia_fotoWithObjectKey_isAccepted` |
+| `openspec/changes/acreditacion-progresiva/tasks.md` | Modified | Tasks 6.1–6.7 and R.1–R.4 marked `[x]` — 87/87 overall |
+
+## TDD Cycle Evidence
+
+| Task | RED (observed) | GREEN (observed) | Notes |
+|------|------|------|-------|
+| 6.1/6.2 | `Cannot find module './evidencia-files.controller'` | 4/4 pass (`evidencia-files.controller.spec.ts`) | |
+| 6.3/6.4 | `upload.service.spec.ts`: compile-clean but `uploadOrgEvidencia is not a function` at runtime (5 failures across both spec files) | `npm test -- upload` → 10/10 pass | |
+| 6.5/6.6 | 3/5 `EvidenciaForm.test.tsx` tests failed (`getByLabelText(/archivo/i)` not found — no file input existed yet); 2 pre-existing tests still passed | 5/5 pass; `npm run build` → PASS | |
+| 6.7 | Ran `AcreditacionControllerSecurityTest` **after** the controller edit to confirm the old test's expectation broke as predicted: `postEvidencia_withNonNullObjectKey_isRejectedWith400` (FOTO + objectKey) got `500` instead of `400` — proof the guard scoping took effect, since the request now reaches the mocked service layer instead of failing validation. The test was then rewritten to the new, correct expectation (declaracion+objectKey still 400; FOTO+objectKey now 201) rather than a fresh RED written first — see Deviations below. | `mvn test -Dtest=AcreditacionControllerSecurityTest` → 17/17 pass | |
+
+## Deviations from Design
+
+**`AcreditacionService.cargarEvidencia()` and `OrganizacionEvidencia.nueva()` are NOT changed —
+the uploaded `objectKey` reaches the controller but is not threaded through to persistence.**
+Task 6.7's own text frames this as "that controlled removal" of the Slice-A guard, names only the
+`AcreditacionController` guard as in scope, and names `AcreditacionControllerSecurityTest` as the
+sole verification command — not a `@DataJpaTest`/persistence test. Both `cargarEvidencia()`
+(service) and `OrganizacionEvidencia.nueva()` (entity factory) are called positionally from over
+20 existing test call sites across 6 test classes; adding an `objectKey` parameter to either
+would be a call-site-breaking change far outside a "controlled" guard-scoping task, and neither
+`EvidenciaResponse` (the read DTO) exposes `objectKey` today. Given the launch prompt's own
+explicit framing ("Task 6.7 is the controlled removal of guard 2... exactly as the task says"),
+I kept this run's scope to literally what the task and its verification command name.
+
+**This is a real, disclosed gap, not a silent one**: as shipped, the BFF's `POST
+upload/org-evidencia/:id` genuinely uploads the file to R2 and returns a real key, and the MS
+now accepts that key on `POST .../acreditacion/evidencias` without rejecting it — but the MS
+discards it. The `OrganizacionEvidencia` row is created with `objectKey = null` regardless of
+what was submitted. A referente who uploads a photo today gets no error, but the reference to
+their file is lost, and nothing in the admin audit queue or legajo would ever be able to show it.
+**This should be treated as a follow-up task before Phase 6 is considered functionally complete
+for real use**, even though everything explicitly asked for in tasks.md 6.1–6.7 is done and
+green. I flagged this rather than silently deviating or silently fixing it outside the
+authorized task scope.
+
+**`EvidenciaForm`'s FOTO/DOCUMENTO path sends no `declaracion`.** The design and spec don't
+require one alongside a photo; `CargarEvidenciaDto`/`CargarEvidenciaRequest` both already treat
+`declaracion` as optional. `validoHasta` is still offered for all three tipos.
+
+**Both FOTO and DOCUMENTO reuse the same image-only file input** (`accept="image/jpeg,image/png,image/webp"`,
+matching `UploadService`'s existing `EXT_MAP`, which only knows these three MIME types and
+defaults to `.jpg` for anything else). The existing upload infrastructure has never supported PDF
+or other document formats for any upload type in this codebase; extending it to a genuinely
+separate document format is out of this task's scope and was not requested.
+
+**No spec or design requirement text was reinterpreted.**
+
+## Work Unit Evidence
+
+| Evidence | Value |
+|---|---|
+| Focused test command and result | BFF: `npm test -- evidencia-files` → 4/4 pass; `npm test -- upload` → 10/10 pass. Admin: `npm test -- EvidenciaForm` → 5/5 pass. MS: `mvn test -Dtest=AcreditacionControllerSecurityTest` → 17/17 pass |
+| Runtime harness | No live boot (`spring-boot:run`/`docker compose up`) was available in this sandbox — same disclosed limitation as Phase 4b/5. The closest available proxies: BFF `evidencia-files.controller.spec.ts` exercises the full controller method (ownership branch + `ImagesService.getObject` call) with a real `Readable` stream, not just role metadata; MS `AcreditacionControllerSecurityTest` runs the real Spring Security filter chain (`@Import(SecurityConfig.class)`), not `@WebMvcTest`'s auto-config fallback, matching the AD-8 precedent already established in this file |
+| Rollback boundary | Three independent commits by component (see below), each reverts cleanly without touching the other two or any earlier phase's work |
+
+## Verification Gate — real numbers
+
+| Command | Result | Baseline | Delta |
+|---|---|---|---|
+| `mvn clean test` (`jar_hornero_ms/`) | **247/247 pass, 0 failures, 0 errors, BUILD SUCCESS** | 246/246 | +1 |
+| `npm test` (`ts_hornero_bff/`) | **100/100 pass** | 91/91 | +9 |
+| `npm test -- images` (`ts_hornero_bff/`) — the A3 deny-list | **6/6 pass, unchanged** — `images.controller.ts` was not edited in this run | 6/6 | 0 |
+| `npm run lint` (`ts_hornero_bff/`) | **Not clean — pre-existing baseline debt.** Full-project baseline (stashed, before this run's changes): 292 problems (279 errors, 13 warnings). After this run's changes: same class of `@typescript-eslint/no-unsafe-*` errors, +5 in new/modified files (`evidencia-files.controller.ts`, `upload.service.spec.ts`), all following the exact same pre-existing pattern already present in `upload.controller.ts` (verified via `git stash` diff: unchanged files still show the identical 2 errors before this run). `eslint --fix` reformatted 15 unrelated files; all 15 were reverted with `git checkout --` per the launch prompt's explicit instruction, confirmed via `git status --porcelain` before and after | 279 errors (project-wide, pre-existing) | +5 errors, 0 regressions in unrelated files |
+| `npm test` (`ts_hornero_admin/`) | **194/194 pass** | 192/192 | +2 |
+| `npm run build` (`ts_hornero_admin/`, `tsc -b && vite build`) | **PASS** — `built in 1.76s` | PASS | unchanged |
+| `GET /images?key=org-evidencia/...` still 403 | **Confirmed** — all 6 `ImagesController — org-evidencia deny-list` tests pass unchanged (plain, leading-slash, URL-encoded, path-traversal, case-variation bypass attempts, plus the unrelated-key control case); `images.controller.ts` has zero diff in this run | n/a | n/a |
+| `ts_hornero_astro` smoke check (R.4) | **Confirmed by static inspection** — `git status --porcelain -- ts_hornero_astro` is empty; the only `GET /images?key=` call sites (`[slug].astro`, `HomeMapExplorer.tsx`) build keys from `bannerKey`/`profileImageKey`, never `org-evidencia/`, so they are structurally unaffected by this phase | n/a | n/a |
+
+## Issues Found
+
+**`objectKey` is accepted by the MS's HTTP layer but not persisted** — see Deviations above. This
+is the one open item carried out of Phase 6; recommend a small follow-up task threading
+`objectKey` through `AcreditacionService.cargarEvidencia()` and `OrganizacionEvidencia.nueva()`
+(and likely exposing it on `EvidenciaResponse` for the admin audit queue / referente's own view)
+before evidence photos are relied on in production.
+
+## Review Budget Note
+
+Split into three commits by component, matching the launch prompt's explicit guidance ("one per
+component if that reads better", "the MS guard change is semantically distinct from the upload
+path") and the Phase 5 precedent:
+
+- `feat(ms): scope evidence objectKey guard to non-photo submissions` — **64 changed lines** (2 files).
+- `feat(bff): add authenticated evidence-file route and photo upload` — **335 changed lines**
+  (8 files: 4 created in `evidencia-files/`, 1 created `upload.service.spec.ts`, 3 modified).
+- `feat(admin): enable photo/document evidence submission` — **225 changed lines** (4 files).
+
+Total across all three: 624 authored changed lines — over the 400 budget in aggregate, but each
+individual commit is independently well under it, same pattern as Phase 5's 301+137 split. No
+`size:exception` needed for any single commit.
+
+## Workload / PR Boundary
+
+- Mode: chained PR slice (`feature-branch-chain`), work unit B2 (Phase 6 + cross-phase regression),
+  following A1→A2→A3→A4→A5→B1(Phase 5)
+- Current work unit: B2 — evidencia-files route + photo upload (BFF → admin, plus the MS guard
+  scoping), split into 3 commits by component
+- Boundary: starts from Phase 5's two commits on `feat/acreditacion-trazabilidad`; ends at three
+  work-unit commits — `feat(ms): ...`, `feat(bff): ...`, `feat(admin): ...`
+- Estimated review budget impact: 64 + 335 + 225 = 624 total authored changed lines across 3
+  independent reviewable commits, each individually under the ~400 budget
+
+## Status
+
+11/11 Phase 6 + cross-phase-regression tasks complete. **87/87 tasks complete overall** — the
+last implementation phase is done. One disclosed follow-up item remains (objectKey persistence,
+see Issues Found) but every task literally scoped by tasks.md 6.1–6.7/R.1–R.4 is implemented,
+tested, and green.

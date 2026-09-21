@@ -461,22 +461,22 @@ Depends on Phase 3 (A3's deny-list must exist before this phase opens the matchi
 requires the guard land before the upload path can, "in either merge order"). Depends on Phase 5 only for shared
 scheduling, not code.
 
-- [ ] 6.1 RED: create `src/evidencia-files/evidencia-files.controller.spec.ts` — owning REFERENTE can fetch their
+- [x] 6.1 RED: create `src/evidencia-files/evidencia-files.controller.spec.ts` — owning REFERENTE can fetch their
       own evidence file; ADMINISTRADOR can fetch any organizacion's; a non-owning REFERENTE is denied `403`
       (`specs/organizacion-evidencia/spec.md` "Authenticated Evidence-File Access" scenarios). Run `npm test --
       evidencia-files` — expect compile failure.
-- [ ] 6.2 GREEN: create `ts_hornero_bff/src/evidencia-files/*` — authenticated, ownership-checked streaming
+- [x] 6.2 GREEN: create `ts_hornero_bff/src/evidencia-files/*` — authenticated, ownership-checked streaming
       route. Run `npm test -- evidencia-files` — expect pass.
-- [ ] 6.3 RED: extend `src/upload/upload.service.spec.ts` and `upload.controller.spec.ts` —
+- [x] 6.3 RED: extend `src/upload/upload.service.spec.ts` and `upload.controller.spec.ts` —
       `uploadOrgEvidencia()` writes under `org-evidencia/{orgId}/`; `POST upload/org-evidencia/:id` requires the
       owning REFERENTE or an ADMINISTRADOR. Run `npm test -- upload` — expect failure.
-- [ ] 6.4 GREEN: modify `upload.service.ts` (`uploadOrgEvidencia()`) and `upload.controller.ts` (`POST
+- [x] 6.4 GREEN: modify `upload.service.ts` (`uploadOrgEvidencia()`) and `upload.controller.ts` (`POST
       upload/org-evidencia/:id`). Run `npm test -- upload` — expect pass.
-- [ ] 6.5 RED: extend `EvidenciaForm.test.tsx` — `FOTO`/`DOCUMENTO` become selectable and trigger the upload flow.
+- [x] 6.5 RED: extend `EvidenciaForm.test.tsx` — `FOTO`/`DOCUMENTO` become selectable and trigger the upload flow.
       Run `npm test -- EvidenciaForm` — expect failure (still Slice-A-only in the codebase at this point).
-- [ ] 6.6 GREEN: modify `ts_hornero_admin/src/components/acreditacion/EvidenciaForm.tsx` to enable photo attach.
+- [x] 6.6 GREEN: modify `ts_hornero_admin/src/components/acreditacion/EvidenciaForm.tsx` to enable photo attach.
       Run `npm test -- EvidenciaForm` — expect pass; run `npm run build`.
-- [ ] 6.7 Modify `jar_hornero_ms/acreditacion/AcreditacionService.java` — accept `objectKey` in
+- [x] 6.7 Modify `jar_hornero_ms/acreditacion/AcreditacionService.java` — accept `objectKey` in
       `CargarEvidenciaRequest` once the authenticated route exists (remove or scope the Slice-A `400`-if-non-null
       guard from task 2.15 to non-`FOTO`/`DOCUMENTO` submissions only, per the design's explicit note that the
       guard "costs three lines now and makes it impossible for Slice B's upload path to land before its access
@@ -492,9 +492,9 @@ authenticated route becomes the supported access path).
 
 ## Cross-phase regression checks (run once at the end of Slice A, before requesting review)
 
-- [ ] R.1 Run `mvn test` (full suite, not filtered) from `jar_hornero_ms/` — confirms no unrelated `Donacion`,
+- [x] R.1 Run `mvn test` (full suite, not filtered) from `jar_hornero_ms/` — confirms no unrelated `Donacion`,
       `Auth`, or existing `Organizacion`/`Necesidad` test regressed.
-- [ ] R.2 Run `npm test` and `npm run lint` (full) from `ts_hornero_bff/`.
-- [ ] R.3 Run `npm test` and `npm run build` from `ts_hornero_admin/`.
-- [ ] R.4 Manually verify `ts_hornero_astro` still renders an organizacion's public page unchanged (no code
+- [x] R.2 Run `npm test` and `npm run lint` (full) from `ts_hornero_bff/`.
+- [x] R.3 Run `npm test` and `npm run build` from `ts_hornero_admin/`.
+- [x] R.4 Manually verify `ts_hornero_astro` still renders an organizacion's public page unchanged (no code
       change expected there — this is a smoke check per "Explicitly NOT changed" in design).
