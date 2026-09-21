@@ -19,22 +19,40 @@ export class UploadService {
       endpoint: this.config.get<string>('AWS_ENDPOINT_URL'),
       credentials: {
         accessKeyId: this.config.get<string>('AWS_ACCESS_KEY_ID') as string,
-        secretAccessKey: this.config.get<string>('AWS_SECRET_ACCESS_KEY') as string,
+        secretAccessKey: this.config.get<string>(
+          'AWS_SECRET_ACCESS_KEY',
+        ) as string,
       },
       forcePathStyle: true,
     });
     this.bucket = this.config.get<string>('AWS_S3_BUCKET_NAME') as string;
   }
 
-  async uploadOrgProfile(orgId: number, file: Express.Multer.File): Promise<string> {
+  async uploadOrgProfile(
+    orgId: number,
+    file: Express.Multer.File,
+  ): Promise<string> {
     return this.upload(`org-profile/${orgId}`, file);
   }
 
-  async uploadOrgBanner(orgId: number, file: Express.Multer.File): Promise<string> {
+  async uploadOrgBanner(
+    orgId: number,
+    file: Express.Multer.File,
+  ): Promise<string> {
     return this.upload(`org-banner/${orgId}`, file);
   }
 
-  private async upload(prefix: string, file: Express.Multer.File): Promise<string> {
+  async uploadOrgEvidencia(
+    orgId: number,
+    file: Express.Multer.File,
+  ): Promise<string> {
+    return this.upload(`org-evidencia/${orgId}`, file);
+  }
+
+  private async upload(
+    prefix: string,
+    file: Express.Multer.File,
+  ): Promise<string> {
     const ext = EXT_MAP[file.mimetype] ?? 'jpg';
     const key = `${prefix}/${Date.now()}.${ext}`;
 

@@ -83,6 +83,34 @@ export class UploadController {
     return { key };
   }
 
+  @Post('org-evidencia/:id')
+  @Roles(Role.REFERENTE, Role.ADMINISTRADOR)
+  @HttpCode(201)
+  @UseInterceptors(FileInterceptor('image'))
+  @ApiOperation({
+    summary:
+      'Upload an accreditation evidence file (referente owner, or admin) — the resulting key is ' +
+      'not persisted here; it is submitted through POST /organizaciones/:id/acreditacion/evidencias',
+  })
+  @ApiConsumes('multipart/form-data')
+  async uploadOrgEvidencia(
+    @Param('id', ParseIntPipe) id: number,
+    @UploadedFile() file: Express.Multer.File,
+    @Req() req: AuthedRequest,
+  ): Promise<{ key: string }> {
+    if (!file)
+      throw new BadRequestException(
+        'Image file is required (jpeg, png, or webp, max 5 MB)',
+      );
+
+    if (req.user?.tipo !== Role.ADMINISTRADOR) {
+      await this.assertOwnership(id, this.extractToken(req));
+    }
+
+    const key = await this.uploadService.uploadOrgEvidencia(id, file);
+    return { key };
+  }
+
   private extractToken(req: Request): string {
     const token = (req as any).cookies?.['access_token'] as string | undefined;
     if (!token) throw new UnauthorizedException('No access token');
