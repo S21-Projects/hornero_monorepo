@@ -13,7 +13,7 @@ interface UploadVariables {
  * uploads on any org write through the admin-only info-pública endpoint) —
  * there's no separate "save" step on the frontend.
  */
-function useUploadOrgImagen(endpoint: 'org-profile' | 'org-banner') {
+function useUploadOrgImagen(endpoint: 'org-profile' | 'org-banner' | 'org-evidencia') {
   const queryClient = useQueryClient();
 
   return useMutation<{ key: string }, Error, UploadVariables>({
@@ -38,4 +38,13 @@ export function useUploadOrgProfile() {
 
 export function useUploadOrgBanner() {
   return useUploadOrgImagen('org-banner');
+}
+
+/**
+ * Accreditation evidence file upload (`POST upload/org-evidencia/:id`, owning referente or
+ * admin). Unlike profile/banner, the resulting key is never persisted server-side by this call —
+ * it flows into `EvidenciaForm`'s own `cargarEvidencia` submission as `objectKey`.
+ */
+export function useUploadOrgEvidencia() {
+  return useUploadOrgImagen('org-evidencia');
 }

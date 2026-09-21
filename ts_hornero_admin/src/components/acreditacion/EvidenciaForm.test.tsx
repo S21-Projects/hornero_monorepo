@@ -21,7 +21,7 @@ describe('EvidenciaForm', () => {
     vi.mocked(api.post).mockReset();
   });
 
-  it('offers DECLARACION only — FOTO/DOCUMENTO are absent or disabled with an explanatory note', () => {
+  it('offers DECLARACION, FOTO and DOCUMENTO, all selectable', () => {
     render(<EvidenciaForm organizacionId={5} requisito="NO_DISCRIMINACION" />, { wrapper: Wrapper });
 
     const tipoSelect = screen.getByLabelText(/tipo de evidencia/i) as HTMLSelectElement;
@@ -30,9 +30,57 @@ describe('EvidenciaForm', () => {
     const foto = options.find((o) => o.value === 'FOTO');
     const documento = options.find((o) => o.value === 'DOCUMENTO');
 
-    expect(foto === undefined || foto.disabled).toBe(true);
-    expect(documento === undefined || documento.disabled).toBe(true);
-    expect(screen.getByText(/disponible.*próxima etapa|no disponible/i)).toBeInTheDocument();
+    expect(foto).toBeDefined();
+    expect(foto?.disabled).toBe(false);
+    expect(documento).toBeDefined();
+    expect(documento?.disabled).toBe(false);
+    expect(tipoSelect.disabled).toBe(false);
+  });
+
+  it('selecting FOTO reveals a file input and uploads through upload/org-evidencia/:id on file selection', async () => {
+    vi.mocked(api.post).mockResolvedValue({ data: { key: 'org-evidencia/5/123.jpg' } });
+    const user = userEvent.setup();
+
+    render(<EvidenciaForm organizacionId={5} requisito="NO_DISCRIMINACION" />, { wrapper: Wrapper });
+
+    await user.selectOptions(screen.getByLabelText(/tipo de evidencia/i), 'FOTO');
+
+    const fileInput = screen.getByLabelText(/archivo/i) as HTMLInputElement;
+    const file = new File(['fake'], 'foto.jpg', { type: 'image/jpeg' });
+    await user.upload(fileInput, file);
+
+    expect(api.post).toHaveBeenCalledWith(
+      '/upload/org-evidencia/5',
+      expect.any(FormData),
+      expect.objectContaining({ headers: { 'Content-Type': 'multipart/form-data' } }),
+    );
+  });
+
+  it('submits a FOTO evidence row with the uploaded objectKey, not a declaracion', async () => {
+    vi.mocked(api.post)
+      .mockResolvedValueOnce({ data: { key: 'org-evidencia/5/123.jpg' } })
+      .mockResolvedValueOnce({
+        data: { id: 2, organizacionId: 5, requisito: 'NO_DISCRIMINACION', tipoEvidencia: 'FOTO', estado: 'PENDIENTE' },
+      });
+    const user = userEvent.setup();
+
+    render(<EvidenciaForm organizacionId={5} requisito="NO_DISCRIMINACION" />, { wrapper: Wrapper });
+
+    await user.selectOptions(screen.getByLabelText(/tipo de evidencia/i), 'FOTO');
+    const fileInput = screen.getByLabelText(/archivo/i) as HTMLInputElement;
+    const file = new File(['fake'], 'foto.jpg', { type: 'image/jpeg' });
+    await user.upload(fileInput, file);
+
+    await user.click(screen.getByRole('button', { name: /enviar/i }));
+
+    expect(api.post).toHaveBeenLastCalledWith(
+      '/organizaciones/5/acreditacion/evidencias',
+      expect.objectContaining({
+        requisito: 'NO_DISCRIMINACION',
+        tipoEvidencia: 'FOTO',
+        objectKey: 'org-evidencia/5/123.jpg',
+      }),
+    );
   });
 
   it('submits a DECLARACION-only evidence row', async () => {
