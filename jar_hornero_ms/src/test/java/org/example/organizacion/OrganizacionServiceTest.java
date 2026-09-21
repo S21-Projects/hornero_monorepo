@@ -1,6 +1,8 @@
 package org.example.organizacion;
 
+import org.example.acreditacion.AcreditacionService;
 import org.example.domain.EstadoOrganizacion;
+import org.example.domain.NivelAcreditacion;
 import org.example.domain.Organizacion;
 import org.example.domain.OrganizacionRepository;
 import org.example.domain.TipoOrganizacion;
@@ -37,6 +39,9 @@ class OrganizacionServiceTest {
 
     @Mock
     private UsuarioRepository usuarioRepository;
+
+    @Mock
+    private AcreditacionService acreditacionService;
 
     @InjectMocks
     private OrganizacionService organizacionService;
@@ -114,6 +119,16 @@ class OrganizacionServiceTest {
         when(organizacionRepository.findById(5L)).thenReturn(Optional.of(org));
         when(usuarioRepository.findById(2L)).thenReturn(Optional.of(administrador));
         when(organizacionRepository.save(any(Organizacion.class))).thenAnswer(inv -> inv.getArgument(0));
+        // AD-6: validar() now delegates the nivel/estado write to AcreditacionService; this stub
+        // simulates aplicarTransicionLegacy's real mutation (proven for real by
+        // OrganizacionServiceValidarRechazarTest's H2-backed integration test).
+        doAnswer(inv -> {
+            Organizacion target = inv.getArgument(0);
+            target.setNivel(NivelAcreditacion.N1);
+            target.setEstado(EstadoOrganizacion.APROBADA);
+            target.setValidada(true);
+            return null;
+        }).when(acreditacionService).aplicarTransicionLegacy(eq(org), eq(NivelAcreditacion.N1), eq(administrador), any(), any());
 
         OrganizacionResponse response = organizacionService.validar(5L, 2L);
 

@@ -36,3 +36,8 @@ app:
     resend-max: 3
     resend-window-minutes: 15
     resend-cooldown-seconds: 60
+  acreditacion:
+    cap-n0: 0
+    cap-n1: 3
+    cap-n2: 6
+    cap-n3: 12

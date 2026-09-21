@@ -5,6 +5,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.example.domain.EstadoOrganizacion;
+import org.example.domain.NivelAcreditacion;
 import org.example.domain.TipoOrganizacion;
 
 @Getter
@@ -28,6 +29,9 @@ public class OrganizacionResponse {
     private String profileImageKey;
     private String bannerKey;
     private Long referenteId;
+
+    /** Additive (AD-6): the progressive accreditation level this organizacion's `estado` projects from. */
+    private NivelAcreditacion nivel;
 
     // --- Info pública (D6: live fields are always present; pending fields are
     // populated only by toResponseAutenticado, nulled by the public toResponse) ---
