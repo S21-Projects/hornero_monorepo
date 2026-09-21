@@ -51,6 +51,12 @@ public class Organizacion {
     @JoinColumn(name = "administrador_id")
     private Administrador validadoPor;
 
+    // D8: additive/nullable per D4. nivelActual() coalesces null -> N0; the
+    // AcreditacionBackfill runner fills it once at boot (AD-7).
+    @Enumerated(EnumType.STRING)
+    @Column(name = "nivel", nullable = true)
+    private NivelAcreditacion nivel = NivelAcreditacion.N0;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "referente_id", nullable = true)
     private Referente referente;
