@@ -6,6 +6,7 @@ import org.example.acreditacion.dto.EventoResponse;
 import org.example.acreditacion.dto.EvidenciaResponse;
 import org.example.acreditacion.dto.LegajoResponse;
 import org.example.acreditacion.dto.RequisitoEnLegajo;
+import org.example.domain.CategoriaAlimento;
 import org.example.domain.EstadoEvidencia;
 import org.example.domain.EstadoRequisitoLegajo;
 import org.example.domain.EstadoOrganizacion;
@@ -298,6 +299,24 @@ public class AcreditacionService {
                 .filter(e -> filtro == null || e.getEstado() == filtro)
                 .map(EvidenciaResponse::from)
                 .toList();
+    }
+
+    /**
+     * `specs/organizacion-acreditacion/spec.md` "Level-Driven Food Category Caps": the
+     * {@link CategoriaAlimento} set an organizacion at {@code nivel} may declare on a
+     * {@code necesidad}. Derived from {@link CategoriaAlimento#getNivelMinimo()} rather than a
+     * second, separately-maintained per-level mapping, so this and {@code NecesidadService}'s own
+     * cap check can never drift apart. N0 permits none, matching "Level-Driven Concurrency Caps"
+     * (N0 cannot publish a {@code necesidad} at all).
+     */
+    public Set<CategoriaAlimento> categoriasPermitidas(NivelAcreditacion nivel) {
+        Set<CategoriaAlimento> permitidas = EnumSet.noneOf(CategoriaAlimento.class);
+        for (CategoriaAlimento categoria : CategoriaAlimento.values()) {
+            if (categoria.getNivelMinimo().compareTo(nivel) <= 0) {
+                permitidas.add(categoria);
+            }
+        }
+        return permitidas;
     }
 
     /** Backing method for {@code GET /{id}/acreditacion}: current level + since-date, no legajo detail. */
