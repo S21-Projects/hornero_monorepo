@@ -1,0 +1,70 @@
+# openspec/config.yaml
+schema: spec-driven
+
+context: |
+  Hornero: NGO/donation monorepo. Chain: Astro SSR (:4321, public) ->
+  React/Vite admin SPA (:5173, all authenticated roles) -> NestJS BFF (:3001,
+  auth proxy) -> Spring Boot MS (:8081, domain + JWT issuer) -> PostgreSQL.
+  New: go_algorithms_worker (offline batch, not a live service).
+  ts_hornero_app (Next.js) is deprecated, do not build on it.
+  Domain terms in Spanish (organizaciones, necesidades, donaciones,
+  referentes, donantes); code/comments/docs in English.
+  No root aggregate lint/test command; run per service directory.
+
+strict_tdd: true
+
+testing:
+  jar_hornero_ms:
+    command: "mvn test"
+    single_test: "mvn test -Dtest=ClassName"
+    single_method: "mvn test -Dtest=ClassName#method"
+    framework: "JUnit 5 + spring-boot-starter-test + spring-security-test + H2"
+    layers: [unit, integration]
+  ts_hornero_bff:
+    command: "npm test"
+    single_test: "npm test -- <spec-name>"
+    coverage: "npm run test:cov"
+    e2e: "npm run test:e2e"
+    framework: "Jest (ts-jest) + Supertest"
+    layers: [unit, integration, e2e]
+  ts_hornero_astro:
+    command: null
+    framework: "none detected"
+    layers: []
+  ts_hornero_admin:
+    command: "npm test"
+    watch: "npm run test:watch"
+    framework: "Vitest + Testing Library + jsdom + axios-mock-adapter"
+    layers: [unit, integration]
+  go_algorithms_worker:
+    command: "go test ./..."
+    framework: "Go stdlib testing"
+    layers: [unit]
+    note: "internal/assign/hungarian_test.go checks 200 random matrices against a brute-force oracle"
+
+rules:
+  proposal:
+    - Include rollback plan for risky changes
+    - Respect the three independent JWT enforcement layers (MS SecurityConfig, BFF RolesGuard, admin SPA ProtectedRoute) — keep them in sync
+  specs:
+    - Use Given/When/Then for scenarios
+    - Use RFC 2119 keywords (MUST, SHALL, SHOULD, MAY)
+    - Use Spanish domain terms (organizaciones, necesidades, donaciones, referentes, donantes) verbatim; write everything else in English
+  design:
+    - Include sequence diagrams for complex cross-service flows
+    - Document architecture decisions with rationale
+    - Note which of the 4 live services (+ go_algorithms_worker if relevant) are touched
+  tasks:
+    - Group by phase/service, use hierarchical numbering
+    - Keep tasks completable in one session
+    - Never plan work against ts_hornero_app (deprecated)
+  apply:
+    - Follow existing code patterns per service
+    tdd: true
+    test_command: "run the per-service command from testing: above; there is no root aggregate command"
+  verify:
+    test_command: "per-service, see testing: above"
+    build_command: "per-service (mvn package / npm run build / go build)"
+    coverage_threshold: 0
+  archive:
+    - Warn before merging destructive deltas
