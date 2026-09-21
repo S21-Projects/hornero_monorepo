@@ -57,9 +57,10 @@ export function useEvidenciasPendientes(organizacionId: number | undefined) {
 
 export interface CargarEvidenciaInput {
   requisito: RequisitoAcreditacion;
-  /** Slice A: EvidenciaForm only ever sends 'DECLARACION' — see design's Slicing section. */
   tipoEvidencia: TipoEvidencia;
   declaracion?: string;
+  /** Only for FOTO/DOCUMENTO — the key returned by `useUploadOrgEvidencia`. */
+  objectKey?: string;
   validoDesde?: string;
   validoHasta?: string;
 }
