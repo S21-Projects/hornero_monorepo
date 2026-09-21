@@ -56,6 +56,15 @@ type Candidato struct {
 	// CategoriasAceptadas restricts what the necesidad can absorb. Empty means
 	// it accepts anything.
 	CategoriasAceptadas []string `json:"categoriasAceptadas,omitempty"`
+
+	// CategoriasPermitidas is the set the organizacion's accreditation level
+	// allows it to receive (AD-10). It is distinct from CategoriasAceptadas on
+	// purpose: CategoriasAceptadas is what the necesidad asked for,
+	// CategoriasPermitidas is what the level allows. Empty means uncapped,
+	// matching CategoriasAceptadas's own empty-means-anything rule — this is
+	// what makes the field additive and behaviour-neutral until a producer
+	// sets it.
+	CategoriasPermitidas []string `json:"categoriasPermitidas,omitempty"`
 }
 
 // Pesos weights the four scoring terms. They need not sum to 1, but keeping
@@ -114,11 +123,22 @@ func distanciaKm(lat1, lng1, lat2, lng2 float64) float64 {
 }
 
 func (c Candidato) acepta(categoria string) bool {
-	if len(c.CategoriasAceptadas) == 0 || categoria == "" {
+	if !c.aceptaSegun(c.CategoriasAceptadas, categoria) {
+		return false
+	}
+	return c.aceptaSegun(c.CategoriasPermitidas, categoria)
+}
+
+// aceptaSegun is the shared membership check behind both CategoriasAceptadas
+// (what the necesidad asked for) and CategoriasPermitidas (what the
+// accreditation level allows, AD-10) — kept as two distinct fields on
+// Candidato, but the same "empty means anything" rule for both.
+func (c Candidato) aceptaSegun(conjunto []string, categoria string) bool {
+	if len(conjunto) == 0 || categoria == "" {
 		return true
 	}
-	for _, aceptada := range c.CategoriasAceptadas {
-		if aceptada == categoria {
+	for _, permitida := range conjunto {
+		if permitida == categoria {
 			return true
 		}
 	}
