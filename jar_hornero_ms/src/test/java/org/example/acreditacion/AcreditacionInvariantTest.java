@@ -28,7 +28,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  * proof — task 1.2/2.7's own RED/GREEN cycles already cover the invariant's components.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE)
-class AcreditacionInvariantIT {
+class AcreditacionInvariantTest {
 
     @Autowired
     private AcreditacionService acreditacionService;
