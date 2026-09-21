@@ -175,13 +175,26 @@ public class AcreditacionService {
     OrganizacionEvidencia cargarEvidencia(Organizacion org, RequisitoAcreditacion requisito,
             TipoEvidencia tipoEvidencia, String declaracion, LocalDate validoDesde,
             LocalDate validoHasta, Long actorUsuarioId) {
+        return cargarEvidencia(org, requisito, tipoEvidencia, declaracion, validoDesde, validoHasta,
+                actorUsuarioId, null);
+    }
+
+    /**
+     * Slice B overload: threads {@code objectKey} through to the persisted row for FOTO/DOCUMENTO
+     * submissions (Phase 6 defect fix). The trailing-parameter overload keeps every existing
+     * positional call site compiling untouched — see {@code OrganizacionEvidencia.nueva}.
+     */
+    @Transactional
+    OrganizacionEvidencia cargarEvidencia(Organizacion org, RequisitoAcreditacion requisito,
+            TipoEvidencia tipoEvidencia, String declaracion, LocalDate validoDesde,
+            LocalDate validoHasta, Long actorUsuarioId, String objectKey) {
         List<OrganizacionEvidencia> vigentes = evidenciaRepository.findByOrganizacion_IdAndRequisitoAndEstadoNot(
                 org.getId(), requisito, EstadoEvidencia.REEMPLAZADA);
 
         Usuario actor = usuarioRepository.findById(actorUsuarioId).orElse(null);
 
         OrganizacionEvidencia nueva = evidenciaRepository.save(OrganizacionEvidencia.nueva(
-                org, requisito, tipoEvidencia, declaracion, validoDesde, validoHasta, actorUsuarioId));
+                org, requisito, tipoEvidencia, declaracion, validoDesde, validoHasta, actorUsuarioId, objectKey));
         eventoRepository.save(OrganizacionEvento.deEvidencia(org, TipoEventoOrganizacion.EVIDENCIA_ADJUNTADA,
                 actor, "Evidencia cargada para " + requisito, requisito, nueva.getId()));
 

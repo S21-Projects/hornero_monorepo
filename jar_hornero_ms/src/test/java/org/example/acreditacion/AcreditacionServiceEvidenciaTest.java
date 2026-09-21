@@ -206,4 +206,29 @@ class AcreditacionServiceEvidenciaTest {
         assertThat(resultado).isNotNull();
         assertThat(resultado).isEmpty();
     }
+
+    // --- Phase 6 defect (Slice B): objectKey must persist on FOTO/DOCUMENTO submissions ---
+
+    @Test
+    void submittingFotoEvidenceWithObjectKeyPersistsItOnTheSavedRow() {
+        OrganizacionEvidencia evidencia = acreditacionService.cargarEvidencia(
+                organizacion, RequisitoAcreditacion.NO_DISCRIMINACION, TipoEvidencia.FOTO,
+                null, LocalDate.now(), null, referente.getId(),
+                "org-evidencia/" + organizacion.getId() + "/foto.jpg");
+
+        OrganizacionEvidencia reloaded =
+                evidenciaRepository.findById(evidencia.getId()).orElseThrow();
+        assertThat(reloaded.getObjectKey()).isEqualTo("org-evidencia/" + organizacion.getId() + "/foto.jpg");
+    }
+
+    @Test
+    void submittingDeclaracionEvidenceWithNullObjectKeyPersistsNullOnTheSavedRow() {
+        OrganizacionEvidencia evidencia = acreditacionService.cargarEvidencia(
+                organizacion, RequisitoAcreditacion.NO_DISCRIMINACION, TipoEvidencia.DECLARACION,
+                "declaración", LocalDate.now(), null, referente.getId());
+
+        OrganizacionEvidencia reloaded =
+                evidenciaRepository.findById(evidencia.getId()).orElseThrow();
+        assertThat(reloaded.getObjectKey()).isNull();
+    }
 }

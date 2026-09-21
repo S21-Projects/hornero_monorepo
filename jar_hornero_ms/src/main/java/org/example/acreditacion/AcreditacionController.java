@@ -80,7 +80,8 @@ public class AcreditacionController {
 
         Organizacion org = requireOwningReferente(id);
         var evidencia = acreditacionService.cargarEvidencia(org, request.requisito(), request.tipoEvidencia(),
-                request.declaracion(), request.validoDesde(), request.validoHasta(), currentUserId());
+                request.declaracion(), request.validoDesde(), request.validoHasta(), currentUserId(),
+                request.objectKey());
         return EvidenciaResponse.from(evidencia);
     }
 
