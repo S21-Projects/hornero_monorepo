@@ -11,6 +11,7 @@ describe('UploadController', () => {
   let uploadService: {
     uploadOrgProfile: jest.Mock;
     uploadOrgBanner: jest.Mock;
+    uploadOrgEvidencia: jest.Mock;
   };
   let organizacionesService: {
     misOrganizaciones: jest.Mock;
@@ -33,6 +34,7 @@ describe('UploadController', () => {
     uploadService = {
       uploadOrgProfile: jest.fn().mockResolvedValue('org-profile/1-key'),
       uploadOrgBanner: jest.fn().mockResolvedValue('org-banner/1-key'),
+      uploadOrgEvidencia: jest.fn().mockResolvedValue('org-evidencia/5/1-key'),
     };
     organizacionesService = {
       misOrganizaciones: jest.fn(),
@@ -119,6 +121,53 @@ describe('UploadController', () => {
         'admin-token',
       );
       expect(result).toEqual({ key: 'org-banner/1-key' });
+    });
+  });
+
+  describe('POST upload/org-evidencia/:id', () => {
+    it('allows the owning referente to upload', async () => {
+      organizacionesService.misOrganizaciones.mockResolvedValue([{ id: 5 }]);
+
+      const result = await controller.uploadOrgEvidencia(
+        5,
+        file,
+        requestWithToken(),
+      );
+
+      expect(uploadService.uploadOrgEvidencia).toHaveBeenCalledWith(5, file);
+      expect(result).toEqual({ key: 'org-evidencia/5/1-key' });
+    });
+
+    it('rejects a non-owning referente', async () => {
+      organizacionesService.misOrganizaciones.mockResolvedValue([{ id: 2 }]);
+
+      await expect(
+        controller.uploadOrgEvidencia(99, file, requestWithToken()),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+      expect(uploadService.uploadOrgEvidencia).not.toHaveBeenCalled();
+    });
+
+    it('allows an admin to upload for any organizacion without an ownership check', async () => {
+      const result = await controller.uploadOrgEvidencia(
+        99,
+        file,
+        requestAsAdmin(),
+      );
+
+      expect(organizacionesService.misOrganizaciones).not.toHaveBeenCalled();
+      expect(uploadService.uploadOrgEvidencia).toHaveBeenCalledWith(99, file);
+      expect(result).toEqual({ key: 'org-evidencia/5/1-key' });
+    });
+
+    it('never persists the key against the organizacion — evidence linking happens via cargarEvidencia', async () => {
+      organizacionesService.misOrganizaciones.mockResolvedValue([{ id: 5 }]);
+
+      await controller.uploadOrgEvidencia(5, file, requestWithToken());
+
+      expect(organizacionesService.actualizar).not.toHaveBeenCalled();
+      expect(
+        organizacionesService.actualizarInfoPublica,
+      ).not.toHaveBeenCalled();
     });
   });
 });

@@ -11,6 +11,7 @@ import { UsuariosModule } from './usuarios/usuarios.module.js';
 import { UploadModule } from './upload/upload.module.js';
 import { ImagesModule } from './images/images.module.js';
 import { AcreditacionModule } from './acreditacion/acreditacion.module.js';
+import { EvidenciaFilesModule } from './evidencia-files/evidencia-files.module.js';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard.js';
 import { RolesGuard } from './auth/guards/roles.guard.js';
 
@@ -25,6 +26,7 @@ import { RolesGuard } from './auth/guards/roles.guard.js';
     UploadModule,
     ImagesModule,
     AcreditacionModule,
+    EvidenciaFilesModule,
   ],
   controllers: [AppController],
   providers: [
