@@ -61,8 +61,8 @@ class NecesidadControllerTest {
     void listar_withPaginationParams_returnsPagedEnvelope() throws Exception {
         var pageable = PageRequest.of(1, 5);
         var content = List.of(
-                new NecesidadResponse(1L, "Desc 1", "ALTA", "ABIERTA", null, null, 1L),
-                new NecesidadResponse(2L, "Desc 2", "MEDIA", "ABIERTA", null, null, 1L)
+                new NecesidadResponse(1L, "Desc 1", "ALTA", "ABIERTA", null, null, 1L, null),
+                new NecesidadResponse(2L, "Desc 2", "MEDIA", "ABIERTA", null, null, 1L, null)
         );
         // Keep offset+pageSize <= total to avoid PageImpl normalisation: offset=5, size=5 <= 10
         var page = new PageImpl<>(content, pageable, 10L);

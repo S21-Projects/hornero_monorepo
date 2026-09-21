@@ -34,6 +34,12 @@ public class Necesidad {
 
     private LocalDate fechaVencimiento;
 
+    // Additive/nullable per the D4 convention: null == unclassified == today's behaviour
+    // (`specs/organizacion-acreditacion/spec.md` "Level-Driven Food Category Caps").
+    @Enumerated(EnumType.STRING)
+    @Column(name = "categoria", nullable = true)
+    private CategoriaAlimento categoria;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "organizacion_id", nullable = false)
     private Organizacion organizacion;

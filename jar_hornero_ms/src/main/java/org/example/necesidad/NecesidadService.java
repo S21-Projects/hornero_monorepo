@@ -3,6 +3,7 @@ package org.example.necesidad;
 import lombok.RequiredArgsConstructor;
 import org.example.auth.VerificacionService;
 import org.example.config.AcreditacionProperties;
+import org.example.domain.CategoriaAlimento;
 import org.example.domain.EstadoNecesidad;
 import org.example.domain.Necesidad;
 import org.example.domain.NecesidadRepository;
@@ -52,6 +53,16 @@ public class NecesidadService {
                     "Alcanzaste el máximo de " + cap + " necesidades abiertas para el nivel " + nivel);
         }
 
+        // `specs/organizacion-acreditacion/spec.md` "Level-Driven Food Category Caps":
+        // categoria == null ("unclassified") is unaffected by this cap, exactly as before it
+        // existed.
+        CategoriaAlimento categoria = dto.getCategoria();
+        if (categoria != null && categoria.getNivelMinimo().compareTo(nivel) > 0) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "La categoría " + categoria + " requiere el nivel " + categoria.getNivelMinimo()
+                            + " o superior");
+        }
+
         Necesidad necesidad = new Necesidad();
         necesidad.setDescripcion(dto.getDescripcion());
         necesidad.setPrioridad(dto.getPrioridad());
@@ -59,6 +70,7 @@ public class NecesidadService {
         necesidad.setFechaPublicacion(LocalDate.now());
         necesidad.setFechaVencimiento(dto.getFechaVencimiento());
         necesidad.setOrganizacion(org);
+        necesidad.setCategoria(categoria);
 
         return toResponse(necesidadRepository.save(necesidad));
     }
@@ -87,6 +99,7 @@ public class NecesidadService {
         if (dto.getPrioridad() != null) n.setPrioridad(dto.getPrioridad());
         if (dto.getEstado() != null) n.setEstado(dto.getEstado());
         if (dto.getFechaVencimiento() != null) n.setFechaVencimiento(dto.getFechaVencimiento());
+        if (dto.getCategoria() != null) n.setCategoria(dto.getCategoria());
         return toResponse(necesidadRepository.save(n));
     }
 
@@ -114,7 +127,8 @@ public class NecesidadService {
                 n.getEstado().name(),
                 n.getFechaPublicacion(),
                 n.getFechaVencimiento(),
-                n.getOrganizacion().getId()
+                n.getOrganizacion().getId(),
+                n.getCategoria()
         );
     }
 }

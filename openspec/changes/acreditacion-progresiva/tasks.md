@@ -428,24 +428,24 @@ proxy, then the SPA wiring that finally makes `AuditQueue` operable.
 Do not start before the user schedules Slice B. Depends on Phase 2 (`AcreditacionService` exists to compute
 `categoriasPermitidas(nivel)`).
 
-- [ ] 5.1 RED: create `necesidad/NecesidadServiceCategoriaCapTest.java` — N1 rejects `REFRIGERADO`/`CONGELADO`
+- [x] 5.1 RED: create `necesidad/NecesidadServiceCategoriaCapTest.java` — N1 rejects `REFRIGERADO`/`CONGELADO`
       categories; N2 accepts `REFRIGERADO`; N3 accepts all; `categoria=null` behaves exactly as today
       (`specs/organizacion-acreditacion/spec.md` "Level-Driven Food Category Caps"). Run `mvn test
       -Dtest=NecesidadServiceCategoriaCapTest` — expect compile failure.
-- [ ] 5.2 GREEN: create `jar_hornero_ms/domain/CategoriaAlimento.java`; modify `domain/Necesidad.java` (additive
+- [x] 5.2 GREEN: create `jar_hornero_ms/domain/CategoriaAlimento.java`; modify `domain/Necesidad.java` (additive
       nullable `categoria`, per the exact snippet in design's "Data Model — Slice B" section); modify
       `necesidad/NecesidadService.java` (category cap on `crear`); modify `necesidad/dto/*` to expose `categoria`.
       Run `mvn test -Dtest=NecesidadServiceCategoriaCapTest` — expect pass.
-- [ ] 5.3 RED: extend `acreditacion/AcreditacionServiceTest.java` (or a new test) — `categoriasPermitidas(nivel)`
+- [x] 5.3 RED: extend `acreditacion/AcreditacionServiceTest.java` (or a new test) — `categoriasPermitidas(nivel)`
       returns the expected category set per level. Run — expect compile failure.
-- [ ] 5.4 GREEN: modify `acreditacion/AcreditacionService.java` to add `categoriasPermitidas(nivel)`. Run — expect
+- [x] 5.4 GREEN: modify `acreditacion/AcreditacionService.java` to add `categoriasPermitidas(nivel)`. Run — expect
       pass.
-- [ ] 5.5 RED: extend `go_algorithms_worker/internal/assign/scoring_test.go` — empty `CategoriasPermitidas` is a
+- [x] 5.5 RED: extend `go_algorithms_worker/internal/assign/scoring_test.go` — empty `CategoriasPermitidas` is a
       no-op (existing round results unchanged); a category in `CategoriasAceptadas` but not in
       `CategoriasPermitidas` → `Score()` returns `false` → `Inf` in `MatrizCosto`; the existing 200-random-matrix
       Hungarian oracle still passes unchanged. Run `go test ./internal/assign/...` — expect compile failure
       (`CategoriasPermitidas` field doesn't exist).
-- [ ] 5.6 GREEN: modify `go_algorithms_worker/internal/assign/scoring.go` — add `CategoriasPermitidas
+- [x] 5.6 GREEN: modify `go_algorithms_worker/internal/assign/scoring.go` — add `CategoriasPermitidas
       []string` to `Candidato` and require membership in both sets in `acepta()`, per AD-10's exact snippet.
       `Score()` and `MatrizCosto()` stay untouched. Run `go test ./internal/assign/...` — expect pass.
 

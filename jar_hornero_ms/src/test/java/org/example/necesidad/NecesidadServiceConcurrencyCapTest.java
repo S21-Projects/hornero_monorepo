@@ -71,7 +71,7 @@ class NecesidadServiceConcurrencyCapTest {
     }
 
     private CrearNecesidadRequest sampleRequest() {
-        return new CrearNecesidadRequest("Descripcion", PrioridadNecesidad.MEDIA, LocalDate.now().plusDays(10), 1L);
+        return new CrearNecesidadRequest("Descripcion", PrioridadNecesidad.MEDIA, LocalDate.now().plusDays(10), 1L, null);
     }
 
     @Test

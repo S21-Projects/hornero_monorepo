@@ -6,6 +6,7 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.example.domain.CategoriaAlimento;
 import org.example.domain.PrioridadNecesidad;
 
 import java.time.LocalDate;
@@ -26,4 +27,8 @@ public class CrearNecesidadRequest {
 
     @NotNull(message = "La organización es obligatoria")
     private Long organizacionId;
+
+    // Additive/nullable: null == unclassified, unaffected by the level cap
+    // (`specs/organizacion-acreditacion/spec.md` "Level-Driven Food Category Caps").
+    private CategoriaAlimento categoria;
 }

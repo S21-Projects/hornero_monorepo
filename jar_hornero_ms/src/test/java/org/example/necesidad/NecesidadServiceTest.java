@@ -142,7 +142,7 @@ class NecesidadServiceTest {
     @Test
     void crear_foreignOrganizacionId_throwsForbidden() {
         CrearNecesidadRequest dto = new CrearNecesidadRequest(
-                "Descripcion", PrioridadNecesidad.MEDIA, LocalDate.now().plusDays(10), 99L);
+                "Descripcion", PrioridadNecesidad.MEDIA, LocalDate.now().plusDays(10), 99L, null);
 
         when(organizacionRepository.findByIdAndReferente_Id(99L, 1L)).thenReturn(Optional.empty());
 
@@ -154,7 +154,7 @@ class NecesidadServiceTest {
     @Test
     void crear_ownedOrganizacionId_succeeds() {
         CrearNecesidadRequest dto = new CrearNecesidadRequest(
-                "Descripcion", PrioridadNecesidad.MEDIA, LocalDate.now().plusDays(10), 1L);
+                "Descripcion", PrioridadNecesidad.MEDIA, LocalDate.now().plusDays(10), 1L, null);
 
         when(organizacionRepository.findByIdAndReferente_Id(1L, 1L)).thenReturn(Optional.of(organizacion));
         when(acreditacionProperties.capPara(NivelAcreditacion.N1)).thenReturn(3L);
@@ -170,7 +170,7 @@ class NecesidadServiceTest {
     @Test
     void crear_unverifiedEmail_throwsForbiddenBeforeTouchingOrganizacion() {
         CrearNecesidadRequest dto = new CrearNecesidadRequest(
-                "Descripcion", PrioridadNecesidad.MEDIA, LocalDate.now().plusDays(10), 1L);
+                "Descripcion", PrioridadNecesidad.MEDIA, LocalDate.now().plusDays(10), 1L, null);
 
         doThrow(new ResponseStatusException(HttpStatus.FORBIDDEN, "EMAIL_NO_VERIFICADO"))
                 .when(verificacionService).requireVerified(1L);
