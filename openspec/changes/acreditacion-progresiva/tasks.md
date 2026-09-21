@@ -279,11 +279,11 @@ entity/repository → evidence submit/audit → requisito-completeness gate on `
       `config/AcreditacionProperties.java` (`@Value("${app.acreditacion.cap-n1:3}")` etc., per the `app.otp.*`
       precedent at `OtpService.java:38-41`); add `app.acreditacion.cap-n0=0, cap-n1=3, cap-n2=6, cap-n3=12` to
       `resources/application.properties`. Run `mvn test -Dtest=NecesidadServiceConcurrencyCapTest` — expect pass.
-- [x] 2.24 **Integration**: create `acreditacion/AcreditacionInvariantIT.java` (`@SpringBootTest` + H2) —
+- [x] 2.24 **Integration**: create `acreditacion/AcreditacionInvariantTest.java` (`@SpringBootTest` + H2) —
       **the change's headline invariant**: drive an organizacion through a full `N0→N1→N2→N3→N2` sequence via
       the real service methods, then assert `AcreditacionReplay.reconstruir(eventoRepository.
       findByOrganizacion_IdOrderByOcurridoEnAscIdAsc(org.getId())) == org.getNivel()`. Run `mvn test
-      -Dtest=AcreditacionInvariantIT` — expect pass (RED state already covered by 1.2 + 2.7's GREEN steps; this
+      -Dtest=AcreditacionInvariantTest` — expect pass (RED state already covered by 1.2 + 2.7's GREEN steps; this
       task is the end-to-end assembly proof, not a new production change).
 
 **Phase 2 acceptance criterion**: `mvn test` passes for every class above; the anonymous-`GET`-legajo-401 test

@@ -177,7 +177,7 @@ Parent spot check: `mvn test -Dtest=AcreditacionReplayTest,AcreditacionBackfillT
 - [x] 2.21 GREEN `crear()` appends `ORGANIZACION_REGISTRADA`
 - [x] 2.22 RED `NecesidadServiceConcurrencyCapTest`
 - [x] 2.23 GREEN `AcreditacionProperties` + `NecesidadRepository.countByOrganizacion_IdAndEstadoIn` + cap check
-- [x] 2.24 `AcreditacionInvariantIT` — full N0→N1→N2→N3→N2 replay-equals-stored assembly proof (passed on first run, no production change needed)
+- [x] 2.24 `AcreditacionInvariantTest` — full N0→N1→N2→N3→N2 replay-equals-stored assembly proof (passed on first run, no production change needed)
 
 ## Files Changed
 
@@ -240,9 +240,9 @@ No spec or design requirement text was reinterpreted.
 | Evidence | Value |
 |---|---|
 | Focused test command and result | `mvn test -Dtest=AcreditacionServiceTest,AcreditacionControllerSecurityTest` (task-specified) — `AcreditacionServiceTest` does not exist as a single class in this design (evidence/cambiarNivel/legajo/projection/transition are separate focused classes per the RED/GREEN cadence); ran the full focused set instead: `mvn test -Dtest=AcreditacionServiceEvidenciaTest,AcreditacionServiceCambiarNivelTest,AcreditacionServiceLegajoTest,ExpiracionTest,AcreditacionControllerSecurityTest` → **31/31 pass** |
-| Full A2 class list | `mvn test -Dtest=OrganizacionEvidenciaRepositoryTest,AcreditacionServiceEvidenciaTest,ExpiracionTest,AcreditacionServiceCambiarNivelTest,AcreditacionServiceLegajoTest,AcreditacionControllerSecurityTest,OrganizacionServiceValidarRechazarTest,OrganizacionServiceAsignarReferenteTest,OrganizacionServiceCrearEventoTest,NecesidadServiceConcurrencyCapTest,AcreditacionInvariantIT` → **59/59 pass** |
+| Full A2 class list | `mvn test -Dtest=OrganizacionEvidenciaRepositoryTest,AcreditacionServiceEvidenciaTest,ExpiracionTest,AcreditacionServiceCambiarNivelTest,AcreditacionServiceLegajoTest,AcreditacionControllerSecurityTest,OrganizacionServiceValidarRechazarTest,OrganizacionServiceAsignarReferenteTest,OrganizacionServiceCrearEventoTest,NecesidadServiceConcurrencyCapTest,AcreditacionInvariantTest` → **59/59 pass** |
 | Full module suite (regression check) | `mvn test` (jar_hornero_ms) → **225/225 pass, 0 failures, 0 errors** — baseline was 184/184 after A1; +41 net new tests, no pre-existing test regressed |
-| Runtime harness | Not run as a live boot (`curl` against `mvn spring-boot:run` requires a live Postgres, not available in this sandbox). Equivalent coverage: `AcreditacionControllerSecurityTest` exercises the real `SecurityFilterChain` (via `@Import(SecurityConfig.class)`) end-to-end for anonymous/wrong-role/admin cases against the exact `/api/organizaciones/{id}/legajo` and `/acreditacion` paths the curl command in the task's runtime-harness column would hit; `AcreditacionInvariantIT` boots the full `@SpringBootTest` context. |
+| Runtime harness | Not run as a live boot (`curl` against `mvn spring-boot:run` requires a live Postgres, not available in this sandbox). Equivalent coverage: `AcreditacionControllerSecurityTest` exercises the real `SecurityFilterChain` (via `@Import(SecurityConfig.class)`) end-to-end for anonymous/wrong-role/admin cases against the exact `/api/organizaciones/{id}/legajo` and `/acreditacion` paths the curl command in the task's runtime-harness column would hit; `AcreditacionInvariantTest` boots the full `@SpringBootTest` context. |
 | Rollback boundary | Revert every file in "Files Changed" above except `openspec/changes/acreditacion-progresiva/{tasks.md,apply-progress.md}`. A1's files (`NivelAcreditacion`, `TipoEventoOrganizacion`, `AcreditacionReplay`, `AcreditacionBackfill`, etc.) are untouched by this revert except `OrganizacionEvento.java`'s `actor` parameter widening, which is backward-compatible (every A1 call site still compiles unchanged). |
 
 ## Issues Found
@@ -267,3 +267,20 @@ Phase 3 (A3) through Phase 6 (B2) — 38 tasks — are explicitly out of scope f
 ## Status
 
 24/24 Phase 2 tasks complete. Ready for next batch (Phase 3 / A3, BFF) in a future `sdd-apply` run.
+
+## Parent spot check, Phase 2 (2026-09-21)
+
+`SecurityConfig` matcher ordering verified by reading the file: the accreditation matchers are declared at
+lines 66-69, ahead of the `permitAll` GET block for `/api/organizaciones/**` at lines 71-77. The flagged
+first-wins hazard does not apply.
+
+`mvn test -Dtest=AcreditacionControllerSecurityTest` re-run independently: 8/8 pass. Whole accreditation
+package re-run: 53/53 pass. Full `mvn clean test`: 226/226 pass, BUILD SUCCESS.
+
+**Defect found and fixed by the parent:** task 2.24 names the integration test `AcreditacionInvariantIT`, and
+that name was followed faithfully. But this module configures no `maven-failsafe-plugin`, and Surefire's default
+includes are `Test*.java`, `*Test.java`, `*Tests.java` and `*TestCase.java` — an `*IT` suffix matches none of
+them. The class therefore never executed in an ordinary `mvn test`, which is why the phase reported 225 rather
+than 226. The replay-equals-stored assembly proof, arguably this change's most load-bearing test, was dead code
+the moment it was written. Renamed to `AcreditacionInvariantTest`; a clean full run now reports 226 and writes
+its Surefire report. The defect is in the task plan's chosen filename, not in the phase's execution of it.
