@@ -20,6 +20,7 @@ describe('AcreditacionController', () => {
     observarEvidencia: jest.Mock;
     cambiarNivel: jest.Mock;
     legajo: jest.Mock;
+    evidencias: jest.Mock;
   };
 
   const requestWithToken = (token = 'token-123') =>
@@ -33,6 +34,7 @@ describe('AcreditacionController', () => {
       observarEvidencia: jest.fn(),
       cambiarNivel: jest.fn(),
       legajo: jest.fn(),
+      evidencias: jest.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -75,6 +77,10 @@ describe('AcreditacionController', () => {
 
     it('legajo() admits ADMINISTRADOR and REFERENTE (D-01)', () => {
       expect(rolesOf('legajo')).toEqual([Role.ADMINISTRADOR, Role.REFERENTE]);
+    });
+
+    it('evidencias() is ADMINISTRADOR-only (D-02, narrower than D-01)', () => {
+      expect(rolesOf('evidencias')).toEqual([Role.ADMINISTRADOR]);
     });
 
     it('none of the six routes are @Public — RolesGuard + JwtAuthGuard both apply', () => {
@@ -183,6 +189,42 @@ describe('AcreditacionController', () => {
       const result = await controller.legajo(1, requestWithToken('token-123'));
 
       expect(service.legajo).toHaveBeenCalledWith(1, 'token-123');
+      expect(result).toBe(response);
+    });
+
+    it('forwards id + estado + token to evidencias()', async () => {
+      const response = [{ id: 10, estado: 'PENDIENTE' }];
+      service.evidencias.mockResolvedValue(response);
+
+      const result = await controller.evidencias(
+        1,
+        'PENDIENTE',
+        requestWithToken('token-123'),
+      );
+
+      expect(service.evidencias).toHaveBeenCalledWith(
+        1,
+        'PENDIENTE',
+        'token-123',
+      );
+      expect(result).toBe(response);
+    });
+
+    it('forwards undefined estado to evidencias() when no filter is supplied', async () => {
+      const response: unknown[] = [];
+      service.evidencias.mockResolvedValue(response);
+
+      const result = await controller.evidencias(
+        1,
+        undefined,
+        requestWithToken('token-123'),
+      );
+
+      expect(service.evidencias).toHaveBeenCalledWith(
+        1,
+        undefined,
+        'token-123',
+      );
       expect(result).toBe(response);
     });
   });

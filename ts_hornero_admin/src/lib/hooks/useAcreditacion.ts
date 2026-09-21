@@ -37,6 +37,24 @@ export function useLegajo(organizacionId: number | undefined) {
   });
 }
 
+/**
+ * D-02 audit-queue read: the BFF proxy for `GET .../acreditacion/evidencias?estado=PENDIENTE`.
+ * ADMINISTRADOR-only server-side; supplies the `evidenciaId` per requisito that `AuditQueue`
+ * needs to render its approve/observe buttons (previously always `{}` — see `legajo.tsx`).
+ */
+export function useEvidenciasPendientes(organizacionId: number | undefined) {
+  return useQuery<EvidenciaResponse[]>({
+    queryKey: ['evidencias-pendientes', organizacionId],
+    queryFn: () =>
+      api
+        .get<EvidenciaResponse[]>(
+          `/organizaciones/${organizacionId}/acreditacion/evidencias?estado=PENDIENTE`,
+        )
+        .then((r) => r.data),
+    enabled: organizacionId != null,
+  });
+}
+
 export interface CargarEvidenciaInput {
   requisito: RequisitoAcreditacion;
   /** Slice A: EvidenciaForm only ever sends 'DECLARACION' — see design's Slicing section. */

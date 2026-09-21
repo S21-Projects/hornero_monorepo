@@ -6,6 +6,7 @@ import {
   ParseIntPipe,
   Patch,
   Post,
+  Query,
   Req,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -60,6 +61,20 @@ export class AcreditacionController {
       dto,
       this.getToken(req),
     );
+  }
+
+  @Roles(Role.ADMINISTRADOR)
+  @Get('acreditacion/evidencias')
+  @ApiOperation({
+    summary:
+      'List the organizacion evidence for the audit queue (admin only — D-02)',
+  })
+  evidencias(
+    @Param('id', ParseIntPipe) id: number,
+    @Query('estado') estado: string | undefined,
+    @Req() req: Request,
+  ) {
+    return this.acreditacionService.evidencias(id, estado, this.getToken(req));
   }
 
   @Roles(Role.ADMINISTRADOR)

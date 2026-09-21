@@ -386,38 +386,40 @@ identifier, leaving the approve/observe mutations unreachable from the interface
 `decisiones-posteriores.md` D-02. Depends on Phases 1-4. Ordered: MS service and controller, then BFF
 proxy, then the SPA wiring that finally makes `AuditQueue` operable.
 
-- [ ] 4b.1 RED: extend `AcreditacionServiceEvidenciaTest` (or a sibling test class) — listing an
+- [x] 4b.1 RED: extend `AcreditacionServiceEvidenciaTest` (or a sibling test class) — listing an
       organizacion's evidence returns every row as `EvidenciaResponse` with its `id` and `estado`;
       passing an `estado` filter returns only the matching rows; an organizacion with no evidence
       returns an empty list, not null. Run `mvn test -Dtest=AcreditacionServiceEvidenciaTest` — expect a
       compile failure for the missing service method.
-- [ ] 4b.2 GREEN: add the listing method to `AcreditacionService`, reusing the existing
+- [x] 4b.2 GREEN: add the listing method to `AcreditacionService`, reusing the existing
       `OrganizacionEvidenciaRepository.findByOrganizacion_Id`. `EvidenciaResponse.from` already exists —
       do not duplicate the mapping. Run the same command — expect pass.
-- [ ] 4b.3 RED: extend `AcreditacionControllerSecurityTest` — `GET
+- [x] 4b.3 RED: extend `AcreditacionControllerSecurityTest` — `GET
       /api/organizaciones/{id}/acreditacion/evidencias` is 403 for anonymous, 403 for `DONANTE`, **403
       for the owning `REFERENTE`** (D-02 is deliberately narrower than D-01: the referente reads state
       through the legajo and has no audit action), and 200 for `ADMINISTRADOR`. Expect RED.
-- [ ] 4b.4 GREEN: add the controller method with `@PreAuthorize("hasRole('ADMINISTRADOR')")` and the
+- [x] 4b.4 GREEN: add the controller method with `@PreAuthorize("hasRole('ADMINISTRADOR')")` and the
       optional `estado` query parameter. **Verify the `SecurityConfig` matcher block already covers this
       sub-path** — the accreditation matchers must keep preceding the `permitAll` GET block for
       `/api/organizaciones/**`, or the new route becomes world-readable. Add a matcher only if the
       existing pattern does not already match; do not reorder the block. Expect pass.
-- [ ] 4b.5 RED then GREEN: add the BFF proxy route in `ts_hornero_bff/src/acreditacion/` with
+- [x] 4b.5 RED then GREEN: add the BFF proxy route in `ts_hornero_bff/src/acreditacion/` with
       `@Roles(Role.ADMINISTRADOR)` only. Mirror the MS field names exactly; no `/api` prefix on the BFF
       route. Run `npm test -- acreditacion` from `ts_hornero_bff/`.
-- [ ] 4b.6 RED then GREEN: add a `useEvidenciasPendientes` TanStack Query hook to
+- [x] 4b.6 RED then GREEN: add a `useEvidenciasPendientes` TanStack Query hook to
       `ts_hornero_admin/src/lib/hooks/useAcreditacion.ts` and feed the real `evidenciaIds` map into
       `AuditQueue` from `legajo.tsx`, so its approve and observe buttons finally render for an
       administrator. The component itself is already wired and tested against a supplied map — this task
       supplies it, it does not rewrite the component. Run `npm test` from `ts_hornero_admin/`.
-- [ ] 4b.7 Verification gate: `mvn clean test` from `jar_hornero_ms/`, `npm test` from
+- [x] 4b.7 Verification gate: `mvn clean test` from `jar_hornero_ms/`, `npm test` from
       `ts_hornero_bff/`, then `npm test` **and `npm run build`** from `ts_hornero_admin/`. Report the
       real numbers for each. Baselines to beat: 226/226, 86/86, 188/188, build PASS. A green test suite
       with a broken `tsc -b` is a failed run, not a partial one.
-- [ ] 4b.8 Manual confirmation (record as unavailable if no live stack): as `ADMINISTRADOR`, open an
+- [x] 4b.8 Manual confirmation (record as unavailable if no live stack): as `ADMINISTRADOR`, open an
       organizacion's legajo, approve one `PENDIENTE` evidence, observe another with a reason, and
-      confirm both append events and that the requisito states change.
+      confirm both append events and that the requisito states change. **Recorded as unavailable**: the
+      Docker daemon is not running in this sandbox (`docker compose ps` fails to connect), so no live
+      stack exists to exercise manually. No live-stack curl/browser confirmation was performed.
 
 ---
 

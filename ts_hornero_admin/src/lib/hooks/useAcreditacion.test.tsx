@@ -10,6 +10,7 @@ import {
   useAuditarEvidencia,
   useCambiarNivel,
   useLegajo,
+  useEvidenciasPendientes,
 } from './useAcreditacion';
 
 const mock = new MockAdapter(api, { onNoMatch: 'throwException' });
@@ -140,6 +141,35 @@ describe('useAuditarEvidencia', () => {
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(JSON.parse(mock.history.patch[0].data as string)).toEqual({ observacion: 'Falta detalle' });
+  });
+});
+
+describe('useEvidenciasPendientes', () => {
+  it('GETs /organizaciones/{id}/acreditacion/evidencias?estado=PENDIENTE', async () => {
+    mock.onGet('/organizaciones/5/acreditacion/evidencias?estado=PENDIENTE').reply(200, [
+      {
+        id: 1,
+        organizacionId: 5,
+        requisito: 'NO_DISCRIMINACION',
+        tipoEvidencia: 'DECLARACION',
+        estado: 'PENDIENTE',
+        expirada: false,
+      },
+    ]);
+
+    const { result } = renderHook(() => useEvidenciasPendientes(5), { wrapper: createWrapper() });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(result.current.data).toHaveLength(1);
+    expect(result.current.data?.[0]).toMatchObject({ id: 1, requisito: 'NO_DISCRIMINACION' });
+  });
+
+  it('is disabled when organizacionId is undefined', () => {
+    const { result } = renderHook(() => useEvidenciasPendientes(undefined), {
+      wrapper: createWrapper(),
+    });
+
+    expect(result.current.fetchStatus).toBe('idle');
   });
 });
 

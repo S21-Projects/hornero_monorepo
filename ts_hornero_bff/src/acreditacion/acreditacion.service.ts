@@ -94,4 +94,18 @@ export class AcreditacionService {
     );
     return data;
   }
+
+  /** D-02: audit-queue read. `estado` mirrors the MS's optional query param exactly. */
+  async evidencias(
+    organizacionId: number,
+    estado: string | undefined,
+    accessToken: string,
+  ) {
+    const query = estado ? `?estado=${estado}` : '';
+    const { data } = await this.httpService.axiosRef.get<unknown>(
+      `${this.msUrl}/api/organizaciones/${organizacionId}/acreditacion/evidencias${query}`,
+      this.authHeaders(accessToken),
+    );
+    return data;
+  }
 }

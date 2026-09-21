@@ -533,3 +533,158 @@ Phase 5 (B1) and Phase 6 (B2) — 17 tasks — are explicitly deferred until the
 13/13 Phase 4 tasks complete. **62/79 tasks complete overall.** Slice A (A1→A2→A3→A4) is now fully
 implemented and independently tested per unit. Phase 5 (B1)/Phase 6 (B2) — Slice B — remain deferred per
 the user's own scheduling instruction; not started in this run.
+
+---
+
+# Apply Progress — Phase 4b (A5): audit-queue read endpoint
+
+**Scope this run**: Phase 4b (A5) only — tasks 4b.1-4b.8. Closes the hole the Phase 4 contract validation
+found: no read path anywhere returns an evidence id, so `PATCH .../aprobar` and `.../observar` were
+unreachable from the interface. Authority: `decisiones-posteriores.md` D-02. Spans three services in
+order: `jar_hornero_ms`, then `ts_hornero_bff`, then `ts_hornero_admin`.
+**Mode**: Strict TDD (RED → GREEN, per `openspec/config.yaml` `strict_tdd: true`).
+
+## Completed Tasks (8/8 in Phase 4b)
+
+- [x] 4b.1 RED `AcreditacionServiceEvidenciaTest` — 3 new tests for the listing method (all rows w/
+      id+estado, `estado` filter, empty-list-not-null). Confirmed compile failure.
+- [x] 4b.2 GREEN `AcreditacionService.evidencias(orgId, filtro)` — reuses
+      `OrganizacionEvidenciaRepository.findByOrganizacion_Id` and the existing `EvidenciaResponse.from`
+      mapper; no new repository method, no second mapper.
+- [x] 4b.3 RED `AcreditacionControllerSecurityTest` — 4 new tests: anonymous/`DONANTE`/owning-`REFERENTE`
+      all 403, `ADMINISTRADOR` 200 on `GET /api/organizaciones/{id}/acreditacion/evidencias`. Confirmed
+      RED (405→500, since only `POST` existed on that path before this task).
+- [x] 4b.4 GREEN `AcreditacionController.evidencias(id, estado)` — `@PreAuthorize("hasRole('ADMINISTRADOR')")`,
+      optional `estado` `@RequestParam`. `SecurityConfig`'s existing
+      `/api/organizaciones/*/acreditacion/**` matcher already covers this sub-path — **no matcher change
+      was needed**, confirmed by the 4b.3 tests passing without touching `SecurityConfig.java`.
+- [x] 4b.5 RED then GREEN — BFF `AcreditacionService.evidencias()` (thin proxy, mirrors the MS `estado`
+      query param exactly, `Authorization: Bearer` forwarded like every other route in this module) and
+      `AcreditacionController.evidencias()` (`@Roles(Role.ADMINISTRADOR)` only, `@Query('estado')`).
+- [x] 4b.6 RED then GREEN — `useEvidenciasPendientes` TanStack Query hook (`GET
+      .../acreditacion/evidencias?estado=PENDIENTE`) plus a new `legajo.test.tsx` proving the wiring end
+      to end; `legajo.tsx` now builds a real `evidenciaIds` map from the hook's data instead of the
+      permanently-empty `{}` literal Phase 4 left behind, gated to admins only (see Deviations).
+- [x] 4b.7 Verification gate — see Work Unit Evidence below. All four commands beat their baseline.
+- [x] 4b.8 Manual confirmation — **recorded as unavailable**: the Docker daemon is not running in this
+      sandbox (`docker compose ps` fails to connect to the daemon), so no live stack exists to exercise
+      manually. No curl/browser confirmation was performed; this is disclosed, not silently skipped.
+
+## Files Changed
+
+| File | Action | What Was Done |
+|------|--------|---------------|
+| `jar_hornero_ms/src/main/java/org/example/acreditacion/AcreditacionService.java` | Modified | Added `evidencias(Long orgId, EstadoEvidencia filtro)`, package-private, reusing `findByOrganizacion_Id` + `EvidenciaResponse.from` |
+| `jar_hornero_ms/src/main/java/org/example/acreditacion/AcreditacionController.java` | Modified | Added `GET /acreditacion/evidencias`, `@PreAuthorize("hasRole('ADMINISTRADOR')")`, optional `estado` `@RequestParam` |
+| `jar_hornero_ms/src/test/java/org/example/acreditacion/AcreditacionServiceEvidenciaTest.java` | Modified | +3 tests for `evidencias()` |
+| `jar_hornero_ms/src/test/java/org/example/acreditacion/AcreditacionControllerSecurityTest.java` | Modified | +4 tests for the new route's role matrix (anon/DONANTE/owning-REFERENTE 403, ADMIN 200) |
+| `ts_hornero_bff/src/acreditacion/acreditacion.service.ts` | Modified | Added `evidencias(organizacionId, estado, accessToken)` |
+| `ts_hornero_bff/src/acreditacion/acreditacion.service.spec.ts` | Modified | +2 tests (no-filter, `?estado=` query mirroring) |
+| `ts_hornero_bff/src/acreditacion/acreditacion.controller.ts` | Modified | Added `GET acreditacion/evidencias`, `@Roles(Role.ADMINISTRADOR)`, `@Query('estado')` |
+| `ts_hornero_bff/src/acreditacion/acreditacion.controller.spec.ts` | Modified | +3 tests (role matrix, cookie forwarding with/without estado) |
+| `ts_hornero_admin/src/lib/hooks/useAcreditacion.ts` | Modified | Added `useEvidenciasPendientes(organizacionId)` |
+| `ts_hornero_admin/src/lib/hooks/useAcreditacion.test.tsx` | Modified | +2 tests (query fires with `estado=PENDIENTE`, disabled when `organizacionId` undefined) |
+| `ts_hornero_admin/src/routes/legajo.tsx` | Modified | Built a real `evidenciaIds` map from `useEvidenciasPendientes`, gated to `tipo === 'ADMINISTRADOR'` |
+| `ts_hornero_admin/src/routes/legajo.test.tsx` | Created | New — proves an admin sees the "Aprobar" button once the evidence queue loads, and sees none while it's still loading |
+| `openspec/changes/acreditacion-progresiva/tasks.md` | Modified | Tasks 4b.1-4b.8 marked `[x]` |
+
+## TDD Cycle Evidence
+
+| Task | RED (observed) | GREEN (observed) | Notes |
+|------|------|------|-------|
+| 4b.1/4b.2 | Compile failure: `cannot find symbol evidencias(Long,<nulltype>)` / `(Long,EstadoEvidencia)` | 8/8 pass (`AcreditacionServiceEvidenciaTest`) | |
+| 4b.3/4b.4 | Runtime RED: `HttpRequestMethodNotSupportedException` (405→500 via `GlobalExceptionHandler`) — the path already existed for `POST`, so this is a route-not-mapped-for-GET RED, not a compile failure | 16/16 pass (`AcreditacionControllerSecurityTest`) | |
+| 4b.5 (service) | `TypeError: service.evidencias is not a function` | 8/8 pass | |
+| 4b.5 (controller) | `TypeError: controller.evidencias is not a function` + role-matrix `Reflect.getMetadata` throw | 20/20 pass | |
+| 4b.6 (hook) | `TypeError: useEvidenciasPendientes is not a function` (2/9 fail, 7/9 baseline pass) | 9/9 pass | |
+| 4b.6 (wiring) | New `legajo.test.tsx`: 1/2 fail (`getByRole('button', {name: /aprobar/i})` not found — `evidenciaIds` was always `{}`) | 2/2 pass | |
+
+## Deviations from Design
+
+**No `SecurityConfig` matcher change was needed.** The launch prompt flagged this as the highest-risk
+step, and it was checked, not assumed: the pre-existing matcher block (added in Phase 2/A2) already reads
+`"/api/organizaciones/*/acreditacion", "/api/organizaciones/*/acreditacion/**", "/api/organizaciones/*/legajo"`
+— the `/**` wildcard on the second entry already covers `/acreditacion/evidencias`. Proven by the 4b.3
+tests passing (anonymous 403, wrong-role 403) without touching `SecurityConfig.java` at all, not merely by
+reading the file. No matcher was added or reordered.
+
+**`useEvidenciasPendientes` is only fetched when `tipo === 'ADMINISTRADOR'`** in `legajo.tsx`, not
+unconditionally. Neither the launch prompt nor tasks.md 4b.6 states this explicitly, but D-02 makes the
+endpoint ADMINISTRADOR-only server-side, and `legajo.tsx` is also rendered for the owning REFERENTE
+(D-01). Fetching unconditionally would fire a request that always 403s for every referente viewing their
+own legajo. Gating the hook call is the minimal fix; `AuditQueue` itself is never rendered for a
+non-admin anyway (already gated by the same `tipo === 'ADMINISTRADOR'` check one level up), so this closes
+a wasted-request/console-noise gap the existing gate didn't cover.
+
+**`evidencias()` returns every non-`REEMPLAZADA` *and* `REEMPLAZADA` row when `filtro` is `null`** (i.e.
+truly every row for the organizacion), unlike `legajo()` which filters `REEMPLAZADA` rows out. This is a
+deliberate difference, not an oversight: the audit queue is an audit trail (D-02's own rationale — "a
+separate feed" distinct from the legajo document), so a full unfiltered call intentionally shows
+superseded rows too. The admin-facing hook (`useEvidenciasPendientes`) always passes `estado=PENDIENTE`
+in this task's actual usage, so `REEMPLAZADA` rows never reach `AuditQueue` in practice; the unfiltered
+path is exercised by the "returns every row" test in `AcreditacionServiceEvidenciaTest` and by the BFF's
+"no filter" test, proving the underlying contract, not the UI's specific call shape.
+
+No spec or design requirement text was reinterpreted.
+
+## Work Unit Evidence (A5 / Phase 4b)
+
+| Evidence | Value |
+|---|---|
+| Focused test command and result | MS: `mvn test -Dtest=AcreditacionServiceEvidenciaTest,AcreditacionControllerSecurityTest` → **24/24 pass**. BFF: `npm test -- acreditacion` → **3 suites, 30/30 pass**. Admin: `npm test -- useAcreditacion` → **9/9 pass**; `npm test -- legajo.test` → **2/2 pass** |
+| Runtime harness | `AcreditacionControllerSecurityTest` exercises the real `SecurityFilterChain` (`@Import(SecurityConfig.class)`) end to end for the new route, same as Phase 2's precedent; `acreditacion.routing.spec.ts` (Phase 3, unchanged) already covers BFF route resolution for the `acreditacion/**` family; admin's `legajo.test.tsx` renders the real `LegajoPage` tree (not a shallow mock of `AuditQueue`) so the actual prop wiring from hook data to `AuditQueue`'s `evidenciaIds` is what's under test. No live boot (`spring-boot:run`/`docker compose up`) was available in this sandbox — see task 4b.8. |
+| Rollback boundary | Revert every file in "Files Changed" above (all isolated, additive diffs to already-shipped Phase 1-4 files) and delete `ts_hornero_admin/src/routes/legajo.test.tsx`. No other file depends on any of this — Phase 5/6 (Slice B) has not started, and `AppShell.tsx`/`Topbar.tsx`'s pre-existing uncommitted changes (not this run's work) are untouched either way. |
+
+## Verification Gate (task 4b.7) — real numbers
+
+| Command | Result | Baseline | Delta |
+|---|---|---|---|
+| `mvn clean test` (`jar_hornero_ms/`) | **237/237 pass, 0 failures, 0 errors, BUILD SUCCESS** | 226/226 | +11 |
+| `npm test` (`ts_hornero_bff/`) | **14 suites, 91/91 pass** | 86/86 | +5 |
+| `npm test` (`ts_hornero_admin/`) | **40 suites, 192/192 pass** | 188/188 | +4 |
+| `npm run build` (`ts_hornero_admin/`, `tsc -b && vite build`) | **PASS** — no type errors, `dist/` emitted, only the pre-existing informational chunk-size warning (unrelated to this run) | PASS | unchanged |
+
+No regressions in any of the four commands.
+
+## Lint Hygiene
+
+`ts_hornero_bff/npm run lint` (project-wide `eslint --fix`) reformatted 16 unrelated pre-existing files
+again, exactly as documented in Phase 3 — caught via `git status` immediately after and reverted with
+`git checkout --` for every path outside `src/acreditacion/`. Final lint count: **165 problems (152
+errors, 13 warnings)**, matching the previously-documented pre-existing baseline exactly — no new lint
+error was introduced by this phase's files. `ts_hornero_admin/npm run lint` (no `--fix`) → **0
+errors/warnings**.
+
+## Issues Found
+
+None new.
+
+## Review Budget Note
+
+No explicit Review Workload Forecast section exists for Phase 4b in tasks.md (it's a small,
+post-validation addendum, not a forecast-bearing phase like A1-A4). Actual authored diff: **~280 changed
+lines across 8 modified existing files (MS: 61, BFF: 93, admin hooks/route: 65 net excluding the unrelated
+`AppShell.tsx`/`Topbar.tsx` diffs already present in the working tree before this run) + 111 authored lines
+in one new test file (`legajo.test.tsx`)** ≈ **~391 total**, within the ~400-line delivery budget as a
+single work unit. No `size:exception` needed.
+
+## Remaining Tasks (this change, not this run)
+
+Phase 5 (B1) and Phase 6 (B2) — 17 tasks — remain deferred per the user's own scheduling instruction
+("Do not start before the user schedules Slice B") and are unchanged in `tasks.md`.
+
+## Workload / PR Boundary
+
+- Mode: chained PR slice (`feature-branch-chain`), work unit A5 (Phase 4b), following A1→A2→A3→A4
+- Current work unit: A5 — audit-queue read endpoint (MS → BFF → admin SPA)
+- Boundary: starts from A4's commit on `feat/acreditacion-trazabilidad`; ends at one work-unit commit
+  containing exactly the files listed above (or one commit per service, whichever reads better)
+- Estimated review budget impact: ~391 authored changed lines, within the ~400 budget as a single unit
+
+## Status
+
+8/8 Phase 4b tasks complete. **70/87 tasks complete overall** (62 from Slice A + 8 from this run — note
+Phase 4b added 8 new tasks to `tasks.md` after Slice A's 79-task count, bringing the total to 87). Slice A
+plus the D-02 audit-queue fix (A5) are now fully implemented, tested, and independently verified. Phase 5
+(B1)/Phase 6 (B2) — Slice B — remain deferred per the user's own scheduling instruction; not started in
+this run.

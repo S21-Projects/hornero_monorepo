@@ -1,5 +1,6 @@
 package org.example.acreditacion;
 
+import org.example.acreditacion.dto.EvidenciaResponse;
 import org.example.domain.EstadoEvidencia;
 import org.example.domain.EstadoOrganizacion;
 import org.example.domain.NivelAcreditacion;
@@ -156,5 +157,53 @@ class AcreditacionServiceEvidenciaTest {
                         organizacion.getId(), List.of(TipoEventoOrganizacion.REQUISITO_OBSERVADO));
         assertThat(eventos).hasSize(1);
         assertThat(eventos.get(0).getMotivo()).isEqualTo("foto poco clara");
+    }
+
+    // --- Task 4b.1 (D-02): audit-queue read — GET .../acreditacion/evidencias ---
+
+    @Test
+    void listingEvidenciasReturnsEveryRowWithIdAndEstado() {
+        OrganizacionEvidencia pendiente = acreditacionService.cargarEvidencia(
+                organizacion, RequisitoAcreditacion.NO_DISCRIMINACION, TipoEvidencia.DECLARACION,
+                "pendiente", LocalDate.now(), null, referente.getId());
+        OrganizacionEvidencia aprobada = acreditacionService.cargarEvidencia(
+                organizacion, RequisitoAcreditacion.SIN_KIOSCO_MISMO_DOMICILIO, TipoEvidencia.DECLARACION,
+                "aprobada", LocalDate.now(), null, referente.getId());
+        acreditacionService.aprobarEvidencia(aprobada.getId(), administrador.getId());
+
+        List<EvidenciaResponse> resultado = acreditacionService.evidencias(organizacion.getId(), null);
+
+        assertThat(resultado).extracting(EvidenciaResponse::id)
+                .containsExactlyInAnyOrder(pendiente.getId(), aprobada.getId());
+        assertThat(resultado).filteredOn(e -> e.id().equals(pendiente.getId()))
+                .extracting(EvidenciaResponse::estado)
+                .containsExactly(EstadoEvidencia.PENDIENTE);
+        assertThat(resultado).filteredOn(e -> e.id().equals(aprobada.getId()))
+                .extracting(EvidenciaResponse::estado)
+                .containsExactly(EstadoEvidencia.APROBADA);
+    }
+
+    @Test
+    void listingEvidenciasWithEstadoFilterReturnsOnlyMatchingRows() {
+        OrganizacionEvidencia pendiente = acreditacionService.cargarEvidencia(
+                organizacion, RequisitoAcreditacion.NO_DISCRIMINACION, TipoEvidencia.DECLARACION,
+                "pendiente", LocalDate.now(), null, referente.getId());
+        OrganizacionEvidencia aprobada = acreditacionService.cargarEvidencia(
+                organizacion, RequisitoAcreditacion.SIN_KIOSCO_MISMO_DOMICILIO, TipoEvidencia.DECLARACION,
+                "aprobada", LocalDate.now(), null, referente.getId());
+        acreditacionService.aprobarEvidencia(aprobada.getId(), administrador.getId());
+
+        List<EvidenciaResponse> resultado =
+                acreditacionService.evidencias(organizacion.getId(), EstadoEvidencia.PENDIENTE);
+
+        assertThat(resultado).extracting(EvidenciaResponse::id).containsExactly(pendiente.getId());
+    }
+
+    @Test
+    void listingEvidenciasForOrganizacionWithNoneReturnsEmptyListNotNull() {
+        List<EvidenciaResponse> resultado = acreditacionService.evidencias(organizacion.getId(), null);
+
+        assertThat(resultado).isNotNull();
+        assertThat(resultado).isEmpty();
     }
 }
