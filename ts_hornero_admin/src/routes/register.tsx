@@ -8,6 +8,7 @@ import { Button } from '../components/ui/Button';
 import { Text } from '../components/ui/Typography';
 import { OrgLocationPickerLazy } from '../components/map/OrgLocationPickerLazy';
 import { OrgImagesEditor } from '../components/org/OrgImagesEditor';
+import { BienvenidaAcreditacion } from '../components/acreditacion/BienvenidaAcreditacion';
 import { useGeolocation } from '../lib/hooks/useGeolocation';
 import { useCrearOrganizacion } from '../lib/hooks/useCrearOrganizacion';
 import { mapCrearOrganizacionError } from '../lib/hooks/mapCrearOrganizacionError';
@@ -22,8 +23,61 @@ import { CORDOBA_CENTER, type LatLng } from '../lib/geo';
 // in, but organización creation failed. They must NOT be asked to re-register
 // (referente-onboarding spec: "Partial-Failure Retry"). Their org-form inputs
 // stay in this component's state so retrying only re-issues POST /organizaciones.
-type Step = 'role' | 'account' | 'org' | 'done' | 'org-error';
+//
+// Step 'acreditacion' — the 3rd register step (referente only, per
+// `referente-onboarding` spec's Bienvenida delta): reached from 'done' via
+// "Continuar", explains the N0..N3 ladder and ends in "Empezar con N1" /
+// "Más tarde". Never reached by DONANTE, which never sets `step` past
+// 'account' (it submits and redirects to /login directly).
+type Step = 'role' | 'account' | 'org' | 'done' | 'org-error' | 'acreditacion';
 type SelectedRole = 'DONANTE' | 'REFERENTE';
+
+/** Visible stage labels for the step indicator — REFERENTE walks all 3,
+ * DONANTE only has an account stage before submitting straight to /login. */
+const REFERENTE_STAGES = ['Tu cuenta', 'Organización', 'Acreditación'] as const;
+const DONANTE_STAGES = ['Tu cuenta', 'Confirmación'] as const;
+
+function currentStageIndex(step: Step): number {
+  switch (step) {
+    case 'account':
+      return 0;
+    case 'org':
+      return 1;
+    case 'done':
+    case 'acreditacion':
+    case 'org-error':
+      return 2;
+    default:
+      return 0;
+  }
+}
+
+function StepIndicator({ stages, current }: { stages: readonly string[]; current: number }) {
+  return (
+    <ol
+      style={{
+        display: 'flex',
+        justifyContent: 'center',
+        gap: 12,
+        listStyle: 'none',
+        padding: 0,
+        marginBottom: 24,
+      }}
+    >
+      {stages.map((label, i) => (
+        <li key={label} aria-current={i === current ? 'step' : undefined}>
+          <Text
+            as="span"
+            variant="label"
+            color={i === current ? 'earth' : 'ink-3'}
+          >
+            {label}
+          </Text>
+        </li>
+      ))}
+    </ol>
+  );
+}
 
 interface FieldErrors {
   nombre?: string;
@@ -189,6 +243,15 @@ export default function RegisterPage() {
     navigate('/');
   }
 
+  /** "Empezar con N1" — same auth-status resolution as `finishAndGo`, but
+   * lands on /acreditacion instead of role home. Resolving status first
+   * matters here too: /acreditacion is gated by `requireVerified`, and an
+   * unresolved 'loading' status would otherwise flash a loader mid-redirect. */
+  async function handleEmpezarAcreditacion() {
+    await useAuthStore.getState().loadUser();
+    navigate('/acreditacion');
+  }
+
   function handleRoleSelect(selectedRole: SelectedRole) {
     setRole(selectedRole);
     setPendingRole(null);
@@ -242,6 +305,13 @@ export default function RegisterPage() {
       <div style={{ marginBottom: 32 }}>
         <Logo size={42} />
       </div>
+
+      {step !== 'role' && (
+        <StepIndicator
+          stages={role === 'DONANTE' ? DONANTE_STAGES : REFERENTE_STAGES}
+          current={currentStageIndex(step)}
+        />
+      )}
 
       {/* ── Step 0: role selection ─────────────────────────────────────────── */}
       {step === 'role' && (
@@ -648,10 +718,20 @@ export default function RegisterPage() {
             </div>
           )}
 
-          <Button variant="primary" block onClick={() => { void finishAndGo(); }}>
-            Ir a mi panel
+          <Button variant="primary" block onClick={() => setStep('acreditacion')}>
+            Continuar
           </Button>
         </Card>
+      )}
+
+      {/* ── Step: acreditacion (REFERENTE only, 3rd step — Bienvenida) ──────── */}
+      {step === 'acreditacion' && createdOrgId != null && (
+        <BienvenidaAcreditacion
+          organizacionId={createdOrgId}
+          organizacionNombre={orgNombre.trim()}
+          onEmpezar={() => { void handleEmpezarAcreditacion(); }}
+          onMasTarde={() => { void finishAndGo(); }}
+        />
       )}
 
       {/* ── Step: org-error (account created, org creation failed) ─────────── */}

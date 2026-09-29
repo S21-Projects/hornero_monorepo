@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { StatePanel } from '../components/ui/StatePanel';
 import { Input } from '../components/ui/Input';
 import { Button } from '../components/ui/Button';
@@ -33,6 +33,7 @@ function otpErrorMessage(reason: string | undefined): string {
  */
 export default function VerifyEmailPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const user = useAuthStore((s) => s.user);
   const loadUser = useAuthStore((s) => s.loadUser);
 
@@ -73,7 +74,12 @@ export default function VerifyEmailPage() {
       // the user so the store's emailVerificado reflects the new claim.
       await loadUser();
       const tipo = useAuthStore.getState().user?.tipo;
-      navigate(tipo ? roleHome(tipo) : '/', { replace: true });
+      // Resume wherever ProtectedRoute's requireVerified gate sent the user
+      // from (e.g. /acreditacion right after registering) when that path is
+      // internal; otherwise fall back to their role home, same as before.
+      const from = (location.state as { from?: string } | null)?.from;
+      const target = from && from.startsWith('/') ? from : tipo ? roleHome(tipo) : '/';
+      navigate(target, { replace: true });
     } catch (err) {
       const reason = (err as { response?: { data?: { message?: string } } })?.response?.data
         ?.message;

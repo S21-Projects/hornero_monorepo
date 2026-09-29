@@ -1,4 +1,4 @@
-import { Navigate, Outlet } from 'react-router-dom';
+import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import type { ReactNode } from 'react';
 import { useAuthStore } from '../store/auth.store';
 import type { UserRole } from '../store/auth.store';
@@ -47,6 +47,7 @@ export function ProtectedRoute({
   const user = useAuthStore((s) => s.user);
   const orgValidada = useAuthStore((s) => s.orgValidada);
   const orgChecked = useAuthStore((s) => s.orgChecked);
+  const location = useLocation();
 
   if (status === 'loading') {
     // Role is being resolved via GET /auth/me — do not redirect yet.
@@ -64,7 +65,7 @@ export function ProtectedRoute({
   }
 
   if (requireVerified && !user?.emailVerificado) {
-    return <Navigate to="/verify-email" replace />;
+    return <Navigate to="/verify-email" replace state={{ from: location.pathname }} />;
   }
 
   if (requireValidated && tipo === 'REFERENTE') {
