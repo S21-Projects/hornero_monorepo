@@ -1,33 +1,27 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { ForbiddenException } from '@nestjs/common';
+import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import { Readable } from 'stream';
 import type { Request, Response } from 'express';
 import { EvidenciaFilesController } from './evidencia-files.controller';
 import { ImagesService } from '../images/images.service.js';
-import { OrganizacionesService } from '../organizaciones/organizaciones.service.js';
+import { AcreditacionService } from '../acreditacion/acreditacion.service.js';
 import { Role } from '../common/enums/role.enum.js';
 
 /**
- * specs/organizacion-evidencia/spec.md — "Authenticated Evidence-File Access": the owning
- * REFERENTE and any ADMINISTRADOR may fetch an evidence file; a non-owning REFERENTE is denied
- * `403`. This route is the only supported way to read an `org-evidencia/` object — the public
- * `GET /images?key=` route keeps rejecting that prefix unconditionally (A3 deny-list, untouched).
+ * AD-12 (tesis-core-features slice 2): `EvidenciaFilesController` now delegates the whole
+ * authorization decision — ownership AND row binding — to the MS through
+ * `AcreditacionService.verificarArchivoEvidencia`, for every role (no more BFF-side
+ * `misOrganizaciones` ownership shortcut for admins, and no bypass for anyone).
  */
 describe('EvidenciaFilesController', () => {
   let controller: EvidenciaFilesController;
   let imagesService: { getObject: jest.Mock };
-  let organizacionesService: { misOrganizaciones: jest.Mock };
+  let acreditacionService: { verificarArchivoEvidencia: jest.Mock };
 
-  const requestAsReferente = (token = 'token-123') =>
+  const requestWith = (token = 'token-123', tipo: Role = Role.REFERENTE) =>
     ({
       cookies: { access_token: token },
-      user: { tipo: Role.REFERENTE },
-    }) as unknown as Request;
-
-  const requestAsAdmin = (token = 'admin-token') =>
-    ({
-      cookies: { access_token: token },
-      user: { tipo: Role.ADMINISTRADOR },
+      user: { tipo },
     }) as unknown as Request;
 
   const fakeResponse = () => ({ set: jest.fn() }) as unknown as Response;
@@ -39,53 +33,76 @@ describe('EvidenciaFilesController', () => {
         contentType: 'image/jpeg',
       }),
     };
-    organizacionesService = { misOrganizaciones: jest.fn() };
+    acreditacionService = {
+      verificarArchivoEvidencia: jest.fn().mockResolvedValue(undefined),
+    };
 
     const module: TestingModule = await Test.createTestingModule({
       controllers: [EvidenciaFilesController],
       providers: [
         { provide: ImagesService, useValue: imagesService },
-        { provide: OrganizacionesService, useValue: organizacionesService },
+        { provide: AcreditacionService, useValue: acreditacionService },
       ],
     }).compile();
 
     controller = module.get<EvidenciaFilesController>(EvidenciaFilesController);
   });
 
-  it('lets the owning REFERENTE fetch their own organizacion evidence file', async () => {
-    organizacionesService.misOrganizaciones.mockResolvedValue([{ id: 5 }]);
+  it('streams the object when the MS confirms the row (204)', async () => {
+    await controller.serve(
+      5,
+      'foto.jpg',
+      requestWith('token-123', Role.REFERENTE),
+      fakeResponse(),
+    );
 
-    await controller.serve(5, 'foto.jpg', requestAsReferente(), fakeResponse());
-
+    expect(acreditacionService.verificarArchivoEvidencia).toHaveBeenCalledWith(
+      5,
+      'org-evidencia/5/foto.jpg',
+      'token-123',
+    );
     expect(imagesService.getObject).toHaveBeenCalledWith(
       'org-evidencia/5/foto.jpg',
     );
   });
 
-  it('lets an ADMINISTRADOR fetch any organizacion evidence file without an ownership check', async () => {
-    await controller.serve(99, 'foto.jpg', requestAsAdmin(), fakeResponse());
+  it('also goes through the MS check for an ADMINISTRADOR (no bypass)', async () => {
+    await controller.serve(
+      99,
+      'foto.jpg',
+      requestWith('admin-token', Role.ADMINISTRADOR),
+      fakeResponse(),
+    );
 
-    expect(organizacionesService.misOrganizaciones).not.toHaveBeenCalled();
+    expect(acreditacionService.verificarArchivoEvidencia).toHaveBeenCalledWith(
+      99,
+      'org-evidencia/99/foto.jpg',
+      'admin-token',
+    );
     expect(imagesService.getObject).toHaveBeenCalledWith(
       'org-evidencia/99/foto.jpg',
     );
   });
 
-  it('denies a non-owning REFERENTE with 403', async () => {
-    organizacionesService.misOrganizaciones.mockResolvedValue([{ id: 2 }]);
+  it('propagates a ForbiddenException from the MS check and never calls getObject', async () => {
+    acreditacionService.verificarArchivoEvidencia.mockRejectedValueOnce(
+      new ForbiddenException('No autorizado'),
+    );
 
     await expect(
-      controller.serve(99, 'foto.jpg', requestAsReferente(), fakeResponse()),
+      controller.serve(99, 'foto.jpg', requestWith(), fakeResponse()),
     ).rejects.toBeInstanceOf(ForbiddenException);
     expect(imagesService.getObject).not.toHaveBeenCalled();
   });
 
-  it('denies a REFERENTE who owns no organizaciones at all', async () => {
-    organizacionesService.misOrganizaciones.mockResolvedValue([]);
+  it('propagates a NotFoundException from the MS check and never calls getObject', async () => {
+    acreditacionService.verificarArchivoEvidencia.mockRejectedValueOnce(
+      new NotFoundException('Evidencia no encontrada'),
+    );
 
     await expect(
-      controller.serve(5, 'foto.jpg', requestAsReferente(), fakeResponse()),
-    ).rejects.toBeInstanceOf(ForbiddenException);
+      controller.serve(5, 'no-existe.jpg', requestWith(), fakeResponse()),
+    ).rejects.toBeInstanceOf(NotFoundException);
     expect(imagesService.getObject).not.toHaveBeenCalled();
   });
 });

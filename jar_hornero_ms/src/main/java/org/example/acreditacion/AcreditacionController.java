@@ -117,6 +117,15 @@ public class AcreditacionController {
         return acreditacionService.acreditacion(id);
     }
 
+    @Operation(summary = "Authorize reading an evidence file bound to an existing row (AD-12)")
+    @GetMapping("/acreditacion/evidencias/archivo")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @PreAuthorize("hasAnyRole('ADMINISTRADOR', 'REFERENTE')")
+    public void archivoEvidencia(@PathVariable Long id, @RequestParam String objectKey) {
+        requireAdminOrOwningReferente(id);
+        acreditacionService.existeArchivoEvidencia(id, objectKey);
+    }
+
     @Operation(summary = "Export the full legajo (admin or owning referente — D-01)")
     @GetMapping("/legajo")
     @PreAuthorize("hasAnyRole('ADMINISTRADOR', 'REFERENTE')")

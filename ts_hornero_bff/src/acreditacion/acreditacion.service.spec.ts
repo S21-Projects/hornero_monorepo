@@ -1,6 +1,12 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { HttpService } from '@nestjs/axios';
 import { ConfigService } from '@nestjs/config';
+import { AxiosError, AxiosHeaders } from 'axios';
+import {
+  BadRequestException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
 import { AcreditacionService } from './acreditacion.service';
 
 const MS_URL = 'http://localhost:8081';
@@ -125,5 +131,74 @@ describe('AcreditacionService', () => {
         headers: { Authorization: `Bearer ${TOKEN}` },
       },
     );
+  });
+
+  // --- AD-12 (tesis-core-features slice 2): evidence-file access authorization ---
+
+  const OBJECT_KEY = 'org-evidencia/1/foto raro.jpg';
+
+  function axiosErrorWithStatus(status: number): AxiosError {
+    return new AxiosError(
+      'Request failed',
+      String(status),
+      undefined,
+      undefined,
+      {
+        status,
+        statusText: '',
+        headers: {},
+        config: { headers: new AxiosHeaders() },
+        data: {},
+      },
+    );
+  }
+
+  it('resolves with no value when the MS answers 204 (a matching row exists)', async () => {
+    getMock.mockResolvedValueOnce({ data: undefined, status: 204 });
+
+    await expect(
+      service.verificarArchivoEvidencia(1, OBJECT_KEY, TOKEN),
+    ).resolves.toBeUndefined();
+
+    expect(getMock).toHaveBeenCalledWith(
+      `${MS_URL}/api/organizaciones/1/acreditacion/evidencias/archivo`,
+      {
+        headers: { Authorization: `Bearer ${TOKEN}` },
+        params: { objectKey: OBJECT_KEY },
+      },
+    );
+  });
+
+  it('throws ForbiddenException when the MS answers 403', async () => {
+    getMock.mockRejectedValueOnce(axiosErrorWithStatus(403));
+
+    await expect(
+      service.verificarArchivoEvidencia(1, OBJECT_KEY, TOKEN),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+  });
+
+  it('throws NotFoundException when the MS answers 404', async () => {
+    getMock.mockRejectedValueOnce(axiosErrorWithStatus(404));
+
+    await expect(
+      service.verificarArchivoEvidencia(1, OBJECT_KEY, TOKEN),
+    ).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it('throws BadRequestException when the MS answers 400', async () => {
+    getMock.mockRejectedValueOnce(axiosErrorWithStatus(400));
+
+    await expect(
+      service.verificarArchivoEvidencia(1, OBJECT_KEY, TOKEN),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('rethrows an unrelated axios error unchanged', async () => {
+    const networkError = axiosErrorWithStatus(500);
+    getMock.mockRejectedValueOnce(networkError);
+
+    await expect(
+      service.verificarArchivoEvidencia(1, OBJECT_KEY, TOKEN),
+    ).rejects.toBe(networkError);
   });
 });

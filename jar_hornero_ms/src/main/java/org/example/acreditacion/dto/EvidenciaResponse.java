@@ -12,6 +12,8 @@ public record EvidenciaResponse(
         Long organizacionId,
         RequisitoAcreditacion requisito,
         TipoEvidencia tipoEvidencia,
+        /** R2 key under {@code org-evidencia/{orgId}/} — additive field (tesis-core-features slice 2, AD-12). */
+        String objectKey,
         String declaracion,
         LocalDate validoDesde,
         LocalDate validoHasta,
@@ -29,6 +31,7 @@ public record EvidenciaResponse(
                 evidencia.getOrganizacion().getId(),
                 evidencia.getRequisito(),
                 evidencia.getTipoEvidencia(),
+                evidencia.getObjectKey(),
                 evidencia.getDeclaracion(),
                 evidencia.getValidoDesde(),
                 evidencia.getValidoHasta(),

@@ -207,7 +207,7 @@ class AcreditacionControllerSecurityTest {
      */
     private EvidenciaResponse sampleEvidencia() {
         return new EvidenciaResponse(10L, 1L, RequisitoAcreditacion.NO_DISCRIMINACION, TipoEvidencia.DECLARACION,
-                "declaración", LocalDate.now(), null, EstadoEvidencia.PENDIENTE, false, 5L, Instant.now(),
+                null, "declaración", LocalDate.now(), null, EstadoEvidencia.PENDIENTE, false, 5L, Instant.now(),
                 null, null, null);
     }
 

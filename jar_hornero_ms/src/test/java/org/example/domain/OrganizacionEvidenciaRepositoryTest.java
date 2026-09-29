@@ -59,6 +59,45 @@ class OrganizacionEvidenciaRepositoryTest {
         assertThat(rows).extracting(OrganizacionEvidencia::getId).containsExactly(vigente.getId());
     }
 
+    // --- Slice 2 (tesis-core-features), task 2.1: existsByOrganizacion_IdAndObjectKey backs the
+    // MS's evidence-file authorization endpoint (AD-12) — file access is bound to an existing row.
+
+    @Test
+    void existsByOrganizacionIdAndObjectKeyIsTrueForTheOwningOrganizacionsRow() {
+        Organizacion org = persistOrganizacion("org-d");
+        OrganizacionEvidencia evidencia = OrganizacionEvidencia.nueva(org, RequisitoAcreditacion.NO_DISCRIMINACION,
+                TipoEvidencia.FOTO, null, LocalDate.now(), null, 1L, "org-evidencia/" + org.getId() + "/foto.jpg");
+        evidenciaRepository.save(evidencia);
+
+        boolean existe = evidenciaRepository.existsByOrganizacion_IdAndObjectKey(
+                org.getId(), "org-evidencia/" + org.getId() + "/foto.jpg");
+
+        assertThat(existe).isTrue();
+    }
+
+    @Test
+    void existsByOrganizacionIdAndObjectKeyIsFalseForTheSameKeyUnderAnotherOrganizacion() {
+        Organizacion orgOwner = persistOrganizacion("org-e");
+        Organizacion orgOther = persistOrganizacion("org-f");
+        String key = "org-evidencia/" + orgOwner.getId() + "/foto.jpg";
+        evidenciaRepository.save(OrganizacionEvidencia.nueva(orgOwner, RequisitoAcreditacion.NO_DISCRIMINACION,
+                TipoEvidencia.FOTO, null, LocalDate.now(), null, 1L, key));
+
+        boolean existe = evidenciaRepository.existsByOrganizacion_IdAndObjectKey(orgOther.getId(), key);
+
+        assertThat(existe).isFalse();
+    }
+
+    @Test
+    void existsByOrganizacionIdAndObjectKeyIsFalseForAnUnknownKey() {
+        Organizacion org = persistOrganizacion("org-g");
+
+        boolean existe = evidenciaRepository.existsByOrganizacion_IdAndObjectKey(
+                org.getId(), "org-evidencia/" + org.getId() + "/no-existe.jpg");
+
+        assertThat(existe).isFalse();
+    }
+
     @Test
     void declaresNoDeleteMethod() {
         Method[] declaredMethods = OrganizacionEvidenciaRepository.class.getDeclaredMethods();

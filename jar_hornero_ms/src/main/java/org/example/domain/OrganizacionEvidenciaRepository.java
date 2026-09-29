@@ -24,4 +24,12 @@ public interface OrganizacionEvidenciaRepository extends Repository<Organizacion
 
     List<OrganizacionEvidencia> findByOrganizacion_IdAndRequisitoAndEstadoNot(
             Long organizacionId, RequisitoAcreditacion requisito, EstadoEvidencia estadoDistinto);
+
+    /**
+     * AD-12 (tesis-core-features, slice 2): backs the evidence-file access-authorization endpoint —
+     * a syntactically valid {@code objectKey} under this organizacion's prefix must also match an
+     * existing row, {@code REEMPLAZADA} included (legajo history stays viewable). A read, so the
+     * append-only reflection test above stays green.
+     */
+    boolean existsByOrganizacion_IdAndObjectKey(Long organizacionId, String objectKey);
 }
