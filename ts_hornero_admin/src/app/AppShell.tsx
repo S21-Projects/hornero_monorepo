@@ -1,34 +1,48 @@
 import { Outlet, Link, NavLink, useLocation } from 'react-router-dom';
 import { ErrorBoundary } from 'react-error-boundary';
+import { Grid1, Buildings2, Box, People, Profile2User, Gift, SearchNormal1, Setting2 } from 'iconsax-reactjs';
 import { useAuthStore } from '../store/auth.store';
 import type { UserRole } from '../store/auth.store';
 import { AppErrorFallback } from './AppErrorFallback';
-import { Topbar } from './Topbar';
+import { Avatar } from '../components/ui/Avatar';
+import { Badge } from '../components/Badge';
+import { Text } from '../components/ui/Typography';
 import { roleHome } from '../lib/roleHome';
+import { ROLE_LABELS } from '../lib/metricas';
+import type { BadgeTone } from '../lib/domain-ui';
 
 interface NavItem {
   to: string;
   label: string;
+  icon: React.ReactNode;
 }
+
+const ICON_SIZE = 19;
 
 const NAV_LINKS: Record<UserRole, NavItem[]> = {
   ADMINISTRADOR: [
-    { to: '/panel', label: 'Panel' },
-    { to: '/admin', label: 'Admin' },
-    { to: '/users', label: 'Usuarios' },
-    { to: '/referentes', label: 'Referentes' },
-    { to: '/control-donaciones', label: 'Donaciones' },
+    { to: '/panel', label: 'Panel', icon: <Grid1 size={ICON_SIZE} /> },
+    { to: '/admin', label: 'Admin', icon: <Buildings2 size={ICON_SIZE} /> },
+    { to: '/users', label: 'Usuarios', icon: <People size={ICON_SIZE} /> },
+    { to: '/referentes', label: 'Referentes', icon: <Profile2User size={ICON_SIZE} /> },
+    { to: '/control-donaciones', label: 'Donaciones', icon: <Gift size={ICON_SIZE} /> },
   ],
   REFERENTE: [
-    { to: '/dashboard', label: 'Dashboard' },
-    { to: '/needs', label: 'Necesidades' },
-    { to: '/mis-organizaciones', label: 'Mis organizaciones' },
-    { to: '/prefs', label: 'Preferencias' },
+    { to: '/dashboard', label: 'Dashboard', icon: <Grid1 size={ICON_SIZE} /> },
+    { to: '/needs', label: 'Necesidades', icon: <Box size={ICON_SIZE} /> },
+    { to: '/mis-organizaciones', label: 'Mis organizaciones', icon: <Buildings2 size={ICON_SIZE} /> },
+    { to: '/prefs', label: 'Preferencias', icon: <Setting2 size={ICON_SIZE} /> },
   ],
   DONANTE: [
-    { to: '/explorar',       label: 'Explorar' },
-    { to: '/mis-donaciones', label: 'Mis Donaciones' },
+    { to: '/explorar', label: 'Explorar', icon: <SearchNormal1 size={ICON_SIZE} /> },
+    { to: '/mis-donaciones', label: 'Mis Donaciones', icon: <Gift size={ICON_SIZE} /> },
   ],
+};
+
+const ROLE_TONE: Record<UserRole, BadgeTone> = {
+  ADMINISTRADOR: 'sky',
+  REFERENTE: 'ok',
+  DONANTE: 'neutral',
 };
 
 export default function AppShell() {
@@ -41,15 +55,16 @@ export default function AppShell() {
 
   return (
     <div style={{ display: 'flex', height: '100vh' }}>
-      <nav
+      <aside
         style={{
-          width: 220,
+          width: 248,
           height: '100%',
-          background: 'var(--earth)',
-          padding: '24px 16px',
+          background: 'var(--card)',
+          borderRight: '1px solid var(--line)',
+          padding: '22px 16px',
           display: 'flex',
           flexDirection: 'column',
-          gap: 8,
+          gap: 3,
           flexShrink: 0,
           overflowY: 'auto',
         }}
@@ -61,42 +76,77 @@ export default function AppShell() {
             alignItems: 'center',
             gap: 8,
             textDecoration: 'none',
-            padding: '4px 12px 20px',
+            padding: '0 8px 22px',
           }}
         >
           <img src="/icon.svg" alt="" width={28} height={28} />
-          <span style={{ color: '#fff', fontWeight: 900, fontSize: 'var(--fs-title)', lineHeight: 1.1 }}>
+          <span style={{ color: 'var(--horn)', fontWeight: 900, fontSize: 'var(--fs-title)', lineHeight: 1.1 }}>
             El Hornero
           </span>
         </Link>
 
-        {links.map(({ to, label }) => (
-          <NavLink
-            key={to}
-            to={to}
-            style={({ isActive }) => ({
-              color: isActive ? 'var(--adobe)' : 'var(--parchment, #f5f0e8)',
-              textDecoration: 'none',
-              padding: '8px 12px',
-              borderRadius: 8,
-              fontFamily: 'var(--font-app)',
-              fontWeight: 600,
-              background: isActive ? 'rgba(255,255,255,0.18)' : 'transparent',
-            })}
+        <nav style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+          {links.map(({ to, label, icon }) => (
+            <NavLink
+              key={to}
+              to={to}
+              style={({ isActive }) => ({
+                display: 'flex',
+                alignItems: 'center',
+                gap: 11,
+                padding: '11px 12px',
+                borderRadius: 11,
+                textDecoration: 'none',
+                background: isActive ? 'var(--horn)' : 'transparent',
+              })}
+            >
+              {({ isActive }) => (
+                <>
+                  <span style={{ color: isActive ? '#fff' : 'var(--ink-3)', display: 'inline-flex' }}>{icon}</span>
+                  <Text variant="body-sm" as="span" style={{ color: isActive ? '#fff' : 'var(--ink-2)' }}>{label}</Text>
+                </>
+              )}
+            </NavLink>
+          ))}
+        </nav>
+
+        <div style={{ flex: 1 }} />
+
+        {user && (
+          <div
+            style={{
+              background: 'var(--card-2)',
+              borderRadius: 14,
+              padding: 14,
+              display: 'flex',
+              gap: 11,
+              alignItems: 'center',
+            }}
           >
-            {label}
-          </NavLink>
-        ))}
+            <Avatar name={user.nombre} size={40} />
+            <div style={{ lineHeight: 1.3, minWidth: 0, flex: 1 }}>
+              <Text
+                as="div"
+                variant="label"
+                color="earth"
+                style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+              >
+                {user.nombre}
+              </Text>
+              <Badge tone={ROLE_TONE[user.tipo]} label={ROLE_LABELS[user.tipo]} style={{ marginTop: 3 }} />
+            </div>
+          </div>
+        )}
 
         <button
           onClick={() => { void logout(); }}
           style={{
-            marginTop: 'auto',
+            marginTop: 10,
             padding: '8px 12px',
             background: 'transparent',
-            border: '1px solid rgba(255,255,255,0.3)',
+            border: '1px solid var(--line)',
             borderRadius: 8,
-            color: 'var(--parchment, #f5f0e8)',
+            color: 'var(--ink-2)',
             fontFamily: 'var(--font-app)',
             cursor: 'pointer',
             fontWeight: 600,
@@ -104,16 +154,13 @@ export default function AppShell() {
         >
           Cerrar sesión
         </button>
-      </nav>
+      </aside>
 
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-        <Topbar user={user} />
-        <main style={{ flex: 1, padding: 24, overflowY: 'auto' }}>
-          <ErrorBoundary FallbackComponent={AppErrorFallback} resetKeys={[location.pathname]}>
-            <Outlet />
-          </ErrorBoundary>
-        </main>
-      </div>
+      <main style={{ flex: 1, padding: 24, overflowY: 'auto', minWidth: 0 }}>
+        <ErrorBoundary FallbackComponent={AppErrorFallback} resetKeys={[location.pathname]}>
+          <Outlet />
+        </ErrorBoundary>
+      </main>
     </div>
   );
 }
