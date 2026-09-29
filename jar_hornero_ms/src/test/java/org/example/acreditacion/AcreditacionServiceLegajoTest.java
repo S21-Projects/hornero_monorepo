@@ -138,4 +138,40 @@ class AcreditacionServiceLegajoTest {
         LegajoResponse legajoN0 = acreditacionService.legajo(organizacion.getId());
         assertThat(legajoN0.disclosure()).isNotBlank();
     }
+
+    /**
+     * task 2.24 (AD-12 follow-up): {@code RequisitoEnLegajo} must carry {@code objectKey} so the
+     * referente's own acreditación view (`acreditacion.tsx`) can resolve the authenticated
+     * evidence-file route, the same way the audit queue and legajo screens already do.
+     */
+    @Test
+    void requisitoEnLegajoCarriesObjectKeyForFotoEvidence() {
+        var evidencia = acreditacionService.cargarEvidencia(organizacion,
+                RequisitoAcreditacion.SERVICIO_REGULAR_GRATUITO, TipoEvidencia.FOTO, null,
+                LocalDate.now(), null, administrador.getId(),
+                "org-evidencia/" + organizacion.getId() + "/foto.jpg");
+        acreditacionService.aprobarEvidencia(evidencia.getId(), administrador.getId());
+
+        LegajoResponse legajo = acreditacionService.legajo(organizacion.getId());
+
+        RequisitoEnLegajo requisito = legajo.requisitos().stream()
+                .filter(r -> r.requisito() == RequisitoAcreditacion.SERVICIO_REGULAR_GRATUITO)
+                .findFirst().orElseThrow();
+        assertThat(requisito.objectKey()).isEqualTo("org-evidencia/" + organizacion.getId() + "/foto.jpg");
+    }
+
+    @Test
+    void requisitoEnLegajoObjectKeyIsNullForDeclaracionEvidence() {
+        var evidencia = acreditacionService.cargarEvidencia(organizacion,
+                RequisitoAcreditacion.NO_DISCRIMINACION, TipoEvidencia.DECLARACION, "d",
+                LocalDate.now(), null, administrador.getId());
+        acreditacionService.aprobarEvidencia(evidencia.getId(), administrador.getId());
+
+        LegajoResponse legajo = acreditacionService.legajo(organizacion.getId());
+
+        RequisitoEnLegajo requisito = legajo.requisitos().stream()
+                .filter(r -> r.requisito() == RequisitoAcreditacion.NO_DISCRIMINACION)
+                .findFirst().orElseThrow();
+        assertThat(requisito.objectKey()).isNull();
+    }
 }

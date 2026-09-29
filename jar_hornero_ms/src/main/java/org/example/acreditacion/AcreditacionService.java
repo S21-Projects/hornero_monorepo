@@ -402,7 +402,7 @@ public class AcreditacionService {
 
             if (vigente == null) {
                 requisitos.add(new RequisitoEnLegajo(requisito, requisito.getNivelExigido(),
-                        EstadoRequisitoLegajo.FALTANTE, null, null, null, null, false, null, null));
+                        EstadoRequisitoLegajo.FALTANTE, null, null, null, null, false, null, null, null));
                 continue;
             }
 
@@ -417,7 +417,8 @@ public class AcreditacionService {
 
             requisitos.add(new RequisitoEnLegajo(requisito, requisito.getNivelExigido(), estadoLegajo,
                     vigente.getTipoEvidencia(), vigente.getDeclaracion(), vigente.getValidoDesde(),
-                    vigente.getValidoHasta(), vigente.isExpirada(), auditorNombre, vigente.getRevisadoEn()));
+                    vigente.getValidoHasta(), vigente.isExpirada(), auditorNombre, vigente.getRevisadoEn(),
+                    vigente.getObjectKey()));
         }
 
         List<EventoResponse> eventosResponse = eventos.stream()

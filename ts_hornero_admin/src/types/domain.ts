@@ -259,6 +259,12 @@ export interface RequisitoEnLegajo {
   expirada: boolean;
   auditorNombre?: string | null;
   auditadoEn?: string | null;
+  /**
+   * R2 key under `org-evidencia/{orgId}/` for FOTO/DOCUMENTO evidence — additive field
+   * (tesis-core-features task 2.24, AD-12 follow-up). `null`/absent for DECLARACION evidence and
+   * for FALTANTE requisitos.
+   */
+  objectKey?: string | null;
 }
 
 /** Mirrors `LegajoResponse` (MS) — server-assembled, proxied unmodified by the BFF (AD-11). */

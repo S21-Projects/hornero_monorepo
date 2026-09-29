@@ -5,6 +5,7 @@ import { Button } from '../components/ui/Button';
 import { Text } from '../components/ui/Typography';
 import { NivelBadge } from '../components/acreditacion/NivelBadge';
 import { EvidenciaForm } from '../components/acreditacion/EvidenciaForm';
+import { EvidenciaArchivo } from '../components/acreditacion/EvidenciaArchivo';
 import { useMisOrganizaciones } from '../lib/hooks/useMisOrganizaciones';
 import { useLegajo } from '../lib/hooks/useAcreditacion';
 import type { RequisitoEnLegajo } from '../types/domain';
@@ -41,6 +42,19 @@ function RequisitoRow({ organizacionId, requisito }: { organizacionId: number; r
       {requisito.declaracion && (
         <Text variant="body-sm" color="ink-2" style={{ marginTop: 8 }}>{requisito.declaracion}</Text>
       )}
+
+      {/* task 2.24 (AD-12 follow-up): render the authenticated evidence-file route for the
+          referente's own FOTO/DOCUMENTO evidence, the same as AuditQueue and legajo.tsx. */}
+      {(requisito.tipoEvidencia === 'FOTO' || requisito.tipoEvidencia === 'DOCUMENTO') &&
+        requisito.objectKey && (
+          <div style={{ marginTop: 8 }}>
+            <EvidenciaArchivo
+              organizacionId={organizacionId}
+              objectKey={requisito.objectKey}
+              tipoEvidencia={requisito.tipoEvidencia}
+            />
+          </div>
+        )}
 
       {showForm && (
         <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--line)' }}>
