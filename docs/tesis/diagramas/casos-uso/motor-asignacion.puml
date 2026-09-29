@@ -1,0 +1,15 @@
+@startuml
+' Hornero — Casos de uso del Motor de asignación (proceso por lotes)
+!include _estilo.iuml
+
+actor "Motor de asignación\n(proceso por lotes)" as Motor
+
+rectangle "Hornero" {
+  usecase "CU-11\nAsignar donaciones\ndel fondo común" as CU11
+  usecase "Registrar evento\nen la bitácora" as Bitacora
+}
+
+Motor --> CU11
+CU11 ..> Bitacora : <<include>>
+
+@enduml

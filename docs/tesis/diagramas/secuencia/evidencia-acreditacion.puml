@@ -1,0 +1,71 @@
+@startuml
+' Hornero — Evidencia, auditoría y elevación de nivel (CU-07, CU-08, CU-09)
+!include _estilo.iuml
+
+actor "Referente" as Referente
+actor "Administrador" as Admin
+participant "Panel web" as Web
+participant "BFF" as BFF
+participant "Backend" as Back
+database "Base de datos" as DB
+
+== Presentación de evidencia (CU-07) ==
+
+Referente -> Web : Presenta evidencia de un requisito
+Web -> BFF : Enviar evidencia
+BFF -> Back : Enviar evidencia
+activate Back
+alt el referente no pertenece a la organización
+  Back --> Web : Acceso denegado
+else el referente pertenece a la organización
+  Back -> DB : Guardar evidencia como pendiente
+  opt había evidencia previa para el mismo requisito
+    Back -> DB : Marcar evidencia anterior como reemplazada
+  end
+  Back -> DB : Registrar evento en la bitácora
+  Back --> Web : Evidencia registrada
+  Web --> Referente : Evidencia pendiente de auditoría
+end
+deactivate Back
+
+== Auditoría de evidencia (CU-08) ==
+
+Admin -> Web : Abre la cola de auditoría
+Web -> BFF : Consultar evidencias pendientes
+BFF -> Back : Consultar evidencias pendientes
+Back -> DB : Leer evidencias pendientes
+Back --> Web : Evidencias a revisar
+
+Admin -> Web : Aprueba u observa la evidencia
+Web -> BFF : Resolver evidencia
+BFF -> Back : Resolver evidencia
+activate Back
+Back -> DB : Guardar resultado de la auditoría
+Back -> DB : Registrar evento en la bitácora
+Back --> Web : Evidencia auditada
+deactivate Back
+
+== Elevación de nivel (CU-09) ==
+
+Admin -> Web : Solicita elevar el nivel (con motivo)
+Web -> BFF : Elevar nivel
+BFF -> Back : Elevar nivel
+activate Back
+alt el destino no es el nivel siguiente
+  Back --> Web : Transición inválida
+else el destino es el nivel siguiente
+  Back -> DB : Leer evidencias aprobadas exigidas por el nivel
+  alt falta un requisito o está vencido
+    Back --> Web : No se puede elevar
+  else todos los requisitos aprobados y vigentes
+    group misma transacción
+      Back -> DB : Actualizar nivel de la organización
+      Back -> DB : Registrar evento en la bitácora
+    end
+    Back --> Web : Nivel actualizado
+    Web --> Admin : Organización elevada de nivel
+  end
+end
+deactivate Back
+
+@enduml

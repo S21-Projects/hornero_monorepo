@@ -1,0 +1,58 @@
+@startuml
+title Arquitectura objetivo del MVP
+
+skinparam shadowing false
+skinparam defaultFontName Helvetica
+skinparam nodesep 25
+skinparam ranksep 45
+skinparam ArrowColor #444444
+skinparam node {
+  BackgroundColor #FFFFFF
+  BorderColor #666666
+}
+skinparam database {
+  BackgroundColor #FFFFFF
+  BorderColor #666666
+}
+skinparam cloud {
+  BackgroundColor #FAFAFA
+  BorderColor #888888
+}
+
+node "Dispositivo del usuario" as cliente {
+  artifact "Navegador web" as navegador
+}
+
+node "Punto de entrada HTTPS" as proxy
+
+node "Servidor de aplicaciones" as servidor {
+  artifact "Sitio público" as sitio
+  artifact "Panel web" as panel
+  artifact "BFF" as bff
+  artifact "Backend" as backend
+  database "Base de datos" as db
+}
+
+node "Microservicio de asignaciones" as asignaciones
+
+cloud "Servicios externos" as externos {
+  artifact "Almacenamiento de objetos" as bucket
+  artifact "Servicio de correo" as correo
+}
+
+navegador --> proxy : HTTPS
+proxy --> sitio
+proxy --> panel
+proxy --> bff
+
+sitio --> bff
+panel --> bff
+bff --> backend
+backend --> db
+bff --> bucket
+backend --> correo
+sitio --> correo
+
+backend ..> asignaciones : pendiente de integración
+
+@enduml

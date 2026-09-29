@@ -1,0 +1,49 @@
+@startsalt
+' Hornero — Wireframe (salt): panel de acreditación del referente.
+' Cubre CU-07 (presentar evidencia). Contexto de lectura para CU-09 y CU-10.
+' Boceto de baja fidelidad: no es una captura de la aplicación en ejecución;
+' el mecanismo de acreditación progresiva está diseñado en
+' openspec/changes/acreditacion-progresiva/ y no aplicado aún al código.
+
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Helvetica
+skinparam defaultFontSize 12
+
+{
+  {^"Panel de acreditación — Comedor Los Horneros" | . | [Exportar legajo]}
+  --
+  {
+    Escalera de acreditación
+    {#
+      . | N0 Registrada | N1 Identificada | **N2 Operativa (actual)** | N3 Acreditada
+      Estado | Completo | Completo | En curso | Bloqueado
+    }
+  }
+  --
+  {
+    Requisitos del nivel N2 y anteriores
+    {#
+      Requisito | Nivel | Estado | Vigencia
+      Servicio regular gratuito | N1 | () Aprobado | vigente hasta 12/2027
+      No discriminación | N1 | () Aprobado | vigente hasta 12/2027
+      Sede inscripta individualmente | N1 | () Aprobado | sin vencimiento
+      Condiciones sanitarias adecuadas | N2 | (X) Observado | "falta foto del depósito"
+      Sin kiosco en el mismo domicilio | N2 | () Aprobado | vigente hasta 03/2027
+      Radio 50 km Banco de Alimentos | N2 | () Pendiente de auditoría | —
+    }
+  }
+  --
+  {
+    Presentar evidencia
+    {
+      Requisito | ^Condiciones sanitarias adecuadas^
+      Tipo de evidencia | () Declaración () Foto (X) Documento
+      Archivo | [Elegir archivo...] "condiciones_local.pdf"
+      Válido hasta | "31/12/2026"
+      . | [Cancelar] [Presentar evidencia]
+    }
+  }
+  --
+  "La evidencia presentada queda pendiente de auditoría por un administrador."
+}
+@endsalt

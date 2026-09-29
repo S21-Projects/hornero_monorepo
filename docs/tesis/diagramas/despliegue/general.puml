@@ -1,0 +1,65 @@
+@startuml
+skinparam shadowing false
+skinparam defaultFontName Helvetica
+skinparam nodesep 25
+skinparam ranksep 45
+skinparam ArrowColor #444444
+skinparam node {
+  BackgroundColor #FFFFFF
+  BorderColor #666666
+}
+skinparam database {
+  BackgroundColor #FFFFFF
+  BorderColor #666666
+}
+skinparam cloud {
+  BackgroundColor #FAFAFA
+  BorderColor #888888
+}
+
+node "Dispositivo del usuario" as cliente {
+  artifact "Navegador web" as navegador
+}
+
+cloud "Red pública" as internet {
+  node "Punto de entrada HTTPS" as entrada {
+    artifact "Proxy inverso" as proxy
+  }
+}
+
+node "Servidor de aplicaciones" as servidor {
+  node "Entorno de contenedores" as contenedores {
+    artifact "Front público\nAstro SSR" as astro
+    artifact "Front autenticado\nReact SPA" as admin
+    artifact "BFF\nNestJS" as bff
+    artifact "Microservicio\nSpring Boot" as ms
+    database "Base de datos\nPostgreSQL" as db
+  }
+}
+
+cloud "Servicios externos" as externos {
+  node "Almacenamiento de objetos" as almacenamiento {
+    artifact "Bucket S3" as bucket
+  }
+  node "Servicio de correo" as correo {
+    artifact "API de correo" as mailer
+  }
+}
+
+navegador --> proxy : HTTPS
+
+proxy --> astro : HTTP
+proxy --> admin : HTTP
+proxy --> bff : HTTP
+
+astro --> bff : HTTP
+bff --> ms : HTTP + JWT
+ms --> db : JDBC
+
+bff -right-> bucket : S3
+astro --> mailer : HTTPS
+ms -right-> mailer : HTTPS
+
+bucket -[hidden]down- mailer
+
+@enduml
