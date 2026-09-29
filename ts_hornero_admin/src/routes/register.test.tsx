@@ -118,7 +118,10 @@ describe('RegisterPage — referente org step + partial-failure retry', () => {
     await user.click(screen.getByRole('button', { name: 'Reintentar' }));
     expect(await screen.findByText('¡Solicitud enviada!')).toBeInTheDocument();
 
-    await user.click(screen.getByRole('button', { name: 'Ir a mi panel' }));
+    await user.click(screen.getByRole('button', { name: 'Continuar' }));
+    expect(await screen.findByText('Comedor Los Hornitos ya está registrado(a)')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Más tarde' }));
 
     await waitFor(() => expect(loadUserSpy).toHaveBeenCalled());
   });
@@ -153,5 +156,90 @@ describe('RegisterPage — referente org step + partial-failure retry', () => {
     await waitFor(() => expect(screen.getByText('Login Page')).toBeInTheDocument());
     expect(api.post).toHaveBeenCalledWith('/auth/register', expect.objectContaining({ tipo: 'DONANTE' }));
     expect(api.post).not.toHaveBeenCalledWith('/auth/login', expect.anything());
+  });
+});
+
+describe('RegisterPage — Bienvenida acreditación step (3rd step, referente only)', () => {
+  beforeEach(() => {
+    useAuthStore.setState({
+      user: null,
+      status: 'unauthenticated',
+      orgValidada: false,
+      orgChecked: false,
+      orgCount: 0,
+    });
+    vi.mocked(api.post).mockReset();
+  });
+
+  it('renders a 3rd "Acreditación" step after successful org creation, with the CTA navigating to /acreditacion', async () => {
+    vi.mocked(api.post).mockImplementation((url: string) => {
+      if (url === '/organizaciones') return Promise.resolve({ data: { id: 42 } });
+      return Promise.resolve({ data: {} });
+    });
+    const loadUserSpy = vi
+      .spyOn(useAuthStore.getState(), 'loadUser')
+      .mockImplementation(async () => {
+        useAuthStore.setState({ status: 'authenticated' });
+      });
+
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const router = createMemoryRouter(
+      [
+        { path: '/register', element: <RegisterPage /> },
+        { path: '/acreditacion', element: <div>Acreditacion Page</div> },
+      ],
+      { initialEntries: ['/register'] },
+    );
+    render(
+      <QueryClientProvider client={queryClient}>
+        <RouterProvider router={router} />
+      </QueryClientProvider>,
+    );
+    const user = userEvent.setup();
+
+    await user.click(screen.getByText('Tengo una organización'));
+    await user.click(screen.getByRole('button', { name: 'Continuar' }));
+    await user.type(screen.getByLabelText('Nombre completo'), 'Ana García');
+    await user.type(screen.getByLabelText('Email'), 'ana@example.com');
+    await user.type(screen.getByLabelText('Contraseña'), 'secret123');
+    await user.type(screen.getByLabelText('Confirmar contraseña'), 'secret123');
+    await user.click(screen.getByRole('button', { name: 'Continuar' }));
+    await user.type(screen.getByLabelText('Nombre de la organización'), 'Comedor Los Hornitos');
+    await user.selectOptions(screen.getByLabelText('Tipo de organización'), 'COMEDOR');
+    await user.type(screen.getByLabelText('Dirección'), 'Av. Colón 1234');
+    await user.click(screen.getByText('Fijar ubicación (test)'));
+    await user.click(screen.getByRole('button', { name: 'Postular organización' }));
+
+    expect(await screen.findByText('¡Solicitud enviada!')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Continuar' }));
+
+    expect(
+      await screen.findByText('Comedor Los Hornitos ya está registrado(a)'),
+    ).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Empezar con N1' }));
+
+    expect(await screen.findByText('Acreditacion Page')).toBeInTheDocument();
+    expect(loadUserSpy).toHaveBeenCalled();
+  });
+
+  it('shows a 3-stage step indicator for REFERENTE and a 2-stage one for DONANTE', async () => {
+    vi.mocked(api.post).mockResolvedValue({ data: {} });
+    const user = userEvent.setup();
+    renderRegister();
+
+    await user.click(screen.getByText('Tengo una organización'));
+    await user.click(screen.getByRole('button', { name: 'Continuar' }));
+    expect(screen.getAllByRole('listitem')).toHaveLength(3);
+  });
+
+  it('shows a 2-stage step indicator for DONANTE', async () => {
+    vi.mocked(api.post).mockResolvedValue({ data: {} });
+    const user = userEvent.setup();
+    renderRegister();
+
+    await user.click(screen.getByText('Quiero donar'));
+    await user.click(screen.getByRole('button', { name: 'Continuar' }));
+    expect(screen.getAllByRole('listitem')).toHaveLength(2);
   });
 });

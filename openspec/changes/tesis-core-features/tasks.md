@@ -46,8 +46,8 @@ strictly sequential.
 | Slice | Risk | Proposed sub-split (still one proposal slice; becomes 2 PRs in the chain) |
 |---|---|---|
 | 3c | High (400–500) | **3c-i**: QR/scan adapter + presentational components + hooks (`escanearQr.ts`, `payload.ts`, `CodigoQr`, `EscanerQr`, `CodigoInput`, `EstadoConfirmacion`, `Countdown`, `useEntrega.ts`) — no wiring yet. **3c-ii**: route wiring, old button/endpoint removal in admin+BFF+MS, package.json deps. Both must land before the Pi deploy that retires the old endpoint (they may still be separate reviewable PRs merged back-to-back). |
-| 5c | High (400–500) | **5c-i**: `Ronda`/`Asignacion` entities + repositories + `RondaService` core (candidate query, input derivations, write transaction). **5c-ii**: `AsignadorClient`/`HttpAsignadorClient`/config, `RondaController`, `AsignacionController`, `SecurityConfig` wiring, `DonacionService` vigente-asignación resolution. |
-| 5f | Medium-High (350–450) | **5f-i**: `donacion-detalle.tsx` + `ProgresoDonacion`/`DesgloseScore` + `useAsignaciones.ts`. **5f-ii**: `rondas.tsx` admin screen + `useRondas.ts` + router/nav wiring + `mis-donaciones.tsx` modalidad badge. |
+| 5c | High (400–500) | **5c-i**: `Ronda`, `Asignacion` entities + repositories + `RondaService` core (candidate query, input derivations, write transaction). **5c-ii**: `AsignadorClient`, `HttpAsignadorClient`/config, `RondaController`, `AsignacionController`, `SecurityConfig` wiring, `DonacionService` vigente-asignación resolution. |
+| 5f | Medium-High (350–450) | **5f-i**: `donacion-detalle.tsx` + `ProgresoDonacion`, `DesgloseScore` + `useAsignaciones.ts`. **5f-ii**: `rondas.tsx` admin screen + `useRondas.ts` + router/nav wiring + `mis-donaciones.tsx` modalidad badge. |
 
 ### Suggested Work Units
 
@@ -61,9 +61,9 @@ strictly sequential.
 | 3c-ii | Confirmation screen wired, old button retired | PR 6 | `npm test -- entrega` (admin), `mvn test -Dtest=DonacionControllerTest` (confirmar-entrega removed) | Manual end-to-end on `make up-local`: create donación → accept → generate/scan codes both ways → `ENTREGADA` | Redeploy previous images; `PENDIENTE_CONFIRMACION` donations complete via the restored button |
 | 4a | Cross-org audit queue backend | PR 7 | `mvn test -Dtest=AuditoriaControllerTest`, `npm test -- acreditacion` (bff) | N/A — read-only endpoint, no screen yet | Revert MS+BFF; read-only |
 | 4b | Cross-org audit queue screen | PR 8 | `npm test -- auditoria` (admin) | Manual: filter/paginate/approve from the queue on `make up-local` | Revert admin commit |
-| 5a | Worker contract + HTTP entrypoint | PR 9 | `go test ./...` | Manual: `curl` the worker's `/healthz` and `/v1/ronda` with a golden fixture once `docker compose up worker` | Remove the `worker` compose service; unused until 5c |
+| 5a | Worker contract + HTTP entrypoint | PR 9 | `go test ./...` | Manual: `curl` the worker's /healthz and /v1/ronda with a golden fixture once `docker compose up worker` | Remove the `worker` compose service; unused until 5c |
 | 5b | Pool schema + null safety | PR 10 | `mvn test -Dtest=DonacionServiceTest,DonacionRepositoryTest` | **USER ACTION**: run `V001` on the Pi before deploy (see slice below) | Redeploy previous MS; relaxed `NOT NULL` harmless while no pool donation exists |
-| 5c-i / 5c-ii | Asignación persistence + ronda trigger | PR 11 / PR 12 | `mvn test -Dtest=RondaServiceTest,AsignacionControllerTest` | Manual: trigger a ronda against the real worker on `make up-local` | Revert; `rondas`/`asignaciones` tables orphan-safe |
+| 5c-i / 5c-ii | Asignación persistence + ronda trigger | PR 11 / PR 12 | `mvn test -Dtest=RondaServiceTest,AsignacionControllerTest` | Manual: trigger a ronda against the real worker on `make up-local` | Revert; `rondas`, `asignaciones` tables orphan-safe |
 | 5d | BFF for modalidad + rondas | PR 13 | `npm test -- rondas` (bff) | N/A — no screen yet | Revert BFF commit |
 | 5e | Nueva donación screen | PR 14 | `npm test -- nueva-donacion` (admin) | Manual: submit a `FONDO_COMUN` donación on `make up-local` | Revert admin commit |
 | 5f-i / 5f-ii | Progress/detail + admin ronda screen | PR 15 / PR 16 | `npm test -- donacion-detalle,rondas` (admin) | Manual: full pool lifecycle on `make up-local` | Revert admin commit |
@@ -75,30 +75,33 @@ strictly sequential.
 
 Depends on: none. Spec: `referente-onboarding`.
 
-- [ ] 1.1 RED — Add failing assertions to `ts_hornero_admin/src/routes/register.test.tsx`: after
+- [x] 1.1 RED — Add failing assertions to `ts_hornero_admin/src/routes/register.test.tsx`: after
       successful `Organización` step submission for a REFERENTE, a 3rd step "Acreditación" renders;
       the step indicator shows 3 steps for REFERENTE and 2 for DONANTE; the existing `org-error`
       retry path is unaffected.
-- [ ] 1.2 RED — Add `ts_hornero_admin/src/components/acreditacion/BienvenidaAcreditacion.test.tsx`:
+- [x] 1.2 RED — Add `ts_hornero_admin/src/components/acreditacion/BienvenidaAcreditacion.test.tsx`:
       renders the N0..N3 ladder copy, shows the current level via a mocked `useAcreditacion(orgId)`,
       and the CTA "Empezar con N1" fires a navigation callback.
-- [ ] 1.3 RED — Add assertions to `ts_hornero_admin/src/app/ProtectedRoute.test.tsx`: the
+- [x] 1.3 RED — Add assertions to `ts_hornero_admin/src/app/ProtectedRoute.test.tsx`: the
       `requireVerified` redirect includes `state={{ from: location.pathname }}`.
-- [ ] 1.4 RED — Add assertions to the existing verify-email test: after successful verification,
+- [x] 1.4 RED — Add assertions to the existing verify-email test: after successful verification,
       navigation goes to `state.from` when it is an internal path, else `roleHome`.
-- [ ] 1.5 GREEN — Create `ts_hornero_admin/src/components/acreditacion/BienvenidaAcreditacion.tsx`
+      (Deviation: no `verify-email.test.tsx` existed; created it new since the file was missing.)
+- [x] 1.5 GREEN — Create `ts_hornero_admin/src/components/acreditacion/BienvenidaAcreditacion.tsx`
       (presentational, N0..N3 ladder + CTA) to satisfy 1.2.
-- [ ] 1.6 GREEN — Create/modify `ts_hornero_admin/src/lib/acreditacion.ts` (or existing constants
+- [x] 1.6 GREEN — Create/modify `ts_hornero_admin/src/lib/acreditacion.ts` (or existing constants
       module) with the static per-nivel ladder copy consumed by 1.5.
-- [ ] 1.7 GREEN — Modify `ts_hornero_admin/src/routes/register.tsx`: add `Step 'acreditacion'` after
+- [x] 1.7 GREEN — Modify `ts_hornero_admin/src/routes/register.tsx`: add `Step 'acreditacion'` after
       successful org creation for REFERENTE only; render `BienvenidaAcreditacion`; step indicator
       updated; donante flow untouched. Satisfies 1.1.
-- [ ] 1.8 GREEN — Modify `ts_hornero_admin/src/app/ProtectedRoute.tsx`: pass
+- [x] 1.8 GREEN — Modify `ts_hornero_admin/src/app/ProtectedRoute.tsx`: pass
       `state={{ from: location.pathname }}` on the `requireVerified` redirect. Satisfies 1.3.
-- [ ] 1.9 GREEN — Modify `ts_hornero_admin/src/routes/verify-email.tsx`: navigate to `state.from`
+- [x] 1.9 GREEN — Modify `ts_hornero_admin/src/routes/verify-email.tsx`: navigate to `state.from`
       when internal, else `roleHome`. Satisfies 1.4.
-- [ ] 1.10 REFACTOR — Confirm no duplicated ladder copy exists elsewhere (e.g.
+- [x] 1.10 REFACTOR — Confirm no duplicated ladder copy exists elsewhere (e.g.
       `acreditacion.tsx`); extract only if genuinely duplicated.
+      (Confirmed: `NivelBadge.tsx` only has short N0-N3 labels, not the full ladder descriptions —
+      no extraction needed.)
 
 **Verification (slice 1):** `cd ts_hornero_admin && npm test && npm run build`
 
@@ -113,13 +116,13 @@ than estimated.
 - [ ] 2.1 RED — `jar_hornero_ms/src/test/java/org/example/domain/OrganizacionEvidenciaRepositoryTest.java`:
       `existsByOrganizacion_IdAndObjectKey` true for the org's own row, false for the same key under
       another org, false for an unknown key; the existing append-only reflection assertion
-      (`delete*`/`saveAndFlush` forbidden) still passes.
+      (`delete*`, `saveAndFlush` forbidden) still passes.
 - [ ] 2.2 RED — New/modified MS controller test (`AcreditacionControllerTest` or a new
       `EvidenciaArchivoTest`): `GET /acreditacion/evidencias/archivo?objectKey=` → 204 for a matching
       row (owning referente and admin); 404 `EVIDENCIA_NO_ENCONTRADA` for a valid key with no row
       (owning referente and admin); 403 for a non-owning referente checked *before* the row lookup
       (no existence oracle); 403 for DONANTE; 401/403 for anonymous; 400
-      `EVIDENCIA_CLAVE_INVALIDA` for a foreign prefix, `..`, or extra `/`.
+      `EVIDENCIA_CLAVE_INVALIDA` for a foreign prefix, `..`, or extra `, `.
 - [ ] 2.3 RED — `jar_hornero_ms/src/test/.../acreditacion/AcreditacionServiceTest.java`:
       `existeArchivoEvidencia(orgId, objectKey)` unit-level behavior backing 2.2 (prefix/traversal
       validation, row lookup).
@@ -145,7 +148,7 @@ than estimated.
 - [ ] 2.11 GREEN — `ts_hornero_bff/src/acreditacion/acreditacion.module.ts`: `exports:
       [AcreditacionService]`.
 - [ ] 2.12 GREEN — `ts_hornero_bff/src/evidencia-files/evidencia-files.controller.ts`: replace
-      `assertOwnership`/`misOrganizaciones` with `verificarArchivoEvidencia` for every role before
+      `assertOwnership`, `misOrganizaciones` with `verificarArchivoEvidencia` for every role before
       `getObject`. Satisfies 2.8.
 - [ ] 2.13 GREEN — `ts_hornero_bff/src/evidencia-files/evidencia-files.module.ts`: import
       `AcreditacionModule` instead of `OrganizacionesModule`.
@@ -172,7 +175,7 @@ than estimated.
       `ts_hornero_admin/src/routes/legajo.tsx`, `ts_hornero_admin/src/routes/acreditacion.tsx`:
       render `EvidenciaArchivo` for FOTO/DOCUMENTO rows instead of any direct `img`/link.
 - [ ] 2.23 REFACTOR — Grep the admin source tree for any remaining `images?key=`-style construction
-      of an evidence URL outside `evidenciaArchivo.ts`/`useEvidenciaArchivo.ts`; there should be
+      of an evidence URL outside `evidenciaArchivo.ts`, `useEvidenciaArchivo.ts`; there should be
       none besides the unrelated `OrgImagesEditor.tsx` public-image flow.
 
 **Verification (slice 2):**
@@ -227,7 +230,7 @@ Depends on: none (lands before slice 5 per AD-5). Spec: `donacion-entrega-codigo
 - [ ] 3a.13 GREEN — Create `jar_hornero_ms/.../donacion/entrega/dto/CodigoEntregaResponse.java`,
       `VerificarCodigoRequest.java`, `EntregaEstadoResponse.java`.
 - [ ] 3a.14 GREEN — Create `jar_hornero_ms/.../donacion/entrega/EntregaController.java`: `POST
-      codigo`, `POST verificar`, `GET` estado at `/api/donaciones/{id}/entrega`.
+      codigo`, `POST verificar`, `GET` estado at /api/donaciones/{id}/entrega.
 - [ ] 3a.15 GREEN — `jar_hornero_ms/.../config/SecurityConfig.java`: declare
       `GET /api/donaciones/*/entrega` `.authenticated()` **before** the existing
       `GET /api/donaciones/**` permitAll matcher. Satisfies 3a.6.
@@ -267,7 +270,7 @@ Depends on: 3a. Spec: `donacion-entrega-codigo`.
 - [ ] 3b.2 RED — `ts_hornero_bff/src/donaciones/donaciones.service.spec.ts`: the three proxy
       methods call the correct MS URL with the Bearer header and relay MS error bodies unchanged.
 - [ ] 3b.3 RED — `ts_hornero_bff/src/donaciones/dto/verificar-codigo.dto.spec.ts` (or inline
-      validation test): `codigo` rejects anything not matching `/^\d{6}$/`.
+      validation test): `codigo` rejects anything not matching `^\d{6}$` (regex).
 - [ ] 3b.4 GREEN — Create `ts_hornero_bff/src/donaciones/dto/verificar-codigo.dto.ts`. Satisfies
       3b.3.
 - [ ] 3b.5 GREEN — `ts_hornero_bff/src/donaciones/donaciones.service.ts`: add the three proxy
@@ -314,7 +317,7 @@ together — no intermediate deploy has the screen without the retirement, or vi
 - [ ] 3c.9 GREEN — Create `ts_hornero_admin/src/components/entrega/EscanerQr.tsx` (dynamic
       `import()` of the adapter, only loaded on "Escanear código" tap). Satisfies 3c.8.
 - [ ] 3c.10 RED — `ts_hornero_admin/src/lib/hooks/useEntrega.test.ts`: `useEstadoEntrega` polls
-      every 3s until `ENTREGADA` then stops; `useGenerarCodigo`/`useVerificarCodigo` call the 3b
+      every 3s until `ENTREGADA` then stops; `useGenerarCodigo`, `useVerificarCodigo` call the 3b
       routes and invalidate the estado query.
 - [ ] 3c.11 GREEN — Create `ts_hornero_admin/src/lib/hooks/useEntrega.ts`. Satisfies 3c.10.
 
@@ -328,7 +331,7 @@ together — no intermediate deploy has the screen without the retirement, or vi
       countdown reaching zero shows "Generar código nuevo"; scanning updates status without reload
       (mocked adapter); typed input submits and verifies; polling stops at `ENTREGADA`.
 - [ ] 3c.13 GREEN — Create `ts_hornero_admin/src/routes/entrega.tsx`
-      (`/donaciones/:id/entrega`), composing 3c-i's components and hooks.
+      (/donaciones/:id/entrega), composing 3c-i's components and hooks.
 - [ ] 3c.14 GREEN — `ts_hornero_admin/src/app/router.tsx`: register the route with
       `allow={['DONANTE','REFERENTE']} requireVerified`.
 - [ ] 3c.15 RED — Assertions in `mis-donaciones.test.tsx` and `dashboard.test.tsx`: the old
@@ -388,7 +391,7 @@ Depends on: none. Spec: `auditoria-cola-global`. Design: AD-8.
       returning `PageData<EvidenciaEnColaResponse>` through `ApiResponse`. Satisfies 4a.2.
 - [ ] 4a.7 GREEN — `jar_hornero_ms/.../config/SecurityConfig.java`: add
       `.requestMatchers("/api/auditoria/**").hasRole("ADMINISTRADOR")` (deliberately not under
-      `/api/organizaciones/**`), plus `@PreAuthorize` on the controller as defense-in-depth.
+      /api/organizaciones/**), plus `@PreAuthorize` on the controller as defense-in-depth.
 - [ ] 4a.8 RED — `ts_hornero_bff/src/acreditacion/acreditacion.controller.spec.ts` (or a small
       sibling `auditoria` controller in the same module): whitelisted query params forwarded,
       `@Roles(ADMINISTRADOR)`.
@@ -418,7 +421,7 @@ Depends on: 4a. Spec: `auditoria-cola-global`.
 - [ ] 4b.5 GREEN — `ts_hornero_admin/src/lib/hooks/useAcreditacion.ts`: `useAuditarEvidencia` also
       invalidates `['auditoria','cola']`.
 - [ ] 4b.6 GREEN — `ts_hornero_admin/src/app/router.tsx`, `ts_hornero_admin/src/app/AppShell.tsx`:
-      register `/auditoria` under the ADMINISTRADOR block + nav entry.
+      register /auditoria under the ADMINISTRADOR block + nav entry.
 
 **Verification (slice 4b):** `cd ts_hornero_admin && npm test -- auditoria && npm run build`
 
@@ -506,13 +509,13 @@ Depends on: 3c (per AD-5, slice 3 must stabilize the transition table first). Sp
 - [ ] 5b.4 RED — `jar_hornero_ms/src/test/.../donacion/FaseDonacionTest.java`: the full AD-4
       derivation table (modalidad × estado × necesidad presence → `fase`).
 - [ ] 5b.5 RED — `jar_hornero_ms/src/test/.../domain/DonacionRepositoryTest.java`
-      (`@DataJpaTest` on H2): `findMias`/`findById`/`findActivas` and the donante/admin list
+      (`@DataJpaTest` on H2): `findMias`, `findById`, `findActivas` and the donante/admin list
       queries return an unassigned `FONDO_COMUN` donación (organizacion/necesidad fields absent, not
       a server error) via the new `LEFT JOIN FETCH`; org-scoped queries stay inner-joined and
       exclude unassigned pool donations; count queries use explicit left joins too.
 - [ ] 5b.6 RED — `jar_hornero_ms/src/test/.../donacion/DonacionResponseTest.java` (or an existing
-      response test): a pool donación's `latitud`/`longitud` are never serialized in any
-      `DonacionResponse`/`DonacionActivaResponse`, even for the owning donante on `GET
+      response test): a pool donación's `latitud`, `longitud` are never serialized in any
+      `DonacionResponse`, `DonacionActivaResponse`, even for the owning donante on `GET
       /api/donaciones` — location stays write-only.
 - [ ] 5b.7 RED — `jar_hornero_ms/src/test/.../config/EsquemaVerificadorTest.java`: when
       `necesidad_id` is still `NOT NULL` at boot (simulated), `crear(FONDO_COMUN)` answers `503
@@ -532,11 +535,11 @@ Depends on: 3c (per AD-5, slice 3 must stabilize the transition table first). Sp
 - [ ] 5b.12 GREEN — Modify `jar_hornero_ms/.../donacion/DonacionService.java`: `crear` branches per
       modalidad; `decidir` implements the devolución-to-pool rule for `FONDO_COMUN` rejections
       (AD-3); cancel resolves a vigente asignación hook (no-op stub until 5c persists `Asignacion`);
-      `eliminar` → 409 for `FONDO_COMUN`; null-safe `toResponse`/`toActivaResponse`; compute `fase`
+      `eliminar` → 409 for `FONDO_COMUN`; null-safe `toResponse`, `toActivaResponse`; compute `fase`
       via 5b.10. Satisfies 5b.3.
 - [ ] 5b.13 GREEN — Modify `jar_hornero_ms/.../donacion/DonacionResponse.java`,
-      `DonacionActivaResponse.java`: nullable `necesidadId`/`organizacionId`; add `modalidad`,
-      `categoria`, `fase`; never serialize `latitud`/`longitud`. Satisfies 5b.6.
+      `DonacionActivaResponse.java`: nullable `necesidadId`, `organizacionId`; add `modalidad`,
+      `categoria`, `fase`; never serialize `latitud`, `longitud`. Satisfies 5b.6.
 - [ ] 5b.14 GREEN — Modify `jar_hornero_ms/.../domain/DonacionRepository.java`: switch
       `findAllWithDonante` (×2), `findByIdWithRelations`, `findByDonante_IdWithRelations` (×2),
       `findActivas` + its `countQuery` to `LEFT JOIN FETCH d.necesidad n LEFT JOIN FETCH n.organizacion
@@ -545,7 +548,7 @@ Depends on: 3c (per AD-5, slice 3 must stabilize the transition table first). Sp
       (`ApplicationRunner`, PostgreSQL-only): reads `information_schema.columns.is_nullable` for
       `donaciones.necesidad_id` at boot; logs `ERROR` naming the script and flags
       `crear(FONDO_COMUN)` to answer `503 ESQUEMA_PENDIENTE` when still `NO`. Satisfies 5b.7.
-- [ ] 5b.16 REFACTOR — Sweep `DonacionService`/`DonacionController` for any remaining direct
+- [ ] 5b.16 REFACTOR — Sweep `DonacionService`, `DonacionController` for any remaining direct
       `d.getNecesidad().getOrganizacion()` call not already routed through `ParticipantesDonacion`
       (introduced in 3a) — this is the fix for the historical `DonacionService.java:157` NPE risk
       once pool donations exist.
@@ -580,17 +583,17 @@ Depends on: 5a (worker contract), 5b (schema). Sub-split per the forecast: **5c-
       excludes N0 organizaciones (RED test pinning the empty-`categoriasPermitidas` = uncapped
       worker behavior interacting with `AcreditacionService.categoriasPermitidas(N0)` being empty),
       excludes closed/expired necesidades, excludes orgs without a referente or coordinates;
-      `urgencia`/`diasDesdeUltimaDonacion` derivations match `UrgenciaCalculator`; exclusions from
+      `urgencia`, `diasDesdeUltimaDonacion` derivations match `UrgenciaCalculator`; exclusions from
       rejected assignments (`organizacionesExcluidas`) are applied; `ReentrantLock.tryLock()`
       failure → `409 RONDA_EN_CURSO`; worker timeout/error → `Ronda(FALLIDA, error)` persisted +
-      `503`/`502`, nothing assigned; a donation that went stale between read and write (donante
+      `503`, `502`, nothing assigned; a donation that went stale between read and write (donante
       cancelled mid-call) is counted as `descartadas`, not assigned; happy path persists `Ronda` +
       `Asignacion` rows and sets `donacion.necesidad`.
 - [ ] 5c.2 RED — `jar_hornero_ms/src/test/.../asignacion/UrgenciaCalculatorTest.java`: `urgencia =
       max(base(prioridad), vencimiento)` per the documented constants and clamp.
 - [ ] 5c.3 RED — `jar_hornero_ms/src/test/.../domain/AsignacionTest.java` /
       `RondaTest.java` (`@DataJpaTest`): entity persistence round-trips every field in AD-9's model,
-      including `deficitFuente`/`codigoRadio` and the weight snapshot columns.
+      including `deficitFuente`, `codigoRadio` and the weight snapshot columns.
 - [ ] 5c.4 GREEN — Create `jar_hornero_ms/.../domain/EstadoRonda.java`,
       `jar_hornero_ms/.../domain/Ronda.java`, `RondaRepository.java`.
 - [ ] 5c.5 GREEN — Create `jar_hornero_ms/.../domain/EstadoAsignacion.java`,
@@ -618,15 +621,15 @@ Depends on: 5a (worker contract), 5b (schema). Sub-split per the forecast: **5c-
       503.
 - [ ] 5c.10 RED — `jar_hornero_ms/src/test/.../asignacion/RondaControllerTest.java`
       (`@WebMvcTest` + real `SecurityConfig`): `POST /api/rondas` admin-only, 403 for
-      REFERENTE/DONANTE, 401/403 anonymous; `GET /api/rondas`, `/api/rondas/{id}`,
-      `/api/rondas/fondo` admin-only.
+      REFERENTE/DONANTE, 401/403 anonymous; `GET /api/rondas`, /api/rondas/{id},
+      /api/rondas/fondo admin-only.
 - [ ] 5c.11 RED — `jar_hornero_ms/src/test/.../asignacion/AsignacionControllerTest.java`:
       `GET /api/donaciones/{id}/asignaciones` accessible to the owning donante, any referente
       involved in the donation's assignment history, and admin; denied to unrelated actors.
 - [ ] 5c.12 RED — Assertions in `DonacionServiceTest.java` (or a new
       `DonacionAsignacionResolutionTest.java`): accept, devolución, cancel, and `overrideEstado`
       each resolve the vigente `Asignacion` to the matching `EstadoAsignacion`
-      (`ACEPTADA`/`RECHAZADA`/`CANCELADA`), replacing 5b.12's no-op stub.
+      (`ACEPTADA`, `RECHAZADA`, `CANCELADA`), replacing 5b.12's no-op stub.
 - [ ] 5c.13 GREEN — Create `jar_hornero_ms/.../asignacion/worker/AsignadorClient.java` (interface),
       `HttpAsignadorClient.java` (Spring `RestClient`), `AsignadorConfig.java`, `dto/*` (request/
       response wire DTOs). Satisfies 5c.9.
@@ -640,7 +643,7 @@ Depends on: 5a (worker contract), 5b (schema). Sub-split per the forecast: **5c-
       `DonacionController`): `GET /api/donaciones/{id}/asignaciones`. Satisfies 5c.11.
 - [ ] 5c.17 GREEN — Modify `jar_hornero_ms/.../donacion/DonacionService.java`: implement the
       vigente-asignación resolution stubbed in 5b.12. Satisfies 5c.12.
-- [ ] 5c.18 GREEN — `jar_hornero_ms/.../config/SecurityConfig.java`: `/api/rondas/**`
+- [ ] 5c.18 GREEN — `jar_hornero_ms/.../config/SecurityConfig.java`: /api/rondas/**
       `hasRole("ADMINISTRADOR")`; `GET /api/donaciones/*/asignaciones` `.authenticated()` declared
       before the donaciones permitAll matcher.
 - [ ] 5c.19 GREEN — `jar_hornero_ms/src/main/resources/application.yml`,
@@ -683,7 +686,7 @@ Depends on: 5c. Spec: `donacion-fondo-comun`, `ronda-asignacion`.
 Depends on: 5d. Spec: `donacion-fondo-comun`.
 
 - [ ] 5e.1 RED — `ts_hornero_admin/src/routes/nueva-donacion.test.tsx`: choosing `DIRECTA`
-      navigates to `/explorar` without embedding a picker (decision 14); choosing `FONDO_COMUN`
+      navigates to /explorar without embedding a picker (decision 14); choosing `FONDO_COMUN`
       reveals the required categoria selector and map control before submit; submitting
       `FONDO_COMUN` sends the correct payload shape.
 - [ ] 5e.2 RED — `ts_hornero_admin/src/components/donacion/CriteriosAsignacionPanel.test.tsx`:
@@ -691,17 +694,17 @@ Depends on: 5d. Spec: `donacion-fondo-comun`.
       scoring criteria without exposing organizacion-identifying data.
 - [ ] 5e.3 GREEN — Create `ts_hornero_admin/src/components/donacion/CriteriosAsignacionPanel.tsx`.
       Satisfies 5e.2.
-- [ ] 5e.4 GREEN — Create `ts_hornero_admin/src/routes/nueva-donacion.tsx` (`/donar`, DONANTE):
+- [ ] 5e.4 GREEN — Create `ts_hornero_admin/src/routes/nueva-donacion.tsx` (/donar, DONANTE):
       modalidad choice; `FONDO_COMUN` branch with categoria (required) + map pin (reuse
       `OrgLocationPickerLazy`) + observaciones + the criteria panel; `DIRECTA` branch routes to
-      `/explorar` per decision 14 (`necesidad-detalle.tsx` keeps its existing inline-create flow,
+      /explorar per decision 14 (`necesidad-detalle.tsx` keeps its existing inline-create flow,
       unchanged). Satisfies 5e.1.
 - [ ] 5e.5 GREEN — Modify `ts_hornero_admin/src/lib/hooks/useCrearDonacion.ts`: new payload union
       (`DIRECTA` vs `FONDO_COMUN`).
 - [ ] 5e.6 GREEN — Modify `ts_hornero_admin/src/types/domain.ts`: `ModalidadDonacion`,
-      `FaseDonacion`, nullable `necesidadId`/`organizacionId`.
+      `FaseDonacion`, nullable `necesidadId`, `organizacionId`.
 - [ ] 5e.7 GREEN — `ts_hornero_admin/src/app/router.tsx`, `ts_hornero_admin/src/app/AppShell.tsx`:
-      register `/donar` for DONANTE + nav entry (if not already present via the existing donation
+      register /donar for DONANTE + nav entry (if not already present via the existing donation
       entry point).
 
 **Verification (slice 5e):** `cd ts_hornero_admin && npm test -- nueva-donacion CriteriosAsignacion && npm run build`
@@ -731,7 +734,7 @@ Depends on: 5d. Sub-split per the forecast: **5f-i** (donante-facing progress/de
       (5f.3), modalidad badge, assigned organizacion, ronda date, score breakdown (5f.4), assignment
       timeline; null organizacion renders as "Esperando ronda"; `?nueva=1` shows a success banner.
 - [ ] 5f.8 GREEN — Create `ts_hornero_admin/src/routes/donacion-detalle.tsx`
-      (`/mis-donaciones/:id`). Satisfies 5f.7.
+      (/mis-donaciones/:id). Satisfies 5f.7.
 - [ ] 5f.9 GREEN — Modify `ts_hornero_admin/src/routes/mis-donaciones.tsx`: modalidad badge, link
       to the detail route, handle a null organizacion gracefully.
 
@@ -742,15 +745,15 @@ Depends on: 5d. Sub-split per the forecast: **5f-i** (donante-facing progress/de
 ### 5f-ii — Admin ronda screen
 
 - [ ] 5f.10 RED — `ts_hornero_admin/src/lib/hooks/useRondas.test.ts`: query for pool size/history,
-      mutation to trigger a ronda, surfaces `409`/`503` distinctly.
+      mutation to trigger a ronda, surfaces `409`, `503` distinctly.
 - [ ] 5f.11 GREEN — Create `ts_hornero_admin/src/lib/hooks/useRondas.ts`. Satisfies 5f.10.
 - [ ] 5f.12 RED — `ts_hornero_admin/src/routes/rondas.test.tsx`: shows pool size and history
-      table; "Ejecutar ronda" disabled while a run is pending; `409`/`503` render distinct user
+      table; "Ejecutar ronda" disabled while a run is pending; `409`, `503` render distinct user
       messages.
-- [ ] 5f.13 GREEN — Create `ts_hornero_admin/src/routes/rondas.tsx` (`/rondas`, ADMINISTRADOR).
+- [ ] 5f.13 GREEN — Create `ts_hornero_admin/src/routes/rondas.tsx` (/rondas, ADMINISTRADOR).
       Satisfies 5f.12.
 - [ ] 5f.14 GREEN — `ts_hornero_admin/src/app/router.tsx`, `ts_hornero_admin/src/app/AppShell.tsx`:
-      register `/rondas` under the ADMINISTRADOR block + nav entry.
+      register /rondas under the ADMINISTRADOR block + nav entry.
 
 **Verification (5f-ii):** `cd ts_hornero_admin && npm test -- rondas && npm run build`
 
@@ -809,7 +812,7 @@ Depends on: 5c, 6a. Spec: `asignacion-historial-cumplimiento`.
 - [ ] 6b.2 RED — Assertions in `EntradaRondaFactoryTest.java` (extending 5c's factory tests):
       `cumplimiento {entregadas, fallidas}` is attached per candidate in the assembled
       `EntradaRondaV1`.
-- [ ] 6b.3 RED — Assertions in `AsignacionTest.java`/`RondaServiceTest.java`: `terminoCumplimiento`
+- [ ] 6b.3 RED — Assertions in `AsignacionTest.java`, `RondaServiceTest.java`: `terminoCumplimiento`
       is persisted on `Asignacion` once the worker response carries a `desglose.cumplimiento` value.
 - [ ] 6b.4 GREEN — Create `jar_hornero_ms/.../asignacion/CumplimientoCalculator.java`: one grouped
       query (`org.id, estado, count`) over `donacion` rows with `estado IN (ENTREGADA, RECHAZADA)`
@@ -853,7 +856,7 @@ once slices 1–6b are done.
       `confirmar-entrega` button.
 - [ ] 7.3 Add or update the entity-relationship / UML diagrams under `docs/tesis/` (typed
       subfolders per the existing convention) to include the new entities: `Asignacion`, `Ronda`,
-      `CodigoEntrega`, and the `ModalidadDonacion`/`FaseDonacion` enums, with their relationships to
+      `CodigoEntrega`, and the `ModalidadDonacion`, `FaseDonacion` enums, with their relationships to
       `Donacion`, `Necesidad`, and `Organizacion`.
 - [ ] 7.4 Add the documented **known limitation** (AD-2): until the INDEC population CSV is
       sourced and mounted as `POBLACION_CSV`, every ronda candidate resolves to

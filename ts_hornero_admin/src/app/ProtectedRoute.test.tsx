@@ -1,9 +1,18 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
-import { createMemoryRouter, RouterProvider } from 'react-router-dom';
+import { createMemoryRouter, RouterProvider, useLocation } from 'react-router-dom';
 import { ProtectedRoute, PublicOnlyRoute } from './ProtectedRoute';
 import { useAuthStore } from '../store/auth.store';
 import type { AuthUser } from '../store/auth.store';
+
+/** Reads the location.state a `<Navigate>` carried into /verify-email, so
+ * tests can assert on `state.from` without depending on verify-email.tsx's
+ * own implementation. */
+function VerifyEmailStateProbe() {
+  const location = useLocation();
+  const from = (location.state as { from?: string } | null)?.from;
+  return <div>from:{from ?? '(none)'}</div>;
+}
 
 const ADMIN_USER: AuthUser = { userId: 1, email: 'admin@test.com', nombre: 'Admin', tipo: 'ADMINISTRADOR', emailVerificado: true };
 const DONANTE_USER: AuthUser = { userId: 2, email: 'd@test.com', nombre: 'Donante', tipo: 'DONANTE', emailVerificado: true };
@@ -247,6 +256,26 @@ describe('ProtectedRoute guard matrix', () => {
 
       expect(screen.getByText('Verify Email Page')).toBeInTheDocument();
       expect(screen.queryByText('Protected Content')).not.toBeInTheDocument();
+    });
+  });
+
+  describe('requireVerified redirect carries state.from', () => {
+    it('passes state={{ from: location.pathname }} so /verify-email can resume the original route', () => {
+      useAuthStore.setState({ status: 'authenticated', user: UNVERIFIED_REFERENTE_USER });
+
+      const router = createMemoryRouter(
+        [
+          {
+            element: <ProtectedRoute allow={['REFERENTE']} requireVerified />,
+            children: [{ path: '/acreditacion', element: <div>Acreditacion Page</div> }],
+          },
+          { path: '/verify-email', element: <VerifyEmailStateProbe /> },
+        ],
+        { initialEntries: ['/acreditacion'] },
+      );
+      render(<RouterProvider router={router} />);
+
+      expect(screen.getByText('from:/acreditacion')).toBeInTheDocument();
     });
   });
 });
