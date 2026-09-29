@@ -4,6 +4,7 @@ import { Button } from '../ui/Button';
 import { Card } from '../ui/Card';
 import { Text } from '../ui/Typography';
 import { useAuditarEvidencia } from '../../lib/hooks/useAcreditacion';
+import { EvidenciaArchivo } from './EvidenciaArchivo';
 import type { RequisitoAcreditacion, RequisitoEnLegajo } from '../../types/domain';
 
 const ESTADO_TONE: Record<string, 'danger' | 'ok' | 'sky' | 'neutral'> = {
@@ -18,6 +19,12 @@ interface AuditQueueProps {
   requisitos: RequisitoEnLegajo[];
   /** Evidence row id per requisito — needed by aprobar/observar, absent for FALTANTE rows. */
   evidenciaIds: Partial<Record<RequisitoAcreditacion, number>>;
+  /**
+   * `objectKey` per requisito (AD-12) — only known for the rows the caller separately fetched
+   * (today: PENDIENTE, via `useEvidenciasPendientes`). Absent means "render nothing", not
+   * "unavailable" — a requisito with no known objectKey never reaches `EvidenciaArchivo`.
+   */
+  evidenciaObjectKeys?: Partial<Record<RequisitoAcreditacion, string | null>>;
 }
 
 /**
@@ -26,7 +33,12 @@ interface AuditQueueProps {
  * or lowering a level lives only in `NivelPanel` (see spec's "separate admin
  * actions" note, task 4.7).
  */
-export function AuditQueue({ organizacionId, requisitos, evidenciaIds }: AuditQueueProps) {
+export function AuditQueue({
+  organizacionId,
+  requisitos,
+  evidenciaIds,
+  evidenciaObjectKeys = {},
+}: AuditQueueProps) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
       <Text variant="title">Cola de auditoría de evidencia</Text>
@@ -36,6 +48,7 @@ export function AuditQueue({ organizacionId, requisitos, evidenciaIds }: AuditQu
           organizacionId={organizacionId}
           requisito={r}
           evidenciaId={evidenciaIds[r.requisito]}
+          objectKey={evidenciaObjectKeys[r.requisito]}
         />
       ))}
     </div>
@@ -46,10 +59,12 @@ function AuditRow({
   organizacionId,
   requisito,
   evidenciaId,
+  objectKey,
 }: {
   organizacionId: number;
   requisito: RequisitoEnLegajo;
   evidenciaId?: number;
+  objectKey?: string | null;
 }) {
   const [showObservar, setShowObservar] = useState(false);
   const [observacion, setObservacion] = useState('');
@@ -111,6 +126,17 @@ function AuditRow({
       {requisito.declaracion && (
         <Text variant="body-sm" color="ink-2" style={{ marginTop: 8 }}>{requisito.declaracion}</Text>
       )}
+
+      {(requisito.tipoEvidencia === 'FOTO' || requisito.tipoEvidencia === 'DOCUMENTO') &&
+        objectKey !== undefined && (
+          <div style={{ marginTop: 8 }}>
+            <EvidenciaArchivo
+              organizacionId={organizacionId}
+              objectKey={objectKey}
+              tipoEvidencia={requisito.tipoEvidencia}
+            />
+          </div>
+        )}
 
       {showObservar && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 12 }}>

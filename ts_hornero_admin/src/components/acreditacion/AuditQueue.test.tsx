@@ -11,6 +11,15 @@ vi.mock('../../lib/axios', () => ({
   api: { patch: vi.fn() },
 }));
 
+// AD-12 (tesis-core-features slice 2, task 2.22): AuditQueue renders EvidenciaArchivo for
+// FOTO/DOCUMENTO rows instead of any direct img/link. Stubbed here — EvidenciaArchivo's own
+// rendering behavior is covered by EvidenciaArchivo.test.tsx.
+vi.mock('./EvidenciaArchivo', () => ({
+  EvidenciaArchivo: ({ objectKey }: { objectKey: string | null | undefined }) => (
+    <div data-testid="evidencia-archivo">{objectKey}</div>
+  ),
+}));
+
 function Wrapper({ children }: { children: ReactNode }) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
@@ -77,5 +86,37 @@ describe('AuditQueue', () => {
       '/organizaciones/5/acreditacion/evidencias/42/aprobar',
       {},
     );
+  });
+
+  // --- Task 2.22 (AD-12): FOTO/DOCUMENTO rows render EvidenciaArchivo ---
+
+  const FOTO_ROW: RequisitoEnLegajo = {
+    ...PENDIENTE_ROW,
+    requisito: 'CONDICIONES_SANITARIAS_ADECUADAS',
+    tipoEvidencia: 'FOTO',
+    declaracion: null,
+  };
+
+  it('renders EvidenciaArchivo for a FOTO row with a known objectKey', () => {
+    render(
+      <AuditQueue
+        organizacionId={5}
+        requisitos={[FOTO_ROW]}
+        evidenciaIds={{}}
+        evidenciaObjectKeys={{ CONDICIONES_SANITARIAS_ADECUADAS: 'org-evidencia/5/foto.jpg' }}
+      />,
+      { wrapper: Wrapper },
+    );
+
+    expect(screen.getByTestId('evidencia-archivo')).toHaveTextContent('org-evidencia/5/foto.jpg');
+  });
+
+  it('does not render EvidenciaArchivo for a DECLARACION row', () => {
+    render(
+      <AuditQueue organizacionId={5} requisitos={[PENDIENTE_ROW]} evidenciaIds={{}} />,
+      { wrapper: Wrapper },
+    );
+
+    expect(screen.queryByTestId('evidencia-archivo')).not.toBeInTheDocument();
   });
 });

@@ -159,11 +159,10 @@ export interface Usuario {
 }
 
 // ---------------------------------------------------------------------------
-// Acreditación progresiva (Slice A) — mirrors jar_hornero_ms's
-// `acreditacion/dto/*.java` and ts_hornero_bff's `acreditacion/dto/*.ts`.
-// Slice A never offers FOTO/DOCUMENTO in the SPA (see EvidenciaForm) even
-// though the union type includes them — the MS itself rejects a non-null
-// `objectKey` with 400 until Slice B ships the authenticated evidence route.
+// Acreditación progresiva — mirrors jar_hornero_ms's `acreditacion/dto/*.java`
+// and ts_hornero_bff's `acreditacion/dto/*.ts`. FOTO/DOCUMENTO evidence files
+// are rendered through the authenticated `evidencia-files` route, bound to an
+// existing row (AD-12, `specs/organizacion-evidencia/spec.md`).
 // ---------------------------------------------------------------------------
 
 export const NivelAcreditacion = {
@@ -222,6 +221,8 @@ export interface EvidenciaResponse {
   organizacionId: number;
   requisito: RequisitoAcreditacion;
   tipoEvidencia: TipoEvidencia;
+  /** R2 key under `org-evidencia/{orgId}/` — additive field (AD-12). Null for DECLARACION rows. */
+  objectKey?: string | null;
   declaracion?: string | null;
   validoDesde?: string | null;
   validoHasta?: string | null;

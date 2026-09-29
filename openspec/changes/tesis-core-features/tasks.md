@@ -113,68 +113,78 @@ Depends on: none. Spec: `organizacion-evidencia`. Design: AD-12. Natural cut if 
 2a (MS+BFF row binding) / 2b (admin rendering) — kept as one slice unless the diff proves larger
 than estimated.
 
-- [ ] 2.1 RED — `jar_hornero_ms/src/test/java/org/example/domain/OrganizacionEvidenciaRepositoryTest.java`:
+- [x] 2.1 RED — `jar_hornero_ms/src/test/java/org/example/domain/OrganizacionEvidenciaRepositoryTest.java`:
       `existsByOrganizacion_IdAndObjectKey` true for the org's own row, false for the same key under
       another org, false for an unknown key; the existing append-only reflection assertion
       (`delete*`, `saveAndFlush` forbidden) still passes.
-- [ ] 2.2 RED — New/modified MS controller test (`AcreditacionControllerTest` or a new
+- [x] 2.2 RED — New/modified MS controller test (`AcreditacionControllerTest` or a new
       `EvidenciaArchivoTest`): `GET /acreditacion/evidencias/archivo?objectKey=` → 204 for a matching
       row (owning referente and admin); 404 `EVIDENCIA_NO_ENCONTRADA` for a valid key with no row
       (owning referente and admin); 403 for a non-owning referente checked *before* the row lookup
       (no existence oracle); 403 for DONANTE; 401/403 for anonymous; 400
       `EVIDENCIA_CLAVE_INVALIDA` for a foreign prefix, `..`, or extra `, `.
-- [ ] 2.3 RED — `jar_hornero_ms/src/test/.../acreditacion/AcreditacionServiceTest.java`:
+- [x] 2.3 RED — `jar_hornero_ms/src/test/.../acreditacion/AcreditacionServiceTest.java`:
       `existeArchivoEvidencia(orgId, objectKey)` unit-level behavior backing 2.2 (prefix/traversal
       validation, row lookup).
-- [ ] 2.4 GREEN — `jar_hornero_ms/.../domain/OrganizacionEvidenciaRepository.java`: add the
+- [x] 2.4 GREEN — `jar_hornero_ms/.../domain/OrganizacionEvidenciaRepository.java`: add the
       `existsByOrganizacion_IdAndObjectKey(Long, String)` read-only finder. Satisfies 2.1.
-- [ ] 2.5 GREEN — `jar_hornero_ms/.../acreditacion/AcreditacionService.java`: add
+- [x] 2.5 GREEN — `jar_hornero_ms/.../acreditacion/AcreditacionService.java`: add
       `existeArchivoEvidencia(orgId, objectKey)` (400 on bad prefix/traversal, 404 on no row).
       Satisfies 2.3.
-- [ ] 2.6 GREEN — `jar_hornero_ms/.../acreditacion/AcreditacionController.java`: add
+- [x] 2.6 GREEN — `jar_hornero_ms/.../acreditacion/AcreditacionController.java`: add
       `GET /acreditacion/evidencias/archivo?objectKey=` with `@PreAuthorize` for
       ADMINISTRADOR/REFERENTE + `requireAdminOrOwningReferente`. Satisfies 2.2.
-- [ ] 2.7 GREEN — `jar_hornero_ms/.../acreditacion/dto/EvidenciaResponse.java`: add `objectKey`
+- [x] 2.7 GREEN — `jar_hornero_ms/.../acreditacion/dto/EvidenciaResponse.java`: add `objectKey`
       (additive field).
-- [ ] 2.8 RED — `ts_hornero_bff/src/evidencia-files/evidencia-files.controller.spec.ts`: MS 204 ⇒
+- [x] 2.8 RED — `ts_hornero_bff/src/evidencia-files/evidencia-files.controller.spec.ts`: MS 204 ⇒
       streams the object with its content type (200); MS 404 ⇒ `NotFoundException`, `getObject`
       never called; MS 403 ⇒ `ForbiddenException`, `getObject` never called; admin also goes through
       the MS check (no bypass); `misOrganizaciones` no longer called.
-- [ ] 2.9 RED — `ts_hornero_bff/src/acreditacion/acreditacion.service.spec.ts`: new
+- [x] 2.9 RED — `ts_hornero_bff/src/acreditacion/acreditacion.service.spec.ts`: new
       `verificarArchivoEvidencia(orgId, objectKey, token)` forwards Bearer from the cookie, sends
       the raw (unencoded) `objectKey` and lets the controller URL-encode; relays MS 400/403/404.
-- [ ] 2.10 GREEN — `ts_hornero_bff/src/acreditacion/acreditacion.service.ts`: implement
+- [x] 2.10 GREEN — `ts_hornero_bff/src/acreditacion/acreditacion.service.ts`: implement
       `verificarArchivoEvidencia`. Satisfies 2.9.
-- [ ] 2.11 GREEN — `ts_hornero_bff/src/acreditacion/acreditacion.module.ts`: `exports:
+- [x] 2.11 GREEN — `ts_hornero_bff/src/acreditacion/acreditacion.module.ts`: `exports:
       [AcreditacionService]`.
-- [ ] 2.12 GREEN — `ts_hornero_bff/src/evidencia-files/evidencia-files.controller.ts`: replace
+- [x] 2.12 GREEN — `ts_hornero_bff/src/evidencia-files/evidencia-files.controller.ts`: replace
       `assertOwnership`, `misOrganizaciones` with `verificarArchivoEvidencia` for every role before
       `getObject`. Satisfies 2.8.
-- [ ] 2.13 GREEN — `ts_hornero_bff/src/evidencia-files/evidencia-files.module.ts`: import
+- [x] 2.13 GREEN — `ts_hornero_bff/src/evidencia-files/evidencia-files.module.ts`: import
       `AcreditacionModule` instead of `OrganizacionesModule`.
-- [ ] 2.14 GREEN — `ts_hornero_bff/src/images/images.controller.ts`: comment-only change — deny-list
+- [x] 2.14 GREEN — `ts_hornero_bff/src/images/images.controller.ts`: comment-only change — deny-list
       documented as defense-in-depth, `evidencia-files` is the supported path. Remove the stale
       "until Slice B ships" comment (lines 14-20).
-- [ ] 2.15 RED — `ts_hornero_admin/src/lib/evidenciaArchivo.test.ts` (new file, colocated with
+- [x] 2.15 RED — `ts_hornero_admin/src/lib/evidenciaArchivo.test.ts` (new file, colocated with
       2.16): the strict parser rejects foreign prefixes, path traversal, and an orgId mismatch, and
       accepts a well-formed `org-evidencia/{orgId}/{filename}` key.
-- [ ] 2.16 GREEN — `ts_hornero_admin/src/lib/evidenciaArchivo.ts`: create the parser
+- [x] 2.16 GREEN — `ts_hornero_admin/src/lib/evidenciaArchivo.ts`: create the parser
       (`^org-evidencia/(\d+)/([^/]+)$`, orgId must equal `evidencia.organizacionId`). Satisfies 2.15.
-- [ ] 2.17 RED — `ts_hornero_admin/src/lib/hooks/useEvidenciaArchivo.test.ts`: axios blob fetch,
+- [x] 2.17 RED — `ts_hornero_admin/src/lib/hooks/useEvidenciaArchivo.test.ts`: axios blob fetch,
       revokes the object URL on unmount, maps both 403 and 404 to an "unavailable" result.
-- [ ] 2.18 GREEN — `ts_hornero_admin/src/lib/hooks/useEvidenciaArchivo.ts`: implement the hook.
+- [x] 2.18 GREEN — `ts_hornero_admin/src/lib/hooks/useEvidenciaArchivo.ts`: implement the hook.
       Satisfies 2.17.
-- [ ] 2.19 RED — `ts_hornero_admin/src/components/acreditacion/EvidenciaArchivo.test.tsx`: renders
+- [x] 2.19 RED — `ts_hornero_admin/src/components/acreditacion/EvidenciaArchivo.test.tsx`: renders
       `<img>` for `image/*`, an "Abrir documento" link otherwise, and "Archivo no disponible" when
       the hook reports unavailable.
-- [ ] 2.20 GREEN — `ts_hornero_admin/src/components/acreditacion/EvidenciaArchivo.tsx`: implement.
+- [x] 2.20 GREEN — `ts_hornero_admin/src/components/acreditacion/EvidenciaArchivo.tsx`: implement.
       Satisfies 2.19.
-- [ ] 2.21 GREEN — `ts_hornero_admin/src/types/domain.ts`: add `objectKey?: string | null` on
+- [x] 2.21 GREEN — `ts_hornero_admin/src/types/domain.ts`: add `objectKey?: string | null` on
       evidencia types; remove the stale "until Slice B" comment (lines 161-167).
 - [ ] 2.22 GREEN — Modify `ts_hornero_admin/src/components/acreditacion/AuditQueue.tsx`,
       `ts_hornero_admin/src/routes/legajo.tsx`, `ts_hornero_admin/src/routes/acreditacion.tsx`:
       render `EvidenciaArchivo` for FOTO/DOCUMENTO rows instead of any direct `img`/link.
-- [ ] 2.23 REFACTOR — Grep the admin source tree for any remaining `images?key=`-style construction
+      **Partial (apply-time deviation)**: `AuditQueue.tsx` (new `evidenciaObjectKeys` prop) and
+      `legajo.tsx` (feeds it from `useEvidenciasPendientes`, which now carries `objectKey`) are
+      done and tested. `acreditacion.tsx` (the referente's own view) was left untouched: it renders
+      from `LegajoResponse.requisitos` (`RequisitoEnLegajo`), and this slice's MS file list only
+      adds `objectKey` to `EvidenciaResponse` (task 2.7) — `RequisitoEnLegajo.java` was never
+      listed for modification, so the referente-facing data source has no `objectKey` to resolve.
+      Rendering `EvidenciaArchivo` there today would show "Archivo no disponible" unconditionally
+      for valid FOTO/DOCUMENTO evidence, which is worse than the status quo. Needs a follow-up
+      task (out of this slice's scope) to add `objectKey` to `RequisitoEnLegajo` or give referentes
+      a self-scoped evidencia-list read.
+- [x] 2.23 REFACTOR — Grep the admin source tree for any remaining `images?key=`-style construction
       of an evidence URL outside `evidenciaArchivo.ts`, `useEvidenciaArchivo.ts`; there should be
       none besides the unrelated `OrgImagesEditor.tsx` public-image flow.
 
