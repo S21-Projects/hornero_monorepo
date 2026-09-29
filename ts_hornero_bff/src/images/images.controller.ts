@@ -13,10 +13,10 @@ import { ImagesService } from './images.service.js';
 
 /**
  * Object-key prefix reserved for accreditation evidence (see
- * `specs/organizacion-acreditacion/spec.md`). Slice A has no authenticated, ownership-checked
- * route to serve these files yet — until Slice B ships one, this public route must never leak
- * them, so any key resolving under this prefix is denied outright (Threat Matrix "Evidence key
- * smuggling" row).
+ * `specs/organizacion-acreditacion/spec.md`). The authenticated, ownership- and row-checked
+ * `evidencia-files` route (AD-12) is the only supported way to read these files; this deny-list
+ * stays as defense in depth so any key resolving under this prefix is still denied outright here
+ * too (Threat Matrix "Evidence key smuggling" row).
  */
 const EVIDENCIA_PREFIX = 'org-evidencia/';
 

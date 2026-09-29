@@ -34,6 +34,8 @@ import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * Owns the accreditation ladder's transition table (AD-2), the replay-preserving write path
@@ -425,6 +427,34 @@ public class AcreditacionService {
 
         return new LegajoResponse(org.getId(), org.getNombre(), org.getSlug(), org.getDireccion(),
                 nivelActual(org), nivelDesde, requisitos, eventosResponse, DISCLOSURE);
+    }
+
+    /**
+     * AD-12 (tesis-core-features slice 2): the exact per-organizacion object-key shape the SPA's
+     * own strict parser (`evidenciaArchivo.ts`) enforces — {@code org-evidencia/{orgId}/{file}}
+     * with no further {@code /} (rules out both a deeper path and a {@code ..} segment, since
+     * {@code ..} would need to sit as its own segment or trail one, either way introducing a
+     * {@code /} the pattern already forbids after the numeric orgId segment).
+     */
+    private static final Pattern OBJECT_KEY_PATTERN = Pattern.compile("^org-evidencia/(\\d+)/[^/]+$");
+
+    /**
+     * Backing method for {@code GET /{id}/acreditacion/evidencias/archivo}: authorizes reading an
+     * evidence file by binding it to an existing row (decision 13 — a syntactically valid key with
+     * no matching row is still rejected, `EVIDENCIA_NO_ENCONTRADA`). Ownership/role is checked by
+     * the controller *before* this call (no existence oracle for a caller who fails that check).
+     * {@code REEMPLAZADA} rows still match — the legajo history view can render them.
+     */
+    void existeArchivoEvidencia(Long organizacionId, String objectKey) {
+        Matcher matcher = objectKey == null ? null : OBJECT_KEY_PATTERN.matcher(objectKey);
+        boolean clavePertenceAOrg = matcher != null && matcher.matches()
+                && matcher.group(1).equals(String.valueOf(organizacionId));
+        if (!clavePertenceAOrg) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "EVIDENCIA_CLAVE_INVALIDA");
+        }
+        if (!evidenciaRepository.existsByOrganizacion_IdAndObjectKey(organizacionId, objectKey)) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "EVIDENCIA_NO_ENCONTRADA");
+        }
     }
 
     /** Server-owned constant (AD-11): no client can omit or reword this statement. */

@@ -1,6 +1,12 @@
-import { Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { HttpService } from '@nestjs/axios';
 import { ConfigService } from '@nestjs/config';
+import { isAxiosError } from 'axios';
 import { CargarEvidenciaDto } from './dto/cargar-evidencia.dto.js';
 import { CambiarNivelDto } from './dto/cambiar-nivel.dto.js';
 import { AuditarEvidenciaDto } from './dto/auditar-evidencia.dto.js';
@@ -107,5 +113,37 @@ export class AcreditacionService {
       this.authHeaders(accessToken),
     );
     return data;
+  }
+
+  /**
+   * AD-12 (tesis-core-features slice 2): authorizes reading an evidence file bound to an existing
+   * row before the caller (`EvidenciaFilesController`) streams it — the MS is the single authority
+   * for both ownership and row binding. `objectKey` is forwarded raw through axios' `params`
+   * (which URL-encodes it), not pre-encoded here. Resolves with no value on the MS's `204`; maps
+   * `403 -> ForbiddenException`, `404 -> NotFoundException`, `400 -> BadRequestException`; any
+   * other axios error is rethrown unchanged.
+   */
+  async verificarArchivoEvidencia(
+    organizacionId: number,
+    objectKey: string,
+    accessToken: string,
+  ): Promise<void> {
+    try {
+      await this.httpService.axiosRef.get<unknown>(
+        `${this.msUrl}/api/organizaciones/${organizacionId}/acreditacion/evidencias/archivo`,
+        { ...this.authHeaders(accessToken), params: { objectKey } },
+      );
+    } catch (err) {
+      if (isAxiosError(err)) {
+        const status = err.response?.status;
+        if (status === 403)
+          throw new ForbiddenException('No autorizado para este archivo');
+        if (status === 404)
+          throw new NotFoundException('Evidencia no encontrada');
+        if (status === 400)
+          throw new BadRequestException('Clave de evidencia inválida');
+      }
+      throw err;
+    }
   }
 }
