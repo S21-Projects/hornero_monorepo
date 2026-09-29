@@ -5,6 +5,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Primary;
+import org.springframework.http.converter.json.Jackson2ObjectMapperBuilder;
 
 /**
  * AD-5: exposes the canonical JSON mapper used to serialize {@code OrganizacionEvento.payload} as
@@ -14,6 +16,17 @@ import org.springframework.context.annotation.Configuration;
  */
 @Configuration
 public class CanonicalJsonConfig {
+
+    /**
+     * Declaring any {@link ObjectMapper} bean makes Spring Boot back off its own, so the default
+     * mapper (JSR-310 dates, Boot defaults) must be declared explicitly and marked primary. MVC
+     * serialization keeps using it; the canonical mapper stays reserved for event payloads.
+     */
+    @Bean
+    @Primary
+    public ObjectMapper objectMapper(Jackson2ObjectMapperBuilder builder) {
+        return builder.build();
+    }
 
     @Bean
     public ObjectMapper canonicalObjectMapper() {
