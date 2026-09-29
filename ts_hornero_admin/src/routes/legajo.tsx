@@ -42,8 +42,12 @@ export default function LegajoPage() {
     tipo === 'ADMINISTRADOR' ? organizacionId : undefined,
   );
   const evidenciaIds: Partial<Record<RequisitoAcreditacion, number>> = {};
+  // AD-12 (task 2.22): objectKey per requisito, sourced from the same PENDIENTE-filtered read —
+  // AuditQueue renders EvidenciaArchivo for FOTO/DOCUMENTO rows it knows an objectKey for.
+  const evidenciaObjectKeys: Partial<Record<RequisitoAcreditacion, string | null>> = {};
   for (const evidencia of evidenciasPendientes.data ?? []) {
     evidenciaIds[evidencia.requisito] = evidencia.id;
+    evidenciaObjectKeys[evidencia.requisito] = evidencia.objectKey;
   }
 
   return (
@@ -111,6 +115,7 @@ export default function LegajoPage() {
                     organizacionId={legajo.data.organizacionId}
                     requisitos={legajo.data.requisitos}
                     evidenciaIds={evidenciaIds}
+                    evidenciaObjectKeys={evidenciaObjectKeys}
                   />
                 </Card>
               </div>
