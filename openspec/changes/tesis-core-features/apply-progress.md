@@ -5,9 +5,11 @@ Engram mirror: `sdd/tesis-core-features/apply-progress`.
 ## Scope covered so far
 
 - Slice 1 — Bienvenida register step (admin). DONE, size:exception accepted by the user.
-- Slice 2 — Evidence files bound to an evidence row (MS + BFF + admin). DONE except one
-  documented partial item (task 2.22, `acreditacion.tsx` — see below). **Exceeds its own 350-400
-  line forecast substantially (~1007 authored changed lines)** — see "Review Workload / Size".
+- Slice 2 — Evidence files bound to an evidence row (MS + BFF + admin). DONE. **Exceeded its own
+  350-400 line forecast substantially (~1007 authored changed lines)** — see "Review Workload /
+  Size". Committed as `c241250` (MS+BFF) and `a87ebe9` (admin).
+- Task 2.24 (corrective batch, 2026-09-29) — closes the 2.22 gate finding: referente's own
+  `acreditacion.tsx` view now renders evidence files too. ≈226 authored changed lines, uncommitted.
 - Slices 3-7: not started.
 
 ## Completed Tasks (Slice 1)
@@ -102,17 +104,28 @@ Size: ≈508 authored changed lines — over the 250-350 forecast and the 400 bu
       link, or the unavailable message.
 - [x] 2.21 GREEN — `types/domain.ts`: `EvidenciaResponse.objectKey?: string | null` added; stale
       "Slice A/until Slice B" comment reworded to reference AD-12 instead.
-- [ ] 2.22 GREEN — **PARTIAL**. `AuditQueue.tsx` (new optional `evidenciaObjectKeys` prop, renders
+- [x] 2.22 GREEN — `AuditQueue.tsx` (new optional `evidenciaObjectKeys` prop, renders
       `EvidenciaArchivo` for FOTO/DOCUMENTO rows it has a key for — added 2 new RED tests first,
       confirmed RED via 1 failing assertion) and `legajo.tsx` (builds `evidenciaObjectKeys` from
-      the same `useEvidenciasPendientes` read that already fed `evidenciaIds`) are done and
-      green. `acreditacion.tsx` (referente's own view, sourced from `LegajoResponse.requisitos` /
-      `RequisitoEnLegajo`) was **not** modified — see the inline deviation note on this task in
-      `tasks.md` for why (this slice's MS file list only added `objectKey` to `EvidenciaResponse`,
-      never to `RequisitoEnLegajo`, so there is no data source to resolve a path from on that
-      route without an out-of-scope MS/BFF change).
+      the same `useEvidenciasPendientes` read that already fed `evidenciaIds`) done and green in
+      slice 2. `acreditacion.tsx` (referente's own view) was originally left unmodified in slice 2
+      — no `objectKey` existed on `RequisitoEnLegajo` (MS) yet — and is now closed by task 2.24
+      below (corrective batch, 2026-09-29).
 - [x] 2.23 REFACTOR — grepped `ts_hornero_admin/src` for `images?key=`; only match is the
       unrelated `OrgImagesEditor.tsx` public-image flow. Confirmed clean.
+- [x] 2.24 GREEN (corrective batch, 2026-09-29) — closes the 2.22 gap. Added `objectKey` (nullable)
+      to the MS `RequisitoEnLegajo` DTO, populated from `OrganizacionEvidencia.getObjectKey()` in
+      `AcreditacionService.legajo()` (both `new RequisitoEnLegajo(...)` call sites updated: `null`
+      for the FALTANTE branch, `vigente.getObjectKey()` for the found-row branch). No BFF DTO change
+      — the BFF's `GET /legajo` passthrough (`acreditacion.service.ts`) has no typed response shape,
+      it forwards the MS JSON unmodified. Added `objectKey?: string | null` to the admin
+      `RequisitoEnLegajo` domain type. `acreditacion.tsx`'s `RequisitoRow` now renders
+      `EvidenciaArchivo` for FOTO/DOCUMENTO requisitos with a known `objectKey`, mirroring
+      `AuditQueue.tsx`/`legajo.tsx`. Verified the `/legajo` MS endpoint stays
+      ADMINISTRADOR/owning-REFERENTE only (`@PreAuthorize("hasAnyRole('ADMINISTRADOR',
+      'REFERENTE')")` + `requireAdminOrOwningReferente(id)`, both unchanged) — `objectKey` is never
+      exposed on a public endpoint. This closes the spec scenario "SPA renders evidence via the
+      authenticated route in the referente's own view" (`specs/organizacion-evidencia/spec.md`).
 
 ### TDD Cycle Evidence (Slice 2)
 
@@ -127,6 +140,8 @@ Size: ≈508 authored changed lines — over the 250-350 forecast and the 400 bu
 | 2.17/2.18 | `useEvidenciaArchivo.test.ts` (new) | ✅ module not found | ✅ 5/5 |
 | 2.19/2.20 | `EvidenciaArchivo.test.tsx` (new) | ✅ module not found | ✅ 4/4 |
 | 2.22 (AuditQueue part) | `AuditQueue.test.tsx` (+2 cases) | ✅ 1/5 failing (testid not found) | ✅ 5/5 |
+| 2.24 (RequisitoEnLegajo.objectKey) | `AcreditacionServiceLegajoTest.java` (+2 cases) | ✅ compile failure (`objectKey()` didn't exist) | ✅ MS full suite 267/267 |
+| 2.24 (acreditacion.tsx render) | `acreditacion.test.tsx` (new, 4 cases) | ✅ 2/4 failing (testid not found) | ✅ admin full suite 225/225 |
 
 ### Files Changed (Slice 2)
 
@@ -153,11 +168,17 @@ Size: ≈508 authored changed lines — over the 250-350 forecast and the 400 bu
 | `ts_hornero_admin/src/types/domain.ts` | Modified | `objectKey` field, comment reworded |
 | `ts_hornero_admin/src/components/acreditacion/AuditQueue.tsx` (+.test.tsx) | Modified | `evidenciaObjectKeys` prop, renders `EvidenciaArchivo` |
 | `ts_hornero_admin/src/routes/legajo.tsx` | Modified | builds and passes `evidenciaObjectKeys` |
+| `jar_hornero_ms/src/main/java/org/example/acreditacion/dto/RequisitoEnLegajo.java` | Modified (task 2.24) | `objectKey` field (additive) |
+| `jar_hornero_ms/src/main/java/org/example/acreditacion/AcreditacionService.java` | Modified (task 2.24) | `legajo()`: both `RequisitoEnLegajo` construction sites now pass `objectKey` |
+| `jar_hornero_ms/src/test/java/org/example/acreditacion/AcreditacionServiceLegajoTest.java` | Modified (task 2.24) | 2 new tests |
+| `ts_hornero_admin/src/types/domain.ts` | Modified (task 2.24) | `RequisitoEnLegajo.objectKey?: string \| null` |
+| `ts_hornero_admin/src/routes/acreditacion.tsx` | Modified (task 2.24) | `RequisitoRow` renders `EvidenciaArchivo` for FOTO/DOCUMENTO |
+| `ts_hornero_admin/src/routes/acreditacion.test.tsx` | Created (task 2.24) | 4 tests |
 
 ### Deviations from Design
 
-- `acreditacion.tsx` (task 2.22) not wired — see above; this needs a follow-up task, not silently
-  invented scope in this slice.
+- None outstanding. The task 2.22 partial (referente's own `acreditacion.tsx` view not wired) is
+  now closed by task 2.24 in this corrective batch.
 - Everything else matches `design.md` AD-12 exactly, including the "no `SecurityConfig` change"
   claim (verified against the actual matcher order, not assumed).
 
@@ -173,6 +194,17 @@ Size: ≈508 authored changed lines — over the 250-350 forecast and the 400 bu
 - `cd ts_hornero_admin && npm run build` → success (same pre-existing chunk-size warning as slice 1).
 - `cd ts_hornero_admin && npm run lint` → clean (one `react-hooks/set-state-in-effect` error was
   found and fixed during this slice, see 2.18 above).
+
+### Verification (task 2.24 corrective batch, 2026-09-29) — actually run
+
+- `cd jar_hornero_ms && mvn test` → **267/267 passing** (full suite).
+- `cd ts_hornero_bff && npm test` → **105/105 passing** (full suite, unaffected — no BFF files
+  touched by this batch).
+- `cd ts_hornero_admin && npm test` → **225/225 passing** (full suite).
+- `cd ts_hornero_admin && npm run build` → success (same pre-existing chunk-size warning).
+- `cd ts_hornero_admin && npm run lint` → clean.
+- Authored changed lines for this batch (`git diff --numstat`): MS 3+2+9+1+36 = 51, admin
+  14+6+155(new file) = 175. **Total ≈226** — well within the 400-line budget, no split needed.
 
 ### Review Workload / Size — IMPORTANT, exceeds guidance
 
@@ -210,12 +242,15 @@ SQL migration are still ahead.
 
 ## Status
 
-Slice 1: 10/10 tasks complete. Slice 2: 22/23 tasks complete (2.22 partial, documented above).
-Slices 3-7: not started.
+Slice 1: 10/10 tasks complete. Slice 2: 24/24 tasks complete (2.22 fully closed by the 2.24
+corrective batch, 2026-09-29). Slices 3-7: not started.
 
-Ready for the next `sdd-apply` batch to start slice 3a (independent of slice 2, per `tasks.md`'s
-dependency table) once the user has reviewed and committed slices 1 and 2 (recommended as 3
-separate commits total: slice 1, slice 2a, slice 2b — see above).
+Slices 1 and 2 (2a/2b) are already committed (`a87ebe9`, `c241250`, plus the slice-1 commit).
+This batch's task 2.24 changes are uncommitted — recommended as one more small commit before
+starting slice 3a:
+
+`fix(acreditacion): render evidence files in the referente's own accreditation view` — MS
+`RequisitoEnLegajo.objectKey` + admin `acreditacion.tsx` wiring, closing the 2.22 gate finding.
 
 ## Delivery decisions
 

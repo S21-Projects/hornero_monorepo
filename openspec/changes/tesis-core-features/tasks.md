@@ -171,22 +171,29 @@ than estimated.
       Satisfies 2.19.
 - [x] 2.21 GREEN — `ts_hornero_admin/src/types/domain.ts`: add `objectKey?: string | null` on
       evidencia types; remove the stale "until Slice B" comment (lines 161-167).
-- [ ] 2.22 GREEN — Modify `ts_hornero_admin/src/components/acreditacion/AuditQueue.tsx`,
+- [x] 2.22 GREEN — Modify `ts_hornero_admin/src/components/acreditacion/AuditQueue.tsx`,
       `ts_hornero_admin/src/routes/legajo.tsx`, `ts_hornero_admin/src/routes/acreditacion.tsx`:
       render `EvidenciaArchivo` for FOTO/DOCUMENTO rows instead of any direct `img`/link.
-      **Partial (apply-time deviation)**: `AuditQueue.tsx` (new `evidenciaObjectKeys` prop) and
-      `legajo.tsx` (feeds it from `useEvidenciasPendientes`, which now carries `objectKey`) are
-      done and tested. `acreditacion.tsx` (the referente's own view) was left untouched: it renders
-      from `LegajoResponse.requisitos` (`RequisitoEnLegajo`), and this slice's MS file list only
-      adds `objectKey` to `EvidenciaResponse` (task 2.7) — `RequisitoEnLegajo.java` was never
-      listed for modification, so the referente-facing data source has no `objectKey` to resolve.
-      Rendering `EvidenciaArchivo` there today would show "Archivo no disponible" unconditionally
-      for valid FOTO/DOCUMENTO evidence, which is worse than the status quo. Needs a follow-up
-      task (out of this slice's scope) to add `objectKey` to `RequisitoEnLegajo` or give referentes
-      a self-scoped evidencia-list read.
+      `AuditQueue.tsx` and `legajo.tsx` done in this slice. `acreditacion.tsx` (the referente's own
+      view) completed by task 2.24 below, once `RequisitoEnLegajo` carried `objectKey`.
 - [x] 2.23 REFACTOR — Grep the admin source tree for any remaining `images?key=`-style construction
       of an evidence URL outside `evidenciaArchivo.ts`, `useEvidenciaArchivo.ts`; there should be
       none besides the unrelated `OrgImagesEditor.tsx` public-image flow.
+- [x] 2.24 GREEN (corrective, follow-up to 2.22) — Add `objectKey` (nullable) to the MS
+      `RequisitoEnLegajo` DTO and populate it from `OrganizacionEvidencia.getObjectKey()` in
+      `AcreditacionService.legajo()`. No BFF DTO change needed (the BFF's `/legajo` passthrough is
+      untyped). Add `objectKey?: string | null` to the admin `RequisitoEnLegajo` domain type. Render
+      `EvidenciaArchivo` in `acreditacion.tsx`'s `RequisitoRow` for FOTO/DOCUMENTO requisitos with a
+      known `objectKey`. The `/legajo` MS endpoint stays ADMINISTRADOR/owning-REFERENTE only
+      (`@PreAuthorize` + `requireAdminOrOwningReferente`, unchanged) — `objectKey` is never exposed
+      on a public endpoint. Satisfies the spec scenario "SPA renders evidence via the authenticated
+      route in the referente's own view".
+      RED: `AcreditacionServiceLegajoTest` (2 new cases: FOTO evidence carries `objectKey`,
+      DECLARACION evidence has `objectKey: null`) — compile failure (`objectKey()` didn't exist).
+      `acreditacion.test.tsx` (new, 4 cases: FOTO/DOCUMENTO render `EvidenciaArchivo`, DECLARACION
+      and FALTANTE-with-no-key don't) — 2/4 failing (testid not found).
+      GREEN: MS 267/267 (full suite), admin 225/225 (full suite), `npm run build` and `npm run lint`
+      clean. BFF unaffected (105/105, no BFF files touched).
 
 **Verification (slice 2):**
 `cd jar_hornero_ms && mvn test -Dtest=AcreditacionControllerTest,AcreditacionServiceTest,OrganizacionEvidenciaRepositoryTest`
