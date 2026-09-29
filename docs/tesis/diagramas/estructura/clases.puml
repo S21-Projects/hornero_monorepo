@@ -1,0 +1,244 @@
+@startuml
+' Hornero — Diagrama de clases del modelo de dominio
+
+skinparam shadowing false
+skinparam linetype ortho
+skinparam defaultFontName Helvetica
+skinparam defaultFontSize 12
+skinparam class {
+  BackgroundColor #FFFFFF
+  BorderColor #444444
+  ArrowColor #444444
+}
+hide empty members
+
+package "Usuarios" {
+  abstract class Usuario {
+    - id : Long
+    - nombre : String
+    - email : String
+    - password : String
+    - activo : boolean
+    - emailVerificado : boolean
+  }
+
+  class Administrador
+  class Referente
+  class Donante
+
+  Usuario <|-- Administrador
+  Usuario <|-- Referente
+  Usuario <|-- Donante
+}
+
+package "Organización y acreditación" {
+  class Organizacion {
+    - id : Long
+    - nombre : String
+    - slug : String
+    - descripcion : String
+    - tipo : TipoOrganizacion
+    - direccion : String
+    - latitud : Double
+    - longitud : Double
+    - validada : Boolean
+    - estado : EstadoOrganizacion
+    - nivel : NivelAcreditacion
+    - profileImageKey : String
+    - bannerKey : String
+    - aceptaDonaciones : Boolean
+    - sitioWebUrl : String
+    - donacionDirectaUrl : String
+    - aceptaDonacionesPendiente : Boolean
+    - sitioWebUrlPendiente : String
+    - donacionDirectaUrlPendiente : String
+    - infoPublicaPendienteEn : LocalDateTime
+  }
+
+  class OrganizacionEvidencia {
+    - id : Long
+    - requisito : RequisitoAcreditacion
+    - tipoEvidencia : TipoEvidencia
+    - objectKey : String
+    - declaracion : String
+    - validoDesde : LocalDate
+    - validoHasta : LocalDate
+    - estado : EstadoEvidencia
+    - cargadoPor : Long
+    - cargadoEn : Instant
+    - revisadoPor : Long
+    - revisadoEn : Instant
+    - observacion : String
+    --
+    + {static} nueva(...) : OrganizacionEvidencia
+    + isExpirada() : boolean
+  }
+
+  class OrganizacionEvento {
+    - id : Long
+    - tipo : TipoEventoOrganizacion
+    - ocurridoEn : Instant
+    - actorUsuarioId : Long
+    - actorTipo : String
+    - nivelAntes : NivelAcreditacion
+    - nivelDespues : NivelAcreditacion
+    - requisito : RequisitoAcreditacion
+    - evidenciaId : Long
+    - motivo : String
+    - payload : String
+    --
+    + {static} de(...) : OrganizacionEvento
+    + {static} deEvidencia(...) : OrganizacionEvento
+  }
+
+  class AcreditacionReplay {
+    + {static} reconstruir(eventos : List<OrganizacionEvento>) : NivelAcreditacion
+  }
+}
+
+package "Necesidades y donaciones" {
+  class Necesidad {
+    - id : Long
+    - descripcion : String
+    - prioridad : PrioridadNecesidad
+    - estado : EstadoNecesidad
+    - fechaPublicacion : LocalDate
+    - fechaVencimiento : LocalDate
+    - categoria : CategoriaAlimento
+  }
+
+  class Donacion {
+    - id : Long
+    - fechaOferta : LocalDate
+    - fechaEntrega : LocalDate
+    - estado : EstadoDonacion
+    - observaciones : String
+    - confirmadaDonanteEn : Instant
+    - confirmadaReferenteEn : Instant
+    - overrideMotivo : String
+    - overrideAdminId : Long
+    - overrideEn : Instant
+  }
+}
+
+package "Verificación" {
+  class CodigoVerificacion {
+    - id : Long
+    - email : String
+    - codigoHash : String
+    - expiraEn : Instant
+    - intentos : int
+    - usado : boolean
+    - creadoEn : Instant
+  }
+}
+
+package "Enumeraciones" {
+  enum NivelAcreditacion {
+    N0 : REGISTRADA
+    N1 : IDENTIFICADA
+    N2 : OPERATIVA
+    N3 : ACREDITADA
+  }
+  enum RequisitoAcreditacion {
+    SERVICIO_REGULAR_GRATUITO
+    NO_DISCRIMINACION
+    SEDE_INSCRIPTA_INDIVIDUALMENTE
+    CONDICIONES_SANITARIAS_ADECUADAS
+    SIN_KIOSCO_MISMO_DOMICILIO
+    RADIO_50KM_BANCO_ALIMENTOS
+    PERSONERIA_JURIDICA_O_AVAL
+    ACEPTA_AUDITORIAS_SIN_AVISO
+    --
+    - nivelExigido : NivelAcreditacion
+  }
+  enum EstadoEvidencia {
+    PENDIENTE
+    APROBADA
+    OBSERVADA
+    REEMPLAZADA
+  }
+  enum TipoEvidencia {
+    DECLARACION
+    FOTO
+    DOCUMENTO
+  }
+  enum TipoEventoOrganizacion {
+    MIGRACION_INICIAL
+    ORGANIZACION_REGISTRADA
+    REGISTRO_RECHAZADO
+    EVIDENCIA_ADJUNTADA
+    EVIDENCIA_REEMPLAZADA
+    REQUISITO_APROBADO
+    REQUISITO_OBSERVADO
+    NIVEL_ELEVADO
+    NIVEL_REDUCIDO
+    REFERENTE_REASIGNADO
+  }
+  enum CategoriaAlimento {
+    NO_PERECEDERO
+    REFRIGERADO
+    CONGELADO
+    --
+    - nivelMinimo : NivelAcreditacion
+  }
+  enum EstadoOrganizacion {
+    PENDIENTE
+    APROBADA
+    RECHAZADA
+  }
+  enum TipoOrganizacion {
+    COMEDOR
+    COPITA
+    ROPERO
+    MERENDERO
+    OTRO
+  }
+  enum EstadoNecesidad {
+    ABIERTA
+    EN_PROGRESO
+    CUMPLIDA
+    VENCIDA
+  }
+  enum PrioridadNecesidad {
+    URGENTE
+    MEDIA
+    NORMAL
+  }
+  enum EstadoDonacion {
+    OFRECIDA
+    ACEPTADA
+    RECHAZADA
+    EN_CAMINO
+    PENDIENTE_CONFIRMACION
+    ENTREGADA
+    CANCELADA
+    --
+    + isTerminal() : boolean
+  }
+}
+
+Organizacion "1" *-- "0..*" Necesidad : publica >
+Necesidad "1" *-- "0..*" Donacion : recibe >
+OrganizacionEvidencia "0..*" --> "1" Organizacion : corresponde a >
+OrganizacionEvento "0..*" --> "1" Organizacion : refiere a >
+Organizacion "0..*" --> "0..1" Administrador : validadoPor >
+Organizacion "0..*" --> "0..1" Referente : referente >
+Donacion "0..*" --> "1" Donante : donante >
+AcreditacionReplay ..> OrganizacionEvento : usa >
+
+' Enumerations are referenced by attribute types; arrange them in a compact grid
+NivelAcreditacion -[hidden]down- RequisitoAcreditacion
+EstadoOrganizacion -[hidden]down- TipoOrganizacion
+TipoOrganizacion -[hidden]down- TipoEvidencia
+EstadoEvidencia -[hidden]down- TipoEventoOrganizacion
+EstadoNecesidad -[hidden]down- PrioridadNecesidad
+PrioridadNecesidad -[hidden]down- CategoriaAlimento
+NivelAcreditacion -[hidden]right- EstadoOrganizacion
+EstadoOrganizacion -[hidden]right- EstadoEvidencia
+EstadoEvidencia -[hidden]right- EstadoNecesidad
+EstadoNecesidad -[hidden]right- EstadoDonacion
+
+Donacion -[hidden]down- NivelAcreditacion
+
+@enduml

@@ -1,0 +1,66 @@
+@startuml
+' Hornero — Diagrama de casos de uso
+' CU-01 a CU-06 provienen de la entrega de analista.
+' CU-07 a CU-13 incorporan acreditación progresiva, trazabilidad y asignación.
+' Vista consolidada; el detalle por actor está en los archivos hermanos.
+
+!include _estilo.iuml
+
+actor "Visitante\n(anónimo)" as Visitante
+actor "Donante" as Donante
+actor "Referente" as Referente
+rectangle "Hornero" {
+  usecase "CU-01\nRegistrar organización" as CU01
+  usecase "CU-02\nValidar organización" as CU02
+  usecase "CU-03\nPublicar necesidad" as CU03
+  usecase "CU-04\nConsultar necesidades\nen el mapa" as CU04
+  usecase "CU-05\nOfrecer donación" as CU05
+  usecase "CU-06\nGestionar seguimiento\nde la organización" as CU06
+  usecase "CU-07\nPresentar evidencia\nde acreditación" as CU07
+  usecase "CU-08\nAuditar evidencia\npresentada" as CU08
+  usecase "CU-09\nElevar o reducir\nnivel de acreditación" as CU09
+  usecase "CU-10\nExportar legajo\nde acreditación" as CU10
+  usecase "CU-11\nAsignar donaciones\ndel fondo común" as CU11
+  usecase "CU-12\nVerificar correo\nelectrónico" as CU12
+  usecase "CU-13\nValidar entrega con\ncódigo de un solo uso" as CU13
+  usecase "Registrar evento\nen la bitácora" as Bitacora
+  usecase "Verificar requisitos\ndel nivel" as VerificarReq
+}
+
+actor "Administrador" as Admin
+actor "Motor de asignación\n(proceso por lotes)" as Motor
+
+Visitante --> CU04
+Visitante --> CU01
+
+Donante --> CU05
+Donante --> CU13
+Donante --> CU04
+Donante --> CU12
+
+Referente --> CU03
+Referente --> CU06
+Referente --> CU07
+Referente --> CU12
+Referente --> CU10
+Referente --> CU13
+
+CU02 <-- Admin
+CU08 <-- Admin
+CU09 <-- Admin
+CU10 <-- Admin
+
+CU11 <-- Motor
+
+CU02 ..> Bitacora : <<include>>
+CU07 ..> Bitacora : <<include>>
+CU08 ..> Bitacora : <<include>>
+CU09 ..> Bitacora : <<include>>
+CU09 ..> VerificarReq : <<include>>
+CU11 ..> Bitacora : <<include>>
+CU13 ..> Bitacora : <<include>>
+CU05 ..> CU13 : <<include>>
+CU03 ..> VerificarReq : <<include>>
+CU05 ..> CU11 : <<extend>>\n(donación al fondo común)
+
+@enduml

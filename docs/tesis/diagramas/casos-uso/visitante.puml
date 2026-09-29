@@ -1,0 +1,15 @@
+@startuml
+' Hornero — Casos de uso del Visitante (anónimo)
+!include _estilo.iuml
+
+actor "Visitante\n(anónimo)" as Visitante
+
+rectangle "Hornero" {
+  usecase "CU-04\nConsultar necesidades\nen el mapa" as CU04
+  usecase "CU-01\nRegistrar organización" as CU01
+}
+
+Visitante --> CU04
+Visitante --> CU01
+
+@enduml

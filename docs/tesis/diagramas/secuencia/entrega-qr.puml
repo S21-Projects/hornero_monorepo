@@ -1,0 +1,64 @@
+@startuml
+' Hornero — Entrega validada con código QR de un solo uso (CU-13)
+!include _estilo.iuml
+
+actor "Donante" as Donante
+actor "Referente" as Referente
+participant "Panel web" as Web
+participant "BFF" as BFF
+participant "Backend" as Back
+database "Base de datos" as DB
+
+== Generación del código ==
+
+Donante -> Web : Solicita el código de entrega
+Web -> BFF : Generar código
+BFF -> Back : Generar código
+activate Back
+Back -> Back : Verificar que es parte de la donación
+Back -> DB : Guardar código con vencimiento
+Back --> Web : Código
+Web --> Donante : Código mostrado como QR
+deactivate Back
+
+== Validación de la entrega (CU-13) ==
+
+Referente -> Web : Escanea el QR del donante
+Web -> BFF : Confirmar entrega con código
+BFF -> Back : Confirmar entrega con código
+activate Back
+Back -> DB : Leer código vigente de la donación
+
+alt código vencido
+  Back -> DB : Invalidar código
+  Back --> Web : Código vencido
+  Web --> Referente : Solicitar un código nuevo
+else código incorrecto
+  Back --> Web : Código inválido
+  Web --> Referente : Código inválido
+else código válido
+  Back -> DB : Marcar código como usado
+  Back -> DB : Registrar confirmación del referente
+  alt el donante ya confirmó
+    Back -> DB : Marcar donación como entregada
+  else el donante aún no confirmó
+    Back -> DB : Marcar donación pendiente de confirmación
+  end
+  Back --> Web : Confirmación registrada
+  Web --> Referente : Entrega confirmada
+end
+deactivate Back
+
+== Confirmación del donante ==
+
+Donante -> Web : Confirma la entrega
+Web -> BFF : Confirmar entrega
+BFF -> Back : Confirmar entrega
+activate Back
+Back -> DB : Registrar confirmación del donante
+Back -> DB : Marcar donación como entregada
+Back --> Web : Donación cerrada
+Web --> Donante : Donación entregada
+deactivate Back
+
+@enduml

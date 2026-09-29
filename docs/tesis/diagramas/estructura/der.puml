@@ -1,0 +1,139 @@
+@startuml
+' Hornero — Diagrama entidad-relación
+
+hide circle
+skinparam linetype ortho
+skinparam shadowing false
+skinparam defaultFontName Helvetica
+skinparam defaultFontSize 12
+skinparam entity {
+  BackgroundColor #FFFFFF
+  BorderColor #444444
+  FontColor #111111
+}
+
+legend top left
+  <b>Leyenda</b>
+  ● = columna obligatoria · (N) = columna que admite nulos
+endlegend
+
+entity "usuarios" as usuarios {
+  * id : BIGINT <<PK>>
+  --
+  * tipo : VARCHAR <<discriminador>>
+  * nombre : VARCHAR
+  * email : VARCHAR <<único>>
+  * password : VARCHAR <<hash BCrypt>>
+  * activo : BOOLEAN
+  * email_verificado : BOOLEAN
+}
+
+entity "organizaciones" as organizaciones {
+  * id : BIGINT <<PK>>
+  --
+  * nombre : VARCHAR
+  slug : VARCHAR <<único>> (N)
+  descripcion : VARCHAR(1000) (N)
+  tipo : VARCHAR <<enum TipoOrganizacion>> (N)
+  direccion : VARCHAR (N)
+  latitud : DOUBLE (N)
+  longitud : DOUBLE (N)
+  * validada : BOOLEAN
+  estado : VARCHAR <<enum EstadoOrganizacion>> (N)
+  nivel : VARCHAR <<enum NivelAcreditacion>> (N)
+  administrador_id : BIGINT <<FK>> (N)
+  referente_id : BIGINT <<FK>> (N)
+  profile_image_key : VARCHAR (N)
+  banner_key : VARCHAR (N)
+  acepta_donaciones : BOOLEAN (N)
+  sitio_web_url : VARCHAR(500) (N)
+  donacion_directa_url : VARCHAR(500) (N)
+  .. snapshot pendiente de aprobación ..
+  acepta_donaciones_pendiente : BOOLEAN (N)
+  sitio_web_url_pendiente : VARCHAR(500) (N)
+  donacion_directa_url_pendiente : VARCHAR(500) (N)
+  info_publica_pendiente_en : TIMESTAMP (N)
+}
+
+entity "organizacion_evidencia" as evidencia {
+  * id : BIGINT <<PK>>
+  --
+  * organizacion_id : BIGINT <<FK>>
+  * requisito : VARCHAR <<enum RequisitoAcreditacion>>
+  * tipo_evidencia : VARCHAR <<DECLARACION | FOTO | DOCUMENTO>>
+  object_key : VARCHAR (N)
+  declaracion : VARCHAR(2000) (N)
+  valido_desde : DATE (N)
+  valido_hasta : DATE (N) <<null = no vence>>
+  * estado : VARCHAR <<PENDIENTE | APROBADA | OBSERVADA | REEMPLAZADA>>
+  * cargado_por : BIGINT
+  * cargado_en : TIMESTAMP
+  revisado_por : BIGINT (N)
+  revisado_en : TIMESTAMP (N)
+  observacion : VARCHAR(1000) (N)
+}
+
+entity "organizacion_evento" as evento {
+  * id : BIGINT <<PK>>
+  --
+  * organizacion_id : BIGINT <<FK>>
+  * tipo : VARCHAR <<enum TipoEventoOrganizacion>>
+  * ocurrido_en : TIMESTAMP
+  actor_usuario_id : BIGINT (N) <<id suelto, sin FK>>
+  actor_tipo : VARCHAR (N)
+  nivel_antes : VARCHAR (N)
+  nivel_despues : VARCHAR (N)
+  requisito : VARCHAR (N)
+  evidencia_id : BIGINT (N) <<id suelto, sin FK>>
+  motivo : VARCHAR(1000) (N)
+  payload : TEXT (N) <<JSON canónico>>
+}
+
+entity "necesidades" as necesidades {
+  * id : BIGINT <<PK>>
+  --
+  * organizacion_id : BIGINT <<FK>>
+  descripcion : VARCHAR(1000) (N)
+  * prioridad : VARCHAR <<URGENTE | MEDIA | NORMAL>>
+  * estado : VARCHAR <<ABIERTA | EN_PROGRESO | CUMPLIDA | VENCIDA>>
+  fecha_publicacion : DATE (N)
+  fecha_vencimiento : DATE (N)
+  categoria : VARCHAR <<enum CategoriaAlimento>> (N)
+}
+
+entity "donaciones" as donaciones {
+  * id : BIGINT <<PK>>
+  --
+  * donante_id : BIGINT <<FK>>
+  * necesidad_id : BIGINT <<FK>>
+  fecha_oferta : DATE (N)
+  fecha_entrega : DATE (N)
+  * estado : VARCHAR <<enum EstadoDonacion>>
+  observaciones : VARCHAR(1000) (N)
+  confirmada_donante_en : TIMESTAMP (N)
+  confirmada_referente_en : TIMESTAMP (N)
+  override_motivo : VARCHAR(500) (N)
+  override_admin_id : BIGINT (N) <<id suelto, sin FK>>
+  override_en : TIMESTAMP (N)
+}
+
+entity "codigos_verificacion" as otp {
+  * id : BIGINT <<PK>>
+  --
+  * email : VARCHAR <<sin FK a usuarios>>
+  * codigo_hash : VARCHAR <<BCrypt>>
+  * expira_en : TIMESTAMP
+  * intentos : INTEGER
+  * usado : BOOLEAN
+  * creado_en : TIMESTAMP
+}
+
+usuarios ||--o{ organizaciones : "valida\n(administrador_id)"
+usuarios ||--o{ organizaciones : "es referente de\n(referente_id)"
+organizaciones ||--o{ necesidades : "publica"
+necesidades ||--o{ donaciones : "recibe"
+usuarios ||--o{ donaciones : "ofrece\n(donante_id)"
+organizaciones ||--o{ evidencia : "presenta"
+organizaciones ||--o{ evento : "registra"
+
+@enduml
