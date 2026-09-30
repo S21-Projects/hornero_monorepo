@@ -14,6 +14,9 @@ describe('DonacionesController', () => {
     confirmarEntrega: jest.Mock;
     overrideEstado: jest.Mock;
     findActivas: jest.Mock;
+    generarCodigoEntrega: jest.Mock;
+    verificarCodigoEntrega: jest.Mock;
+    estadoEntrega: jest.Mock;
   };
 
   const requestWithToken = (token?: string) =>
@@ -27,6 +30,9 @@ describe('DonacionesController', () => {
       confirmarEntrega: jest.fn(),
       overrideEstado: jest.fn(),
       findActivas: jest.fn(),
+      generarCodigoEntrega: jest.fn(),
+      verificarCodigoEntrega: jest.fn(),
+      estadoEntrega: jest.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -38,8 +44,10 @@ describe('DonacionesController', () => {
   });
 
   const rolesOf = (methodName: keyof DonacionesController): Role[] =>
-    Reflect.getMetadata(ROLES_KEY, DonacionesController.prototype[methodName]) ??
-    [];
+    Reflect.getMetadata(
+      ROLES_KEY,
+      DonacionesController.prototype[methodName],
+    ) ?? [];
 
   describe('findDeMiOrganizacion', () => {
     it('reads the access_token cookie and forwards it to the service', async () => {
@@ -121,7 +129,10 @@ describe('DonacionesController', () => {
     });
 
     it('is restricted to DONANTE and REFERENTE, matching the MS @PreAuthorize', () => {
-      expect(rolesOf('confirmarEntrega')).toEqual([Role.DONANTE, Role.REFERENTE]);
+      expect(rolesOf('confirmarEntrega')).toEqual([
+        Role.DONANTE,
+        Role.REFERENTE,
+      ]);
     });
   });
 
@@ -143,6 +154,83 @@ describe('DonacionesController', () => {
 
     it('is restricted to ADMINISTRADOR, matching the MS @PreAuthorize', () => {
       expect(rolesOf('overrideEstado')).toEqual([Role.ADMINISTRADOR]);
+    });
+  });
+
+  describe('generarCodigoEntrega', () => {
+    it('reads the access_token cookie and forwards id to the service', async () => {
+      const codigo = { codigo: '482913', expiraEn: '2026-09-30T12:10:00Z' };
+      service.generarCodigoEntrega.mockResolvedValue(codigo);
+
+      const result = await controller.generarCodigoEntrega(
+        1,
+        requestWithToken('token-123'),
+      );
+
+      expect(service.generarCodigoEntrega).toHaveBeenCalledWith(1, 'token-123');
+      expect(result).toBe(codigo);
+    });
+
+    it('is restricted to DONANTE and REFERENTE, matching the MS @PreAuthorize', () => {
+      expect(rolesOf('generarCodigoEntrega')).toEqual([
+        Role.DONANTE,
+        Role.REFERENTE,
+      ]);
+    });
+  });
+
+  describe('verificarCodigoEntrega', () => {
+    it('reads the access_token cookie and forwards id + dto to the service', async () => {
+      const estado = {
+        estado: 'PENDIENTE_CONFIRMACION',
+        confirmadaDonanteEn: null,
+        confirmadaReferenteEn: '2026-09-30T12:00:00Z',
+      };
+      service.verificarCodigoEntrega.mockResolvedValue(estado);
+      const dto = { codigo: '482913' };
+
+      const result = await controller.verificarCodigoEntrega(
+        1,
+        dto,
+        requestWithToken('token-123'),
+      );
+
+      expect(service.verificarCodigoEntrega).toHaveBeenCalledWith(
+        1,
+        dto,
+        'token-123',
+      );
+      expect(result).toBe(estado);
+    });
+
+    it('is restricted to DONANTE and REFERENTE, matching the MS @PreAuthorize', () => {
+      expect(rolesOf('verificarCodigoEntrega')).toEqual([
+        Role.DONANTE,
+        Role.REFERENTE,
+      ]);
+    });
+  });
+
+  describe('estadoEntrega', () => {
+    it('reads the access_token cookie and forwards id to the service', async () => {
+      const estado = {
+        estado: 'EN_CAMINO',
+        confirmadaDonanteEn: null,
+        confirmadaReferenteEn: null,
+      };
+      service.estadoEntrega.mockResolvedValue(estado);
+
+      const result = await controller.estadoEntrega(
+        1,
+        requestWithToken('token-123'),
+      );
+
+      expect(service.estadoEntrega).toHaveBeenCalledWith(1, 'token-123');
+      expect(result).toBe(estado);
+    });
+
+    it('is restricted to DONANTE and REFERENTE, matching the MS @PreAuthorize', () => {
+      expect(rolesOf('estadoEntrega')).toEqual([Role.DONANTE, Role.REFERENTE]);
     });
   });
 
