@@ -472,19 +472,19 @@ Depends on: none. Spec: `auditoria-cola-global`. Design: AD-8.
 
 Depends on: 4a. Spec: `auditoria-cola-global`.
 
-- [ ] 4b.1 RED — `ts_hornero_admin/src/lib/hooks/useColaAuditoria.test.ts`: query key includes
+- [x] 4b.1 RED — `ts_hornero_admin/src/lib/hooks/useColaAuditoria.test.tsx`: query key includes
       tab/filters/page/size, uses `keepPreviousData`.
-- [ ] 4b.2 GREEN — Create `ts_hornero_admin/src/lib/hooks/useColaAuditoria.ts`. Satisfies 4b.1.
-- [ ] 4b.3 RED — `ts_hornero_admin/src/routes/auditoria.test.tsx`: tabs and filter changes reset
+- [x] 4b.2 GREEN — Create `ts_hornero_admin/src/lib/hooks/useColaAuditoria.ts`. Satisfies 4b.1.
+- [x] 4b.3 RED — `ts_hornero_admin/src/routes/auditoria.test.tsx`: tabs and filter changes reset
       to page 0 and change the query key; pager renders; selecting a row opens the existing detail
       with Aprobar/Observar; approving from the opened detail invalidates `['auditoria','cola']` and
       the row disappears from Pendientes on refresh.
-- [ ] 4b.4 GREEN — Create `ts_hornero_admin/src/routes/auditoria.tsx`: tabs, filters, paged list,
+- [x] 4b.4 GREEN — Create `ts_hornero_admin/src/routes/auditoria.tsx`: tabs, filters, paged list,
       row → detail drawer reusing `AuditQueue.tsx` with `organizacionId` + `evidenciaIds=[id]`.
       Satisfies 4b.3.
-- [ ] 4b.5 GREEN — `ts_hornero_admin/src/lib/hooks/useAcreditacion.ts`: `useAuditarEvidencia` also
+- [x] 4b.5 GREEN — `ts_hornero_admin/src/lib/hooks/useAcreditacion.ts`: `useAuditarEvidencia` also
       invalidates `['auditoria','cola']`.
-- [ ] 4b.6 GREEN — `ts_hornero_admin/src/app/router.tsx`, `ts_hornero_admin/src/app/AppShell.tsx`:
+- [x] 4b.6 GREEN — `ts_hornero_admin/src/app/router.tsx`, `ts_hornero_admin/src/app/AppShell.tsx`:
       register /auditoria under the ADMINISTRADOR block + nav entry.
 
 **Verification (slice 4b):** `cd ts_hornero_admin && npm test -- auditoria && npm run build`

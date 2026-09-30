@@ -1,5 +1,5 @@
 import { Fragment } from 'react';
-import type { ReactNode } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 import { Card } from './Card';
 import { Input } from './Input';
 import { Text } from './Typography';
@@ -32,6 +32,8 @@ export interface PaginatedTableProps<T> {
   renderRowDetail?: (row: T) => ReactNode;
   /** Which rows (by `rowKey`) currently have their detail row expanded. */
   expandedKeys?: ReadonlySet<string | number>;
+  /** Extra inline style per row's `<tr>` (e.g. highlighting the currently selected row). */
+  rowStyle?: (row: T) => CSSProperties | undefined;
 }
 
 const CELL_PADDING = '14px 20px';
@@ -58,6 +60,7 @@ export function PaginatedTable<T>({
   emptyLabel = 'No hay resultados',
   renderRowDetail,
   expandedKeys,
+  rowStyle,
 }: PaginatedTableProps<T>) {
   const hasToolbar = Boolean(search) || Boolean(toolbar);
 
@@ -115,7 +118,7 @@ export function PaginatedTable<T>({
                 const isExpanded = Boolean(renderRowDetail) && Boolean(expandedKeys?.has(key));
                 return (
                   <Fragment key={key}>
-                    <tr style={{ borderBottom: '1px solid var(--line)' }}>
+                    <tr style={{ borderBottom: '1px solid var(--line)', ...rowStyle?.(row) }}>
                       {columns.map((col) => (
                         <td key={col.key} style={{ padding: CELL_PADDING, textAlign: col.align ?? 'left' }}>
                           {col.render(row)}

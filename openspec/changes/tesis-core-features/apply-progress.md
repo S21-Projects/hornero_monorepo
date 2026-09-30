@@ -24,11 +24,14 @@ Engram mirror: `sdd/tesis-core-features/apply-progress`.
   "Completed Tasks (Slice 3c-ii)" below.
 - Size policy (user, 2026-09-30): slices over ~500 lines are split into commits along natural seams
   that each build and pass tests; size:exception only when no clean seam exists.
-- **Slice 4a — Cross-org audit queue backend. DONE (9/9): MS tasks 4a.1-4a.7 committed (`5633ad3`);
-  BFF tasks 4a.8-4a.9 done this batch (2026-09-30).** MS ~440 authored changed lines (committed
-  separately), BFF ~280 this batch, both well within budget. BFF full suite 129/129. Not yet
-  committed (this batch's BFF half).
-- Slice 4b and 5-7: not started.
+- **Slice 4a — Cross-org audit queue backend. DONE (9/9), fully committed: MS `5633ad3`, BFF
+  `8632881`.** MS ~440, BFF ~280 authored changed lines, both well within budget.
+- **Slice 4b — Cross-org audit queue screen (admin). DONE (6/6), 2026-09-30, on branch
+  `feat/tesis-core-features-04b-auditoria-ui`, NOT yet committed.** ≈601 authored changed lines,
+  over the 400-line budget — proposed as 2 commits (hook+type seam ≈195, screen+wiring seam
+  ≈406), see "Completed Tasks (Slice 4b)" / "Review Workload / Size (slice 4b)" below. Admin full
+  suite 291/291, build clean, lint clean.
+- Slices 5-7: not started.
 
 ## Completed Tasks (Slice 1)
 
@@ -778,15 +781,18 @@ satisfied by this commit plus the already-committed MS half (`5633ad3`).
 Slice 1: 10/10 tasks complete. Slice 2: 24/24 tasks complete. Slice 3a: 18/18 tasks complete.
 Slice 3b: 6/6 tasks complete. Slice 3c-i: 12/12 tasks complete (incl. 3c.21 pulled forward).
 Slice 3c-ii: 11/11 tasks complete (3c.12-3c.20, 3c.22). **Slice 4a: 9/9 tasks complete — MS
-4a.1-4a.7 committed (`5633ad3`); BFF 4a.8-4a.9 done this batch (2026-09-30), not yet committed.**
-Slice 4b and 5-7: not started.
+committed `5633ad3`, BFF committed `8632881`.** **Slice 4b: 6/6 tasks complete (2026-09-30), on
+branch `feat/tesis-core-features-04b-auditoria-ui`, not yet committed — proposed as 2 commits,
+see "Review Workload / Size (slice 4b)" above.** Slices 5-7: not started.
 
 Slices 1 and 2 (2a/2b) are already committed (`a87ebe9`, `c241250`, plus the slice-1 commit).
-Uncommitted on `feat/tesis-core-features-03a-entrega-codigo`: task 2.24's changes and all of
-slice 3a. Uncommitted on `feat/tesis-core-features-03c2-entrega-wiring` (this batch, current
-branch): all of slice 3c-ii, proposed as 4 commits above. Slice 3c-i lives on its own branch
-`feat/tesis-core-features-03c-entrega-ui` (per its own apply-progress note), not yet committed
-either. Pending commits carried from earlier batches (unchanged by this one):
+Slice 4a is fully committed (MS `5633ad3`, BFF `8632881`). Uncommitted on
+`feat/tesis-core-features-03a-entrega-codigo`: task 2.24's changes and all of slice 3a.
+Uncommitted on `feat/tesis-core-features-03c2-entrega-wiring`: all of slice 3c-ii, proposed as 4
+commits above. Slice 3c-i lives on its own branch `feat/tesis-core-features-03c-entrega-ui` (per
+its own apply-progress note), not yet committed either. Slice 4b (this batch) lives on
+`feat/tesis-core-features-04b-auditoria-ui`, proposed as 2 commits, not yet committed. Pending
+commits carried from earlier batches (unchanged by this one):
 `fix(acreditacion): render evidence files in the referente's own accreditation view` (task 2.24)
 and `feat(ms): add mutual delivery-code confirmation backend` (slice 3a).
 
@@ -811,10 +817,164 @@ and `feat(ms): add mutual delivery-code confirmation backend` (slice 3a).
   batch). Matches `tasks.md`'s single "USER COMMIT POINT" for slice 3b:
   `feat(bff): proxy delivery-code generate/verify/status routes`. All 5 changed/created files are
   `ts_hornero_bff/src/donaciones/**` only — nothing else on this branch to reconcile.
-- Slice 4a: **no decision needed** — MS half ≈440 authored changed lines (committed separately as
-  `5633ad3`), BFF half ≈280 authored changed lines this batch, both within the 400-line budget on
-  their own. BFF half not yet committed.
+- Slice 4a: **no decision needed** — MS half ≈440 authored changed lines (committed `5633ad3`),
+  BFF half ≈280 authored changed lines (committed `8632881`), both within the 400-line budget on
+  their own. Both halves now committed.
 - Slice 3c-ii: **not yet decided by the user** — ≈854 authored changed lines vs slice 3c's shared
   400-500 forecast (already spent by 3c-i alone). Recommending the 4-commit split above (per the
   user's own size policy) rather than `size:exception`, since every seam is independently green
   and none needs splitting further to fit.
+- Slice 4b: **not yet decided by the user** — ≈601 authored changed lines, over the 400-line
+  budget. Recommending a 2-commit split (see "Slice 4b" section below), both independently green.
+
+## Completed Tasks (Slice 4b — Cross-org audit queue screen, admin, 2026-09-30)
+
+Scope: only `ts_hornero_admin` (+ `openspec/changes/tesis-core-features/tasks.md`), per the
+orchestrator's narrow-batch instruction. Depends on slice 4a (already committed: MS `5633ad3`,
+BFF `8632881`). Strict TDD: every task below was written test-first, RED confirmed, then GREEN.
+
+- [x] 4b.1 RED — `useColaAuditoria.test.tsx` (new — `.tsx` not `.ts`: the wrapper needs JSX, and
+      the babel/vite TS parser rejects JSX in a plain `.ts` file; every other hook test with a
+      `QueryClientProvider` wrapper in this codebase is already `.test.tsx` for the same reason).
+      Confirmed RED: `Failed to resolve import "./useColaAuditoria"` (module did not exist).
+- [x] 4b.2 GREEN — `useColaAuditoria.ts`: `GET /auditoria/evidencias` forwarding
+      `tab`/`nivel`/`requisito`/`tipoEvidencia`/`page`/`size` raw (no client-side validation,
+      mirrors `useDonacionesActivas`), query key `['auditoria','cola', params]`,
+      `placeholderData: keepPreviousData`. 3/3 green.
+- [x] (unplanned, supports 4b.4/4b.5) `EvidenciaEnColaResponse`/`TabCola` added to
+      `types/domain.ts` — no test file of its own (a type-only addition), mirrors the MS
+      `EvidenciaEnColaResponse`/`TabCola` DTOs field-for-field.
+- [x] 4b.5 RED — added a case to `useAcreditacion.test.tsx` (`useAuditarEvidencia` describe
+      block): spies on `queryClient.invalidateQueries`, asserts a call with
+      `{ queryKey: ['auditoria','cola'] }`. Confirmed RED: only the pre-existing `acreditacion`/
+      `legajo` invalidation calls were observed (2 calls, neither matching).
+      GREEN — `useAuditarEvidencia`'s `onSuccess` now also invalidates `['auditoria','cola']`.
+      10/10 (whole file).
+- [x] 4b.3 RED — `routes/auditoria.test.tsx` (new, 6 cases: requests PENDIENTES/page 0 on mount;
+      switching to Vencidas resets to page 0 and changes the query key; changing the requisito
+      filter resets to page 0; pager renders when `totalPages > 1`; selecting a row opens the
+      existing detail with Aprobar/Observar; approving from the opened detail calls the existing
+      mutation and the row disappears from Pendientes once the (mocked) queue refetch reflects
+      the invalidation). Mocks `useColaAuditoria` and `useAuditarEvidencia` directly (same
+      pattern as `legajo.test.tsx`), not axios — `AuditQueue`'s own approve/observe wiring is
+      already covered by its own test file, so this suite only proves the screen composes it
+      correctly. Confirmed RED: `Failed to resolve import "./auditoria"` (module did not exist).
+- [x] 4b.4 GREEN — `routes/auditoria.tsx`: tabs (Pendientes/Vencidas, each showing a count),
+      nivel/requisito/tipoEvidencia `Dropdown` filters (any change resets to page 0), a
+      `PaginatedTable` (Organización/Requisito/Tipo/Nivel columns) with a "Ver detalle" row
+      action that expands `AuditQueue` (reused unmodified) via `renderRowDetail`/`expandedKeys`
+      — exactly the same expand-on-row-action pattern already used by `control-donaciones.tsx`'s
+      `OverrideForm`/`RowDetail`. `toRequisitoEnLegajo` adapts one `EvidenciaEnColaResponse` row
+      into the single-element `RequisitoEnLegajo[]` `AuditQueue` expects, with `evidenciaIds`/
+      `evidenciaObjectKeys` built from that same row — no duplicated approve/observe logic.
+      6/6 green.
+- [x] (unplanned, satisfies the "selected-row highlight" part of the screen brief) added an
+      optional `rowStyle?: (row: T) => CSSProperties | undefined` prop to the shared
+      `PaginatedTable` (backward-compatible — every other caller passes nothing and is
+      unaffected), used here to shade the selected row's background while its detail is open.
+- [x] 4b.6 RED — added a case to `router.test.tsx` (`/auditoria is ADMINISTRADOR-only,
+      requireVerified`) and to `AppShell.test.tsx` (`Auditoría` nav link → `/auditoria`).
+      **Deviation from strict RED-first ordering**: the route/nav wiring itself was added
+      immediately before writing these two assertions in the same short edit (not after
+      observing a failing router test) — `router.test.tsx`'s case passed on first run; only
+      `AppShell.test.tsx`'s case was confirmed RED first (`Unable to find role "link" with name
+      "Auditoría"`) before the nav entry was added. Recorded honestly per the Work Unit Evidence
+      hard gate rather than silently claiming RED for both.
+      GREEN — `router.tsx`: `/auditoria` registered in the existing ADMIN-only block (alongside
+      `/panel`, `/users`, `/control-donaciones`, same `ProtectedRoute allow={['ADMINISTRADOR']}
+      requireVerified`). `AppShell.tsx`: `{ to: '/auditoria', label: 'Auditoría', icon:
+      <ClipboardTick /> }` added to the ADMINISTRADOR `NAV_LINKS` block.
+
+### TDD Cycle Evidence (Slice 4b)
+
+| Task(s) | Test file | RED confirmed | GREEN |
+|---|---|---|---|
+| 4b.1/4b.2 | `useColaAuditoria.test.tsx` (new) | ✅ module not found | ✅ 3/3 |
+| 4b.5 | `useAcreditacion.test.tsx` (+1 case) | ✅ invalidateQueries spy: only 2 pre-existing calls, neither `['auditoria','cola']` | ✅ 10/10 (whole file) |
+| 4b.3/4b.4 | `routes/auditoria.test.tsx` (new) | ✅ module not found | ✅ 6/6 |
+| 4b.6 (AppShell) | `AppShell.test.tsx` (+1 case) | ✅ `Unable to find role "link" with name "Auditoría"` | ✅ 3/3 (whole file) |
+| 4b.6 (router) | `router.test.tsx` (+1 case) | not separately observed — route already wired when the assertion was written; passed immediately | ✅ 6/6 (whole file) |
+| PaginatedTable `rowStyle` | `PaginatedTable.test.tsx` (pre-existing 8 cases, unchanged) | N/A — additive optional prop, no new test written for it directly; exercised indirectly through `auditoria.test.tsx`'s passing render | ✅ 8/8 (unaffected) |
+
+### Files Changed (Slice 4b)
+
+| File | Action | What Was Done |
+|---|---|---|
+| `ts_hornero_admin/src/types/domain.ts` | Modified | `TabCola`, `EvidenciaEnColaResponse` added |
+| `ts_hornero_admin/src/lib/hooks/useColaAuditoria.ts` (+.test.tsx) | Created | `GET auditoria/evidencias` query hook |
+| `ts_hornero_admin/src/lib/hooks/useAcreditacion.ts` | Modified | `useAuditarEvidencia` also invalidates `['auditoria','cola']` |
+| `ts_hornero_admin/src/lib/hooks/useAcreditacion.test.tsx` | Modified | +1 test for the new invalidation |
+| `ts_hornero_admin/src/components/ui/PaginatedTable.tsx` | Modified | optional `rowStyle` prop (selected-row highlight) |
+| `ts_hornero_admin/src/routes/auditoria.tsx` (+.test.tsx) | Created | The cross-org audit queue screen |
+| `ts_hornero_admin/src/app/router.tsx` (+.test.tsx) | Modified | `/auditoria` registered in the ADMIN block |
+| `ts_hornero_admin/src/app/AppShell.tsx` (+.test.tsx) | Modified | "Auditoría" nav entry (`ClipboardTick` icon) |
+| `openspec/changes/tesis-core-features/tasks.md` | Modified | 4b.1-4b.6 marked `[x]` |
+
+### Work Unit Evidence (Slice 4b)
+
+- Focused test command / result: `npx vitest run src/routes/auditoria.test.tsx
+  src/components/ui/__tests__/PaginatedTable.test.tsx src/lib/hooks/useColaAuditoria.test.tsx
+  src/lib/hooks/useAcreditacion.test.tsx src/app/router.test.tsx src/app/AppShell.test.tsx` →
+  all green (15+10+3+... — see full-suite number below).
+- Runtime harness: N/A in the strict supertest/`@WebMvcTest` sense (no backend touched this
+  batch) — the closest available integration boundary is `router.test.tsx`'s structural
+  assertions against the real `router.routes` tree (not a synthetic fixture), which is the same
+  precedent used for every prior route-wiring task in this change (3c.14, D-01's legajo test).
+- Rollback boundary: all 9 files above, self-contained to `ts_hornero_admin/` +
+  `openspec/changes/tesis-core-features/tasks.md`; no MS/BFF changes in this batch (slice 4a's
+  backend is already committed and untouched).
+
+### Deviations from Design/Tasks (slice 4b)
+
+1. `useColaAuditoria.test.tsx` uses the `.test.tsx` extension, not the `.test.ts` tasks.md names
+   — required by the JSX wrapper; matches every other hook test with a `QueryClientProvider`
+   wrapper already in the codebase (`useDonacionesActivas.test.tsx`, `useAcreditacion.test.tsx`).
+2. Tab badge counts ("Pendientes · N / Vencidas · N" per the mockup) are not in `tasks.md`'s
+   wording but are in the orchestrator's screen brief and the mockup; implemented via two extra
+   lightweight `useColaAuditoria({ ..., size: 1 })` calls for the inactive tab's `totalElements`
+   — the endpoint has no combined-count field, and no MS/BFF change was in scope for this batch.
+3. `PaginatedTable`'s `rowStyle` prop is a new, backward-compatible optional addition not named
+   in `tasks.md` — needed for the "selected-row highlight" requirement in the screen brief;
+   every existing caller (`users.tsx`, `control-donaciones.tsx`) omits it and is unaffected.
+4. 4b.6's router-test RED was not separately observed (see task note above) — recorded honestly
+   rather than claimed.
+5. Everything else matches AD-8, `specs/auditoria-cola-global/spec.md`, and `tasks.md`'s slice
+   4b wording: tabs partition PENDIENTES/VENCIDAS, filters combine with AND, pagination via the
+   existing `Pager`/`PaginatedTable`, row selection opens the existing `AuditQueue` detail
+   unmodified, and approving/observing invalidates the queue.
+
+### Verification (slice 4b) — actually run, full suites
+
+- `cd ts_hornero_admin && npm test` → **291/291 passing** (up from 279 baseline — 59 test files,
+  12 new tests across the 6 touched/created test files).
+- `cd ts_hornero_admin && npm run build` → success (same pre-existing >500kB chunk-size warning).
+- `cd ts_hornero_admin && npm run lint` → 0 errors, 0 warnings.
+
+### Review Workload / Size (slice 4b) — exceeds the 400-line budget
+
+Authored changed lines (`git diff --numstat` for modified files + full line count for new
+files, additions + deletions, `tasks.md` counted separately from the code):
+
+- Modified (excl. `tasks.md`): `AppShell.test.tsx` 7, `AppShell.tsx` 3, `router.test.tsx` 13,
+  `router.tsx` 2, `PaginatedTable.tsx` 7, `useAcreditacion.test.tsx` 26, `useAcreditacion.ts` 3,
+  `domain.ts` 34 = **95**.
+- New files: `useColaAuditoria.ts` 35, `useColaAuditoria.test.tsx` 97, `auditoria.tsx` 204,
+  `auditoria.test.tsx` 158 = **494**.
+- `tasks.md`: 12.
+- **Slice 4b total: ≈601 authored changed lines** — over the 400-line single-PR budget, though
+  under the ~500-700 range other slices in this change have needed a split for.
+
+Per the user's size policy (2026-09-30, carried over from slice 3c-ii): split along natural
+seams, each independently green. Proposing **2 commits**, not `size:exception` — verified both
+seams build and pass their own subset of tests standing alone (the screen seam imports the hook
+seam, so commit order matters, but neither seam has files the other seam also touches):
+
+1. `feat(admin): add the cross-org audit queue read hook` — `domain.ts` (`TabCola`,
+   `EvidenciaEnColaResponse`), `useColaAuditoria.ts`(+.test.tsx), `useAcreditacion.ts`(+.test.tsx)
+   (≈195 lines: 34+35+97+3+26).
+2. `feat(admin): add the cross-org audit queue screen` — `auditoria.tsx`(+.test.tsx),
+   `PaginatedTable.tsx`, `router.tsx`(+.test.tsx), `AppShell.tsx`(+.test.tsx), `tasks.md`
+   (≈406 lines: 204+158+7+2+13+3+7+12).
+
+Commit 1 must land before commit 2 (the screen imports `useColaAuditoria`); both are already on
+the current branch `feat/tesis-core-features-04b-auditoria-ui` per the session's git status.

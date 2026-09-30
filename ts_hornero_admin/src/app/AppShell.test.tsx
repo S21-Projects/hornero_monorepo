@@ -56,4 +56,11 @@ describe('AppShell route-level ErrorBoundary', () => {
 
     expect(screen.getByText('Panel Page')).toBeInTheDocument();
   });
+
+  // Task 4b.6 (AD-8) — the cross-org audit queue screen needs a nav entry in the admin block.
+  it('shows an "Auditoría" nav link pointing at /auditoria for ADMINISTRADOR', () => {
+    render(<RouterProvider router={buildRouter()} />);
+
+    expect(screen.getByRole('link', { name: 'Auditoría' })).toHaveAttribute('href', '/auditoria');
+  });
 });

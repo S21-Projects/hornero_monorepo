@@ -22,6 +22,7 @@ import VerifyEmailPage from '../routes/verify-email';
 import AcreditacionPage from '../routes/acreditacion';
 import LegajoPage from '../routes/legajo';
 import EntregaPage from '../routes/entrega';
+import AuditoriaPage from '../routes/auditoria';
 
 export const router = createBrowserRouter([
   // ── Public-only routes (redirect away when authenticated) ──────────────
@@ -93,6 +94,7 @@ export const router = createBrowserRouter([
           { path: '/users', element: <UsersPage /> },
           { path: '/referentes', element: <ReferentesPage /> },
           { path: '/control-donaciones', element: <ControlDonacionesPage /> },
+          { path: '/auditoria', element: <AuditoriaPage /> },
         ],
       },
     ],
