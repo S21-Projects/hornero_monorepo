@@ -67,4 +67,17 @@ describe('router.tsx — real route wiring', () => {
       allow: expect.arrayContaining(['ADMINISTRADOR', 'REFERENTE']),
     });
   });
+
+  // Task 3c.14 — the mobile delivery-confirmation screen is reachable by both parties of a
+  // donación (spec `donacion-entrega-codigo`'s "Mobile Delivery Confirmation Screen").
+  it('/donaciones/:id/entrega admits DONANTE and REFERENTE, requireVerified', () => {
+    const guard = findGuardElementForPath(router.routes, '/donaciones/:id/entrega');
+
+    expect(guard).toBeDefined();
+    expect((guard!.type as { name?: string }).name).toBe('ProtectedRoute');
+    expect(guard!.props).toMatchObject({
+      allow: expect.arrayContaining(['DONANTE', 'REFERENTE']),
+      requireVerified: true,
+    });
+  });
 });

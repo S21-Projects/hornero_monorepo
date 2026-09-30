@@ -21,6 +21,7 @@ import MisOrganizacionesPage from '../routes/mis-organizaciones';
 import VerifyEmailPage from '../routes/verify-email';
 import AcreditacionPage from '../routes/acreditacion';
 import LegajoPage from '../routes/legajo';
+import EntregaPage from '../routes/entrega';
 
 export const router = createBrowserRouter([
   // ── Public-only routes (redirect away when authenticated) ──────────────
@@ -110,6 +111,23 @@ export const router = createBrowserRouter([
         element: <AppShell />,
         children: [
           { path: '/organizaciones/:id/legajo', element: <LegajoPage /> },
+        ],
+      },
+    ],
+  },
+
+  // ── Delivery confirmation screen (DONANTE + REFERENTE) ─────────────────
+  // Spec `donacion-entrega-codigo`'s "Mobile Delivery Confirmation Screen" — reachable by both
+  // parties of a donación in an active delivery state. Not gated by requireValidated: a REFERENTE
+  // reaches this screen for donations already accepted regardless of the org's later validation
+  // state, mirroring /organizaciones/:id/legajo's own requireVerified-only gate.
+  {
+    element: <ProtectedRoute allow={['DONANTE', 'REFERENTE']} requireVerified />,
+    children: [
+      {
+        element: <AppShell />,
+        children: [
+          { path: '/donaciones/:id/entrega', element: <EntregaPage /> },
         ],
       },
     ],

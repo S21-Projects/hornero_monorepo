@@ -43,6 +43,22 @@ describe('EscanerQr', () => {
     expect(screen.getByLabelText(/código/i)).toBeInTheDocument();
   });
 
+  it('defaults the scan label to the organización (donante viewer)', () => {
+    render(<EscanerQr donacionId={42} onCodigo={vi.fn()} />);
+
+    expect(
+      screen.getByRole('button', { name: 'Escanear código de la organización' }),
+    ).toBeInTheDocument();
+  });
+
+  it('shows the donante-facing label when the viewer is the referente', () => {
+    render(<EscanerQr donacionId={42} onCodigo={vi.fn()} contraparte="DONANTE" />);
+
+    expect(
+      screen.getByRole('button', { name: 'Escanear código del donante' }),
+    ).toBeInTheDocument();
+  });
+
   it('starts the camera and the adapter on tap', async () => {
     const stream = { getTracks: () => [{ stop: vi.fn() }] };
     getUserMediaMock.mockResolvedValue(stream);

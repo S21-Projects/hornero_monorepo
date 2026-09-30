@@ -88,6 +88,9 @@ export interface Donacion {
   donanteId?: number;
   necesidadId: number;
   organizacionId?: number;
+  /** MS `DonacionResponse.organizacionNombre` — the counterpart's name for a donante viewer
+   * (slice 3c's confirmation screen header). */
+  organizacionNombre?: string;
   confirmadaDonanteEn?: string;
   confirmadaReferenteEn?: string;
 }

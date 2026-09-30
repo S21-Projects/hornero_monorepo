@@ -8,6 +8,11 @@ interface EscanerQrProps {
   donacionId: number;
   onCodigo: (codigo: string) => void;
   disabled?: boolean;
+  /**
+   * Who the scan button asks the viewer to scan — the counterpart's role, not the viewer's own.
+   * A donante scans the organización's code (default); a referente scans the donante's code.
+   */
+  contraparte?: 'ORGANIZACION' | 'DONANTE';
 }
 
 /**
@@ -16,7 +21,10 @@ interface EscanerQrProps {
  * once the user taps "Escanear código..." (AD-7) — the camera stream itself is owned here so this
  * component can stop the tracks independently of the adapter's own decode loop.
  */
-export function EscanerQr({ donacionId, onCodigo, disabled }: EscanerQrProps) {
+export function EscanerQr({ donacionId, onCodigo, disabled, contraparte = 'ORGANIZACION' }: EscanerQrProps) {
+  const etiquetaEscanear =
+    contraparte === 'DONANTE' ? 'Escanear código del donante' : 'Escanear código de la organización';
+
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const [escaneando, setEscaneando] = useState(false);
@@ -83,7 +91,7 @@ export function EscanerQr({ donacionId, onCodigo, disabled }: EscanerQrProps) {
             disabled={disabled}
             style={{ minHeight: 44 }}
           >
-            Escanear código de la organización
+            {etiquetaEscanear}
           </Button>
         </>
       )}
