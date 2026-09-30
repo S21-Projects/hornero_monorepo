@@ -31,7 +31,16 @@ Engram mirror: `sdd/tesis-core-features/apply-progress`.
   over the 400-line budget — proposed as 2 commits (hook+type seam ≈195, screen+wiring seam
   ≈406), see "Completed Tasks (Slice 4b)" / "Review Workload / Size (slice 4b)" below. Admin full
   suite 291/291, build clean, lint clean.
-- Slices 5-7: not started.
+- **Slice 5a — Worker contract + HTTP entrypoint (worker, compose). DONE (17/17), 2026-09-30, on
+  branch `feat/tesis-core-features-05a-worker-http`, NOT yet committed.** ≈1676 authored changed
+  lines — far over the 400-line budget — proposed as 5 natural-seam commits (solver penalty; geo
+  deficit resolver; wire contract; HTTP handler + serve + golden fixtures; Docker/compose/docs),
+  see "Completed Tasks (Slice 5a)" / "Review Workload / Size (slice 5a)" below. Worker suite
+  green (`internal/assign`, `internal/geo`, `internal/contrato`, `internal/api`, `internal/metrics`
+  all pass); `internal/renacom`'s `TestCargarDatasetCommiteado` fails, but pre-existing and
+  unrelated to this slice (see deviations). `go vet ./...` clean, `docker compose config -q`
+  clean, and the worker Dockerfile builds and serves correctly against a valid CSV.
+- Slices 5b-7: not started.
 
 ## Completed Tasks (Slice 1)
 
@@ -783,16 +792,19 @@ Slice 3b: 6/6 tasks complete. Slice 3c-i: 12/12 tasks complete (incl. 3c.21 pull
 Slice 3c-ii: 11/11 tasks complete (3c.12-3c.20, 3c.22). **Slice 4a: 9/9 tasks complete — MS
 committed `5633ad3`, BFF committed `8632881`.** **Slice 4b: 6/6 tasks complete (2026-09-30), on
 branch `feat/tesis-core-features-04b-auditoria-ui`, not yet committed — proposed as 2 commits,
-see "Review Workload / Size (slice 4b)" above.** Slices 5-7: not started.
+see "Review Workload / Size (slice 4b)" above.** **Slice 5a: 17/17 tasks complete (2026-09-30), on
+branch `feat/tesis-core-features-05a-worker-http`, not yet committed — proposed as 5 commits, see
+"Review Workload / Size (slice 5a)" above.** Slices 5b-7: not started.
 
 Slices 1 and 2 (2a/2b) are already committed (`a87ebe9`, `c241250`, plus the slice-1 commit).
 Slice 4a is fully committed (MS `5633ad3`, BFF `8632881`). Uncommitted on
 `feat/tesis-core-features-03a-entrega-codigo`: task 2.24's changes and all of slice 3a.
 Uncommitted on `feat/tesis-core-features-03c2-entrega-wiring`: all of slice 3c-ii, proposed as 4
 commits above. Slice 3c-i lives on its own branch `feat/tesis-core-features-03c-entrega-ui` (per
-its own apply-progress note), not yet committed either. Slice 4b (this batch) lives on
-`feat/tesis-core-features-04b-auditoria-ui`, proposed as 2 commits, not yet committed. Pending
-commits carried from earlier batches (unchanged by this one):
+its own apply-progress note), not yet committed either. Slice 4b lives on
+`feat/tesis-core-features-04b-auditoria-ui`, proposed as 2 commits, not yet committed. Slice 5a
+(this batch) lives on `feat/tesis-core-features-05a-worker-http`, proposed as 5 commits, not yet
+committed. Pending commits carried from earlier batches (unchanged by this one):
 `fix(acreditacion): render evidence files in the referente's own accreditation view` (task 2.24)
 and `feat(ms): add mutual delivery-code confirmation backend` (slice 3a).
 
@@ -826,6 +838,11 @@ and `feat(ms): add mutual delivery-code confirmation backend` (slice 3a).
   and none needs splitting further to fit.
 - Slice 4b: **not yet decided by the user** — ≈601 authored changed lines, over the 400-line
   budget. Recommending a 2-commit split (see "Slice 4b" section below), both independently green.
+- Slice 5a: **not yet decided by the user** — ≈1676 authored changed lines, the largest slice in
+  this change so far, far over the 400-line budget. Recommending a 5-commit natural-seam split
+  (see "Review Workload / Size (slice 5a)" below), each independently green and in the required
+  dependency order (assign penalty → geo resolver → wire contract → HTTP handler/serve → compose
+  and docs).
 
 ## Completed Tasks (Slice 4b — Cross-org audit queue screen, admin, 2026-09-30)
 
@@ -978,3 +995,209 @@ seam, so commit order matters, but neither seam has files the other seam also to
 
 Commit 1 must land before commit 2 (the screen imports `useColaAuditoria`); both are already on
 the current branch `feat/tesis-core-features-04b-auditoria-ui` per the session's git status.
+
+## Completed Tasks (Slice 5a — Worker contract + HTTP entrypoint, 2026-09-30)
+
+On branch `feat/tesis-core-features-05a-worker-http`. Allowed edit roots: `go_algorithms_worker`,
+`docker-compose.yml`, `openspec/changes/tesis-core-features`. Strict TDD: every new test was
+written first, RED confirmed (compile failure against the not-yet-existing symbols), then GREEN.
+
+- [x] 5a.1/5a.7 — RED `internal/contrato/ronda_v1_test.go` (undefined `EntradaRondaV1` etc.) →
+      GREEN `internal/contrato/ronda_v1.go`: `EntradaRondaV1`/`DonacionV1`/`CandidatoV1`/
+      `ParametrosV1` wire DTOs, `Validar()` (version check, ≤500 items, finite in-range
+      coordinates, free-text `categoria` pass-through), `ADonaciones()`/`ACandidatos()` mapping
+      onto unchanged `internal/assign` types, `ResolverPesos()`/`ResolverParametros()` merging
+      request overrides onto the worker defaults.
+- [x] 5a.2/5a.8 — RED `internal/geo/deficit_test.go` (undefined `Resolvedor` etc.) → GREEN
+      `internal/geo/deficit.go`: `Resolvedor.Resolver()` implements the AD-2 4-row precedence
+      table (`PROVISTO` > `RADIO` > `CERCANO` > `NEUTRAL`); `Cargar()` builds one from the RENACOM
+      CSV + optional population CSV, the way `serve` does at startup.
+- [x] 5a.3/5a.10 — RED `internal/assign/ronda_test.go` (undefined `DiasEnFondo`,
+      `OrganizacionesExcluidas`, `p.PenalizacionNoAsignar`, `.Desglose`) → GREEN
+      `internal/assign/ronda.go`: `Ronda()` now always adds one dummy column per donation
+      (`matrizConDescarte`/`costoDescarte`, AD-10), Inf for every row but its own, cost
+      `PenalizacionNoAsignar × min(diasEnFondo/esperaMaximaDias, 1)` on its own; `Donacion` gained
+      `DiasEnFondo`/`OrganizacionesExcluidas` (scoring.go); the exclusion list is enforced as a
+      hard filter inside `ScoreConDesglose`.
+- [x] 5a.4/5a.9 — RED `internal/assign/scoring_test.go` (undefined `ScoreConDesglose`,
+      `Desglose`) → GREEN `internal/assign/scoring.go`: added the `Desglose` struct (the 4
+      normalized terms) and `ScoreConDesglose`; `Score` is now a 2-line delegation to it.
+- [x] 5a.5/5a.11 — RED `internal/api/handler_test.go` (undefined `NuevoHandler`) → GREEN
+      `internal/api/handler.go`: `POST /v1/ronda` (`http.MaxBytesReader` 1 MiB → 413, decode/
+      `Validar()` failures → 400 `{error,detalle}`, otherwise 200 with `contrato.AResultado`),
+      `GET /healthz` → 200 `ok`, `405` on any other method on `/v1/ronda`.
+- [x] 5a.6 — RED (fixture files did not exist) → GREEN `testdata/ronda-v1/request.json` (reused
+      design.md's own illustrative example verbatim) and `response.json` (captured from a real
+      run of the implemented handler, inspected by hand against the expected formulas — see the
+      "golden generation" deviation note below — then locked in as the regression fixture).
+      `TestRondaGoldenRoundtrip` passes.
+- [x] 5a.12 — GREEN `main.go`: added `serve --addr :8090 --data ... [--poblacion ...]
+      [--provincia ...]` (builds one `geo.Resolvedor` at startup, then `http.ListenAndServe` on
+      `api.NuevoHandler(resolvedor).Rutas()`); `cmdAssign` now decodes/validates through
+      `internal/contrato` and shares `geo.Cargar` with `serve`, replacing the old local
+      `entradaRonda` ad-hoc type.
+- [x] 5a.13 — GREEN `Dockerfile` (`golang:1.26-alpine` build, `CGO_ENABLED=0`, → `alpine:3.20`
+      runtime with `wget`; entrypoint is a `/bin/sh -c` wrapper, not a plain exec array, because
+      `POBLACION_CSV` needs shell expansion to become an optional `--poblacion` flag) and
+      `.dockerignore`. Verified with a real `docker build` + `docker run` (see Work Unit Evidence).
+- [x] 5a.14 — GREEN `docker-compose.yml`: new `worker` service — `build: ./go_algorithms_worker`,
+      **no `ports`** (AD-1: internal only), `networks: [hornero]`, healthcheck
+      `wget -qO- http://localhost:8090/healthz`, `POBLACION_CSV: "${POBLACION_CSV:-}"` with an
+      inline comment on why no bind-mount volume is added by default (Docker would silently
+      create an empty directory for a not-yet-existing host file). `docker compose config -q`
+      passes.
+- [x] 5a.15 — GREEN `contract/ronda-v1.md` (request/response shape, error envelope, the
+      `deficitFuente` enum, the 1 MiB / 500-item / coordinate-range limits, and an explicit note
+      that these fixtures are copied into the MS test resources in slice 5c) and the golden
+      fixtures themselves (5a.6).
+- [x] 5a.16 — GREEN `README.md`: reworded the intro (no longer "deliberately not a service" —
+      `serve` now is one, `metrics`/`assign` stay batch), added `serve` usage to the Commands
+      block, and documented the pre-existing corrupted-CSV issue found while smoke-testing (see
+      deviations).
+- [x] 5a.17 — REFACTOR (inspection only, no code change): confirmed `internal/assign.Candidato.
+      Deficit` is still a plain `float64` (unchanged) and the only place that distinguishes
+      "absent" from "zero" is `contrato.CandidatoV1.Deficit *float64` — exactly AD-14's intended
+      split.
+
+### TDD Cycle Evidence (Slice 5a)
+
+| Task(s) | Test file | RED confirmed | GREEN |
+|---|---|---|---|
+| 5a.4/5a.9 | `scoring_test.go` (+2 cases) | ✅ `undefined: ScoreConDesglose`/`Desglose` | ✅ whole `internal/assign` suite green |
+| 5a.3/5a.10 | `ronda_test.go` (+4 cases incl. a 200-case randomized property test) | ✅ `unknown field DiasEnFondo`/`p.PenalizacionNoAsignar undefined`/`.Desglose undefined` | ✅ whole `internal/assign` suite green |
+| 5a.2/5a.8 | `internal/geo/deficit_test.go` (new) | ✅ `undefined: Resolvedor` et al. | ✅ 7/7 |
+| 5a.1/5a.7 | `internal/contrato/ronda_v1_test.go` (new) | ✅ `undefined: EntradaRondaV1` et al. | ✅ 11/11 |
+| 5a.5/5a.11 | `internal/api/handler_test.go` (new) | ✅ `undefined: NuevoHandler` | ✅ 5/5 (pre-golden) |
+| 5a.6 | `TestRondaGoldenRoundtrip` (same file) | ✅ `response.json` did not exist / was empty | ✅ 1/1, after capturing and hand-verifying the golden once |
+
+### Files Changed (Slice 5a)
+
+| File | Action | What Was Done |
+|---|---|---|
+| `go_algorithms_worker/internal/assign/scoring.go` | Modified | `Desglose` struct, `ScoreConDesglose`, `Score` delegates, `estaExcluida`, `Donacion.DiasEnFondo`/`OrganizacionesExcluidas`, `Parametros.PenalizacionNoAsignar` (+default 0.10) |
+| `go_algorithms_worker/internal/assign/scoring_test.go` | Modified | +2 tests (delegation equality, infeasible-pair zero value) |
+| `go_algorithms_worker/internal/assign/ronda.go` | Modified | `Asignacion.Desglose`; `matrizConDescarte`/`costoDescarte` (AD-10 per-donation dummy columns) |
+| `go_algorithms_worker/internal/assign/ronda_test.go` | Modified | +5 tests: `rondaOriginal` oracle + 200-case property test, contention test, exclusion-filter test, Desglose-population test |
+| `go_algorithms_worker/internal/geo/deficit.go` (+.test.go) | Created | `Resolvedor`, `Fuente`, `Cargar` (AD-2) |
+| `go_algorithms_worker/internal/contrato/ronda_v1.go` (+.test.go) | Created | Wire DTOs, `Validar`, mapping, `SalidaRondaV1`/`AResultado` (AD-14) |
+| `go_algorithms_worker/internal/api/handler.go` (+.test.go) | Created | `POST /v1/ronda`, `GET /healthz` (AD-1) |
+| `go_algorithms_worker/main.go` | Modified | `cmdServe`; `cmdAssign` now uses `internal/contrato`/`internal/geo` |
+| `go_algorithms_worker/Dockerfile`, `.dockerignore` | Created | AD-1 image |
+| `go_algorithms_worker/contract/ronda-v1.md` | Created | Contract doc |
+| `go_algorithms_worker/testdata/ronda-v1/request.json`, `response.json` | Created | Golden fixtures |
+| `go_algorithms_worker/README.md` | Modified | `serve` usage + known-CSV-issue note |
+| `docker-compose.yml` | Modified | `worker` service (AD-1) |
+
+### Deviations from Design/Tasks (slice 5a)
+
+1. **5a.3's property test scope**: the randomized property test asserting "penalizacionNoAsignar
+   = 0 reproduces the old solver" uses feasible-only fixtures (no category mismatch, distances
+   well under `DistanciaMaximaKm`). A genuinely infeasible pair combined with
+   `len(candidatos) >= len(donaciones)` is a case where the pre-AD-10 solver and the new one
+   legitimately disagree: the old solver, with no dummy column available in that regime, was
+   *forced* onto a real (possibly `Inf`-cost) column even when a different, better global
+   matching existed; AD-10's always-available per-donation dummy removes that forced choice as a
+   byproduct. This was found and confirmed with a scratch debug test (not committed) before
+   narrowing the property test's fixture generator — it is a genuine improvement, not a bug, and
+   is out of AD-10's stated scope ("reproduces the old solver") to preserve byte-for-byte.
+2. **`ParametrosV1.RadioResolucionKm`/`CumplimientoPseudoObs`**: accepted and validated on the
+   wire (additive per AD-14) but not yet wired end-to-end — the request-level
+   `radioResolucionKm` override is parsed by `ResolverParametros()` but the handler does not yet
+   pass it into `geo.Resolvedor` (the resolver's radius is fixed at startup); `CumplimientoPseudoObs`
+   is reserved for slice 6a and entirely unused. Both are documented as deviations in code
+   comments, not silently dropped.
+3. **Golden fixture generation**: `response.json` was not hand-computed; it was captured from one
+   real run of the finished handler (`TestGenerarGolden`, a scratch test, not committed), then
+   hand-verified against the scoring formulas (deficit/urgencia/proximidad/espera/score all
+   check out — see the go-testing skill's own golden-file guidance) before being committed as the
+   regression fixture, matching the skill's documented golden workflow.
+4. **Pre-existing, out-of-scope**: `data/renacom.csv` fails to parse (`renacom: missing column
+   "Identificador"`) — every field looks double-quoted one level too many. This was already
+   failing (`TestCargarDatasetCommiteado`) before this batch touched anything (confirmed via a
+   baseline `go test ./...` run at the start of this batch) and is unrelated to the HTTP/contract
+   work — `go run . serve --data data/renacom.csv` fails at startup for the same reason. Verified
+   the loader, `Dockerfile`, and `docker-compose.yml` are otherwise correct using a minimal,
+   correctly-quoted substitute CSV (see Work Unit Evidence). Documented in `README.md`; fixing the
+   dataset itself is outside this slice's scope (not a `tasks.md` 5a item).
+5. Everything else matches `design.md` AD-1/AD-2/AD-10/AD-14 and `specs/ronda-asignacion/spec.md`
+   exactly: versioned/additive contract, explicit `sinAsignar`, per-criterion score breakdown,
+   `costoOportunidad`, and the worker as the single owner of the deficit computation.
+
+### Verification (slice 5a) — actually run
+
+- `cd go_algorithms_worker && go test ./...` → **all packages pass except
+  `algorithms/internal/renacom`** (`TestCargarDatasetCommiteado`, pre-existing per deviation 4,
+  reproduced identically before any change in this batch). `internal/assign`, `internal/geo`,
+  `internal/contrato`, `internal/api`, `internal/metrics` all green.
+- `cd go_algorithms_worker && go vet ./...` → clean.
+- `gofmt -l .` → clean (no files listed).
+- `docker build -t hornero-worker-test .` (real build, not a dry run) → succeeds.
+- `docker run` against the built image with a minimal valid CSV mounted → `GET /healthz` → `200
+  ok`; `POST /v1/ronda` with the golden `request.json` → `200` with the exact golden
+  `response.json` body.
+- Against the real (corrupted) `data/renacom.csv`, the container logs the expected startup error
+  and does not serve — consistent with deviation 4, not a defect in this slice's code.
+- `docker compose config -q` (repo root, real `.env`/`.env.local`, no `.env*` files edited) →
+  exit 0, only the pre-existing unrelated `TUNNEL_TOKEN` warning.
+- `cd go_algorithms_worker && go run . assign --input testdata/ronda-v1/request.json --data
+  /tmp/mini_renacom.csv` → prints the exact golden `response.json` body (CLI/HTTP parity
+  confirmed manually).
+
+### Work Unit Evidence (Slice 5a)
+
+- Focused test command / result: `go test ./internal/assign/... ./internal/geo/...
+  ./internal/contrato/... ./internal/api/... -v` → all green (see TDD table above for per-file
+  counts).
+- Runtime harness: real `docker build` + `docker run` + `curl`/`wget` against the built image
+  (both with a minimal valid CSV — 200s on `/healthz` and `/v1/ronda` — and against the real
+  corrupted `data/renacom.csv` — fails at startup exactly as `go run .` does locally, confirming
+  the Dockerfile/entrypoint mechanics are correct and the failure is data, not code); plus
+  `docker compose config -q` for the compose wiring.
+- Rollback boundary: every file in "Files Changed" above, all under `go_algorithms_worker/`,
+  `docker-compose.yml`, or `openspec/changes/tesis-core-features/tasks.md`; no MS/BFF/admin files
+  touched. Safely revertible as a whole or by the 5 seams below.
+
+### Review Workload / Size (slice 5a) — far exceeds the 400-line budget
+
+Authored changed lines (`git diff --stat` for modified files, full line count for new files,
+`tasks.md` counted separately from the code):
+
+- Modified, excl. `tasks.md` (`git diff --stat`): `docker-compose.yml` 27, `README.md` 41,
+  `internal/assign/ronda.go` 73, `internal/assign/ronda_test.go` 195, `internal/assign/scoring.go`
+  87, `internal/assign/scoring_test.go` 46, `main.go` 81 = **550**.
+- New files (full line count): `Dockerfile` 35, `.dockerignore` 6, `contract/ronda-v1.md` 108,
+  `internal/api/handler.go` 105, `internal/api/handler_test.go` 129,
+  `internal/contrato/ronda_v1.go` 268, `internal/contrato/ronda_v1_test.go` 131,
+  `internal/geo/deficit.go` 148, `internal/geo/deficit_test.go` 99, `testdata/ronda-v1/request.json`
+  27, `testdata/ronda-v1/response.json` 36 = **1092**.
+- `tasks.md`: 34.
+- **Slice 5a total: ≈1676 authored changed lines** — far over the 400-line single-PR budget,
+  the largest slice in this change so far.
+
+Per the user's size policy: proposing **5 natural-seam commits**, each independently verified to
+build and pass `go test`/`go vet` on its own (verified by re-running the full suite after each
+seam's files, in this exact order — order matters, each later seam's new code imports the
+previous seam's new types):
+
+1. `feat(worker): add the AD-10 unassignment penalty and score breakdown` — 
+   `internal/assign/{scoring,scoring_test,ronda,ronda_test}.go` (≈401 lines). Self-contained;
+   `go test ./internal/assign/...` green standing alone.
+2. `feat(worker): add the AD-2 coverage-deficit resolver` — `internal/geo/{deficit,deficit_test}.go`
+   (≈247 lines). Self-contained; `go test ./internal/geo/...` green standing alone.
+3. `feat(worker): add the versioned v1 ronda wire contract` —
+   `internal/contrato/{ronda_v1,ronda_v1_test}.go` (≈399 lines). Depends on seams 1-2 (imports
+   `assign`'s new fields and `geo.Resolvedor`); `go test ./internal/contrato/...` green once
+   seams 1-2 are applied.
+4. `feat(worker): add the HTTP serve entrypoint and golden fixtures` —
+   `internal/api/{handler,handler_test}.go`, `main.go`, `testdata/ronda-v1/{request,response}.json`
+   (≈378 lines). Depends on seams 1-3; `go build ./...` and `go test ./...` (excl. the pre-existing
+   `internal/renacom` failure) green.
+5. `feat(worker): add the compose service and contract docs` — `Dockerfile`, `.dockerignore`,
+   `docker-compose.yml`, `contract/ronda-v1.md`, `README.md`, `openspec/changes/tesis-core-features/tasks.md`
+   (≈251 lines incl. `tasks.md`). Depends on seam 4 (documents `serve`); no Go code, so
+   `docker build`/`docker compose config -q` are its own verification.
+
+Seams 1-2 can land in either order relative to each other (neither depends on the other); 3 must
+follow both; 4 must follow 3; 5 must follow 4.
+
+- Dataset note (orchestrator, 2026-09-30): the "corrupted renacom.csv" reported above was introduced by commit 0eb6045 (a re-quoted export committed by mistake as a refresh). Restored the prior file; `go test ./...` fully green including internal/renacom. README known-issue note removed.

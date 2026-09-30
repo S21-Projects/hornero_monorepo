@@ -51,6 +51,33 @@ services:
       retries: 5
       start_period: 30s
 
+  # AD-1: the ronda allocation solver. Internal only — no host port, no
+  # browser or LAN ever reaches it directly, only the MS calls it over the
+  # compose network. The MS does NOT depend_on this: it boots and serves
+  # everything else fine when the worker is down, only POST /api/rondas
+  # answers 503 WORKER_NO_DISPONIBLE.
+  worker:
+    build:
+      context: ./go_algorithms_worker
+    environment:
+      # Optional (AD-2): the path INSIDE the container where the INDEC census
+      # CSV (codigo_radio,habitantes,hogares) will be read from. Unset by
+      # default, which keeps every candidate at deficitFuente=NEUTRAL — see
+      # the "USER ACTION" note in tasks.md slice 5a. Once that CSV is sourced,
+      # add a `volumes: ["/path/on/host/poblacion.csv:/app/poblacion.csv:ro"]`
+      # entry to this service and point POBLACION_CSV at the mounted path —
+      # a bind mount of a file that does not yet exist is NOT added here on
+      # purpose, since Docker would silently create it as an empty directory.
+      POBLACION_CSV: "${POBLACION_CSV:-}"
+    networks:
+      - hornero
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8090/healthz || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
   bff:
     build:
       context: ./ts_hornero_bff

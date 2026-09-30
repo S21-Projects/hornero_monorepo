@@ -496,51 +496,51 @@ Depends on: 4a. Spec: `auditoria-cola-global`.
 Depends on: none (transport decision AD-1 already made — HTTP endpoint in a new compose service).
 Spec: `ronda-asignacion`, `donacion-fondo-comun`. Design: AD-1, AD-2, AD-10, AD-14.
 
-- [ ] 5a.1 RED — `go_algorithms_worker/internal/contrato/ronda_v1_test.go`: decode/validate the v1
+- [x] 5a.1 RED — `go_algorithms_worker/internal/contrato/ronda_v1_test.go`: decode/validate the v1
       request (version check → `400 VERSION_NO_SOPORTADA` for unknown major, body size limit,
       ≤ 500 donaciones/candidatos, finite coordinates in range, unrecognized-but-present `categoria`
       strings pass through untouched).
-- [ ] 5a.2 RED — `go_algorithms_worker/internal/geo/deficit_test.go`: the 4-row precedence table
+- [x] 5a.2 RED — `go_algorithms_worker/internal/geo/deficit_test.go`: the 4-row precedence table
       (`PROVISTO` > `RADIO` > `CERCANO` > `NEUTRAL`), including the zero-population/no-CSV case
       resolving every candidate to `NEUTRAL`.
-- [ ] 5a.3 RED — `go_algorithms_worker/internal/assign/ronda_test.go`: the per-donation
+- [x] 5a.3 RED — `go_algorithms_worker/internal/assign/ronda_test.go`: the per-donation
       unassignment-penalty dummy column (AD-10) — `penalizacionNoAsignar = 0` reproduces the old
       solver's assigned set and `ScoreTotal` on randomized instances (property test alongside the
       existing oracle); under contention, the older (`diasEnFondo` larger) donation wins the scarce
       necesidad; `organizacionesExcluidas` acts as a hard filter.
-- [ ] 5a.4 RED — `go_algorithms_worker/internal/assign/scoring_test.go`: `ScoreDetallado` →
+- [x] 5a.4 RED — `go_algorithms_worker/internal/assign/scoring_test.go`: `ScoreDetallado` →
       `Desglose` renaming/delegation keeps existing callers/tests green.
-- [ ] 5a.5 RED — `go_algorithms_worker/internal/api/handler_test.go` (`httptest`): `POST /v1/ronda`
+- [x] 5a.5 RED — `go_algorithms_worker/internal/api/handler_test.go` (`httptest`): `POST /v1/ronda`
       200 on a valid golden request; 400 on invalid input; 413 on an oversized body; `GET /healthz`
       200.
-- [ ] 5a.6 RED — Golden fixture test: `go_algorithms_worker/testdata/ronda-v1/request.json` →
+- [x] 5a.6 RED — Golden fixture test: `go_algorithms_worker/testdata/ronda-v1/request.json` →
       `response.json` round-trips through the handler exactly.
-- [ ] 5a.7 GREEN — Create `go_algorithms_worker/internal/contrato/ronda_v1.go`: wire DTOs,
+- [x] 5a.7 GREEN — Create `go_algorithms_worker/internal/contrato/ronda_v1.go`: wire DTOs,
       validation, mapping to unchanged `internal/assign` types. Satisfies 5a.1.
-- [ ] 5a.8 GREEN — Create `go_algorithms_worker/internal/geo/deficit.go`: `ResolverDeficit`,
+- [x] 5a.8 GREEN — Create `go_algorithms_worker/internal/geo/deficit.go`: `ResolverDeficit`,
       loaded once at startup from `data/renacom.csv` and optional `POBLACION_CSV`. Satisfies 5a.2.
-- [ ] 5a.9 GREEN — Modify `go_algorithms_worker/internal/assign/scoring.go`: rename to `Desglose`,
+- [x] 5a.9 GREEN — Modify `go_algorithms_worker/internal/assign/scoring.go`: rename to `Desglose`,
       `Score` delegates. Satisfies 5a.4.
-- [ ] 5a.10 GREEN — Modify `go_algorithms_worker/internal/assign/ronda.go`: `Asignacion.Desglose`;
+- [x] 5a.10 GREEN — Modify `go_algorithms_worker/internal/assign/ronda.go`: `Asignacion.Desglose`;
       per-donation dummy columns with the unassignment penalty; `Donacion.DiasEnFondo`,
       `OrganizacionesExcluidas` hard filter. Satisfies 5a.3.
-- [ ] 5a.11 GREEN — Create `go_algorithms_worker/internal/api/handler.go`: `POST /v1/ronda`,
+- [x] 5a.11 GREEN — Create `go_algorithms_worker/internal/api/handler.go`: `POST /v1/ronda`,
       `GET /healthz`, size limit (`http.MaxBytesReader`), error envelope `{error, detalle}`.
       Satisfies 5a.5, 5a.6.
-- [ ] 5a.12 GREEN — Modify `go_algorithms_worker/main.go`: add `serve --addr :8090 --data ...
+- [x] 5a.12 GREEN — Modify `go_algorithms_worker/main.go`: add `serve --addr :8090 --data ...
       [--poblacion ...] [--provincia ...]`; the existing `assign` CLI now uses `internal/contrato`.
-- [ ] 5a.13 GREEN — Create `go_algorithms_worker/Dockerfile`, `.dockerignore`: `golang:1.26-alpine`
+- [x] 5a.13 GREEN — Create `go_algorithms_worker/Dockerfile`, `.dockerignore`: `golang:1.26-alpine`
       build (`CGO_ENABLED=0`) → `alpine` runtime with `wget` for the healthcheck; copies
       `data/renacom.csv`.
-- [ ] 5a.14 GREEN — Modify `docker-compose.yml`: add `worker` service (build
+- [x] 5a.14 GREEN — Modify `docker-compose.yml`: add `worker` service (build
       `./go_algorithms_worker`, no `ports`, healthcheck `wget -qO- http://localhost:8090/healthz`,
       network `hornero`, optional `POBLACION_CSV`).
-- [ ] 5a.15 GREEN — Create `go_algorithms_worker/contract/ronda-v1.md` and the golden fixtures
+- [x] 5a.15 GREEN — Create `go_algorithms_worker/contract/ronda-v1.md` and the golden fixtures
       `go_algorithms_worker/testdata/ronda-v1/{request,response}.json`; note that these fixtures are
       copied into `jar_hornero_ms/src/test/resources/contract/` in slice 5c and both suites must
       change together.
-- [ ] 5a.16 GREEN — Modify `go_algorithms_worker/README.md`: document `serve` usage.
-- [ ] 5a.17 REFACTOR — Confirm `internal/assign.Candidato.Deficit` stays a plain `float64`;
+- [x] 5a.16 GREEN — Modify `go_algorithms_worker/README.md`: document `serve` usage.
+- [x] 5a.17 REFACTOR — Confirm `internal/assign.Candidato.Deficit` stays a plain `float64`;
       "absent vs zero" stays a wire-only concern in `internal/contrato`.
 
 **Verification (slice 5a):** `cd go_algorithms_worker && go test ./...`
