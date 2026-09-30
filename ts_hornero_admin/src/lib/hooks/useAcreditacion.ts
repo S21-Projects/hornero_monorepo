@@ -109,6 +109,9 @@ export function useAuditarEvidencia() {
     onSuccess: (_data, { organizacionId }) => {
       void queryClient.invalidateQueries({ queryKey: ['acreditacion', organizacionId] });
       void queryClient.invalidateQueries({ queryKey: ['legajo', organizacionId] });
+      // Task 4b.5 (AD-8): the cross-org audit queue screen renders the same evidence rows via
+      // `useColaAuditoria` — an approve/observe from either screen must refresh both.
+      void queryClient.invalidateQueries({ queryKey: ['auditoria', 'cola'] });
     },
   });
 }
