@@ -67,6 +67,15 @@ public class SecurityConfig {
                                 "/api/organizaciones/*/acreditacion",
                                 "/api/organizaciones/*/acreditacion/**",
                                 "/api/organizaciones/*/legajo").authenticated()
+                        // AD-6: delivery-code confirmation state is never world-readable.
+                        // Declared before the permitAll GET-donaciones block below (Spring
+                        // evaluates matchers in declaration order) — placement after it would
+                        // silently leak both parties' confirmation status to anonymous users.
+                        // Method granularity (only the donación's donante/referente, never an
+                        // unrelated user) is enforced by @PreAuthorize + ParticipantesDonacion on
+                        // EntregaController/EntregaService.
+                        .requestMatchers(org.springframework.http.HttpMethod.GET,
+                                "/api/donaciones/*/entrega").authenticated()
                         // Public read-only endpoints — no account required
                         .requestMatchers(org.springframework.http.HttpMethod.GET,
                                 "/api/organizaciones",

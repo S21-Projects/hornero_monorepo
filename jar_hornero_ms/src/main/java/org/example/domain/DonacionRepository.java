@@ -1,8 +1,10 @@
 package org.example.domain;
 
+import jakarta.persistence.LockModeType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -72,4 +74,14 @@ public interface DonacionRepository extends JpaRepository<Donacion, Long> {
     )
     Page<Donacion> findActivas(@Param("estados") Collection<EstadoDonacion> estados,
                                 @Param("q") String q, Pageable pageable);
+
+    /**
+     * Row-locks the donación for the duration of the transaction (AD-6/AD-9). Required by
+     * {@code EntregaService.verificar}: without this lock, two concurrent verifications each read
+     * "the other party hasn't confirmed yet" and the donación can get stuck at
+     * {@code PENDIENTE_CONFIRMACION} forever instead of reaching {@code ENTREGADA} exactly once.
+     */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT d FROM Donacion d JOIN FETCH d.donante JOIN FETCH d.necesidad n JOIN FETCH n.organizacion WHERE d.id = :id")
+    Optional<Donacion> findByIdForUpdate(@Param("id") Long id);
 }

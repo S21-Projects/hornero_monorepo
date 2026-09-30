@@ -206,14 +206,14 @@ than estimated.
 
 Depends on: none (lands before slice 5 per AD-5). Spec: `donacion-entrega-codigo`.
 
-- [ ] 3a.1 RED — `jar_hornero_ms/src/test/.../donacion/TransicionesDonacionTest.java`: the
+- [x] 3a.1 RED — `jar_hornero_ms/src/test/.../donacion/TransicionesDonacionTest.java`: the
       full transition matrix from AD-5's table, including the new
       `ACEPTADA/EN_CAMINO → PENDIENTE_CONFIRMACION → ENTREGADA` entries, `overrideEstado` staying
       outside the table.
-- [ ] 3a.2 RED — `jar_hornero_ms/src/test/.../donacion/ParticipantesDonacionTest.java`:
+- [x] 3a.2 RED — `jar_hornero_ms/src/test/.../donacion/ParticipantesDonacionTest.java`:
       `parteDe(Donacion, Long actorId)` resolves DONANTE/REFERENTE correctly, and returns
       `Optional.empty()` (no NPE) when `necesidad == null`.
-- [ ] 3a.3 RED — `jar_hornero_ms/src/test/.../donacion/entrega/EntregaServiceTest.java` (Mockito +
+- [x] 3a.3 RED — `jar_hornero_ms/src/test/.../donacion/entrega/EntregaServiceTest.java` (Mockito +
       fixed `Clock`, mirroring `OtpServiceTest`): generate hashes + 10-minute TTL; regenerate burns
       the previous unused code immediately; throttle → `429 ESPERA_ANTES_DE_REENVIAR`; generating
       when the counterpart already validated this party's code → `409 YA_CONFIRMADO`; verify: wrong
@@ -223,43 +223,59 @@ Depends on: none (lands before slice 5 per AD-5). Spec: `donacion-entrega-codigo
       → `PENDIENTE_CONFIRMACION`, second → `ENTREGADA` + `fechaEntrega`, re-verifying one's own
       already-satisfied side is idempotent 200; non-party → 403; donation with `necesidad == null`
       has no referente party (no NPE, per 3a.2).
-- [ ] 3a.4 RED — `jar_hornero_ms/src/test/.../donacion/entrega/CodigoEntregaThrottleTest.java`:
+- [x] 3a.4 RED — `jar_hornero_ms/src/test/.../donacion/entrega/CodigoEntregaThrottleTest.java`:
       cooldown/window algorithm mirrors `OtpThrottleTest`.
-- [ ] 3a.5 RED — `jar_hornero_ms/src/test/.../donacion/entrega/EntregaControllerIntegrationTest.java`
+- [x] 3a.5 RED — `jar_hornero_ms/src/test/.../donacion/entrega/EntregaControllerIntegrationTest.java`
       (`@SpringBootTest` + H2, two threads): concurrent double verification ends in `ENTREGADA`
       exactly once (row lock via `PESSIMISTIC_WRITE`), never stuck at
       `PENDIENTE_CONFIRMACION` forever.
-- [ ] 3a.6 RED — Security test (`@Import(SecurityConfig.class)`): anonymous
+- [x] 3a.6 RED — Security test (`@Import(SecurityConfig.class)`): anonymous
       `GET /api/donaciones/{id}/entrega` is denied.
-- [ ] 3a.7 GREEN — Create `jar_hornero_ms/.../donacion/TransicionesDonacion.java`: static map +
+- [x] 3a.7 GREEN — Create `jar_hornero_ms/.../donacion/TransicionesDonacion.java`: static map +
       `validar(ModalidadDonacion, EstadoDonacion desde, EstadoDonacion hacia)`. Satisfies 3a.1.
-- [ ] 3a.8 GREEN — Create `jar_hornero_ms/.../donacion/ParticipantesDonacion.java`: null-safe
+      **Deviation**: implemented as `validar(EstadoDonacion desde, EstadoDonacion hacia)` — no
+      `ModalidadDonacion` parameter. `ModalidadDonacion` doesn't exist yet (it's created in slice
+      5b) and none of 3a's table entries are modalidad-dependent (only the 5b-only
+      `OFRECIDA→OFRECIDA` devolución and `OFRECIDA→RECHAZADA` DIRECTA-only entries are); adding an
+      unused parameter now would be dead code. Documented in the class Javadoc; 5b will add the
+      parameter when it has a real modalidad-dependent entry to gate.
+- [x] 3a.8 GREEN — Create `jar_hornero_ms/.../donacion/ParticipantesDonacion.java`: null-safe
       `parteDe`. Satisfies 3a.2.
-- [ ] 3a.9 GREEN — Create `jar_hornero_ms/.../donacion/entrega/CodigoEntrega.java` (entity, table
+- [x] 3a.9 GREEN — Create `jar_hornero_ms/.../donacion/entrega/CodigoEntrega.java` (entity, table
       `codigos_entrega`) and `CodigoEntregaRepository.java` (`findTopByDonacion_IdAndEmisorParteAndUsadoFalseOrderByCreadoEnDesc`,
       `findByDonacion_IdAndEmisorIdAndUsadoFalse`).
-- [ ] 3a.10 GREEN — Create `jar_hornero_ms/.../donacion/entrega/CodigoEntregaThrottle.java`: copy of
+- [x] 3a.10 GREEN — Create `jar_hornero_ms/.../donacion/entrega/CodigoEntregaThrottle.java`: copy of
       the `OtpThrottle` algorithm under `app.entrega.*` config. Satisfies 3a.4.
-- [ ] 3a.11 GREEN — `jar_hornero_ms/.../domain/DonacionRepository.java`: add `findByIdForUpdate`
+- [x] 3a.11 GREEN — `jar_hornero_ms/.../domain/DonacionRepository.java`: add `findByIdForUpdate`
       with `@Lock(PESSIMISTIC_WRITE)`. Backs 3a.5.
-- [ ] 3a.12 GREEN — Create `jar_hornero_ms/.../donacion/entrega/EntregaService.java`: `generar`,
+- [x] 3a.12 GREEN — Create `jar_hornero_ms/.../donacion/entrega/EntregaService.java`: `generar`,
       `verificar`, `estado`, using 3a.7–3a.11. Satisfies 3a.3, 3a.5.
-- [ ] 3a.13 GREEN — Create `jar_hornero_ms/.../donacion/entrega/dto/CodigoEntregaResponse.java`,
+- [x] 3a.13 GREEN — Create `jar_hornero_ms/.../donacion/entrega/dto/CodigoEntregaResponse.java`,
       `VerificarCodigoRequest.java`, `EntregaEstadoResponse.java`.
-- [ ] 3a.14 GREEN — Create `jar_hornero_ms/.../donacion/entrega/EntregaController.java`: `POST
+- [x] 3a.14 GREEN — Create `jar_hornero_ms/.../donacion/entrega/EntregaController.java`: `POST
       codigo`, `POST verificar`, `GET` estado at /api/donaciones/{id}/entrega.
-- [ ] 3a.15 GREEN — `jar_hornero_ms/.../config/SecurityConfig.java`: declare
+- [x] 3a.15 GREEN — `jar_hornero_ms/.../config/SecurityConfig.java`: declare
       `GET /api/donaciones/*/entrega` `.authenticated()` **before** the existing
       `GET /api/donaciones/**` permitAll matcher. Satisfies 3a.6.
-- [ ] 3a.16 GREEN — `jar_hornero_ms/src/main/resources/application.yml`: add `app.entrega.*`
+- [x] 3a.16 GREEN — `jar_hornero_ms/src/main/resources/application.yml`: add `app.entrega.*`
       (`ttl-minutes: 10`, `max-attempts: 5`, `generar-max: 5`, `generar-window-minutes: 15`,
-      `generar-cooldown-seconds: 30`).
-- [ ] 3a.17 GREEN — `jar_hornero_ms/.../donacion/DonacionService.java`: switch to
+      `generar-cooldown-seconds: 30`). Also mirrored into `src/test/resources/application.yml`
+      (required for `@SpringBootTest` contexts to resolve the new `${app.entrega.*}` placeholders).
+- [x] 3a.17 GREEN — `jar_hornero_ms/.../donacion/DonacionService.java`: switch to
       `TransicionesDonacion` + `ParticipantesDonacion`; extract package-private
       `registrarConfirmacion(d, parte)` shared with `EntregaService`; keep `confirmarEntrega`
-      working identically (removed only in 3c).
-- [ ] 3a.18 REFACTOR — Confirm no logic duplication remains between `EntregaService.verificar` and
-      the still-present `confirmarEntrega` beyond the shared `registrarConfirmacion` helper.
+      working identically (removed only in 3c). **Deviation**: the shared logic is
+      `org.example.donacion.ConfirmacionEntrega.registrar(Donacion, Parte, Clock)` — a top-level
+      class in the `donacion` package, not a package-private method on `DonacionService` — because
+      `EntregaService` lives in the `donacion.entrega` sub-package and Java package-private
+      visibility does not extend to sub-packages. A public static helper on a dedicated class is
+      the equivalent single-implementation shape without duplicating the logic in each caller;
+      documented in the class Javadoc.
+- [x] 3a.18 REFACTOR — Confirm no logic duplication remains between `EntregaService.verificar` and
+      the still-present `confirmarEntrega` beyond the shared `registrarConfirmacion`
+      (`ConfirmacionEntrega.registrar`) helper. Confirmed by inspection: both call sites are
+      one-line delegations to `ConfirmacionEntrega.registrar`; no duplicated transition/timestamp
+      logic remains in either.
 
 **Verification (slice 3a):**
 `cd jar_hornero_ms && mvn test -Dtest=TransicionesDonacionTest,ParticipantesDonacionTest,EntregaServiceTest,CodigoEntregaThrottleTest,EntregaControllerIntegrationTest`

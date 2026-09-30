@@ -9,8 +9,9 @@ Engram mirror: `sdd/tesis-core-features/apply-progress`.
   350-400 line forecast substantially (~1007 authored changed lines)** — see "Review Workload /
   Size". Committed as `c241250` (MS+BFF) and `a87ebe9` (admin).
 - Task 2.24 (corrective batch, 2026-09-29) — closes the 2.22 gate finding: referente's own
-  `acreditacion.tsx` view now renders evidence files too. ≈226 authored changed lines, uncommitted.
-- Slices 3-7: not started.
+  `acreditacion.tsx` view now renders evidence files too. ≈226 authored changed lines, committed in b2d5366.
+- Slice 3a — Delivery code backend (MS). DONE (18/18, MS 320/320, validator PASS).
+- Slices 3b-7: not started.
 
 ## Completed Tasks (Slice 1)
 
@@ -243,14 +244,159 @@ SQL migration are still ahead.
 ## Status
 
 Slice 1: 10/10 tasks complete. Slice 2: 24/24 tasks complete (2.22 fully closed by the 2.24
-corrective batch, 2026-09-29). Slices 3-7: not started.
+corrective batch, 2026-09-29). **Slice 3a: 18/18 tasks complete (2026-09-30).** Slices 3b-7: not
+started.
 
 Slices 1 and 2 (2a/2b) are already committed (`a87ebe9`, `c241250`, plus the slice-1 commit).
-This batch's task 2.24 changes are uncommitted — recommended as one more small commit before
-starting slice 3a:
+Task 2.24's changes (`fix(acreditacion): render evidence files in the referente's own
+accreditation view`) were still uncommitted at the start of this batch, on the dedicated branch
+`feat/tesis-core-features-03a-entrega-codigo` — this batch did not touch or commit them; they
+remain uncommitted, mixed in the working tree with the 3a files below (both are new/modified
+files disjoint from each other: 2.24 touched `jar_hornero_ms/.../acreditacion/**` and
+`ts_hornero_admin/.../acreditacion.tsx`; 3a touched only `jar_hornero_ms/.../donacion/**`,
+`config/SecurityConfig.java`, and the two `application.yml`s).
 
-`fix(acreditacion): render evidence files in the referente's own accreditation view` — MS
-`RequisitoEnLegajo.objectKey` + admin `acreditacion.tsx` wiring, closing the 2.22 gate finding.
+## Completed Tasks (Slice 3a — resumed batch, 2026-09-30)
+
+This batch resumed an interrupted prior attempt. On start, the working tree already had
+(uncommitted, untracked/modified, no tasks marked `[x]`): `ConfirmacionEntrega.java`,
+`ParticipantesDonacion.java` (+test), `TransicionesDonacion.java` (+test),
+`donacion/entrega/{CodigoEntrega,CodigoEntregaRepository,CodigoEntregaThrottle}.java` (+throttle
+test), `entrega/dto/*.java`, and `DonacionRepository`/`DonacionService` already refactored onto
+the new classes. This batch reconciled that partial work (ran the 3 existing test classes,
+confirmed 36/36 green, confirmed the whole project still compiled), then completed the remaining
+tasks (3a.3 `EntregaServiceTest`/`EntregaService` onward) in strict TDD.
+
+- [x] 3a.1/3a.7 — **RED not re-observed (resumed batch)**: `TransicionesDonacionTest.java` and
+      `TransicionesDonacion.java` already existed, green, from the interrupted prior attempt.
+      Re-ran `mvn test -Dtest=TransicionesDonacionTest` this batch: 24/24 passing. No RED evidence
+      from this batch — the original RED (if any) was not recorded before the interruption.
+- [x] 3a.2/3a.8 — **RED not re-observed (resumed batch)**: same as above for
+      `ParticipantesDonacionTest.java`/`ParticipantesDonacion.java`. Re-ran: 6/6 passing.
+- [x] 3a.4/3a.10 — **RED not re-observed (resumed batch)**: same for
+      `CodigoEntregaThrottleTest.java`/`CodigoEntregaThrottle.java`. Re-ran: 6/6 passing.
+- [x] 3a.9, 3a.11, 3a.13 — pre-existing from the interrupted attempt (`CodigoEntrega`,
+      `CodigoEntregaRepository`, `DonacionRepository.findByIdForUpdate`, the 3 entrega DTOs).
+      Verified by full-project `mvn test-compile` (clean) before adding new code.
+- [x] 3a.17 — pre-existing: `DonacionService`/`DonacionRepository` diff inspected and confirmed
+      already switched onto `TransicionesDonacion`/`ParticipantesDonacion`/`ConfirmacionEntrega`.
+- [x] 3a.3/3a.12 — **RED confirmed this batch**: wrote
+      `jar_hornero_ms/src/test/java/org/example/donacion/entrega/EntregaServiceTest.java` (15
+      cases covering every scenario in the task description) against a non-existent
+      `EntregaService` — `mvn test-compile` failed with "cannot find symbol: class EntregaService".
+      **GREEN**: created `EntregaService.java`; `mvn test -Dtest=EntregaServiceTest` → 15/15
+      passing on first implementation.
+- [x] 3a.6/3a.14/3a.15 — **RED confirmed this batch**: wrote
+      `EntregaControllerSecurityTest.java` (anonymous `GET .../entrega` must be denied) against a
+      non-existent `EntregaController` — compile failure. **GREEN**: created
+      `EntregaController.java` + added the `GET /api/donaciones/*/entrega` `.authenticated()`
+      matcher to `SecurityConfig.java` (before the existing `GET /api/donaciones/**` permitAll
+      block) → test passes (403).
+- [x] 3a.16 — GREEN: added `app.entrega.*` to `src/main/resources/application.yml` and mirrored it
+      into `src/test/resources/application.yml` (the latter wasn't in the original task wording but
+      is required — `@SpringBootTest` contexts read the test resource, not the main one, and
+      `EntregaControllerIntegrationTest`/`EntregaService`'s `@Value` injection would otherwise fail
+      to start).
+- [x] 3a.5 — **RED confirmed by deliberate fault injection, not by writing-before-implementing**:
+      `EntregaService`/`EntregaController` already existed when this test was written, so a
+      standard "write test, watch it fail to compile" RED wasn't available for this specific
+      test. Instead: wrote `EntregaControllerIntegrationTest.java` (`@SpringBootTest` + H2, two
+      real threads verifying each other's code concurrently via a `CountDownLatch`), confirmed it
+      passes with the `PESSIMISTIC_WRITE` lock in place (3/3 runs), then **temporarily** changed
+      `EntregaService.verificar` to use the unlocked `findByIdWithRelations` instead of
+      `findByIdForUpdate` and re-ran: **failed 3/3 times** (proving the test actually catches the
+      race — without the lock the donación gets stuck at `PENDIENTE_CONFIRMACION` instead of
+      reaching `ENTREGADA`). Reverted the temporary change immediately; re-ran 3/3 green again.
+      This is the honest equivalent of RED→GREEN for a test whose implementation already existed:
+      RED was observed against the *lock*, the actual thing under test, not against a missing
+      class.
+- [x] 3a.18 — REFACTOR: confirmed by inspection (`rg` for `confirmarEntrega`/
+      `ConfirmacionEntrega.registrar`) — both `DonacionService.confirmarEntrega` and
+      `EntregaService.verificar` are one-line delegations to `ConfirmacionEntrega.registrar`, no
+      duplicated transition/timestamp logic remains in either.
+
+### TDD Cycle Evidence (Slice 3a)
+
+| Task(s) | Test file | RED | GREEN |
+|---|---|---|---|
+| 3a.1/3a.7 | `TransicionesDonacionTest.java` | not re-observed (resumed batch) | 24/24 |
+| 3a.2/3a.8 | `ParticipantesDonacionTest.java` | not re-observed (resumed batch) | 6/6 |
+| 3a.4/3a.10 | `CodigoEntregaThrottleTest.java` | not re-observed (resumed batch) | 6/6 |
+| 3a.3/3a.12 | `EntregaServiceTest.java` (new, this batch) | ✅ compile failure (`class EntregaService` not found) | ✅ 15/15 |
+| 3a.6/3a.14/3a.15 | `EntregaControllerSecurityTest.java` (new, this batch) | ✅ compile failure (`class EntregaController` not found) | ✅ 1/1 (403) |
+| 3a.5/3a.11 | `EntregaControllerIntegrationTest.java` (new, this batch) | ✅ fault-injection RED: fails 3/3 runs with the lock removed | ✅ 3/3 runs green with the lock restored |
+
+### Files Changed (Slice 3a)
+
+| File | Action | What Was Done |
+|---|---|---|
+| `jar_hornero_ms/src/main/java/org/example/donacion/ConfirmacionEntrega.java` | Pre-existing (resumed) | Shared confirm/transition helper |
+| `jar_hornero_ms/src/main/java/org/example/donacion/ParticipantesDonacion.java` (+test) | Pre-existing (resumed) | Null-safe party resolution |
+| `jar_hornero_ms/src/main/java/org/example/donacion/TransicionesDonacion.java` (+test) | Pre-existing (resumed) | AD-5 transition table (2-arg, see 3a.7 deviation) |
+| `jar_hornero_ms/src/main/java/org/example/donacion/entrega/CodigoEntrega.java` | Pre-existing (resumed) | Entity, table `codigos_entrega` |
+| `jar_hornero_ms/src/main/java/org/example/donacion/entrega/CodigoEntregaRepository.java` | Pre-existing (resumed) | 2 finders |
+| `jar_hornero_ms/src/main/java/org/example/donacion/entrega/CodigoEntregaThrottle.java` (+test) | Pre-existing (resumed) | `OtpThrottle`-mirrored algorithm |
+| `jar_hornero_ms/src/main/java/org/example/donacion/entrega/dto/{CodigoEntregaResponse,EntregaEstadoResponse,VerificarCodigoRequest}.java` | Pre-existing (resumed) | Request/response DTOs |
+| `jar_hornero_ms/src/main/java/org/example/domain/DonacionRepository.java` | Pre-existing (resumed) | `findByIdForUpdate` (`PESSIMISTIC_WRITE`) |
+| `jar_hornero_ms/src/main/java/org/example/donacion/DonacionService.java` | Pre-existing (resumed) | Switched to `TransicionesDonacion`/`ParticipantesDonacion`/`ConfirmacionEntrega` |
+| `jar_hornero_ms/src/main/java/org/example/donacion/entrega/EntregaService.java` | Created (this batch) | `generar`/`verificar`/`estado` |
+| `jar_hornero_ms/src/main/java/org/example/donacion/entrega/EntregaController.java` | Created (this batch) | 3 routes under `/api/donaciones/{id}/entrega` |
+| `jar_hornero_ms/src/main/java/org/example/config/SecurityConfig.java` | Modified (this batch) | `GET .../entrega` authenticated matcher |
+| `jar_hornero_ms/src/main/resources/application.yml` | Modified (this batch) | `app.entrega.*` |
+| `jar_hornero_ms/src/test/resources/application.yml` | Modified (this batch) | `app.entrega.*` mirror |
+| `jar_hornero_ms/src/test/java/org/example/donacion/entrega/EntregaServiceTest.java` | Created (this batch) | 15 tests |
+| `jar_hornero_ms/src/test/java/org/example/donacion/entrega/EntregaControllerSecurityTest.java` | Created (this batch) | 1 test |
+| `jar_hornero_ms/src/test/java/org/example/donacion/entrega/EntregaControllerIntegrationTest.java` | Created (this batch) | 1 concurrency test |
+
+### Deviations from Design
+
+- 3a.7: `TransicionesDonacion.validar` takes no `ModalidadDonacion` parameter — see the task-level
+  note above. `ModalidadDonacion` is a slice 5b concept; no 3a table entry depends on it.
+- 3a.17: the shared confirmation logic is the top-level `ConfirmacionEntrega.registrar` static
+  helper, not a package-private `DonacionService` method — see the task-level note above
+  (cross-package private visibility).
+- Everything else matches `design.md` AD-5/AD-6 exactly: TTL 10 min, BCrypt hash, throttle/attempt
+  limits mirroring `OtpThrottle`/`OtpService`, immediate invalidation on regenerate, row lock via
+  `findByIdForUpdate`, `ENTREGADA` only on mutual verification, idempotent re-verify, `403` for
+  non-parties, no NPE for `necesidad == null`.
+
+### Verification (slice 3a) — actually run
+
+- `cd jar_hornero_ms && mvn test -Dtest=TransicionesDonacionTest,ParticipantesDonacionTest,EntregaServiceTest,CodigoEntregaThrottleTest,EntregaControllerIntegrationTest`
+  → **52/52 passing** (24+6+15+6+1).
+- `cd jar_hornero_ms && mvn test` (full suite) → **320/320 passing**.
+- `EntregaControllerIntegrationTest` re-run 3 additional times standalone (beyond the full-suite
+  run) to check for concurrency flakiness → 3/3 green.
+
+### USER ACTION reminder (unresolved, carried forward)
+
+Slice 3a's own **USER ACTION** precondition from `tasks.md` is still open — this batch did not
+and could not perform it (requires Pi access):
+
+> Verify on the Pi that `donaciones_estado_check` already allows `PENDIENTE_CONFIRMACION`. Run,
+> backed up first:
+> ```bash
+> docker compose exec -T postgres psql -U "$DB_USERNAME" -d "$DB_NAME" \
+>   -c "SELECT conname, pg_get_constraintdef(oid) FROM pg_constraint WHERE conname = 'donaciones_estado_check';"
+> ```
+> If `PENDIENTE_CONFIRMACION` is missing from the printed definition, do not deploy 3a/3c until
+> the constraint is widened (see `docs/db-changes.md`). Record the result back in
+> `docs/db-changes.md`.
+
+## Status
+
+Slice 1: 10/10 tasks complete. Slice 2: 24/24 tasks complete. **Slice 3a: 18/18 tasks complete.**
+Slices 3b-7: not started.
+
+Slices 1 and 2 (2a/2b) are already committed (`a87ebe9`, `c241250`, plus the slice-1 commit).
+Uncommitted on `feat/tesis-core-features-03a-entrega-codigo`: task 2.24's changes (carried over,
+untouched by this batch) and all of slice 3a (this batch). Recommended as **two separate
+commits**, both on this branch:
+
+1. `fix(acreditacion): render evidence files in the referente's own accreditation view` — the
+   carried-over 2.24 changes (MS `RequisitoEnLegajo.objectKey` + admin `acreditacion.tsx`).
+2. `feat(ms): add mutual delivery-code confirmation backend` — all of slice 3a (per `tasks.md`'s
+   own USER COMMIT POINT for this slice).
 
 ## Delivery decisions
 
@@ -259,3 +405,12 @@ starting slice 3a:
   slice-2 commit (~1007 lines, well past budget) or splitting into 2a/2b as two commits (~595 and
   ~412 lines respectively, 2a still over budget on its own). Chain strategy for this change is
   `feature-branch-chain` per the orchestrator's session preflight.
+- Slice 3a: **not yet decided by the user** — forecast was 350-450 changed lines; actual is
+  **≈1486 authored changed lines** (`git diff --numstat` over `jar_hornero_ms/`, additions +
+  deletions, including the pre-existing uncommitted work this batch resumed and reconciled, not
+  only lines newly authored in this batch). This entire slice already lives on its own dedicated
+  branch (`feat/tesis-core-features-03a-entrega-codigo`), matching `tasks.md`'s single "USER
+  COMMIT POINT" for slice 3a — recommending `size:exception` for one slice-3a commit rather than
+  a further split, since the branch is already the intended one-slice unit and the bulk of the
+  size is the concurrency-proving integration test plus the OTP-mirrored code (hash/throttle/DTO)
+  the design explicitly calls for, not incidental bloat.
