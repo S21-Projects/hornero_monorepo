@@ -65,7 +65,10 @@ class DonacionControllerTest {
                 orgNombre,
                 30L,
                 null,
-                null
+                null,
+                "DIRECTA",
+                null,
+                "OFRECIDA"
         );
     }
 

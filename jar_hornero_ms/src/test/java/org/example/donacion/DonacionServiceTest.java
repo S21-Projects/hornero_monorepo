@@ -1,9 +1,12 @@
 package org.example.donacion;
 
 import org.example.auth.VerificacionService;
+import org.example.config.EsquemaVerificador;
+import org.example.domain.CategoriaAlimento;
 import org.example.domain.Donacion;
 import org.example.domain.DonacionRepository;
 import org.example.domain.EstadoDonacion;
+import org.example.domain.ModalidadDonacion;
 import org.example.domain.Necesidad;
 import org.example.domain.NecesidadRepository;
 import org.example.domain.Organizacion;
@@ -51,6 +54,9 @@ class DonacionServiceTest {
     @Mock
     private VerificacionService verificacionService;
 
+    @Mock
+    private EsquemaVerificador esquemaVerificador;
+
     @InjectMocks
     private DonacionService donacionService;
 
@@ -67,6 +73,10 @@ class DonacionServiceTest {
         miOrganizacion.setId(10L);
         miOrganizacion.setNombre("Comedor Test");
         miOrganizacion.setReferente(referente);
+
+        // Default: schema already migrated (V001 ran). Only the dedicated ESQUEMA_PENDIENTE test
+        // overrides this.
+        org.mockito.Mockito.lenient().when(esquemaVerificador.necesidadIdEsNullable()).thenReturn(true);
     }
 
     private Donacion donacionFor(Long id, Organizacion org) {
@@ -463,5 +473,275 @@ class DonacionServiceTest {
                 .hasMessageContaining("400")
                 .hasMessageContaining("ENTREGADA");
         verifyNoInteractions(donacionRepository);
+    }
+
+    // ─── crear — modalidad (slice 5b, AD-3/AD-13, spec donacion-fondo-comun) ──────────────────
+
+    @Test
+    void crear_directaConNecesidadId_persisteModalidadDirecta_comportamientoSinCambios() {
+        Necesidad necesidad = new Necesidad();
+        necesidad.setId(100L);
+        necesidad.setOrganizacion(miOrganizacion);
+
+        CreateDonacionRequest dto = new CreateDonacionRequest();
+        dto.setModalidad(ModalidadDonacion.DIRECTA);
+        dto.setNecesidadId(100L);
+
+        when(necesidadRepository.findById(100L)).thenReturn(Optional.of(necesidad));
+        when(usuarioRepository.findById(2L)).thenReturn(Optional.of(donante));
+        when(donacionRepository.save(any(Donacion.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        DonacionResponse response = donacionService.crear(dto, 2L);
+
+        assertThat(response.necesidadId()).isEqualTo(100L);
+        assertThat(response.modalidad()).isEqualTo("DIRECTA");
+    }
+
+    @Test
+    void crear_modalidadOmitida_defaultsToDirecta_backwardCompatible() {
+        Necesidad necesidad = new Necesidad();
+        necesidad.setId(100L);
+        necesidad.setOrganizacion(miOrganizacion);
+
+        CreateDonacionRequest dto = new CreateDonacionRequest();
+        dto.setNecesidadId(100L);
+
+        when(necesidadRepository.findById(100L)).thenReturn(Optional.of(necesidad));
+        when(usuarioRepository.findById(2L)).thenReturn(Optional.of(donante));
+        when(donacionRepository.save(any(Donacion.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        DonacionResponse response = donacionService.crear(dto, 2L);
+
+        assertThat(response.modalidad()).isEqualTo("DIRECTA");
+    }
+
+    @Test
+    void crear_directaSinNecesidadId_throwsBadRequest() {
+        CreateDonacionRequest dto = new CreateDonacionRequest();
+        dto.setModalidad(ModalidadDonacion.DIRECTA);
+
+        assertThatThrownBy(() -> donacionService.crear(dto, 2L))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("400");
+        verifyNoInteractions(necesidadRepository);
+    }
+
+    @Test
+    void crear_directaConCategoriaOCoordenadas_throwsBadRequest() {
+        CreateDonacionRequest dto = new CreateDonacionRequest();
+        dto.setModalidad(ModalidadDonacion.DIRECTA);
+        dto.setNecesidadId(100L);
+        dto.setCategoria(CategoriaAlimento.NO_PERECEDERO);
+
+        assertThatThrownBy(() -> donacionService.crear(dto, 2L))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("400");
+    }
+
+    @Test
+    void crear_fondoComun_conCategoriaYCoordenadas_persisteSinNecesidad() {
+        CreateDonacionRequest dto = new CreateDonacionRequest();
+        dto.setModalidad(ModalidadDonacion.FONDO_COMUN);
+        dto.setCategoria(CategoriaAlimento.NO_PERECEDERO);
+        dto.setLatitud(-34.6);
+        dto.setLongitud(-58.4);
+
+        when(usuarioRepository.findById(2L)).thenReturn(Optional.of(donante));
+        when(donacionRepository.save(any(Donacion.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        DonacionResponse response = donacionService.crear(dto, 2L);
+
+        assertThat(response.modalidad()).isEqualTo("FONDO_COMUN");
+        assertThat(response.necesidadId()).isNull();
+        assertThat(response.organizacionId()).isNull();
+        verifyNoInteractions(necesidadRepository);
+    }
+
+    @Test
+    void crear_fondoComun_conNecesidadId_throwsBadRequest() {
+        CreateDonacionRequest dto = new CreateDonacionRequest();
+        dto.setModalidad(ModalidadDonacion.FONDO_COMUN);
+        dto.setNecesidadId(100L);
+        dto.setCategoria(CategoriaAlimento.NO_PERECEDERO);
+        dto.setLatitud(-34.6);
+        dto.setLongitud(-58.4);
+
+        assertThatThrownBy(() -> donacionService.crear(dto, 2L))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("400");
+    }
+
+    @Test
+    void crear_fondoComun_sinCategoria_throwsBadRequest() {
+        CreateDonacionRequest dto = new CreateDonacionRequest();
+        dto.setModalidad(ModalidadDonacion.FONDO_COMUN);
+        dto.setLatitud(-34.6);
+        dto.setLongitud(-58.4);
+
+        assertThatThrownBy(() -> donacionService.crear(dto, 2L))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("400");
+    }
+
+    @Test
+    void crear_fondoComun_sinCoordenadas_throwsBadRequest() {
+        CreateDonacionRequest dto = new CreateDonacionRequest();
+        dto.setModalidad(ModalidadDonacion.FONDO_COMUN);
+        dto.setCategoria(CategoriaAlimento.NO_PERECEDERO);
+
+        assertThatThrownBy(() -> donacionService.crear(dto, 2L))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("400");
+    }
+
+    @Test
+    void crear_fondoComun_esquemaPendiente_throwsServiceUnavailable_directaUnaffected() {
+        when(esquemaVerificador.necesidadIdEsNullable()).thenReturn(false);
+        CreateDonacionRequest dto = new CreateDonacionRequest();
+        dto.setModalidad(ModalidadDonacion.FONDO_COMUN);
+        dto.setCategoria(CategoriaAlimento.NO_PERECEDERO);
+        dto.setLatitud(-34.6);
+        dto.setLongitud(-58.4);
+
+        assertThatThrownBy(() -> donacionService.crear(dto, 2L))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("503")
+                .hasMessageContaining("ESQUEMA_PENDIENTE");
+
+        // DIRECTA is never gated by the flag.
+        Necesidad necesidad = new Necesidad();
+        necesidad.setId(100L);
+        necesidad.setOrganizacion(miOrganizacion);
+        CreateDonacionRequest directa = new CreateDonacionRequest();
+        directa.setModalidad(ModalidadDonacion.DIRECTA);
+        directa.setNecesidadId(100L);
+        when(necesidadRepository.findById(100L)).thenReturn(Optional.of(necesidad));
+        when(usuarioRepository.findById(2L)).thenReturn(Optional.of(donante));
+        when(donacionRepository.save(any(Donacion.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        DonacionResponse response = donacionService.crear(directa, 2L);
+        assertThat(response.modalidad()).isEqualTo("DIRECTA");
+    }
+
+    @Test
+    void modalidad_nuncaExpuestaComoActualizable_ningunMetodoDeServicioLaCambia() {
+        // No DTO in this service (DecisionDonacionRequest, UpdateEstadoDonacionRequest,
+        // OverrideEstadoRequest) carries a `modalidad` field, and `modalidad` is `updatable = false`
+        // at the JPA column level — this test pins that overrideEstado (the broadest escape hatch)
+        // never touches it even if a future refactor adds a setter call by mistake.
+        Donacion d = donacionFor(1L, miOrganizacion);
+        d.setModalidad(ModalidadDonacion.FONDO_COMUN);
+        d.setEstado(EstadoDonacion.ACEPTADA);
+        when(donacionRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(d));
+        when(donacionRepository.save(any(Donacion.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        DonacionResponse response = donacionService.overrideEstado(1L, EstadoDonacion.CANCELADA, "motivo", 99L);
+
+        assertThat(response.modalidad()).isEqualTo("FONDO_COMUN");
+    }
+
+    // ─── eliminar — FONDO_COMUN cannot be deleted (AD-3) ───────────────────────────────────────
+
+    @Test
+    void eliminar_fondoComun_throwsConflict_usarCancelacion() {
+        Donacion d = donacionFor(1L, miOrganizacion);
+        d.setModalidad(ModalidadDonacion.FONDO_COMUN);
+        when(donacionRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(d));
+
+        assertThatThrownBy(() -> donacionService.eliminar(1L, 2L))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("409")
+                .hasMessageContaining("USAR_CANCELACION");
+        org.mockito.Mockito.verify(donacionRepository, org.mockito.Mockito.never()).delete(any(Donacion.class));
+    }
+
+    @Test
+    void eliminar_directaOfrecida_seguraFuncionandoIgual() {
+        Donacion d = donacionFor(1L, miOrganizacion);
+        when(donacionRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(d));
+
+        donacionService.eliminar(1L, 2L);
+
+        org.mockito.Mockito.verify(donacionRepository).delete(d);
+    }
+
+    // ─── decidir — devolución al fondo (AD-3) ──────────────────────────────────────────────────
+
+    @Test
+    void decidir_fondoComunAsignada_rechazada_devuelveAlFondo_noQuedaRechazada() {
+        Donacion d = donacionFor(1L, miOrganizacion);
+        d.setModalidad(ModalidadDonacion.FONDO_COMUN);
+        Necesidad necesidadAsignada = d.getNecesidad();
+        necesidadAsignada.getDonaciones().add(d);
+        when(donacionRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(d));
+        when(donacionRepository.save(any(Donacion.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        DonacionResponse response = donacionService.decidir(1L, EstadoDonacion.RECHAZADA, 1L);
+
+        assertThat(response.estado()).isEqualTo("OFRECIDA");
+        assertThat(response.necesidadId()).isNull();
+        assertThat(d.getNecesidad()).isNull();
+    }
+
+    @Test
+    void decidir_fondoComunAsignada_rechazada_noEliminaLaDonacionDeNecesidadDonaciones_gotchaOrphanRemoval() {
+        // AD-3's pinned gotcha: Necesidad.donaciones is @OneToMany(orphanRemoval = true). Devolución
+        // MUST only null the owning side (donacion.setNecesidad(null)) and MUST NOT remove the
+        // donación from necesidad.getDonaciones(), or Hibernate would delete the row on flush.
+        Donacion d = donacionFor(1L, miOrganizacion);
+        d.setModalidad(ModalidadDonacion.FONDO_COMUN);
+        Necesidad necesidadAsignada = d.getNecesidad();
+        necesidadAsignada.getDonaciones().add(d);
+        when(donacionRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(d));
+        when(donacionRepository.save(any(Donacion.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        donacionService.decidir(1L, EstadoDonacion.RECHAZADA, 1L);
+
+        assertThat(necesidadAsignada.getDonaciones()).contains(d);
+    }
+
+    @Test
+    void decidir_fondoComunSinNecesidadAun_rechazada_throwsBadRequest_noEsUnaAsignacionVigente() {
+        Donacion d = donacionFor(1L, miOrganizacion);
+        d.setModalidad(ModalidadDonacion.FONDO_COMUN);
+        d.setNecesidad(null);
+        when(donacionRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(d));
+
+        assertThatThrownBy(() -> donacionService.decidir(1L, EstadoDonacion.RECHAZADA, 1L))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("403");
+    }
+
+    @Test
+    void decidir_directaOfrecida_rechazada_siguePermaneciendoRechazadaTerminal_comportamientoSinCambios() {
+        Donacion d = donacionFor(1L, miOrganizacion);
+        d.setModalidad(ModalidadDonacion.DIRECTA);
+        when(donacionRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(d));
+        when(donacionRepository.save(any(Donacion.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        DonacionResponse response = donacionService.decidir(1L, EstadoDonacion.RECHAZADA, 1L);
+
+        assertThat(response.estado()).isEqualTo("RECHAZADA");
+        assertThat(response.necesidadId()).isNotNull();
+    }
+
+    // ─── toResponse / toActivaResponse — null-safety for an unassigned pool donation ──────────
+
+    @Test
+    void toResponse_donacionSinNecesidad_noLanzaNpe_camposAusentes() {
+        Donacion d = new Donacion();
+        d.setId(5L);
+        d.setEstado(EstadoDonacion.OFRECIDA);
+        d.setModalidad(ModalidadDonacion.FONDO_COMUN);
+        d.setDonante(donante);
+        d.setFechaOferta(LocalDate.now());
+        d.setNecesidad(null);
+        when(donacionRepository.findByIdWithRelations(5L)).thenReturn(Optional.of(d));
+
+        DonacionResponse response = donacionService.findById(5L);
+
+        assertThat(response.necesidadId()).isNull();
+        assertThat(response.organizacionId()).isNull();
+        assertThat(response.fase()).isEqualTo("EN_FONDO");
     }
 }

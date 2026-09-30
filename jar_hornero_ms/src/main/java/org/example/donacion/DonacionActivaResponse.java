@@ -3,6 +3,9 @@ package org.example.donacion;
 import java.time.Instant;
 import java.time.LocalDate;
 
+/**
+ * Same null-safety and write-only-location contract as {@link DonacionResponse} — see its javadoc.
+ */
 public record DonacionActivaResponse(
         Long id,
         LocalDate fechaOferta,
@@ -19,5 +22,8 @@ public record DonacionActivaResponse(
         Instant confirmadaReferenteEn,
         String overrideMotivo,
         Long overrideAdminId,
-        Instant overrideEn
+        Instant overrideEn,
+        String modalidad,
+        String categoria,
+        String fase
 ) {}
