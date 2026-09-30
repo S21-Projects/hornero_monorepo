@@ -80,4 +80,17 @@ describe('router.tsx — real route wiring', () => {
       requireVerified: true,
     });
   });
+
+  // Task 4b.6 (AD-8) — the cross-org audit queue screen is ADMINISTRADOR-only, same gate as
+  // the other admin-block routes (/panel, /users, /control-donaciones, etc.).
+  it('/auditoria is ADMINISTRADOR-only, requireVerified', () => {
+    const guard = findGuardElementForPath(router.routes, '/auditoria');
+
+    expect(guard).toBeDefined();
+    expect((guard!.type as { name?: string }).name).toBe('ProtectedRoute');
+    expect(guard!.props).toMatchObject({
+      allow: ['ADMINISTRADOR'],
+      requireVerified: true,
+    });
+  });
 });
