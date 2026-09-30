@@ -297,18 +297,18 @@ result back in `docs/db-changes.md`.
 
 Depends on: 3a. Spec: `donacion-entrega-codigo`.
 
-- [ ] 3b.1 RED — `ts_hornero_bff/src/donaciones/donaciones.controller.spec.ts`: three new routes
+- [x] 3b.1 RED — `ts_hornero_bff/src/donaciones/donaciones.controller.spec.ts`: three new routes
       (`POST :id/entrega/codigo`, `POST :id/entrega/verificar`, `GET :id/entrega`) require
       `@Roles(DONANTE, REFERENTE)` and forward the Bearer token from the cookie.
-- [ ] 3b.2 RED — `ts_hornero_bff/src/donaciones/donaciones.service.spec.ts`: the three proxy
+- [x] 3b.2 RED — `ts_hornero_bff/src/donaciones/donaciones.service.spec.ts`: the three proxy
       methods call the correct MS URL with the Bearer header and relay MS error bodies unchanged.
-- [ ] 3b.3 RED — `ts_hornero_bff/src/donaciones/dto/verificar-codigo.dto.spec.ts` (or inline
+- [x] 3b.3 RED — `ts_hornero_bff/src/donaciones/dto/verificar-codigo.dto.spec.ts` (or inline
       validation test): `codigo` rejects anything not matching `^\d{6}$` (regex).
-- [ ] 3b.4 GREEN — Create `ts_hornero_bff/src/donaciones/dto/verificar-codigo.dto.ts`. Satisfies
+- [x] 3b.4 GREEN — Create `ts_hornero_bff/src/donaciones/dto/verificar-codigo.dto.ts`. Satisfies
       3b.3.
-- [ ] 3b.5 GREEN — `ts_hornero_bff/src/donaciones/donaciones.service.ts`: add the three proxy
+- [x] 3b.5 GREEN — `ts_hornero_bff/src/donaciones/donaciones.service.ts`: add the three proxy
       methods. Satisfies 3b.2.
-- [ ] 3b.6 GREEN — `ts_hornero_bff/src/donaciones/donaciones.controller.ts`: add the three routes.
+- [x] 3b.6 GREEN — `ts_hornero_bff/src/donaciones/donaciones.controller.ts`: add the three routes.
       Satisfies 3b.1.
 
 **Verification (slice 3b):** `cd ts_hornero_bff && npm test -- donaciones`

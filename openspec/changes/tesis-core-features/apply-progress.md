@@ -11,7 +11,8 @@ Engram mirror: `sdd/tesis-core-features/apply-progress`.
 - Task 2.24 (corrective batch, 2026-09-29) — closes the 2.22 gate finding: referente's own
   `acreditacion.tsx` view now renders evidence files too. ≈226 authored changed lines, committed in b2d5366.
 - Slice 3a — Delivery code backend (MS). DONE (18/18, MS 320/320, validator PASS).
-- Slices 3b-7: not started.
+- **Slice 3b — Delivery code BFF proxy. DONE (6/6, BFF full suite 123/123 passing).**
+- Slices 3c-7: not started.
 
 ## Completed Tasks (Slice 1)
 
@@ -383,10 +384,94 @@ and could not perform it (requires Pi access):
 > the constraint is widened (see `docs/db-changes.md`). Record the result back in
 > `docs/db-changes.md`.
 
+## Completed Tasks (Slice 3b — Delivery code BFF proxy, 2026-09-30)
+
+Mirrors the exact contract of `EntregaController` (`jar_hornero_ms/src/main/java/org/example/donacion/entrega/EntregaController.java`,
+committed in `9822f59`): `POST /api/donaciones/{id}/entrega/codigo` (201), `POST
+/api/donaciones/{id}/entrega/verificar` (200, body `{codigo: string}`), `GET
+/api/donaciones/{id}/entrega` (200). All three `@PreAuthorize("hasAnyRole('DONANTE',
+'REFERENTE')")` on the MS side — mirrored as `@Roles(Role.DONANTE, Role.REFERENTE)` on the BFF
+routes. No error mapping added on the BFF side: MS error status codes (403/404/410
+`CODIGO_EXPIRADO`/429 `ESPERA_ANTES_DE_REENVIAR`/400 `CODIGO_INVALIDO`) pass through unchanged via
+the existing global `AxiosExceptionFilter` — confirmed by dedicated "rethrows an MS error response
+unchanged" service tests per method, following the same pattern already used for
+`confirmarEntrega`/other proxy methods in this file (none of which catch/remap axios errors
+either).
+
+- [x] 3b.1 RED — `donaciones.controller.spec.ts`: added 6 new tests (2 per route: token+id
+      forwarding, and `@Roles` metadata match) for `generarCodigoEntrega`, `verificarCodigoEntrega`,
+      `estadoEntrega`. Confirmed RED: `controller.<method> is not a function` /
+      `Reflect.getMetadata` TypeError on the not-yet-existing methods (6 failing, 12 passing).
+- [x] 3b.2 RED — `donaciones.service.spec.ts`: added 6 new tests (2 per method: MS URL + Bearer
+      header + response passthrough, and "rethrows an MS error response unchanged" using a mocked
+      `isAxiosError` rejection) for `generarCodigoEntrega`, `verificarCodigoEntrega`,
+      `estadoEntrega`. Confirmed RED: `service.<method> is not a function` (6 failing, 7 passing).
+- [x] 3b.3 RED — new `dto/verificar-codigo.dto.spec.ts` (6 cases: well-formed 6-digit accepted;
+      too short, too long, non-digit chars, empty string, missing field all rejected on the
+      `codigo` property). Confirmed RED: Jest "Could not locate module ./verificar-codigo.dto.js"
+      (module did not exist).
+- [x] 3b.4 GREEN — created `dto/verificar-codigo.dto.ts`: `VerificarCodigoDto` with `@IsString()
+      @IsNotEmpty() @Matches(/^\d{6}$/)` on `codigo`, mirroring the MS
+      `VerificarCodigoRequest`'s `@Pattern(regexp = "^\\d{6}$")` exactly. 6/6 passing.
+- [x] 3b.5 GREEN — `donaciones.service.ts`: added `generarCodigoEntrega(id, accessToken)` (POST,
+      null body), `verificarCodigoEntrega(id, dto, accessToken)` (POST, dto body),
+      `estadoEntrega(id, accessToken)` (GET) — same `authHeaders`/`msUrl` pattern as every other
+      proxy method in the file. 13/13 passing (service spec file).
+- [x] 3b.6 GREEN — `donaciones.controller.ts`: added the three `@Roles(Role.DONANTE,
+      Role.REFERENTE)` routes (`POST :id/entrega/codigo` → 201 via `@HttpCode(201)`, `POST
+      :id/entrega/verificar`, `GET :id/entrega`), each reading the `access_token` cookie via the
+      existing `getToken(req)` helper. 18/18 passing (controller spec file).
+
+### TDD Cycle Evidence (Slice 3b)
+
+| Task(s) | Test file | RED confirmed | GREEN |
+|---|---|---|---|
+| 3b.3/3b.4 | `dto/verificar-codigo.dto.spec.ts` (new) | ✅ module not found | ✅ 6/6 |
+| 3b.2/3b.5 | `donaciones.service.spec.ts` (+6 cases) | ✅ `is not a function` (6 failing) | ✅ 13/13 (whole file) |
+| 3b.1/3b.6 | `donaciones.controller.spec.ts` (+6 cases) | ✅ `is not a function` / metadata TypeError (6 failing) | ✅ 18/18 (whole file) |
+
+### Files Changed (Slice 3b)
+
+| File | Action | What Was Done |
+|---|---|---|
+| `ts_hornero_bff/src/donaciones/dto/verificar-codigo.dto.ts` (+.spec.ts) | Created | `codigo` `@Matches(/^\d{6}$/)` DTO |
+| `ts_hornero_bff/src/donaciones/donaciones.service.ts` | Modified | 3 proxy methods |
+| `ts_hornero_bff/src/donaciones/donaciones.service.spec.ts` | Modified | +6 tests |
+| `ts_hornero_bff/src/donaciones/donaciones.controller.ts` | Modified | 3 routes, `@Roles(DONANTE, REFERENTE)` |
+| `ts_hornero_bff/src/donaciones/donaciones.controller.spec.ts` | Modified | +6 tests |
+
+### Deviations from Design
+
+None. Matches `tasks.md` slice 3b and the `donacion-entrega-codigo` spec exactly: status codes
+pass through unchanged (no BFF-side remapping), roles mirror the MS `@PreAuthorize` exactly, DTO
+regex mirrors the MS `@Pattern` exactly.
+
+### Verification (slice 3b) — actually run
+
+- `cd ts_hornero_bff && npm test -- donaciones` → **37/37 passing** (3 suites: dto, service,
+  controller).
+- `cd ts_hornero_bff && npm test` (full suite) → **123/123 passing**.
+- `cd ts_hornero_bff && npx eslint --fix <6 touched files>` → remaining errors are the same
+  pre-existing `@typescript-eslint/no-unsafe-assignment`/`no-unsafe-return` baseline pattern already
+  present on every other axios-destructuring proxy method and the `getToken(req)` helper in this
+  same file before this batch (confirmed via `git stash` + re-lint on the pre-batch file: 45
+  baseline errors already present). No unrelated files were touched or reformatted (`git status`
+  confirms only the 4 modified + 2 new files in `ts_hornero_bff/src/donaciones/`, plus the
+  pre-existing unrelated `.env.example` modification from before this batch).
+
+### Review Workload / Size (slice 3b)
+
+Authored changed lines (`git diff --numstat` + new-file line counts):
+`donaciones.controller.spec.ts` 91+3, `donaciones.controller.ts` 55+3,
+`donaciones.service.spec.ts` 93+0, `donaciones.service.ts` 48+3, plus 2 new files
+(`verificar-codigo.dto.ts` 8, `verificar-codigo.dto.spec.ts` 42) = **≈346 authored changed
+lines** — within the 150-250 forecast band's upper bound plus the 400-line budget; no
+`size:exception` needed, no split required.
+
 ## Status
 
-Slice 1: 10/10 tasks complete. Slice 2: 24/24 tasks complete. **Slice 3a: 18/18 tasks complete.**
-Slices 3b-7: not started.
+Slice 1: 10/10 tasks complete. Slice 2: 24/24 tasks complete. Slice 3a: 18/18 tasks complete.
+**Slice 3b: 6/6 tasks complete (2026-09-30).** Slices 3c-7: not started.
 
 Slices 1 and 2 (2a/2b) are already committed (`a87ebe9`, `c241250`, plus the slice-1 commit).
 Uncommitted on `feat/tesis-core-features-03a-entrega-codigo`: task 2.24's changes (carried over,
@@ -414,3 +499,8 @@ commits**, both on this branch:
   a further split, since the branch is already the intended one-slice unit and the bulk of the
   size is the concurrency-proving integration test plus the OTP-mirrored code (hash/throttle/DTO)
   the design explicitly calls for, not incidental bloat.
+- Slice 3b: **no decision needed** — ≈346 authored changed lines, within the 400-line budget on
+  its own dedicated branch (`feat/tesis-core-features-03b-entrega-bff`, checked out for this
+  batch). Matches `tasks.md`'s single "USER COMMIT POINT" for slice 3b:
+  `feat(bff): proxy delivery-code generate/verify/status routes`. All 5 changed/created files are
+  `ts_hornero_bff/src/donaciones/**` only — nothing else on this branch to reconcile.

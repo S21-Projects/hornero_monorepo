@@ -6,6 +6,7 @@ import { CrearDonacionDto } from './dto/crear-donacion.dto.js';
 import { DecisionDonacionDto } from './dto/decision-donacion.dto.js';
 import { OverrideEstadoDto } from './dto/override-estado.dto.js';
 import { UpdateEstadoDonacionDto } from './dto/update-estado-donacion.dto.js';
+import { VerificarCodigoDto } from './dto/verificar-codigo.dto.js';
 
 @Injectable()
 export class DonacionesService {
@@ -22,7 +23,12 @@ export class DonacionesService {
     return { Authorization: `Bearer ${accessToken}` };
   }
 
-  async getDonaciones(organizacionId?: string, page?: string, size?: string, sort?: string) {
+  async getDonaciones(
+    organizacionId?: string,
+    page?: string,
+    size?: string,
+    sort?: string,
+  ) {
     const url = `${this.msUrl}/api/donaciones${buildQuery({ organizacionId, page, size, sort })}`;
     const { data } = await this.httpService.axiosRef.get(url);
     return data;
@@ -44,7 +50,12 @@ export class DonacionesService {
     return data;
   }
 
-  async findMias(accessToken: string, page?: string, size?: string, sort?: string) {
+  async findMias(
+    accessToken: string,
+    page?: string,
+    size?: string,
+    sort?: string,
+  ) {
     const url = `${this.msUrl}/api/donaciones/mias${buildQuery({ page, size, sort })}`;
     const { data } = await this.httpService.axiosRef.get(url, {
       headers: this.authHeaders(accessToken),
@@ -101,10 +112,44 @@ export class DonacionesService {
     return data;
   }
 
-  async overrideEstado(id: number, dto: OverrideEstadoDto, accessToken: string) {
+  async overrideEstado(
+    id: number,
+    dto: OverrideEstadoDto,
+    accessToken: string,
+  ) {
     const { data } = await this.httpService.axiosRef.patch(
       `${this.msUrl}/api/donaciones/${id}/estado-admin`,
       dto,
+      { headers: this.authHeaders(accessToken) },
+    );
+    return data;
+  }
+
+  async generarCodigoEntrega(id: number, accessToken: string) {
+    const { data } = await this.httpService.axiosRef.post(
+      `${this.msUrl}/api/donaciones/${id}/entrega/codigo`,
+      null,
+      { headers: this.authHeaders(accessToken) },
+    );
+    return data;
+  }
+
+  async verificarCodigoEntrega(
+    id: number,
+    dto: VerificarCodigoDto,
+    accessToken: string,
+  ) {
+    const { data } = await this.httpService.axiosRef.post(
+      `${this.msUrl}/api/donaciones/${id}/entrega/verificar`,
+      dto,
+      { headers: this.authHeaders(accessToken) },
+    );
+    return data;
+  }
+
+  async estadoEntrega(id: number, accessToken: string) {
+    const { data } = await this.httpService.axiosRef.get(
+      `${this.msUrl}/api/donaciones/${id}/entrega`,
       { headers: this.authHeaders(accessToken) },
     );
     return data;

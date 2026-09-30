@@ -21,6 +21,7 @@ import { CrearDonacionDto } from './dto/crear-donacion.dto.js';
 import { DecisionDonacionDto } from './dto/decision-donacion.dto.js';
 import { OverrideEstadoDto } from './dto/override-estado.dto.js';
 import { UpdateEstadoDonacionDto } from './dto/update-estado-donacion.dto.js';
+import { VerificarCodigoDto } from './dto/verificar-codigo.dto.js';
 import { DonacionesService } from './donaciones.service.js';
 
 @ApiTags('donaciones')
@@ -45,7 +46,12 @@ export class DonacionesController {
     @Query('size') size?: string,
     @Query('sort') sort?: string,
   ) {
-    return this.donacionesService.getDonaciones(organizacionId, page, size, sort);
+    return this.donacionesService.getDonaciones(
+      organizacionId,
+      page,
+      size,
+      sort,
+    );
   }
 
   @Roles(Role.DONANTE)
@@ -67,7 +73,12 @@ export class DonacionesController {
     @Query('size') size?: string,
     @Query('sort') sort?: string,
   ) {
-    return this.donacionesService.findMias(this.getToken(req), page, size, sort);
+    return this.donacionesService.findMias(
+      this.getToken(req),
+      page,
+      size,
+      sort,
+    );
   }
 
   @Roles(Role.REFERENTE)
@@ -89,7 +100,8 @@ export class DonacionesController {
   @Roles(Role.ADMINISTRADOR)
   @Get('activas')
   @ApiOperation({
-    summary: 'List active (non-terminal) donations, paginated (ADMINISTRADOR only)',
+    summary:
+      'List active (non-terminal) donations, paginated (ADMINISTRADOR only)',
   })
   findActivas(
     @Req() req: Request,
@@ -147,6 +159,46 @@ export class DonacionesController {
   })
   confirmarEntrega(@Param('id', ParseIntPipe) id: number, @Req() req: Request) {
     return this.donacionesService.confirmarEntrega(id, this.getToken(req));
+  }
+
+  @Roles(Role.DONANTE, Role.REFERENTE)
+  @Post(':id/entrega/codigo')
+  @HttpCode(201)
+  @ApiOperation({
+    summary: "Generate this party's own delivery code (DONANTE or REFERENTE)",
+  })
+  generarCodigoEntrega(
+    @Param('id', ParseIntPipe) id: number,
+    @Req() req: Request,
+  ) {
+    return this.donacionesService.generarCodigoEntrega(id, this.getToken(req));
+  }
+
+  @Roles(Role.DONANTE, Role.REFERENTE)
+  @Post(':id/entrega/verificar')
+  @ApiOperation({
+    summary: "Verify the counterpart's delivery code (DONANTE or REFERENTE)",
+  })
+  verificarCodigoEntrega(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: VerificarCodigoDto,
+    @Req() req: Request,
+  ) {
+    return this.donacionesService.verificarCodigoEntrega(
+      id,
+      dto,
+      this.getToken(req),
+    );
+  }
+
+  @Roles(Role.DONANTE, Role.REFERENTE)
+  @Get(':id/entrega')
+  @ApiOperation({
+    summary:
+      "Both parties' delivery confirmation status (DONANTE or REFERENTE)",
+  })
+  estadoEntrega(@Param('id', ParseIntPipe) id: number, @Req() req: Request) {
+    return this.donacionesService.estadoEntrega(id, this.getToken(req));
   }
 
   @Roles(Role.ADMINISTRADOR)

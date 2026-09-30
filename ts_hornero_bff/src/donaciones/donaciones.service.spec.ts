@@ -137,4 +137,97 @@ describe('DonacionesService', () => {
       );
     });
   });
+
+  describe('generarCodigoEntrega', () => {
+    it('POSTs the MS /entrega/codigo endpoint with a Bearer header', async () => {
+      const data = { codigo: '482913', expiraEn: '2026-09-30T12:10:00Z' };
+      httpService.axiosRef.post.mockResolvedValue({ data });
+
+      const result = await service.generarCodigoEntrega(1, 'token-123');
+
+      expect(httpService.axiosRef.post).toHaveBeenCalledWith(
+        'http://ms:8081/api/donaciones/1/entrega/codigo',
+        null,
+        { headers: { Authorization: 'Bearer token-123' } },
+      );
+      expect(result).toEqual(data);
+    });
+
+    it('rethrows an MS error response unchanged', async () => {
+      const error = {
+        isAxiosError: true,
+        response: {
+          status: 429,
+          data: { message: 'ESPERA_ANTES_DE_REENVIAR' },
+        },
+      };
+      httpService.axiosRef.post.mockRejectedValue(error);
+
+      await expect(service.generarCodigoEntrega(1, 'token-123')).rejects.toBe(
+        error,
+      );
+    });
+  });
+
+  describe('verificarCodigoEntrega', () => {
+    it('POSTs the MS /entrega/verificar endpoint with the dto and a Bearer header', async () => {
+      const data = {
+        estado: 'PENDIENTE_CONFIRMACION',
+        confirmadaDonanteEn: null,
+        confirmadaReferenteEn: '2026-09-30T12:00:00Z',
+      };
+      httpService.axiosRef.post.mockResolvedValue({ data });
+      const dto = { codigo: '482913' };
+
+      const result = await service.verificarCodigoEntrega(1, dto, 'token-123');
+
+      expect(httpService.axiosRef.post).toHaveBeenCalledWith(
+        'http://ms:8081/api/donaciones/1/entrega/verificar',
+        dto,
+        { headers: { Authorization: 'Bearer token-123' } },
+      );
+      expect(result).toEqual(data);
+    });
+
+    it('rethrows an MS error response unchanged', async () => {
+      const error = {
+        isAxiosError: true,
+        response: { status: 410, data: { message: 'CODIGO_EXPIRADO' } },
+      };
+      httpService.axiosRef.post.mockRejectedValue(error);
+
+      await expect(
+        service.verificarCodigoEntrega(1, { codigo: '000000' }, 'token-123'),
+      ).rejects.toBe(error);
+    });
+  });
+
+  describe('estadoEntrega', () => {
+    it('GETs the MS /entrega endpoint with a Bearer header', async () => {
+      const data = {
+        estado: 'EN_CAMINO',
+        confirmadaDonanteEn: null,
+        confirmadaReferenteEn: null,
+      };
+      httpService.axiosRef.get.mockResolvedValue({ data });
+
+      const result = await service.estadoEntrega(1, 'token-123');
+
+      expect(httpService.axiosRef.get).toHaveBeenCalledWith(
+        'http://ms:8081/api/donaciones/1/entrega',
+        { headers: { Authorization: 'Bearer token-123' } },
+      );
+      expect(result).toEqual(data);
+    });
+
+    it('rethrows an MS error response unchanged', async () => {
+      const error = {
+        isAxiosError: true,
+        response: { status: 403, data: { message: 'Access denied' } },
+      };
+      httpService.axiosRef.get.mockRejectedValue(error);
+
+      await expect(service.estadoEntrega(1, 'token-123')).rejects.toBe(error);
+    });
+  });
 });
