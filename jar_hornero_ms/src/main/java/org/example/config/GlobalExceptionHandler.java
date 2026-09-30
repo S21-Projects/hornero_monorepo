@@ -13,6 +13,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.server.ResponseStatusException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 /**
  * Curates what reaches the client now that server.error.include-message=always
@@ -56,6 +57,21 @@ public class GlobalExceptionHandler {
         String message = "Acceso denegado";
         return ResponseEntity.status(HttpStatus.FORBIDDEN)
                 .body(ApiResponse.error(HttpStatus.FORBIDDEN.value(), message, List.of(message)));
+    }
+
+    /**
+     * A request to a retired/never-mapped route (e.g. the retired `confirmar-entrega` endpoint,
+     * spec `donacion-entrega-codigo`'s "Old confirm endpoint no longer exists") falls through to
+     * Spring's static-resource handler, which throws this instead of a 404
+     * {@code NoHandlerFoundException} once `DispatcherServlet` has a handler mapping for static
+     * resources (the default in a Spring Boot web app). Without this case it fell into the
+     * generic {@code Exception} handler below and answered 500 instead of 404.
+     */
+    @ExceptionHandler(NoResourceFoundException.class)
+    public ResponseEntity<ApiResponse<Void>> handleNoResourceFound(NoResourceFoundException ex) {
+        String message = "Not found";
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(ApiResponse.error(HttpStatus.NOT_FOUND.value(), message, List.of(message)));
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)

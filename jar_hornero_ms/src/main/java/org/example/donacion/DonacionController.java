@@ -115,15 +115,6 @@ public class DonacionController {
         return donacionService.actualizarEstado(id, request.getEstado(), donanteId);
     }
 
-    @Operation(summary = "Confirm delivery (donante or referente); becomes ENTREGADA once both confirm")
-    @PostMapping("/{id}/confirmar-entrega")
-    @PreAuthorize("hasAnyRole('DONANTE', 'REFERENTE')")
-    public DonacionResponse confirmarEntrega(@PathVariable Long id) {
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        Long actorId = (Long) auth.getPrincipal();
-        return donacionService.confirmarEntrega(id, actorId);
-    }
-
     @Operation(summary = "Admin override: force a non-terminal donation into any state, with audit trail")
     @PatchMapping("/{id}/estado-admin")
     @PreAuthorize("hasRole('ADMINISTRADOR')")
