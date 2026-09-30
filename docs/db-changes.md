@@ -10,6 +10,56 @@ production DB) — check the "Applied to" line before running anything twice.
 
 ---
 
+## 2026-09-30 — `donaciones.necesidad_id`: drop NOT NULL for fondo común donations
+
+**Reason**: `tesis-core-features` slice 5b introduces `FONDO_COMUN` donations, which are created
+without a target `necesidad` and wait unassigned in a pool until a ronda matches them to one
+(`specs/donacion-fondo-comun/spec.md`). `ddl-auto=update` never widens an existing `NOT NULL`
+constraint, so this must be run by hand — see `scripts/sql/V001__donaciones_necesidad_id_nullable.sql`
+and `scripts/sql/README.md` for the run procedure and rationale (AD-13,
+`openspec/changes/tesis-core-features/design.md`).
+
+**Before**:
+```
+Column       | Type   | Nullable
+necesidad_id | bigint | not null
+```
+
+**Migration** (`scripts/sql/V001__donaciones_necesidad_id_nullable.sql`, idempotent/transactional):
+```sql
+BEGIN;
+ALTER TABLE donaciones ALTER COLUMN necesidad_id DROP NOT NULL;
+COMMIT;
+```
+
+**After** (verify with `\d donaciones` in psql):
+```
+Column       | Type   | Nullable
+necesidad_id | bigint |
+```
+
+**Rollback** (only safe if no `FONDO_COMUN` donation with `necesidad_id IS NULL` exists yet):
+```sql
+ALTER TABLE donaciones ALTER COLUMN necesidad_id SET NOT NULL;
+```
+
+**Runtime guard**: `org.example.config.EsquemaVerificador` checks this column at boot
+(PostgreSQL only, skipped on H2). If it is still `NOT NULL`, it logs an `ERROR` naming this script
+and `POST /api/donaciones` with `modalidad=FONDO_COMUN` answers `503 ESQUEMA_PENDIENTE` instead of
+a raw constraint-violation `500`. `DIRECTA` donations are unaffected either way.
+
+**Applied to**:
+- [x] Local dev DB (`make up-local` / `docker compose up`, H2 in tests doesn't need this at all —
+  entity-driven `create-drop` already reflects `nullable = true`) — verified by the full MS test
+  suite (`DonacionRepositoryTest`, `EsquemaVerificadorTest`, `DonacionServiceTest`) passing against
+  H2 with the relaxed entity mapping.
+- [ ] Pi production DB — **not yet run**. Must run before this slice's MS image is deployed, per
+  `docs/deploy-rpi-cloudflare.md`'s "Pre-deploy: pool schema migration (slice 5b)" step, otherwise
+  every `FONDO_COMUN` creation request will answer `503 ESQUEMA_PENDIENTE` (safe degradation, not
+  an outage — `DIRECTA` keeps working).
+
+---
+
 ## 2026-07-30 — `donaciones_estado_check`: add lifecycle states
 
 **Reason**: `sdd/donation-lifecycle` change adds three new `EstadoDonacion`
