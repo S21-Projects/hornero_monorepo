@@ -7,9 +7,11 @@ import {
 import { HttpService } from '@nestjs/axios';
 import { ConfigService } from '@nestjs/config';
 import { isAxiosError } from 'axios';
+import { buildQuery } from '../common/build-query.js';
 import { CargarEvidenciaDto } from './dto/cargar-evidencia.dto.js';
 import { CambiarNivelDto } from './dto/cambiar-nivel.dto.js';
 import { AuditarEvidenciaDto } from './dto/auditar-evidencia.dto.js';
+import { ColaAuditoriaFiltro } from './dto/cola-auditoria-filtro.dto.js';
 
 /**
  * Thin proxy to the MS's `AcreditacionController` — no domain logic here. Every route requires a
@@ -145,5 +147,20 @@ export class AcreditacionService {
       }
       throw err;
     }
+  }
+
+  /**
+   * AD-8 (tesis-core-features slice 4a): the cross-org audit queue read, forwarded raw to
+   * `GET /api/auditoria/evidencias` — every filter is optional and passed through unchanged
+   * (mirroring `getNecesidades`'s `page`/`size`/`sort` passthrough), no BFF-side remapping of the
+   * `ApiResponse`/`PageData` envelope.
+   */
+  async colaAuditoria(filtro: ColaAuditoriaFiltro, accessToken: string) {
+    const url = `${this.msUrl}/api/auditoria/evidencias${buildQuery({ ...filtro })}`;
+    const { data } = await this.httpService.axiosRef.get<unknown>(
+      url,
+      this.authHeaders(accessToken),
+    );
+    return data;
   }
 }

@@ -201,4 +201,73 @@ describe('AcreditacionService', () => {
       service.verificarArchivoEvidencia(1, OBJECT_KEY, TOKEN),
     ).rejects.toBe(networkError);
   });
+
+  // --- AD-8 (tesis-core-features slice 4a): cross-org audit queue ---
+
+  it('forwards every filter to the MS auditoria/evidencias endpoint with the Bearer header', async () => {
+    getMock.mockResolvedValueOnce({
+      data: { content: [], totalElements: 0 },
+    });
+
+    await service.colaAuditoria(
+      {
+        tab: 'VENCIDAS',
+        nivel: 'N2',
+        requisito: 'RADIO_50KM_BANCO_ALIMENTOS',
+        tipoEvidencia: 'FOTO',
+        page: '1',
+        size: '10',
+        sort: 'cargadoEn,desc',
+      },
+      TOKEN,
+    );
+
+    expect(getMock).toHaveBeenCalledWith(
+      `${MS_URL}/api/auditoria/evidencias?tab=VENCIDAS&nivel=N2&requisito=RADIO_50KM_BANCO_ALIMENTOS&tipoEvidencia=FOTO&page=1&size=10&sort=cargadoEn%2Cdesc`,
+      { headers: { Authorization: `Bearer ${TOKEN}` } },
+    );
+  });
+
+  it('omits unset filters from the forwarded query string', async () => {
+    getMock.mockResolvedValueOnce({
+      data: { content: [], totalElements: 0 },
+    });
+
+    await service.colaAuditoria(
+      {
+        tab: undefined,
+        nivel: undefined,
+        requisito: undefined,
+        tipoEvidencia: undefined,
+        page: undefined,
+        size: undefined,
+        sort: undefined,
+      },
+      TOKEN,
+    );
+
+    expect(getMock).toHaveBeenCalledWith(`${MS_URL}/api/auditoria/evidencias`, {
+      headers: { Authorization: `Bearer ${TOKEN}` },
+    });
+  });
+
+  it('returns the MS response body unchanged', async () => {
+    const response = { content: [{ id: 5 }], totalElements: 1 };
+    getMock.mockResolvedValueOnce({ data: response });
+
+    const result = await service.colaAuditoria(
+      {
+        tab: undefined,
+        nivel: undefined,
+        requisito: undefined,
+        tipoEvidencia: undefined,
+        page: undefined,
+        size: undefined,
+        sort: undefined,
+      },
+      TOKEN,
+    );
+
+    expect(result).toBe(response);
+  });
 });
