@@ -1,11 +1,15 @@
 # go_algorithms_worker
 
-Offline batch worker for Hornero's geographic metrics and donation assignment.
+Hornero's geographic metrics and donation-assignment solver. Two of its three subcommands
+(`metrics`, `assign`) are deliberately offline/batch jobs; the third (`serve`) is the AD-1 HTTP
+entrypoint the MS calls for a ronda.
 
-It is deliberately **not** a service. Census radios do not move and coverage
-changes slowly, so metrics are recomputed on a schedule and the MS only ever
-reads flat numbers. Keeping the geospatial work here means the Java MS never
-grows a PostGIS dependency, which matters on the Raspberry Pi deployment.
+`metrics` stays a batch job on purpose: census radios do not move and coverage changes slowly, so
+it is recomputed on a schedule and the MS only ever reads flat numbers. `serve` is a long-lived
+process specifically so RENACOM (and the optional census CSV) load once at startup (AD-2) instead
+of once per request — the solver itself (`internal/assign`) is unchanged either way. Keeping the
+geospatial work here means the Java MS never grows a PostGIS dependency, which matters on the
+Raspberry Pi deployment.
 
 ## The dataset
 
@@ -27,7 +31,8 @@ data dictionary: 1 georeferenced by RENACOM, 2 precise via Google Maps, 3
 precise manual, 4-5 street intersection (somewhere on the block), 6 within 300
 metres, 7 could not be located at all, 9 never processed manually. Levels 1-5
 are block-accurate or better; `Comedor.PrecisionDudosa()` flags 6 and up — 193
-of 2730 rows nationally, 8 of 264 in Córdoba.
+of 2730 rows nationally, 8 of 264 in Córdoba. `internal/geo` only uses levels
+1-5 points to resolve the AD-2 `CERCANO` deficit term.
 
 ## Commands
 
@@ -39,9 +44,20 @@ go test ./...
 go run . metrics --provincia "Córdoba" --top 20
 go run . metrics --poblacion data/poblacion-radios.csv --json
 
-# One allocation round.
-go run . assign --input ronda.json
+# One allocation round, offline — reads/writes the same contract `serve` answers over HTTP
+# (see contract/ronda-v1.md). --data/--poblacion resolve AD-2 the same way `serve` does.
+go run . assign --input testdata/ronda-v1/request.json
+
+# The AD-1 HTTP entrypoint: POST /v1/ronda, GET /healthz. This is what
+# docker-compose.yml's `worker` service runs; --poblacion is the same
+# optional census CSV as above (AD-2's documented NEUTRAL fallback applies
+# equally here when it is not mounted).
+go run . serve --addr :8090 --data data/renacom.csv [--poblacion data/poblacion-radios.csv] [--provincia "Córdoba"]
 ```
+
+`serve` has no host port in `docker-compose.yml` on purpose (AD-1): only the MS reaches it, over
+the compose network at `http://worker:8090`. The MS does not `depends_on` it — the MS boots fine
+with the worker down, only `POST /api/rondas` answers `503 WORKER_NO_DISPONIBLE` while it is.
 
 `--poblacion` expects a CSV with headers `codigo_radio,habitantes,hogares`
 (hogares optional), sourced from INDEC Censo 2022. That file is the one piece
