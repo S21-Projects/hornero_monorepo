@@ -3,19 +3,26 @@
 //
 //	algorithms metrics [--data f.csv] [--poblacion p.csv] [--provincia Córdoba] [--top 20]
 //	algorithms assign  --input ronda.json
+//	algorithms serve   [--addr :8090] [--data f.csv] [--poblacion p.csv] [--provincia Córdoba]
 //
-// It is deliberately a batch job, not a service: census radios do not move,
-// so coverage is recomputed on a schedule and the MS only ever reads the
-// resulting flat numbers.
+// metrics and assign are deliberately a batch job, not a service: census radios do not move, so
+// coverage is recomputed on a schedule and the MS only ever reads the resulting flat numbers.
+// serve is the AD-1 long-lived process the MS calls over HTTP for a ronda: it loads RENACOM once
+// at startup (AD-2) instead of on every request.
 package main
 
 import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"log"
+	"net/http"
 	"os"
 
+	"algorithms/internal/api"
 	"algorithms/internal/assign"
+	"algorithms/internal/contrato"
+	"algorithms/internal/geo"
 	"algorithms/internal/metrics"
 	"algorithms/internal/renacom"
 )
@@ -32,6 +39,8 @@ func main() {
 		err = cmdMetrics(os.Args[2:])
 	case "assign":
 		err = cmdAssign(os.Args[2:])
+	case "serve":
+		err = cmdServe(os.Args[2:])
 	default:
 		uso()
 		os.Exit(1)
@@ -47,6 +56,7 @@ func uso() {
 	fmt.Fprintln(os.Stderr, "usage:")
 	fmt.Fprintln(os.Stderr, "  algorithms metrics [--data f.csv] [--poblacion p.csv] [--provincia P] [--top N] [--json]")
 	fmt.Fprintln(os.Stderr, "  algorithms assign --input ronda.json")
+	fmt.Fprintln(os.Stderr, "  algorithms serve [--addr :8090] [--data f.csv] [--poblacion p.csv] [--provincia P]")
 }
 
 func cmdMetrics(args []string) error {
@@ -102,17 +112,15 @@ func cmdMetrics(args []string) error {
 	return nil
 }
 
-// entradaRonda is the JSON contract the BFF would post for one allocation run.
-type entradaRonda struct {
-	Donaciones []assign.Donacion  `json:"donaciones"`
-	Candidatos []assign.Candidato `json:"candidatos"`
-	Pesos      *assign.Pesos      `json:"pesos,omitempty"`
-	Parametros *assign.Parametros `json:"parametros,omitempty"`
-}
-
+// cmdAssign is the offline/batch entrypoint: it reads one contrato.EntradaRondaV1 document and
+// prints the matching contrato.SalidaRondaV1, the exact same contract `serve` answers over HTTP
+// (AD-1's "batch/offline usage still works" requirement). Deficit resolution (AD-2) uses the same
+// --data/--poblacion CSVs `serve` and `metrics` take.
 func cmdAssign(args []string) error {
 	fs := flag.NewFlagSet("assign", flag.ExitOnError)
 	input := fs.String("input", "", "round JSON path ('-' for stdin)")
+	data := fs.String("data", "data/renacom.csv", "ReNaCoM CSV path")
+	poblacionPath := fs.String("poblacion", "", "census population CSV (codigo_radio,habitantes,hogares)")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -129,23 +137,54 @@ func cmdAssign(args []string) error {
 		defer f.Close()
 	}
 
-	var entrada entradaRonda
+	var entrada contrato.EntradaRondaV1
 	if err := json.NewDecoder(f).Decode(&entrada); err != nil {
 		return fmt.Errorf("decoding round: %w", err)
 	}
-
-	pesos := assign.PesosPorDefecto
-	if entrada.Pesos != nil {
-		pesos = *entrada.Pesos
-	}
-	parametros := assign.ParametrosPorDefecto
-	if entrada.Parametros != nil {
-		parametros = *entrada.Parametros
+	if err := entrada.Validar(); err != nil {
+		return err
 	}
 
-	resultado := assign.Ronda(entrada.Donaciones, entrada.Candidatos, pesos, parametros)
+	resolvedor, err := geo.Cargar(*data, *poblacionPath, "", 1.0)
+	if err != nil {
+		return err
+	}
+
+	pesos := entrada.ResolverPesos()
+	parametros, _ := entrada.ResolverParametros()
+	donaciones := entrada.ADonaciones()
+	candidatos, meta := entrada.ACandidatos(resolvedor)
+
+	resultado := assign.Ronda(donaciones, candidatos, pesos, parametros)
+	salida := contrato.AResultado(resultado, meta, pesos, parametros)
 
 	enc := json.NewEncoder(os.Stdout)
 	enc.SetIndent("", "  ")
-	return enc.Encode(resultado)
+	return enc.Encode(salida)
+}
+
+// cmdServe runs the AD-1 HTTP entrypoint: POST /v1/ronda and GET /healthz, on a single
+// long-lived process so RENACOM (and the optional census CSV) are loaded once, not per request.
+func cmdServe(args []string) error {
+	fs := flag.NewFlagSet("serve", flag.ExitOnError)
+	addr := fs.String("addr", ":8090", "listen address")
+	data := fs.String("data", "data/renacom.csv", "ReNaCoM CSV path")
+	poblacionPath := fs.String("poblacion", "", "census population CSV (codigo_radio,habitantes,hogares)")
+	provincia := fs.String("provincia", "", "filter by province name")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+
+	if *poblacionPath == "" {
+		log.Println("advertencia: sin POBLACION_CSV, todo candidato resolvera deficitFuente=NEUTRAL (AD-2)")
+	}
+
+	resolvedor, err := geo.Cargar(*data, *poblacionPath, *provincia, 1.0)
+	if err != nil {
+		return err
+	}
+
+	h := api.NuevoHandler(resolvedor)
+	log.Printf("algorithms serve: escuchando en %s", *addr)
+	return http.ListenAndServe(*addr, h.Rutas())
 }
