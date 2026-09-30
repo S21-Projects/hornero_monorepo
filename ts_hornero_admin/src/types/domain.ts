@@ -238,6 +238,40 @@ export interface EvidenciaResponse {
   observacion?: string | null;
 }
 
+/** Which partition of the cross-org audit queue is requested (AD-8). Mirrors MS `TabCola`. */
+export const TabCola = {
+  PENDIENTES: 'PENDIENTES',
+  VENCIDAS: 'VENCIDAS',
+} as const;
+export type TabCola = typeof TabCola[keyof typeof TabCola];
+
+/**
+ * Mirrors `EvidenciaEnColaResponse` (MS) — one row of the cross-org audit queue (AD-8,
+ * `specs/auditoria-cola-global/spec.md`). Same fields as `EvidenciaResponse` plus the
+ * organizacion's display name/level and the requisito's `nivelExigido`, since a single-org
+ * queue (`EvidenciaResponse`) has no need to show any of the three.
+ */
+export interface EvidenciaEnColaResponse {
+  id: number;
+  organizacionId: number;
+  organizacionNombre: string;
+  organizacionNivel: NivelAcreditacion;
+  requisito: RequisitoAcreditacion;
+  nivelExigido: NivelAcreditacion;
+  tipoEvidencia: TipoEvidencia;
+  objectKey?: string | null;
+  declaracion?: string | null;
+  validoDesde?: string | null;
+  validoHasta?: string | null;
+  estado: EstadoEvidencia;
+  expirada: boolean;
+  cargadoPor?: number | null;
+  cargadoEn?: string | null;
+  revisadoPor?: number | null;
+  revisadoEn?: string | null;
+  observacion?: string | null;
+}
+
 /** Mirrors `EventoResponse` (MS). `actorUsuarioId` is null on a referente-facing legajo (D-01). */
 export interface EventoResponse {
   tipo: string;

@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { renderHook, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
@@ -141,6 +141,30 @@ describe('useAuditarEvidencia', () => {
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(JSON.parse(mock.history.patch[0].data as string)).toEqual({ observacion: 'Falta detalle' });
+  });
+
+  it('invalidates the cross-org audit queue (4b.5) alongside acreditacion/legajo', async () => {
+    mock.onPatch('/organizaciones/5/acreditacion/evidencias/1/aprobar').reply(200, {
+      id: 1,
+      organizacionId: 5,
+      requisito: 'NO_DISCRIMINACION',
+      tipoEvidencia: 'DECLARACION',
+      estado: 'APROBADA',
+      expirada: false,
+    });
+
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries');
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    );
+
+    const { result } = renderHook(() => useAuditarEvidencia(), { wrapper });
+    result.current.mutate({ organizacionId: 5, evidenciaId: 1, accion: 'aprobar' });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['auditoria', 'cola'] });
   });
 });
 
