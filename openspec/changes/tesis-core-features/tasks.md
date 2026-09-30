@@ -371,34 +371,52 @@ together — no intermediate deploy has the screen without the retirement, or vi
 
 ### 3c-ii — Route wiring + retirement
 
-- [ ] 3c.12 RED — `ts_hornero_admin/src/routes/entrega.test.tsx`: QR rendered from `qrPayload`;
+- [x] 3c.12 RED — `ts_hornero_admin/src/routes/entrega.test.tsx`: QR rendered from `qrPayload`;
       countdown reaching zero shows "Generar código nuevo"; scanning updates status without reload
       (mocked adapter); typed input submits and verifies; polling stops at `ENTREGADA`.
-- [ ] 3c.13 GREEN — Create `ts_hornero_admin/src/routes/entrega.tsx`
+      **Deviation (RED evidence quality)**: some assertions initially RED for the "module not
+      found" reason (route file didn't exist yet) rather than a real assertion failure — standard
+      for a brand-new route file, matching the convention already used for every other 3c-i
+      component/hook in this change.
+- [x] 3c.13 GREEN — Create `ts_hornero_admin/src/routes/entrega.tsx`
       (/donaciones/:id/entrega), composing 3c-i's components and hooks.
-- [ ] 3c.14 GREEN — `ts_hornero_admin/src/app/router.tsx`: register the route with
-      `allow={['DONANTE','REFERENTE']} requireVerified`.
-- [ ] 3c.15 RED — Assertions in `mis-donaciones.test.tsx` and `dashboard.test.tsx`: the old
-      "Confirmar entrega" button is absent; a "Confirmar entrega" link to the new route is present.
-- [ ] 3c.16 GREEN — `ts_hornero_admin/src/routes/mis-donaciones.tsx`,
+- [x] 3c.14 GREEN — `ts_hornero_admin/src/app/router.tsx`: register the route with
+      `allow={['DONANTE','REFERENTE']} requireVerified`. RED first via `router.test.tsx`'s
+      structural guard assertion (mirrors the existing `/organizaciones/:id/legajo` pattern).
+- [x] 3c.15 RED — Assertions in `mis-donaciones.test.tsx` (created new — none existed before
+      this batch) and `dashboard.test.tsx`: a "Confirmar entrega" link to the new route is
+      present.
+- [x] 3c.16 GREEN — `ts_hornero_admin/src/routes/mis-donaciones.tsx`,
       `ts_hornero_admin/src/routes/dashboard.tsx`: replace the button with the link. Satisfies
       3c.15.
-- [ ] 3c.17 GREEN — Delete `ts_hornero_admin/src/lib/hooks/useConfirmarEntrega.ts` (retired).
-- [ ] 3c.18 RED — MS/BFF controller tests: a request to the old `confirmar-entrega` route returns
-      404/405.
-- [ ] 3c.19 GREEN — `jar_hornero_ms/.../donacion/DonacionController.java`,
-      `DonacionService.java`: remove the `confirmar-entrega` endpoint and `confirmarEntrega` method
-      (the shared `registrarConfirmacion` helper stays, used only by `EntregaService` now).
-      Satisfies 3c.18 (MS side).
-- [ ] 3c.20 GREEN — `ts_hornero_bff/src/donaciones/*`: remove the `confirmar-entrega` route and
+- [x] 3c.17 GREEN — Delete `ts_hornero_admin/src/lib/hooks/useConfirmarEntrega.ts` (retired).
+- [x] 3c.18 RED — MS `DonacionControllerTest` + new BFF `donaciones.routing.spec.ts`: a request
+      to the old `confirmar-entrega` route returns 404.
+      **Deviation/finding**: on the MS side, removing the mapping alone made the route fall
+      through to Spring's static-resource handler, which throws `NoResourceFoundException` —
+      `GlobalExceptionHandler`'s generic `Exception` catch-all turned that into 500, not 404.
+      Added a dedicated `@ExceptionHandler(NoResourceFoundException.class)` → 404 case (see 3c.19).
+- [x] 3c.19 GREEN — `jar_hornero_ms/.../donacion/DonacionController.java`,
+      `DonacionService.java`: removed the `confirmar-entrega` endpoint and `confirmarEntrega`
+      method (the shared `ConfirmacionEntrega.registrar` helper stays, used only by
+      `EntregaService` now). `GlobalExceptionHandler` gained the `NoResourceFoundException` → 404
+      mapping (see 3c.18 finding). Satisfies 3c.18 (MS side).
+- [x] 3c.20 GREEN — `ts_hornero_bff/src/donaciones/*`: removed the `confirmar-entrega` route and
       service method. Satisfies 3c.18 (BFF side).
 - [x] 3c.21 GREEN — `ts_hornero_admin/package.json`: add `qrcode.react`, `qr-scanner` (or the
       chosen fallback per 3c.1) as dependencies.
       **Done early, in the 3c-i batch** (orchestrator instruction): added `qrcode.react@4.2.0` and
       `barcode-detector@3.2.2` (the AD-7 fallback — not `qr-scanner`, see 3c.1's verification note).
-- [ ] 3c.22 REFACTOR — Confirm `TransicionesDonacion` needs no further entries now that
-      `confirmarEntrega` is gone; the code-verified path is the only route to `ENTREGADA` besides
-      `overrideEstado`.
+- [x] 3c.22 REFACTOR — Confirmed by inspection: `TransicionesDonacion`'s `PERMITIDAS` table already
+      carries explicit `PENDIENTE_CONFIRMACION` → `ENTREGADA` entries (added in slice 3a); no code
+      path bypasses the table now that `confirmarEntrega` is gone — the code-verified path
+      (`EntregaService`) is the only route to `ENTREGADA` besides `overrideEstado`. No code change
+      needed.
+
+      **3c-ii open item resolved**: `EscanerQr`'s scan-button label now fits the viewer's role via
+      a new optional `contraparte` prop (`'ORGANIZACION'` default / `'DONANTE'`) — a donante sees
+      "Escanear código de la organización", a referente sees "Escanear código del donante".
+      `entrega.tsx` passes `contraparte={parteActual === 'REFERENTE' ? 'DONANTE' : 'ORGANIZACION'}`.
 
 **Verification (3c-ii):**
 `cd ts_hornero_admin && npm test -- entrega mis-donaciones dashboard && npm run build`

@@ -103,15 +103,6 @@ export class DonacionesService {
     return data;
   }
 
-  async confirmarEntrega(id: number, accessToken: string) {
-    const { data } = await this.httpService.axiosRef.post(
-      `${this.msUrl}/api/donaciones/${id}/confirmar-entrega`,
-      null,
-      { headers: this.authHeaders(accessToken) },
-    );
-    return data;
-  }
-
   async overrideEstado(
     id: number,
     dto: OverrideEstadoDto,

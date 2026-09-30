@@ -71,22 +71,6 @@ describe('DonacionesService', () => {
     });
   });
 
-  describe('confirmarEntrega', () => {
-    it('POSTs the MS /confirmar-entrega endpoint with a Bearer header', async () => {
-      const data = { id: 1, estado: 'PENDIENTE_CONFIRMACION' };
-      httpService.axiosRef.post.mockResolvedValue({ data });
-
-      const result = await service.confirmarEntrega(1, 'token-123');
-
-      expect(httpService.axiosRef.post).toHaveBeenCalledWith(
-        'http://ms:8081/api/donaciones/1/confirmar-entrega',
-        null,
-        { headers: { Authorization: 'Bearer token-123' } },
-      );
-      expect(result).toEqual(data);
-    });
-  });
-
   describe('overrideEstado', () => {
     it('PATCHes the MS /estado-admin endpoint with a Bearer header', async () => {
       const data = { id: 1, estado: 'CANCELADA' };
