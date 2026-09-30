@@ -93,6 +93,27 @@ TUNNEL_TOKEN=<token-de-A.1>
 > bundle en el **build**. Si las cambiás, hay que `docker compose build` de nuevo;
 > reiniciar no alcanza.
 
+### A.3-bis — Pre-deploy: migración del esquema del pool de donaciones (slice 5b)
+
+Antes de levantar la nueva imagen del MS con soporte para donaciones `FONDO_COMUN`
+(`tesis-core-features` slice 5b), correr el script hand-written que relaja
+`donaciones.necesidad_id` a nullable — ver `scripts/sql/README.md` y `docs/db-changes.md`
+para el detalle completo. Es seguro correrlo antes del deploy: el código viejo nunca escribe
+`NULL` en esa columna.
+
+```bash
+docker compose exec -T postgres pg_dump -U "$DB_USERNAME" "$DB_NAME" | gzip > backup_$(date +%F).sql.gz
+docker compose exec -T postgres psql -U "$DB_USERNAME" -d "$DB_NAME" -v ON_ERROR_STOP=1 \
+  < scripts/sql/V001__donaciones_necesidad_id_nullable.sql
+docker compose exec -T postgres psql -U "$DB_USERNAME" -d "$DB_NAME" -c '\d donaciones'
+```
+
+Confirmar que `necesidad_id` figura como nullable en la salida de `\d donaciones`, y registrar
+"Applied to" en `docs/db-changes.md`. Si este paso se salta, el MS sigue arrancando y las
+donaciones `DIRECTA` funcionan normalmente — el `EsquemaVerificador` interno detecta la columna
+todavía `NOT NULL` y hace que crear una donación `FONDO_COMUN` responda `503 ESQUEMA_PENDIENTE`
+en vez de romper con un 500 de violación de constraint.
+
 ### A.4 — Levantar (en la Pi)
 
 El túnel ya corre aparte como servicio systemd, así que el stack se levanta sin
