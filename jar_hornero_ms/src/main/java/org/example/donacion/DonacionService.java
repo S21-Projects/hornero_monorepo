@@ -2,9 +2,11 @@ package org.example.donacion;
 
 import lombok.RequiredArgsConstructor;
 import org.example.auth.VerificacionService;
+import org.example.config.EsquemaVerificador;
 import org.example.domain.Donacion;
 import org.example.domain.DonacionRepository;
 import org.example.domain.EstadoDonacion;
+import org.example.domain.ModalidadDonacion;
 import org.example.domain.Necesidad;
 import org.example.domain.NecesidadRepository;
 import org.example.domain.Organizacion;
@@ -36,6 +38,7 @@ public class DonacionService {
     private final UsuarioRepository usuarioRepository;
     private final OrganizacionRepository organizacionRepository;
     private final VerificacionService verificacionService;
+    private final EsquemaVerificador esquemaVerificador;
 
     public Page<DonacionResponse> findAll(Pageable pageable) {
         return donacionRepository.findAllWithDonante(pageable)
@@ -51,16 +54,59 @@ public class DonacionService {
     public DonacionResponse crear(CreateDonacionRequest dto, Long donanteId) {
         verificacionService.requireVerified(donanteId);
 
-        Necesidad necesidad = necesidadRepository.findById(dto.getNecesidadId())
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Necesidad not found"));
+        ModalidadDonacion modalidad = dto.getModalidad() != null ? dto.getModalidad() : ModalidadDonacion.DIRECTA;
+
+        // Structural cross-field validation happens before any repository lookup, mirroring the
+        // existing `crear_unverifiedDonante_throwsForbiddenBeforeTouchingNecesidad` convention:
+        // reject a malformed request cheaply, without touching the DB.
+        if (modalidad == ModalidadDonacion.FONDO_COMUN) {
+            if (dto.getNecesidadId() != null) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "FONDO_COMUN donations cannot target a necesidad directly");
+            }
+            if (dto.getCategoria() == null) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "categoria is required for FONDO_COMUN donations");
+            }
+            if (dto.getLatitud() == null || dto.getLongitud() == null) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "latitud/longitud are required for FONDO_COMUN donations");
+            }
+            if (!esquemaVerificador.necesidadIdEsNullable()) {
+                throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "ESQUEMA_PENDIENTE");
+            }
+        } else {
+            if (dto.getNecesidadId() == null) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "necesidadId is required for DIRECTA donations");
+            }
+            if (dto.getCategoria() != null || dto.getLatitud() != null || dto.getLongitud() != null) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "categoria/latitud/longitud are only allowed for FONDO_COMUN donations");
+            }
+        }
+
         Donante donante = (Donante) usuarioRepository.findById(donanteId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Donante not found"));
+
         Donacion d = new Donacion();
-        d.setNecesidad(necesidad);
         d.setDonante(donante);
         d.setObservaciones(dto.getObservaciones());
         d.setEstado(EstadoDonacion.OFRECIDA);
         d.setFechaOferta(LocalDate.now());
+        d.setModalidad(modalidad);
+
+        if (modalidad == ModalidadDonacion.FONDO_COMUN) {
+            d.setCategoria(dto.getCategoria());
+            d.setLatitud(dto.getLatitud());
+            d.setLongitud(dto.getLongitud());
+            d.setNecesidad(null);
+        } else {
+            Necesidad necesidad = necesidadRepository.findById(dto.getNecesidadId())
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Necesidad not found"));
+            d.setNecesidad(necesidad);
+        }
+
         return toResponse(donacionRepository.save(d));
     }
 
@@ -114,6 +160,25 @@ public class DonacionService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                     "Invalid decision: " + nuevoEstado);
         }
+
+        // AD-3 devolución al fondo: a FONDO_COMUN rejection is NOT a state change to RECHAZADA
+        // (OFRECIDA -> OFRECIDA per the AD-5 table) — it only clears the vigente `necesidad`, so the
+        // donación becomes eligible for the next ronda again. `Asignacion` bookkeeping (marking the
+        // prior assignment RECHAZADA, excluding the org from future rondas) is deferred to slice 5c,
+        // which is when `Asignacion` first exists.
+        if (nuevoEstado == EstadoDonacion.RECHAZADA
+                && d.getModalidadEfectiva() == ModalidadDonacion.FONDO_COMUN) {
+            if (d.getEstado() != EstadoDonacion.OFRECIDA || d.getNecesidad() == null) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "Invalid state transition: " + d.getEstado() + " -> " + nuevoEstado);
+            }
+            // Gotcha pinned by AD-3: only null the owning side. Do NOT remove `d` from
+            // `necesidad.getDonaciones()` — that collection is `orphanRemoval = true` and doing so
+            // would delete this donación row on flush.
+            d.setNecesidad(null);
+            return toResponse(donacionRepository.save(d));
+        }
+
         TransicionesDonacion.validar(d.getEstado(), nuevoEstado);
         d.setEstado(nuevoEstado);
         return toResponse(donacionRepository.save(d));
@@ -182,6 +247,12 @@ public class DonacionService {
         if (!d.getDonante().getId().equals(donanteId)) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Access denied: not the owner of this donation");
         }
+        if (d.getModalidadEfectiva() == ModalidadDonacion.FONDO_COMUN) {
+            // AD-3: deletion would orphan any `Asignacion` history row and break the ronda audit
+            // trail. Cancelling (the existing OFRECIDA/ACEPTADA/EN_CAMINO -> CANCELADA path) is the
+            // only supported way to withdraw a FONDO_COMUN donación.
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "USAR_CANCELACION");
+        }
         if (d.getEstado() != EstadoDonacion.OFRECIDA) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                     "Cannot delete a donation that is not in OFRECIDA state");
@@ -190,10 +261,11 @@ public class DonacionService {
     }
 
     private DonacionResponse toResponse(Donacion d) {
-        String necesidadDescripcion = d.getNecesidad() != null && d.getNecesidad().getDescripcion() != null
-                ? d.getNecesidad().getDescripcion() : "";
-        String organizacionNombre = d.getNecesidad() != null && d.getNecesidad().getOrganizacion() != null
-                ? d.getNecesidad().getOrganizacion().getNombre() : "";
+        Necesidad necesidad = d.getNecesidad();
+        Organizacion organizacion = necesidad != null ? necesidad.getOrganizacion() : null;
+        String necesidadDescripcion = necesidad != null && necesidad.getDescripcion() != null
+                ? necesidad.getDescripcion() : "";
+        String organizacionNombre = organizacion != null ? organizacion.getNombre() : "";
         return new DonacionResponse(
                 d.getId(),
                 d.getFechaOferta(),
@@ -201,21 +273,25 @@ public class DonacionService {
                 d.getEstado().name(),
                 d.getObservaciones(),
                 d.getDonante().getNombre(),
-                d.getNecesidad().getId(),
-                d.getNecesidad().getOrganizacion().getId(),
+                necesidad != null ? necesidad.getId() : null,
+                organizacion != null ? organizacion.getId() : null,
                 necesidadDescripcion,
                 organizacionNombre,
                 d.getDonante().getId(),
                 d.getConfirmadaDonanteEn(),
-                d.getConfirmadaReferenteEn()
+                d.getConfirmadaReferenteEn(),
+                d.getModalidadEfectiva().name(),
+                d.getCategoria() != null ? d.getCategoria().name() : null,
+                FaseDonacion.de(d).name()
         );
     }
 
     private DonacionActivaResponse toActivaResponse(Donacion d) {
-        String necesidadDescripcion = d.getNecesidad() != null && d.getNecesidad().getDescripcion() != null
-                ? d.getNecesidad().getDescripcion() : "";
-        String organizacionNombre = d.getNecesidad() != null && d.getNecesidad().getOrganizacion() != null
-                ? d.getNecesidad().getOrganizacion().getNombre() : "";
+        Necesidad necesidad = d.getNecesidad();
+        Organizacion organizacion = necesidad != null ? necesidad.getOrganizacion() : null;
+        String necesidadDescripcion = necesidad != null && necesidad.getDescripcion() != null
+                ? necesidad.getDescripcion() : "";
+        String organizacionNombre = organizacion != null ? organizacion.getNombre() : "";
         return new DonacionActivaResponse(
                 d.getId(),
                 d.getFechaOferta(),
@@ -224,15 +300,18 @@ public class DonacionService {
                 d.getObservaciones(),
                 d.getDonante().getId(),
                 d.getDonante().getNombre(),
-                d.getNecesidad().getId(),
+                necesidad != null ? necesidad.getId() : null,
                 necesidadDescripcion,
-                d.getNecesidad().getOrganizacion().getId(),
+                organizacion != null ? organizacion.getId() : null,
                 organizacionNombre,
                 d.getConfirmadaDonanteEn(),
                 d.getConfirmadaReferenteEn(),
                 d.getOverrideMotivo(),
                 d.getOverrideAdminId(),
-                d.getOverrideEn()
+                d.getOverrideEn(),
+                d.getModalidadEfectiva().name(),
+                d.getCategoria() != null ? d.getCategoria().name() : null,
+                FaseDonacion.de(d).name()
         );
     }
 }

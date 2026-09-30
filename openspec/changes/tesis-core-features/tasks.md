@@ -557,65 +557,69 @@ limitation) and the thesis document (slice 7) must state this.
 Depends on: 3c (per AD-5, slice 3 must stabilize the transition table first). Spec:
 `donacion-fondo-comun`. Design: AD-3, AD-4, AD-13.
 
-- [ ] 5b.1 GREEN (infra, no test) — Create `scripts/sql/V001__donaciones_necesidad_id_nullable.sql`
+- [x] 5b.1 GREEN (infra, no test) — Create `scripts/sql/V001__donaciones_necesidad_id_nullable.sql`
       (idempotent, transactional `ALTER TABLE donaciones ALTER COLUMN necesidad_id DROP NOT NULL`)
       and `scripts/sql/README.md` documenting the `V{NNN}__{snake_description}.sql` convention.
-- [ ] 5b.2 GREEN (docs) — `docs/db-changes.md`: add a log entry (Reason / Before / Migration /
+- [x] 5b.2 GREEN (docs) — `docs/db-changes.md`: add a log entry (Reason / Before / Migration /
       After / Rollback / Applied to). `docs/deploy-rpi-cloudflare.md`: add the pre-deploy step
       (backup, run `V001`, verify with `\d donaciones`).
-- [ ] 5b.3 RED — `jar_hornero_ms/src/test/.../donacion/DonacionServiceTest.java`: creating
+- [x] 5b.3 RED — `jar_hornero_ms/src/test/.../donacion/DonacionServiceTest.java`: creating
       `DIRECTA` is unchanged; creating `FONDO_COMUN` requires `categoria` + coordinates and rejects
       a supplied `necesidadId`; `modalidad` is not updatable after creation (no code path can change
       it, including override); `eliminar` on a `FONDO_COMUN` donación → 409 `USAR_CANCELACION`;
       devolución (`decidir RECHAZADA` on a `FONDO_COMUN` donación with an assigned necesidad) clears
       `necesidad` **without** removing the donation from `necesidad.getDonaciones()` (the
       `orphanRemoval` regression test pinned by AD-3's gotcha).
-- [ ] 5b.4 RED — `jar_hornero_ms/src/test/.../donacion/FaseDonacionTest.java`: the full AD-4
+- [x] 5b.4 RED — `jar_hornero_ms/src/test/.../donacion/FaseDonacionTest.java`: the full AD-4
       derivation table (modalidad × estado × necesidad presence → `fase`).
-- [ ] 5b.5 RED — `jar_hornero_ms/src/test/.../domain/DonacionRepositoryTest.java`
+- [x] 5b.5 RED — `jar_hornero_ms/src/test/.../domain/DonacionRepositoryTest.java`
       (`@DataJpaTest` on H2): `findMias`, `findById`, `findActivas` and the donante/admin list
       queries return an unassigned `FONDO_COMUN` donación (organizacion/necesidad fields absent, not
       a server error) via the new `LEFT JOIN FETCH`; org-scoped queries stay inner-joined and
       exclude unassigned pool donations; count queries use explicit left joins too.
-- [ ] 5b.6 RED — `jar_hornero_ms/src/test/.../donacion/DonacionResponseTest.java` (or an existing
+- [x] 5b.6 RED — `jar_hornero_ms/src/test/.../donacion/DonacionResponseTest.java` (or an existing
       response test): a pool donación's `latitud`, `longitud` are never serialized in any
       `DonacionResponse`, `DonacionActivaResponse`, even for the owning donante on `GET
       /api/donaciones` — location stays write-only.
-- [ ] 5b.7 RED — `jar_hornero_ms/src/test/.../config/EsquemaVerificadorTest.java`: when
+- [x] 5b.7 RED — `jar_hornero_ms/src/test/.../config/EsquemaVerificadorTest.java`: when
       `necesidad_id` is still `NOT NULL` at boot (simulated), `crear(FONDO_COMUN)` answers `503
       ESQUEMA_PENDIENTE`; `DIRECTA` keeps working; the check is skipped on H2 (PostgreSQL-only
       guard, verified via a conditional/profile check rather than run against H2 directly).
-- [ ] 5b.8 GREEN — Create `jar_hornero_ms/.../domain/ModalidadDonacion.java`: `DIRECTA`,
+- [x] 5b.8 GREEN — Create `jar_hornero_ms/.../domain/ModalidadDonacion.java`: `DIRECTA`,
       `FONDO_COMUN`.
-- [ ] 5b.9 GREEN — Modify `jar_hornero_ms/.../domain/Donacion.java`: `necesidad` `nullable = true`;
+- [x] 5b.9 GREEN — Modify `jar_hornero_ms/.../domain/Donacion.java`: `necesidad` `nullable = true`;
       add `modalidad` (`updatable = false`, null read as `DIRECTA`), `categoria`
       (`CategoriaAlimento`), `latitud`, `longitud`.
-- [ ] 5b.10 GREEN — Create `jar_hornero_ms/.../donacion/FaseDonacion.java`: the AD-4 derivation.
+- [x] 5b.10 GREEN — Create `jar_hornero_ms/.../donacion/FaseDonacion.java`: the AD-4 derivation.
       Satisfies 5b.4.
-- [ ] 5b.11 GREEN — Modify `jar_hornero_ms/.../donacion/dto/CreateDonacionRequest.java`: add
+- [x] 5b.11 GREEN — Modify `jar_hornero_ms/.../donacion/dto/CreateDonacionRequest.java`: add
       `modalidad`, optional `necesidadId`, `categoria`, `latitud`, `longitud` with cross-field
       validation (`FONDO_COMUN` requires categoria+coords and forbids `necesidadId`; `DIRECTA`
       requires `necesidadId` and forbids categoria/coords per the spec's field-omission scenario).
-- [ ] 5b.12 GREEN — Modify `jar_hornero_ms/.../donacion/DonacionService.java`: `crear` branches per
+- [x] 5b.12 GREEN — Modify `jar_hornero_ms/.../donacion/DonacionService.java`: `crear` branches per
       modalidad; `decidir` implements the devolución-to-pool rule for `FONDO_COMUN` rejections
       (AD-3); cancel resolves a vigente asignación hook (no-op stub until 5c persists `Asignacion`);
       `eliminar` → 409 for `FONDO_COMUN`; null-safe `toResponse`, `toActivaResponse`; compute `fase`
       via 5b.10. Satisfies 5b.3.
-- [ ] 5b.13 GREEN — Modify `jar_hornero_ms/.../donacion/DonacionResponse.java`,
+- [x] 5b.13 GREEN — Modify `jar_hornero_ms/.../donacion/DonacionResponse.java`,
       `DonacionActivaResponse.java`: nullable `necesidadId`, `organizacionId`; add `modalidad`,
       `categoria`, `fase`; never serialize `latitud`, `longitud`. Satisfies 5b.6.
-- [ ] 5b.14 GREEN — Modify `jar_hornero_ms/.../domain/DonacionRepository.java`: switch
+- [x] 5b.14 GREEN — Modify `jar_hornero_ms/.../domain/DonacionRepository.java`: switch
       `findAllWithDonante` (×2), `findByIdWithRelations`, `findByDonante_IdWithRelations` (×2),
       `findActivas` + its `countQuery` to `LEFT JOIN FETCH d.necesidad n LEFT JOIN FETCH n.organizacion
       o`; org-scoped queries stay inner. Satisfies 5b.5.
-- [ ] 5b.15 GREEN — Create `jar_hornero_ms/.../config/EsquemaVerificador.java`
+- [x] 5b.15 GREEN — Create `jar_hornero_ms/.../config/EsquemaVerificador.java`
       (`ApplicationRunner`, PostgreSQL-only): reads `information_schema.columns.is_nullable` for
       `donaciones.necesidad_id` at boot; logs `ERROR` naming the script and flags
       `crear(FONDO_COMUN)` to answer `503 ESQUEMA_PENDIENTE` when still `NO`. Satisfies 5b.7.
-- [ ] 5b.16 REFACTOR — Sweep `DonacionService`, `DonacionController` for any remaining direct
+- [x] 5b.16 REFACTOR — Sweep `DonacionService`, `DonacionController` for any remaining direct
       `d.getNecesidad().getOrganizacion()` call not already routed through `ParticipantesDonacion`
       (introduced in 3a) — this is the fix for the historical `DonacionService.java:157` NPE risk
       once pool donations exist.
+      **Confirmed by inspection**: `rg "getNecesidad\(\)\.get"` across `donacion/*.java` and
+      `donacion/entrega/*.java` returns no matches — `toResponse`/`toActivaResponse` now go through
+      local null-checked `necesidad`/`organizacion` variables, and `DonacionController` never
+      dereferences `necesidad` directly.
 
 **Verification (slice 5b):**
 `cd jar_hornero_ms && mvn test -Dtest=DonacionServiceTest,FaseDonacionTest,DonacionRepositoryTest,DonacionResponseTest,EsquemaVerificadorTest`

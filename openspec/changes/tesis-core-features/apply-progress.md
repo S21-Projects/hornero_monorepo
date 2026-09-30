@@ -40,7 +40,13 @@ Engram mirror: `sdd/tesis-core-features/apply-progress`.
   all pass); `internal/renacom`'s `TestCargarDatasetCommiteado` fails, but pre-existing and
   unrelated to this slice (see deviations). `go vet ./...` clean, `docker compose config -q`
   clean, and the worker Dockerfile builds and serves correctly against a valid CSV.
-- Slices 5b-7: not started.
+- **Slice 5b — Pool schema + null safety (MS, SQL). DONE (16/16), 2026-09-30.** ≈1104 authored
+  changed lines — far over the 350-450 forecast and the 400-line budget — proposed as 4
+  natural-seam commits (SQL+docs; EsquemaVerificador guard; entity/modalidad+repository
+  null-safety; DTO/service wiring), see "Completed Tasks (Slice 5b)" /
+  "Review Workload / Size (slice 5b)" below. Full MS suite 366/366 passing, on branch
+  `feat/tesis-core-features-05b-pool-schema`, NOT yet committed.
+- Slices 5c-7: not started.
 
 ## Completed Tasks (Slice 1)
 
@@ -794,7 +800,11 @@ committed `5633ad3`, BFF committed `8632881`.** **Slice 4b: 6/6 tasks complete (
 branch `feat/tesis-core-features-04b-auditoria-ui`, not yet committed — proposed as 2 commits,
 see "Review Workload / Size (slice 4b)" above.** **Slice 5a: 17/17 tasks complete (2026-09-30), on
 branch `feat/tesis-core-features-05a-worker-http`, not yet committed — proposed as 5 commits, see
-"Review Workload / Size (slice 5a)" above.** Slices 5b-7: not started.
+"Review Workload / Size (slice 5a)" above.** **Slice 5b: 16/16 tasks complete (2026-09-30), on
+branch `feat/tesis-core-features-05b-pool-schema`, not yet committed — proposed as 4 commits, see
+"Review Workload / Size (slice 5b)" above. Full MS suite 366/366 passing. USER ACTION (run `V001`
+on the Pi) is still open, tracked separately, not blocking this apply batch.** Slices 5c-7: not
+started.
 
 Slices 1 and 2 (2a/2b) are already committed (`a87ebe9`, `c241250`, plus the slice-1 commit).
 Slice 4a is fully committed (MS `5633ad3`, BFF `8632881`). Uncommitted on
@@ -1201,3 +1211,226 @@ Seams 1-2 can land in either order relative to each other (neither depends on th
 follow both; 4 must follow 3; 5 must follow 4.
 
 - Dataset note (orchestrator, 2026-09-30): the "corrupted renacom.csv" reported above was introduced by commit 0eb6045 (a re-quoted export committed by mistake as a refresh). Restored the prior file; `go test ./...` fully green including internal/renacom. README known-issue note removed.
+
+## Completed Tasks (Slice 5b — Pool schema + null safety, 2026-09-30)
+
+On branch `feat/tesis-core-features-05b-pool-schema`. Allowed edit roots: `jar_hornero_ms`,
+`scripts/sql`, `docs`, `openspec/changes/tesis-core-features`. Strict TDD: every task below was
+written test-first, RED confirmed (compile failure or assertion failure), then GREEN. USER ACTION
+(running `V001` on the Pi) was explicitly out of scope for this batch and is left unchecked/carried
+forward.
+
+- [x] 5b.1/5b.2 GREEN (infra+docs, no test) — Created `scripts/sql/V001__donaciones_necesidad_id_nullable.sql`
+      (idempotent/transactional `ALTER TABLE donaciones ALTER COLUMN necesidad_id DROP NOT NULL`)
+      and `scripts/sql/README.md` (naming convention, run procedure, "why not run automatically at
+      boot" rationale tying back to `EsquemaVerificador`). Added the 2026-09-30 log entry to
+      `docs/db-changes.md` (Reason/Before/Migration/After/Rollback/Applied to, "Pi — not yet run")
+      and a new "A.3-bis — Pre-deploy: migración del esquema del pool de donaciones (slice 5b)"
+      subsection to `docs/deploy-rpi-cloudflare.md` before section A.4, in Spanish matching the
+      rest of that document.
+- [x] 5b.7/5b.15 — **RED confirmed**: `EsquemaVerificadorTest.java` (new, 4 cases: default state is
+      permissive `true` before any boot check; PostgreSQL + column still `NOT NULL` → flag flips to
+      `false` and logs `ERROR`; PostgreSQL + column already nullable → flag stays `true`; H2 → the
+      check is skipped entirely, `jdbcTemplate.queryForObject` never called) against a non-existent
+      `EsquemaVerificador` class — compile failure (`cannot find symbol`). **GREEN**: created
+      `jar_hornero_ms/.../config/EsquemaVerificador.java` (`ApplicationRunner`, `AtomicBoolean`
+      state defaulting to permissive `true`, database-product-name check via
+      `jdbcTemplate.getDataSource().getConnection().getMetaData()` rather than a Spring profile, per
+      the task's "verified via a conditional/profile check" wording) — 4/4 passing.
+- [x] 5b.4/5b.10 — **RED confirmed**: `FaseDonacionTest.java` (new, 10 cases covering the full AD-4
+      table: FONDO_COMUN×OFRECIDA×{null,set} necesidad → EN_FONDO/ASIGNADA; DIRECTA×OFRECIDA →
+      OFRECIDA; null modalidad treated as DIRECTA; ACEPTADA/EN_CAMINO/PENDIENTE_CONFIRMACION/
+      ENTREGADA map 1:1 regardless of modalidad; RECHAZADA/CANCELADA are terminal banners regardless
+      of modalidad or necesidad presence) against a non-existent `FaseDonacion` class — compile
+      failure. This RED cycle required first adding `ModalidadDonacion` (trivial 2-value enum, no
+      dedicated RED/GREEN — used only as a type by the test fixture) and the `modalidad`/`categoria`/
+      `latitud`/`longitud` fields + `getModalidadEfectiva()` coalescing helper to the `Donacion`
+      entity, and relaxing `necesidad_id`'s `@JoinColumn(nullable = ...)` to `true` (AD-3/AD-13).
+      **GREEN**: created `jar_hornero_ms/.../donacion/FaseDonacion.java` (enum + static `de(Donacion)`
+      derivation) — 10/10 passing.
+- [x] 5b.3/5b.11/5b.12/5b.16 — **RED confirmed**: 15 new cases added to `DonacionServiceTest.java`
+      covering: `crear` DIRECTA unchanged and backward-compatible when `modalidad` is omitted;
+      DIRECTA rejects missing `necesidadId` and rejects a supplied `categoria`/coordinates;
+      FONDO_COMUN persists with `necesidad = null` and rejects a supplied `necesidadId`, missing
+      `categoria`, or missing coordinates; FONDO_COMUN honors `EsquemaVerificador` (503
+      `ESQUEMA_PENDIENTE`) while DIRECTA stays unaffected by the same flag; `overrideEstado` never
+      changes a persisted `modalidad` (pins immutability); `eliminar` on FONDO_COMUN → 409
+      `USAR_CANCELACION` (DIRECTA `eliminar` unchanged); `decidir RECHAZADA` on an assigned
+      FONDO_COMUN donación devuelve al fondo (clears `necesidad`, stays `OFRECIDA`, does **not**
+      remove itself from `necesidad.getDonaciones()` — the AD-3 orphanRemoval gotcha, pinned as its
+      own dedicated test); `decidir RECHAZADA` on an unassigned FONDO_COMUN donación still 403s
+      (existing `ParticipantesDonacion` null-safety, no new code needed); DIRECTA `decidir
+      RECHAZADA` still lands on terminal `RECHAZADA` unchanged; `toResponse` on a `necesidad = null`
+      donación no longer NPEs and reports `fase = EN_FONDO`. All failed to compile first (missing
+      `CreateDonacionRequest` setters, missing `DonacionResponse.modalidad()`/`.fase()` accessors).
+      **GREEN**: modified `CreateDonacionRequest.java` (added `modalidad`, `categoria`, `latitud`,
+      `longitud`, dropped `@NotNull` from `necesidadId`), `DonacionResponse.java`/
+      `DonacionActivaResponse.java` (added `modalidad`/`categoria`/`fase` record components,
+      deliberately never added `latitud`/`longitud`), and `DonacionService.java`: `crear` does
+      structural cross-field validation before any repository call (mirrors the existing
+      "reject cheaply before touching the DB" convention), then branches per modalidad;
+      `decidir`'s devolución branch is checked before the general `TransicionesDonacion.validar`
+      call and only nulls the owning side; `eliminar` gates on `getModalidadEfectiva()` before the
+      existing estado check; `toResponse`/`toActivaResponse` resolve `necesidad`/`organizacion` into
+      local nullable variables once, computing `fase` via `FaseDonacion.de(d)`. Had to fix one
+      pre-existing positional-constructor call site, `DonacionControllerTest.buildResponse`, for the
+      new `DonacionResponse` arity (add-only, `"DIRECTA"`/`null`/`"OFRECIDA"` for the new trailing
+      fields) — 48/48 (`DonacionServiceTest`) + 4/4 (`DonacionControllerTest`) passing. 5b.16's
+      sweep (`rg "getNecesidad\(\)\.get"` across `donacion/*.java` and `donacion/entrega/*.java`)
+      confirmed clean by inspection — no further code change needed.
+- [x] 5b.6 — **RED confirmed by design, then verified GREEN** — `DonacionResponseTest.java` (new, 4
+      cases: neither record declares a `latitud`/`longitud` component via reflection; neither
+      record's Jackson-serialized JSON contains a `latitud`/`longitud` key). This test was written
+      after the 5b.3 GREEN cycle already added the record's final field set (no `latitud`/
+      `longitud`), so it did not independently RED against missing production code — it pins the
+      existing record shape, matching the same "confirmed by inspection" convention already used
+      elsewhere in this change (e.g. 3c.22, 5b.16) for a scenario where the driving RED/GREEN cycle
+      already happened as part of a broader change. Needed `JavaTimeModule` registered on the local
+      `ObjectMapper` (transitively available, not a new dependency) to serialize `LocalDate` fields
+      — 4/4 passing.
+- [x] 5b.5/5b.14 — **RED confirmed**: 7 new cases added to `DonacionRepositoryTest.java`
+      (`findAllWithDonante` List+Page, `findByIdWithRelations`, `findByDonante_IdWithRelations`
+      List+Page all return/include an unassigned FONDO_COMUN donación with `necesidad == null`
+      rather than silently dropping it; `findActivas` includes it without cartesian-product
+      inflation; `findByOrganizacionId` List+Page still **excludes** it, confirming org-scoped
+      queries correctly stay inner-joined) — 4 of the 7 failed against the pre-existing inner
+      `JOIN FETCH`, which silently excludes any row with a null `necesidad` (assertion failures, not
+      compile failures — `setNecesidad(null)` already compiled from the 5b.4 entity change).
+      **GREEN**: modified `DonacionRepository.java`: `findAllWithDonante` (List+Page),
+      `findByIdWithRelations`, `findByDonante_IdWithRelations` (List+Page), and `findActivas` (both
+      the `value` and `countQuery`, the latter needed explicit `LEFT JOIN`s since implicit path
+      navigation like `d.necesidad.organizacion.nombre` always compiles to an inner join) switched
+      from `JOIN FETCH`/inner join to `LEFT JOIN FETCH`/`LEFT JOIN`. `findByOrganizacionId` (both
+      overloads) and `findByOrganizacion_Referente_Id` deliberately left untouched (inner join,
+      correctly excludes unassigned pool donations by design) — 11/11 passing.
+
+### TDD Cycle Evidence (Slice 5b)
+
+| Task(s) | Test file | RED confirmed | GREEN |
+|---|---|---|---|
+| 5b.7/5b.15 | `EsquemaVerificadorTest.java` (new) | ✅ compile failure (`class EsquemaVerificador` not found) | ✅ 4/4 |
+| 5b.4/5b.10 | `FaseDonacionTest.java` (new) | ✅ compile failure (`class FaseDonacion` not found) | ✅ 10/10 |
+| 5b.3/5b.11/5b.12 | `DonacionServiceTest.java` (+15 cases) | ✅ compile failure (missing DTO setters / response accessors) | ✅ 48/48 (whole file) |
+| 5b.6 | `DonacionResponseTest.java` (new) | not independently RED — pins the shape already driven by the 5b.3 GREEN cycle (see note above) | ✅ 4/4 |
+| 5b.5/5b.14 | `DonacionRepositoryTest.java` (+7 cases) | ✅ 4/7 failing (inner JOIN FETCH silently excluded the null-necesidad row) | ✅ 11/11 (whole file) |
+
+### Files Changed (Slice 5b)
+
+| File | Action | What Was Done |
+|---|---|---|
+| `scripts/sql/V001__donaciones_necesidad_id_nullable.sql` | Created | AD-13 idempotent/transactional migration |
+| `scripts/sql/README.md` | Created | Naming convention, run procedure, runtime-guard rationale |
+| `docs/db-changes.md` | Modified | 2026-09-30 log entry |
+| `docs/deploy-rpi-cloudflare.md` | Modified | New "A.3-bis" pre-deploy subsection |
+| `jar_hornero_ms/src/main/java/org/example/config/EsquemaVerificador.java` | Created | AD-13 runtime guard (`ApplicationRunner`) |
+| `jar_hornero_ms/src/main/java/org/example/domain/ModalidadDonacion.java` | Created | `DIRECTA`, `FONDO_COMUN` |
+| `jar_hornero_ms/src/main/java/org/example/donacion/FaseDonacion.java` | Created | AD-4 derivation |
+| `jar_hornero_ms/src/main/java/org/example/domain/Donacion.java` | Modified | `necesidad` nullable; `modalidad`/`categoria`/`latitud`/`longitud` fields; `getModalidadEfectiva()` |
+| `jar_hornero_ms/src/main/java/org/example/domain/DonacionRepository.java` | Modified | `LEFT JOIN FETCH`/`LEFT JOIN` on donante/admin queries; org-scoped queries stay inner |
+| `jar_hornero_ms/src/main/java/org/example/donacion/dto/CreateDonacionRequest.java` | Modified | `modalidad`, `categoria`, `latitud`, `longitud`; `necesidadId` no longer `@NotNull` |
+| `jar_hornero_ms/src/main/java/org/example/donacion/DonacionResponse.java` | Modified | `modalidad`, `categoria`, `fase` components; still no `latitud`/`longitud` |
+| `jar_hornero_ms/src/main/java/org/example/donacion/DonacionActivaResponse.java` | Modified | Same as `DonacionResponse` |
+| `jar_hornero_ms/src/main/java/org/example/donacion/DonacionService.java` | Modified | `crear` per-modalidad validation+branching; `decidir` devolución; `eliminar` 409; null-safe `toResponse`/`toActivaResponse` |
+| `jar_hornero_ms/src/test/java/org/example/config/EsquemaVerificadorTest.java` | Created | 4 tests |
+| `jar_hornero_ms/src/test/java/org/example/donacion/FaseDonacionTest.java` | Created | 10 tests |
+| `jar_hornero_ms/src/test/java/org/example/donacion/DonacionResponseTest.java` | Created | 4 tests |
+| `jar_hornero_ms/src/test/java/org/example/donacion/DonacionServiceTest.java` | Modified | +15 tests |
+| `jar_hornero_ms/src/test/java/org/example/domain/DonacionRepositoryTest.java` | Modified | +7 tests |
+| `jar_hornero_ms/src/test/java/org/example/donacion/DonacionControllerTest.java` | Modified | Fixed positional `DonacionResponse` call site for the new arity |
+
+### Deviations from Design/Tasks (slice 5b)
+
+1. **Validation ordering, not in `design.md`/`tasks.md` explicitly**: `crear`'s modalidad-dependent
+   cross-field validation runs entirely before any repository lookup (donante or necesidad), to
+   match the existing `crear_unverifiedDonante_throwsForbiddenBeforeTouchingNecesidad` convention
+   ("reject cheaply before touching the DB"). The `ESQUEMA_PENDIENTE` check is the last structural
+   check for FONDO_COMUN (after categoria/coordinates/necesidadId), since it's cheap (in-memory
+   flag read) and the spec's field-omission scenarios take precedence as the more specific error.
+2. **5b.6's RED was not independently observed** — see the task-level note above; the test pins a
+   shape already produced by the 5b.3 GREEN cycle rather than driving new production code. Recorded
+   honestly in the TDD Cycle Evidence table rather than fabricating a RED that didn't happen in this
+   batch's actual sequence.
+3. Everything else matches `design.md`'s AD-3/AD-4/AD-5/AD-13 and `specs/donacion-fondo-comun/spec.md`
+   exactly: modalidad immutable post-creation, DIRECTA behavior unchanged, pool creation without a
+   necesidad, location+categoria required only for FONDO_COMUN and never serialized, devolución
+   clears only the owning side, FONDO_COMUN can't be `DELETE`d, and the runtime guard degrades
+   FONDO_COMUN creation only (never DIRECTA, never a boot crash).
+
+### Verification (slice 5b) — actually run
+
+- `cd jar_hornero_ms && mvn test -Dtest=DonacionServiceTest,FaseDonacionTest,DonacionRepositoryTest,DonacionResponseTest,EsquemaVerificadorTest`
+  → **77/77 passing** (4+10+48+4+11).
+- `cd jar_hornero_ms && mvn test` (full suite) → **366/366 passing**.
+- H2-vs-PostgreSQL note: the H2 test datasource uses `ddl-auto=create-drop`, so it reflects the
+  relaxed `nullable = true` entity mapping directly at schema-creation time — the H2 suite never
+  needs `V001` to have run (this is also exactly why `EsquemaVerificadorTest` has to mock the
+  database product name rather than exercise a real H2 connection: on real H2 the guard's own
+  `esPostgres()` check would just skip the query, which is correct production behavior but doesn't
+  exercise the `NOT NULL`/`NO`/`YES` branches at all). On real PostgreSQL, `ddl-auto=update` will
+  **not** relax the existing `NOT NULL` constraint on its own — this is exactly why `V001` and the
+  runtime guard exist; this is the one behavior that genuinely cannot be exercised against H2 and
+  depends on the Pi actually running the script.
+
+### USER ACTION reminder (unresolved, carried forward, blocks this slice's Pi deploy)
+
+This batch did not and could not perform it (requires Pi access):
+
+> Run `scripts/sql/V001__donaciones_necesidad_id_nullable.sql` on the Pi **before** deploying the
+> new MS image:
+> ```bash
+> docker compose exec -T postgres pg_dump -U "$DB_USERNAME" "$DB_NAME" | gzip > backup_$(date +%F).sql.gz
+> docker compose exec -T postgres psql -U "$DB_USERNAME" -d "$DB_NAME" -v ON_ERROR_STOP=1 \
+>   < scripts/sql/V001__donaciones_necesidad_id_nullable.sql
+> docker compose exec -T postgres psql -U "$DB_USERNAME" -d "$DB_NAME" -c '\d donaciones'
+> ```
+> Confirm `necesidad_id` shows nullable in the `\d donaciones` output, then record "Applied to" in
+> `docs/db-changes.md`. Also run the script a second time locally (idempotency check) as part of
+> manual QA on `make up-local` before touching the Pi.
+
+Also still open from slice 3a (unrelated to this batch, carried forward): verify on the Pi that
+`donaciones_estado_check` already allows `PENDIENTE_CONFIRMACION` (see slice 3a's section above).
+
+### Review Workload / Size (slice 5b) — exceeds guidance
+
+Authored changed lines (`git diff --numstat` for modified files, full line count for new files):
+
+- Modified: `docs/db-changes.md` 50, `docs/deploy-rpi-cloudflare.md` 21, `Donacion.java` 38,
+  `DonacionRepository.java` 25, `DonacionActivaResponse.java` 8, `DonacionResponse.java` 11,
+  `DonacionService.java` 113, `CreateDonacionRequest.java` 22, `DonacionRepositoryTest.java` 90,
+  `DonacionControllerTest.java` 5, `DonacionServiceTest.java` 280 = **663**.
+- New files (full line count): `EsquemaVerificador.java` 70, `ModalidadDonacion.java` 12,
+  `FaseDonacion.java` 46, `EsquemaVerificadorTest.java` 91, `DonacionResponseTest.java` 69,
+  `FaseDonacionTest.java` 90, `V001__donaciones_necesidad_id_nullable.sql` 14, `README.md` 49 =
+  **441**.
+- **Slice 5b total: ≈1104 authored changed lines** — far over the 350-450 forecast and the
+  400-line review budget.
+
+Per the user's size policy: proposing **4 natural-seam commits**, in this dependency order (each
+verified to build and pass its own targeted tests standing alone):
+
+1. `feat(db): add the idempotent pool-schema migration script and runbook docs` —
+   `scripts/sql/V001__donaciones_necesidad_id_nullable.sql`, `scripts/sql/README.md`,
+   `docs/db-changes.md`, `docs/deploy-rpi-cloudflare.md` (≈134 lines). Independent — no code.
+2. `feat(ms): add the EsquemaVerificador runtime guard for the pending schema migration` —
+   `EsquemaVerificador.java`, `EsquemaVerificadorTest.java` (≈161 lines). Independent of seam 3;
+   `mvn test -Dtest=EsquemaVerificadorTest` green standing alone.
+3. `feat(ms): add ModalidadDonacion/fase and null-safe pool-donation repository queries` —
+   `ModalidadDonacion.java`, `FaseDonacion.java`, `Donacion.java`, `DonacionRepository.java`,
+   `FaseDonacionTest.java`, `DonacionRepositoryTest.java` (≈301 lines). Independent of seam 2;
+   `mvn test -Dtest=FaseDonacionTest,DonacionRepositoryTest` green standing alone.
+4. `feat(ms): wire fondo comun creation, devolucion and null-safe responses into DonacionService` —
+   `DonacionResponse.java`, `DonacionActivaResponse.java`, `CreateDonacionRequest.java`,
+   `DonacionService.java`, `DonacionControllerTest.java`, `DonacionServiceTest.java`,
+   `DonacionResponseTest.java` (≈508 lines). Depends on **both** seam 2 (`EsquemaVerificador`
+   constructor dependency) and seam 3 (`ModalidadDonacion`/`FaseDonacion`/entity fields/repository
+   changes) — cannot land before either. `mvn test -Dtest=DonacionServiceTest,DonacionControllerTest,DonacionResponseTest`
+   green once seams 2-3 are applied.
+
+Seams 1 and 2 can land in either order (both independent of everything else in this slice); seam 3
+can land any time after seam 1 (no actual code dependency on it, just numbering); seam 4 must come
+last. Seam 4 alone (≈508 lines) is still slightly over the 400-line budget — it is the one
+genuinely indivisible behavioral unit in this slice (the response records, the service, and their
+tests all change together or the build breaks); flagging as a `size:exception` candidate for that
+one commit specifically rather than forcing an artificial split (e.g. separating
+`DonacionServiceTest.java` into its own commit from the production code it tests would break the
+RED→GREEN commit correlation for no real reviewability gain).

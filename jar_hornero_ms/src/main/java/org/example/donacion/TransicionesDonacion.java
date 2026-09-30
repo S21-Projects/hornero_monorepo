@@ -13,9 +13,11 @@ import java.util.Set;
  * AD-5's single coordinated transition table. {@code overrideEstado} (ADMINISTRADOR) stays outside
  * this table exactly as before — it never calls {@link #validar}.
  *
- * <p>Modalidad-awareness (the {@code FONDO_COMUN} devolución entry, {@code OFRECIDA -> OFRECIDA})
- * is added in slice 5b once {@code ModalidadDonacion} exists; this slice (3a) only adds the
- * delivery-code entries on top of the pre-existing lifecycle.
+ * <p>This table is modalidad-agnostic. The {@code FONDO_COMUN} rules live in
+ * {@code DonacionService.decidir}: a referente's rejection of an assigned pool donation is a
+ * devolución to the pool ({@code OFRECIDA -> OFRECIDA}, necesidad cleared) intercepted before this
+ * table is consulted, and an unassigned pool donation has no referente party, so
+ * {@code ParticipantesDonacion} rejects accept/reject on it before any transition is validated.
  */
 public final class TransicionesDonacion {
 
