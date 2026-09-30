@@ -24,7 +24,10 @@ Engram mirror: `sdd/tesis-core-features/apply-progress`.
   "Completed Tasks (Slice 3c-ii)" below.
 - Size policy (user, 2026-09-30): slices over ~500 lines are split into commits along natural seams
   that each build and pass tests; size:exception only when no clean seam exists.
-- Slices 4a-7: not started.
+- **Slice 4a (MS only) — Cross-org audit queue backend. MS tasks 4a.1-4a.7 DONE (7/7), this batch
+  (2026-09-30). BFF tasks 4a.8-4a.9 NOT started (a later batch).** ~440 authored changed lines
+  (MS only), well within budget. MS full suite 326/326.
+- Slice 4b and 5-7: not started.
 
 ## Completed Tasks (Slice 1)
 
@@ -644,12 +647,72 @@ four are small and on one feature branch merged as one release, they are intende
 single atomic deploy (`docker compose up --build -d` for admin+BFF+MS together), exactly as
 `tasks.md`'s 3c-ii "USER COMMIT POINT" note already says.
 
+## Slice 4a (MS only) — this batch, full detail
+
+Scope: only the MS (`jar_hornero_ms`) tasks of Slice 4a (4a.1-4a.7) — repository query, DTOs,
+service method, controller, `SecurityConfig` matcher. The BFF tasks (4a.8-4a.9) are explicitly
+deferred to a later batch. Strict TDD: RED (compile-level — the referenced type/method did not
+exist yet) confirmed before every GREEN.
+
+**TDD Cycle Evidence**
+
+| Task(s) | RED | GREEN | REFACTOR |
+|---|---|---|---|
+| 4a.1, 4a.4 | `OrganizacionEvidenciaRepositoryTest` — 8 new `buscarCola(...)` tests, compile failure (`cannot find symbol: buscarCola`) | Added `buscarCola` `@Query`+`countQuery` to `OrganizacionEvidenciaRepository`; 13/13 green | None needed — matches `DonacionRepository.findActivas` pattern |
+| 4a.2, 4a.3, 4a.5, 4a.6, 4a.7 | `AuditoriaControllerTest` (new file, mirrors `AcreditacionControllerSecurityTest`) — compile failure (`cannot find symbol: AuditoriaController`) | Added `TabCola`, `EvidenciaEnColaResponse`, `ColaAuditoriaFiltro` DTOs, `AcreditacionService.colaAuditoria(...)`, `AuditoriaController`, `SecurityConfig` matcher; 5/5 green | None needed |
+
+**Files changed** (all under `jar_hornero_ms/`, none touched outside the allowed edit roots):
+
+| File | Action | What Was Done |
+|---|---|---|
+| `src/test/.../domain/OrganizacionEvidenciaRepositoryTest.java` | Modified | +8 tests for `buscarCola`: Pendientes excludes expired, Vencidas includes any expired row regardless of estado and excludes non-expired REEMPLAZADA, requisito filter, tipoEvidencia+requisito combined filter, empty-result paging metadata |
+| `src/main/.../domain/OrganizacionEvidenciaRepository.java` | Modified | Added `buscarCola(vencidas, estadoPendiente, hoy, requisitos, tipoEvidencia, pageable)`: `JOIN FETCH e.organizacion o`, explicit `countQuery`, "Vencidas takes precedence" boolean-branch WHERE clause, `requisitos IN` always non-empty |
+| `src/main/.../acreditacion/dto/TabCola.java` | Created | `PENDIENTES`\|`VENCIDAS` enum |
+| `src/main/.../acreditacion/dto/EvidenciaEnColaResponse.java` | Created | `EvidenciaResponse` fields + `organizacionNombre`, `organizacionNivel`, `nivelExigido`; `from(OrganizacionEvidencia)` mapper |
+| `src/main/.../acreditacion/dto/ColaAuditoriaFiltro.java` | Created | `record(tab, nivel, requisito, tipoEvidencia)` — the `filtros` bundle `colaAuditoria` takes, per design's `colaAuditoria(filtros, pageable)` wording |
+| `src/main/.../acreditacion/AcreditacionService.java` | Modified | Added `colaAuditoria(ColaAuditoriaFiltro, Pageable)`: resolves `nivel` → `RequisitoAcreditacion` set via `nivelExigido`, intersects with an explicit `requisito` filter, always passes a non-empty `requisito IN` set, delegates to `buscarCola` |
+| `src/main/.../acreditacion/AuditoriaController.java` | Created | `GET /api/auditoria/evidencias?tab=&nivel=&requisito=&tipoEvidencia=&page=&size=&sort=`, `@PreAuthorize("hasRole('ADMINISTRADOR')")`, `@PageableDefault(size=20, sort="cargadoEn", direction=ASC)`, returns `PageData<EvidenciaEnColaResponse>` (wrapped in `ApiResponse` by the existing `ResponseBodyAdvice`) |
+| `src/main/.../config/SecurityConfig.java` | Modified | Added `.requestMatchers(GET, "/api/auditoria/**").hasRole("ADMINISTRADOR")`, declared ahead of every `permitAll` GET block, same defense-in-depth discipline as the existing AD-8 matcher |
+| `src/test/.../acreditacion/AuditoriaControllerTest.java` | Created | `@WebMvcTest(AuditoriaController.class)` + `@Import(SecurityConfig.class)` (real chain, mirrors `AcreditacionControllerSecurityTest`): anonymous denied, REFERENTE/DONANTE forbidden, ADMINISTRADOR succeeds, empty-filter-combination returns 200 not an error |
+
+**Work Unit Evidence**
+
+| Evidence | Value |
+|---|---|
+| Focused test command / result | `mvn test -Dtest=OrganizacionEvidenciaRepositoryTest,AuditoriaControllerTest` → both green (13/13, 5/5) |
+| Runtime harness | `@WebMvcTest` + real `SecurityConfig` chain (`AuditoriaControllerTest`) — the real MockMvc HTTP boundary through Spring Security, not a mocked role check |
+| Rollback boundary | All 9 files listed above, self-contained to `jar_hornero_ms/`; no BFF/admin changes in this batch, so reverting this batch alone leaves the rest of the tree untouched |
+
+**Full MS suite**: `mvn test` → **326/326**, 0 failures, 0 errors (run twice: once via the
+targeted `-Dtest=` invocation, which unexpectedly executed the whole module per this repo's
+Surefire config, and once via a plain `mvn test`).
+
+**Size**: ≈440 authored changed lines (`git diff --numstat` equivalent over the 9 touched files:
+6 new files + 3 modified), well within the 400-line budget on its own — no delivery-strategy
+decision required for this slice.
+
+**Deviations from design**: none — `colaAuditoria(filtros, pageable)` takes a `ColaAuditoriaFiltro`
+record as the "filtros" bundle design.md names but does not spell out as a type; every other field
+name and behavior (tab precedence, `nivel` → `nivelExigido` resolution, non-empty `requisito IN`,
+`JOIN FETCH` + explicit `countQuery`, default sort `cargadoEn ASC`) matches AD-8 verbatim.
+
+**Remaining for Slice 4a**: BFF tasks 4a.8 (RED — `acreditacion.controller.spec.ts` or sibling
+`auditoria` controller test: whitelisted query params forwarded, `@Roles(ADMINISTRADOR)`) and 4a.9
+(GREEN — `ts_hornero_bff/src/acreditacion/acreditacion.controller.ts` +
+`acreditacion.service.ts`: `GET auditoria/evidencias`). Not started in this batch by explicit scope
+instruction.
+
+**Suggested commit message** (once the BFF half lands and the whole slice ships together, per
+`tasks.md`'s single "USER COMMIT POINT" for slice 4a): `feat(auditoria): add cross-org audit queue
+read endpoint`. This MS-only batch is not committed on its own — no commit was made in this batch
+(HARD: no mutating git commands were run).
+
 ## Status
 
 Slice 1: 10/10 tasks complete. Slice 2: 24/24 tasks complete. Slice 3a: 18/18 tasks complete.
-Slice 3b: 6/6 tasks complete. **Slice 3c-i: 12/12 tasks complete (incl. 3c.21 pulled forward).
-Slice 3c-ii: 11/11 tasks complete (3c.12-3c.20, 3c.22), this batch (2026-09-30).** Slices 4a-7:
-not started.
+Slice 3b: 6/6 tasks complete. Slice 3c-i: 12/12 tasks complete (incl. 3c.21 pulled forward).
+Slice 3c-ii: 11/11 tasks complete (3c.12-3c.20, 3c.22). **Slice 4a: 7/9 tasks complete (MS-only
+4a.1-4a.7 done this batch, 2026-09-30; BFF 4a.8-4a.9 remain).** Slice 4b and 5-7: not started.
 
 Slices 1 and 2 (2a/2b) are already committed (`a87ebe9`, `c241250`, plus the slice-1 commit).
 Uncommitted on `feat/tesis-core-features-03a-entrega-codigo`: task 2.24's changes and all of
@@ -681,6 +744,9 @@ and `feat(ms): add mutual delivery-code confirmation backend` (slice 3a).
   batch). Matches `tasks.md`'s single "USER COMMIT POINT" for slice 3b:
   `feat(bff): proxy delivery-code generate/verify/status routes`. All 5 changed/created files are
   `ts_hornero_bff/src/donaciones/**` only — nothing else on this branch to reconcile.
+- Slice 4a (MS only, this batch): **no decision needed** — ≈440 authored changed lines, within
+  the 400-line budget on a self-contained 9-file scope (no BFF/admin changes yet). Not committed
+  in this batch; the full slice-4a commit point waits for the BFF half (4a.8-4a.9).
 - Slice 3c-ii: **not yet decided by the user** — ≈854 authored changed lines vs slice 3c's shared
   400-500 forecast (already spent by 3c-i alone). Recommending the 4-commit split above (per the
   user's own size policy) rather than `size:exception`, since every seam is independently green

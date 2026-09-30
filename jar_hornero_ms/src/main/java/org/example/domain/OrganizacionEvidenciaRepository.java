@@ -1,7 +1,13 @@
 package org.example.domain;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.Repository;
+import org.springframework.data.repository.query.Param;
 
+import java.time.LocalDate;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -32,4 +38,39 @@ public interface OrganizacionEvidenciaRepository extends Repository<Organizacion
      * append-only reflection test above stays green.
      */
     boolean existsByOrganizacion_IdAndObjectKey(Long organizacionId, String objectKey);
+
+    /**
+     * AD-8 (tesis-core-features, slice 4a): backs the cross-org audit queue. {@code vencidas =
+     * true} returns any row whose {@code validoHasta} has passed regardless of {@code estado}
+     * ("Vencidas" takes precedence per `specs/auditoria-cola-global/spec.md` "Pendientes vs
+     * Vencidas Tabs"); {@code vencidas = false} returns only non-expired {@code PENDIENTE} rows.
+     * {@code requisitos} is always a non-empty collection (all values when the caller applies no
+     * {@code requisito}/{@code nivel} filter — {@code AcreditacionService} resolves that), and
+     * {@code tipoEvidencia} is an optional equality filter. A read, so the append-only reflection
+     * test ({@code declaresNoDeleteMethod}) stays green.
+     */
+    @Query(
+            value = "SELECT e FROM OrganizacionEvidencia e JOIN FETCH e.organizacion o "
+                    + "WHERE ("
+                    + "  (:vencidas = true AND e.validoHasta IS NOT NULL AND e.validoHasta < :hoy)"
+                    + "  OR (:vencidas = false AND e.estado = :estadoPendiente "
+                    + "      AND (e.validoHasta IS NULL OR e.validoHasta >= :hoy))"
+                    + ") "
+                    + "AND e.requisito IN :requisitos "
+                    + "AND (:tipoEvidencia IS NULL OR e.tipoEvidencia = :tipoEvidencia)",
+            countQuery = "SELECT COUNT(e) FROM OrganizacionEvidencia e "
+                    + "WHERE ("
+                    + "  (:vencidas = true AND e.validoHasta IS NOT NULL AND e.validoHasta < :hoy)"
+                    + "  OR (:vencidas = false AND e.estado = :estadoPendiente "
+                    + "      AND (e.validoHasta IS NULL OR e.validoHasta >= :hoy))"
+                    + ") "
+                    + "AND e.requisito IN :requisitos "
+                    + "AND (:tipoEvidencia IS NULL OR e.tipoEvidencia = :tipoEvidencia)")
+    Page<OrganizacionEvidencia> buscarCola(
+            @Param("vencidas") boolean vencidas,
+            @Param("estadoPendiente") EstadoEvidencia estadoPendiente,
+            @Param("hoy") LocalDate hoy,
+            @Param("requisitos") Collection<RequisitoAcreditacion> requisitos,
+            @Param("tipoEvidencia") TipoEvidencia tipoEvidencia,
+            Pageable pageable);
 }

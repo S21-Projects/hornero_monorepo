@@ -431,29 +431,29 @@ deployed UI ever calls the retired endpoint)
 
 Depends on: none. Spec: `auditoria-cola-global`. Design: AD-8.
 
-- [ ] 4a.1 RED — `jar_hornero_ms/src/test/.../domain/OrganizacionEvidenciaRepositoryTest.java`:
+- [x] 4a.1 RED — `jar_hornero_ms/src/test/.../domain/OrganizacionEvidenciaRepositoryTest.java`:
       `buscarCola(...)` tab semantics (`PENDIENTE` not expired vs. any expired row regardless of
       `estado`, `REEMPLAZADA` never included unless expired — matching the spec's precedence rule);
       each filter (`requisito`, `tipoEvidencia`, `nivel` → resolved `requisito IN`) alone and
       combined; paging metadata; `size` capped at 100; the append-only reflection test still passes.
-- [ ] 4a.2 RED — `jar_hornero_ms/src/test/.../acreditacion/AuditoriaControllerTest.java`
+- [x] 4a.2 RED — `jar_hornero_ms/src/test/.../acreditacion/AuditoriaControllerTest.java`
       (`@WebMvcTest` + real `SecurityConfig`): ADMINISTRADOR succeeds; REFERENTE and DONANTE get
       403; anonymous gets 401/403; empty filter combination returns a valid empty page, not an
       error.
-- [ ] 4a.3 GREEN — Create `jar_hornero_ms/.../acreditacion/dto/TabCola.java` (`PENDIENTES` |
+- [x] 4a.3 GREEN — Create `jar_hornero_ms/.../acreditacion/dto/TabCola.java` (`PENDIENTES` |
       `VENCIDAS`) and `dto/EvidenciaEnColaResponse.java` (`EvidenciaResponse` fields +
       `organizacionNombre`, `organizacionNivel`).
-- [ ] 4a.4 GREEN — `jar_hornero_ms/.../domain/OrganizacionEvidenciaRepository.java`: add
+- [x] 4a.4 GREEN — `jar_hornero_ms/.../domain/OrganizacionEvidenciaRepository.java`: add
       `@Query buscarCola(...)` with `JOIN FETCH e.organizacion o` and an explicit `countQuery`,
       default sort `cargadoEn ASC`. Satisfies 4a.1.
-- [ ] 4a.5 GREEN — `jar_hornero_ms/.../acreditacion/AcreditacionService.java`: add
+- [x] 4a.5 GREEN — `jar_hornero_ms/.../acreditacion/AcreditacionService.java`: add
       `colaAuditoria(filtros, pageable)`, resolving `nivel` to the set of
       `RequisitoAcreditacion.nivelExigido == nivel`, always passing a non-empty `requisito IN`
       collection.
-- [ ] 4a.6 GREEN — Create `jar_hornero_ms/.../acreditacion/AuditoriaController.java`:
+- [x] 4a.6 GREEN — Create `jar_hornero_ms/.../acreditacion/AuditoriaController.java`:
       `GET /api/auditoria/evidencias?tab=&nivel=&requisito=&tipoEvidencia=&page=&size=&sort=`,
       returning `PageData<EvidenciaEnColaResponse>` through `ApiResponse`. Satisfies 4a.2.
-- [ ] 4a.7 GREEN — `jar_hornero_ms/.../config/SecurityConfig.java`: add
+- [x] 4a.7 GREEN — `jar_hornero_ms/.../config/SecurityConfig.java`: add
       `.requestMatchers("/api/auditoria/**").hasRole("ADMINISTRADOR")` (deliberately not under
       /api/organizaciones/**), plus `@PreAuthorize` on the controller as defense-in-depth.
 - [ ] 4a.8 RED — `ts_hornero_bff/src/acreditacion/acreditacion.controller.spec.ts` (or a small
