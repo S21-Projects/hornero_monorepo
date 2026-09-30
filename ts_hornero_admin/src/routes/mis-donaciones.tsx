@@ -1,8 +1,8 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useMisDonaciones } from '../lib/hooks/useMisDonaciones';
 import { usePageClamp } from '../lib/hooks/usePageClamp';
 import { useCancelarDonacion } from '../lib/hooks/useCancelarDonacion';
-import { useConfirmarEntrega } from '../lib/hooks/useConfirmarEntrega';
 import { ESTADO_DONACION, FALLBACK_BADGE } from '../lib/domain-ui';
 import { formatFecha } from '../lib/format';
 import { AsyncSection } from '../components/AsyncSection';
@@ -17,8 +17,9 @@ const PAGE_SIZE = 20;
 
 // OFRECIDA -> CANCELADA (donante); ACEPTADA, EN_CAMINO -> CANCELADA (either party).
 const CANCELABLE_ESTADOS = new Set(['OFRECIDA', 'ACEPTADA', 'EN_CAMINO']);
-// A donante may confirm delivery while ACEPTADA, EN_CAMINO or PENDIENTE_CONFIRMACION,
-// as long as they haven't already confirmed (idempotent no-op on the MS otherwise).
+// A donante may generate/verify delivery codes while ACEPTADA, EN_CAMINO or
+// PENDIENTE_CONFIRMACION, as long as they haven't already confirmed on the confirmation screen
+// (spec `donacion-entrega-codigo`).
 const CONFIRMABLE_ESTADOS = new Set(['ACEPTADA', 'EN_CAMINO', 'PENDIENTE_CONFIRMACION']);
 
 interface DonacionRowProps {
@@ -28,12 +29,10 @@ interface DonacionRowProps {
 function DonacionRow({ donacion: d }: DonacionRowProps) {
   const estadoCfg = ESTADO_DONACION[d.estado] ?? FALLBACK_BADGE;
   const cancelar = useCancelarDonacion();
-  const confirmar = useConfirmarEntrega();
 
   const canCancel = CANCELABLE_ESTADOS.has(d.estado);
   const canConfirm = CONFIRMABLE_ESTADOS.has(d.estado) && !d.confirmadaDonanteEn;
   const isCancelingThis = cancelar.isPending && cancelar.variables === d.id;
-  const isConfirmingThis = confirmar.isPending && confirmar.variables === d.id;
 
   return (
     <Card as="article" style={{ padding: '20px 24px' }}>
@@ -63,16 +62,11 @@ function DonacionRow({ donacion: d }: DonacionRowProps) {
       {(canCancel || canConfirm) && (
         <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
           {canConfirm && (
-            <Button
-              type="button"
-              variant="ok"
-              size="sm"
-              loading={isConfirmingThis}
-              disabled={confirmar.isPending}
-              onClick={() => confirmar.mutate(d.id)}
-            >
-              Confirmar entrega
-            </Button>
+            <Link to={`/donaciones/${d.id}/entrega`} style={{ textDecoration: 'none' }}>
+              <Button type="button" variant="ok" size="sm">
+                Confirmar entrega
+              </Button>
+            </Link>
           )}
           {canCancel && (
             <Button
@@ -92,11 +86,6 @@ function DonacionRow({ donacion: d }: DonacionRowProps) {
       {cancelar.isError && cancelar.variables === d.id && (
         <Text variant="micro" color="urgent" style={{ marginTop: 6, display: 'block' }}>
           No se pudo cancelar la donación. Intentá de nuevo.
-        </Text>
-      )}
-      {confirmar.isError && confirmar.variables === d.id && (
-        <Text variant="micro" color="urgent" style={{ marginTop: 6, display: 'block' }}>
-          No se pudo confirmar la entrega. Intentá de nuevo.
         </Text>
       )}
     </Card>

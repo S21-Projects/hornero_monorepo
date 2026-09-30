@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 import DashboardPage from './dashboard';
 import { useMisOrganizaciones } from '../lib/hooks/useMisOrganizaciones';
 import { useNecesidadesDeOrg } from '../lib/hooks/useNecesidadesDeOrg';
@@ -80,7 +81,7 @@ describe('DashboardPage', () => {
     mockNecesidades(necesidades);
     mockDonaciones(donaciones);
 
-    render(<DashboardPage />);
+    render(<MemoryRouter><DashboardPage /></MemoryRouter>);
 
     expect(screen.getByText('Necesidades por estado')).toBeInTheDocument();
     expect(screen.getByText('Donaciones recibidas')).toBeInTheDocument();
@@ -92,7 +93,7 @@ describe('DashboardPage', () => {
     mockNecesidades([]);
     mockDonaciones([]);
 
-    render(<DashboardPage />);
+    render(<MemoryRouter><DashboardPage /></MemoryRouter>);
 
     expect(screen.getByText('Todavía no hay necesidades cargadas.')).toBeInTheDocument();
     expect(screen.getByText('Todavía no hay donaciones recibidas.')).toBeInTheDocument();
@@ -103,7 +104,7 @@ describe('DashboardPage', () => {
     mockNecesidades(undefined, { isLoading: true });
     mockDonaciones(undefined, { isLoading: true });
 
-    const { container } = render(<DashboardPage />);
+    const { container } = render(<MemoryRouter><DashboardPage /></MemoryRouter>);
 
     expect(container.querySelectorAll('[aria-hidden="true"]').length).toBeGreaterThan(0);
     expect(screen.queryByText('Resumen de')).not.toBeInTheDocument();
@@ -114,8 +115,21 @@ describe('DashboardPage', () => {
     mockNecesidades(undefined, { isError: true });
     mockDonaciones(undefined, { isError: true });
 
-    render(<DashboardPage />);
+    render(<MemoryRouter><DashboardPage /></MemoryRouter>);
 
     expect(screen.getByText('Algo salió mal')).toBeInTheDocument();
+  });
+
+  // Task 3c.15/16 — the plain "Confirmar entrega" button is retired in favour of a link to the
+  // code-verified confirmation screen, spec `donacion-entrega-codigo`'s retirement requirement.
+  it('shows a "Confirmar entrega" link to the new screen for a donación pending the referente\'s confirmation', () => {
+    mockOrganizacion([organizacion]);
+    mockNecesidades(necesidades);
+    mockDonaciones([{ id: 3, estado: 'EN_CAMINO', necesidadId: 1, organizacionId: 7 }]);
+
+    render(<MemoryRouter><DashboardPage /></MemoryRouter>);
+
+    const link = screen.getByRole('link', { name: /confirmar entrega/i });
+    expect(link).toHaveAttribute('href', '/donaciones/3/entrega');
   });
 });
