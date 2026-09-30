@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import { AsyncSection } from '../components/AsyncSection';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
@@ -10,14 +11,14 @@ import { useMisOrganizaciones } from '../lib/hooks/useMisOrganizaciones';
 import { useNecesidadesDeOrg } from '../lib/hooks/useNecesidadesDeOrg';
 import { useDonacionesDeMiOrg } from '../lib/hooks/useDonacionesDeMiOrg';
 import { useDecidirDonacion } from '../lib/hooks/useDecidirDonacion';
-import { useConfirmarEntrega } from '../lib/hooks/useConfirmarEntrega';
 import { necesidadesPorEstado, donacionesPorEstado } from '../lib/metricas';
 import { formatFecha } from '../lib/format';
 import type { Donacion } from '../types/domain';
 
-// A referente may confirm delivery while ACEPTADA, EN_CAMINO or PENDIENTE_CONFIRMACION,
-// as long as they haven't already confirmed (idempotent no-op on the MS otherwise).
-// Mirrors CONFIRMABLE_ESTADOS in routes/mis-donaciones.tsx (donante side).
+// A referente may generate/verify delivery codes while ACEPTADA, EN_CAMINO or
+// PENDIENTE_CONFIRMACION, as long as they haven't already confirmed on the confirmation screen
+// (spec `donacion-entrega-codigo`). Mirrors CONFIRMABLE_ESTADOS in routes/mis-donaciones.tsx
+// (donante side).
 const CONFIRMABLE_ESTADOS = new Set(['ACEPTADA', 'EN_CAMINO', 'PENDIENTE_CONFIRMACION']);
 
 interface DonacionAccionableRowProps {
@@ -79,9 +80,6 @@ interface DonacionEntregaRowProps {
 
 /** One ACEPTADA/EN_CAMINO/PENDIENTE_CONFIRMACION donation with a "Confirmar entrega" action for the referente. */
 function DonacionEntregaRow({ donacion }: DonacionEntregaRowProps) {
-  const confirmar = useConfirmarEntrega();
-  const isConfirmingThis = confirmar.isPending && confirmar.variables === donacion.id;
-
   return (
     <Card as="article" style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 8 }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
@@ -96,22 +94,13 @@ function DonacionEntregaRow({ donacion }: DonacionEntregaRowProps) {
         </div>
 
         <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
-          <Button
-            type="button"
-            variant="ok"
-            size="sm"
-            loading={isConfirmingThis}
-            disabled={confirmar.isPending}
-            onClick={() => confirmar.mutate(donacion.id)}
-          >
-            Confirmar entrega
-          </Button>
+          <Link to={`/donaciones/${donacion.id}/entrega`} style={{ textDecoration: 'none' }}>
+            <Button type="button" variant="ok" size="sm">
+              Confirmar entrega
+            </Button>
+          </Link>
         </div>
       </div>
-
-      {confirmar.isError && confirmar.variables === donacion.id && (
-        <Text variant="micro" color="urgent">No se pudo confirmar la entrega. Intentá de nuevo.</Text>
-      )}
     </Card>
   );
 }
