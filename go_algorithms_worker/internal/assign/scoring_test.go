@@ -1,6 +1,9 @@
 package assign
 
-import "testing"
+import (
+	"math"
+	"testing"
+)
 
 // candidatoConCategorias mirrors the candidato() helper in ronda_test.go, adding the two
 // category fields under test here.
@@ -107,5 +110,46 @@ func TestEmptyCategoriasPermitidasLeavesExistingRoundResultsUnchanged(t *testing
 			t.Fatalf("asignacion[%d] = %+v, want %+v (empty CategoriasPermitidas changed the outcome)",
 				i, resEmptyPermitidas.Asignaciones[i], resBase.Asignaciones[i])
 		}
+	}
+}
+
+// TestScoreConDesgloseDelegaMismoValorQueScore: 5a.4 — ScoreDetallado (here Desglose) exposes the
+// per-criterion terms that Score already computed internally; Score must keep returning the exact
+// same total once it becomes a thin delegation.
+func TestScoreConDesgloseDelegaMismoValorQueScore(t *testing.T) {
+	d := Donacion{ID: 1, Latitud: latCentro, Longitud: lngCentro, Categoria: "NO_PERECEDERO"}
+	c := candidato(10, 100, latCentro+0.01, lngCentro)
+	c.Deficit = 2
+	c.Urgencia = 0.7
+	c.DiasDesdeUltimaDonacion = 30
+
+	score, ok := Score(d, c, PesosPorDefecto, ParametrosPorDefecto)
+	desglose, scoreDetallado, okDetallado := ScoreConDesglose(d, c, PesosPorDefecto, ParametrosPorDefecto)
+
+	if !ok || !okDetallado {
+		t.Fatalf("ok = %v/%v, want true/true", ok, okDetallado)
+	}
+	if math.Abs(score-scoreDetallado) > 1e-9 {
+		t.Fatalf("Score() = %v, ScoreConDesglose() = %v, must match", score, scoreDetallado)
+	}
+	want := PesosPorDefecto.Deficit*desglose.Deficit +
+		PesosPorDefecto.Urgencia*desglose.Urgencia +
+		PesosPorDefecto.Proximidad*desglose.Proximidad +
+		PesosPorDefecto.Espera*desglose.Espera
+	if math.Abs(want-scoreDetallado) > 1e-9 {
+		t.Fatalf("weighted desglose sum = %v, want score %v", want, scoreDetallado)
+	}
+}
+
+func TestScoreConDesgloseParInfeasibleDevuelveFalse(t *testing.T) {
+	d := Donacion{ID: 1, Latitud: latCentro, Longitud: lngCentro, Categoria: "ROPA"}
+	c := candidatoConCategorias([]string{"NO_PERECEDERO"}, nil)
+
+	desglose, score, ok := ScoreConDesglose(d, c, PesosPorDefecto, ParametrosPorDefecto)
+	if ok {
+		t.Fatal("expected infeasible pair to report ok = false")
+	}
+	if desglose != (Desglose{}) || score != 0 {
+		t.Fatalf("infeasible pair must return the zero value, got desglose=%+v score=%v", desglose, score)
 	}
 }

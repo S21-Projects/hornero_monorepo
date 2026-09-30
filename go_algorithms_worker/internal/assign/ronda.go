@@ -1,6 +1,9 @@
 package assign
 
-import "sort"
+import (
+	"math"
+	"sort"
+)
 
 // Asignacion is one resolved (donacion, necesidad) pair.
 type Asignacion struct {
@@ -16,6 +19,11 @@ type Asignacion struct {
 	// agree. It is stored so an allocation can be explained after the fact —
 	// with Hungarian, "it had the highest score" is not always the reason.
 	CostoOportunidad float64 `json:"costoOportunidad"`
+
+	// Desglose is the per-criterion breakdown behind Score (AD-14), persisted
+	// so a donante/referente can see why this match happened, not just the
+	// aggregate number.
+	Desglose Desglose `json:"desglose"`
 }
 
 // Resultado is the outcome of one allocation round.
@@ -39,9 +47,13 @@ type Resultado struct {
 // global optimum is not the sum of the local ones. An organizacion with two
 // open necesidades can still receive two donations.
 //
-// When there are more donations than candidates the matrix is padded with
-// dummy columns of zero cost, which the solver hands to the donations that
-// lose least by going unallocated.
+// Every donation also gets its own dedicated dummy column (AD-10): leaving it
+// unassigned always costs PenalizacionNoAsignar × min(diasEnFondo /
+// esperaMaximaDias, 1) rather than nothing, so under contention the donation
+// that has waited longer is the one the solver prefers to actually match.
+// With PenalizacionNoAsignar = 0 every dummy column costs 0 regardless of
+// wait, which reproduces the pre-AD-10 solver exactly (see
+// TestPenalizacionCeroReproduceRondaOriginal).
 func Ronda(donaciones []Donacion, candidatos []Candidato, w Pesos, p Parametros) Resultado {
 	if len(donaciones) == 0 || len(candidatos) == 0 {
 		res := Resultado{}
@@ -51,19 +63,8 @@ func Ronda(donaciones []Donacion, candidatos []Candidato, w Pesos, p Parametros)
 		return res
 	}
 
-	costo := MatrizCosto(donaciones, candidatos, w, p)
-
-	// Hungarian requires columns >= rows. Dummy columns cost 0, which is worse
-	// than any feasible pair (feasible costs are negative scores) and better
-	// than Inf, so they are only taken when nothing real is available.
 	realCols := len(candidatos)
-	if realCols < len(donaciones) {
-		for i := range costo {
-			padded := make([]float64, len(donaciones))
-			copy(padded, costo[i])
-			costo[i] = padded
-		}
-	}
+	costo := matrizConDescarte(donaciones, candidatos, w, p, realCols)
 
 	rowToCol, _ := Hungarian(costo)
 
@@ -71,13 +72,14 @@ func Ronda(donaciones []Donacion, candidatos []Candidato, w Pesos, p Parametros)
 	for i, j := range rowToCol {
 		d := donaciones[i]
 		if j == Unassigned || j >= realCols || costo[i][j] >= 0 {
-			// Unmatched, matched to a dummy column, or matched to an
-			// infeasible pair the padding could not absorb.
+			// Unmatched, matched to its own dummy column, or matched to an
+			// infeasible pair.
 			res.SinAsignar = append(res.SinAsignar, d.ID)
 			continue
 		}
 		c := candidatos[j]
 		score := -costo[i][j]
+		desglose, _, _ := ScoreConDesglose(d, c, w, p)
 		res.Asignaciones = append(res.Asignaciones, Asignacion{
 			DonacionID:       d.ID,
 			NecesidadID:      c.NecesidadID,
@@ -85,6 +87,7 @@ func Ronda(donaciones []Donacion, candidatos []Candidato, w Pesos, p Parametros)
 			Score:            score,
 			DistanciaKm:      distanciaKm(d.Latitud, d.Longitud, c.Latitud, c.Longitud),
 			CostoOportunidad: mejorScore(costo[i], realCols) - score,
+			Desglose:         desglose,
 		})
 		res.ScoreTotal += score
 	}
@@ -93,6 +96,40 @@ func Ronda(donaciones []Donacion, candidatos []Candidato, w Pesos, p Parametros)
 		return res.Asignaciones[a].Score > res.Asignaciones[b].Score
 	})
 	return res
+}
+
+// matrizConDescarte extends MatrizCosto with one dummy column per donation:
+// cost costoDescarte(donacion) on its own row, Inf on every other row, so
+// Hungarian requires columns >= rows unconditionally (realCols + len(donaciones)
+// always >= len(donaciones)) and each donation's "go unmatched" option can
+// never be taken by a different donation.
+func matrizConDescarte(donaciones []Donacion, candidatos []Candidato, w Pesos, p Parametros, realCols int) [][]float64 {
+	base := MatrizCosto(donaciones, candidatos, w, p)
+	n := len(donaciones)
+
+	costo := make([][]float64, n)
+	for i := range base {
+		fila := make([]float64, realCols+n)
+		copy(fila, base[i])
+		for j := 0; j < n; j++ {
+			if j == i {
+				fila[realCols+j] = costoDescarte(donaciones[i], p)
+			} else {
+				fila[realCols+j] = Inf
+			}
+		}
+		costo[i] = fila
+	}
+	return costo
+}
+
+// costoDescarte is the AD-10 unassignment penalty for one donation.
+func costoDescarte(d Donacion, p Parametros) float64 {
+	if p.PenalizacionNoAsignar == 0 || p.EsperaMaximaDias <= 0 {
+		return 0
+	}
+	fraccion := math.Min(float64(d.DiasEnFondo)/float64(p.EsperaMaximaDias), 1)
+	return p.PenalizacionNoAsignar * fraccion
 }
 
 // mejorScore is the best score available to one donation ignoring every other
