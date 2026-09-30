@@ -34,3 +34,9 @@ app:
     resend-max: 3
     resend-window-minutes: 15
     resend-cooldown-seconds: 60
+  entrega:
+    ttl-minutes: 10
+    max-attempts: 5
+    generar-max: 5
+    generar-window-minutes: 15
+    generar-cooldown-seconds: 30

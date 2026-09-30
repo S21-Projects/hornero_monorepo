@@ -41,3 +41,9 @@ app:
     cap-n1: 3
     cap-n2: 6
     cap-n3: 12
+  entrega:
+    ttl-minutes: 10
+    max-attempts: 5
+    generar-max: 5
+    generar-window-minutes: 15
+    generar-cooldown-seconds: 30
