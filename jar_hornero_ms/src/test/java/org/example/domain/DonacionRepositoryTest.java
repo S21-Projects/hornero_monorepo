@@ -9,6 +9,7 @@ import org.springframework.data.domain.PageRequest;
 
 import java.time.LocalDate;
 import java.util.EnumSet;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -138,6 +139,95 @@ class DonacionRepositoryTest {
 
         assertThat(page.getTotalElements()).isEqualTo(1);
         assertThat(page.getContent().get(0).getEstado()).isEqualTo(EstadoDonacion.ACEPTADA);
+    }
+
+    // ─── slice 5b — LEFT JOIN FETCH: an unassigned FONDO_COMUN donation must not error ────────
+
+    private Donante crearDonante(String nombre) {
+        Donante donante = new Donante();
+        donante.setNombre(nombre);
+        donante.setEmail(nombre.toLowerCase().replace(" ", ".") + "@test.com");
+        donante.setPassword("hash");
+        donante.setActivo(true);
+        return (Donante) usuarioRepository.save(donante);
+    }
+
+    private Donacion crearDonacionSinNecesidad(Donante donante) {
+        Donacion d = new Donacion();
+        d.setDonante(donante);
+        d.setNecesidad(null);
+        d.setModalidad(ModalidadDonacion.FONDO_COMUN);
+        d.setCategoria(CategoriaAlimento.NO_PERECEDERO);
+        d.setLatitud(-34.6);
+        d.setLongitud(-58.4);
+        d.setEstado(EstadoDonacion.OFRECIDA);
+        d.setFechaOferta(LocalDate.now());
+        return donacionRepository.save(d);
+    }
+
+    @Test
+    void findAllWithDonante_unassignedPoolDonation_returnedWithoutError() {
+        Donante donante = crearDonante("Juan Fondo");
+        Donacion unassigned = crearDonacionSinNecesidad(donante);
+        crearDonacion("Org A", "Otro Donante", "Alimentos", EstadoDonacion.OFRECIDA);
+
+        List<Donacion> all = donacionRepository.findAllWithDonante();
+        Page<Donacion> page = donacionRepository.findAllWithDonante(PageRequest.of(0, 20));
+
+        assertThat(all).extracting(Donacion::getId).contains(unassigned.getId());
+        assertThat(page.getContent()).extracting(Donacion::getId).contains(unassigned.getId());
+        Donacion found = all.stream().filter(d -> d.getId().equals(unassigned.getId())).findFirst().orElseThrow();
+        assertThat(found.getNecesidad()).isNull();
+    }
+
+    @Test
+    void findByIdWithRelations_unassignedPoolDonation_returnedWithoutError() {
+        Donante donante = crearDonante("Ana Fondo");
+        Donacion unassigned = crearDonacionSinNecesidad(donante);
+
+        var found = donacionRepository.findByIdWithRelations(unassigned.getId());
+
+        assertThat(found).isPresent();
+        assertThat(found.get().getNecesidad()).isNull();
+    }
+
+    @Test
+    void findByDonanteIdWithRelations_unassignedPoolDonation_returnedWithoutError() {
+        Donante donante = crearDonante("Luis Fondo");
+        Donacion unassigned = crearDonacionSinNecesidad(donante);
+
+        List<Donacion> list = donacionRepository.findByDonante_IdWithRelations(donante.getId());
+        Page<Donacion> page = donacionRepository.findByDonante_IdWithRelations(donante.getId(), PageRequest.of(0, 20));
+
+        assertThat(list).extracting(Donacion::getId).containsExactly(unassigned.getId());
+        assertThat(page.getContent()).extracting(Donacion::getId).containsExactly(unassigned.getId());
+    }
+
+    @Test
+    void findActivas_unassignedPoolDonation_includedWithoutError_noCartesianInflation() {
+        Donante donante = crearDonante("Marta Fondo");
+        crearDonacionSinNecesidad(donante);
+        crearDonacion("Org A", "Juan Perez", "Alimentos", EstadoDonacion.OFRECIDA);
+
+        Page<Donacion> page = donacionRepository.findActivas(
+                EstadoDonacion.NO_TERMINALES, null, PageRequest.of(0, 20));
+
+        assertThat(page.getTotalElements()).isEqualTo(2);
+        assertThat(page.getContent()).hasSize(2);
+    }
+
+    @Test
+    void findByOrganizacionId_excludesUnassignedPoolDonations_staysInnerJoin() {
+        Donante donante = crearDonante("Sofia Fondo");
+        crearDonacionSinNecesidad(donante);
+        Donacion assigned = crearDonacion("Org Asignada", "Otro Donante", "Alimentos", EstadoDonacion.OFRECIDA);
+        Long orgId = assigned.getNecesidad().getOrganizacion().getId();
+
+        List<Donacion> list = donacionRepository.findByOrganizacionId(orgId);
+        Page<Donacion> page = donacionRepository.findByOrganizacionId(orgId, PageRequest.of(0, 20));
+
+        assertThat(list).extracting(Donacion::getId).containsExactly(assigned.getId());
+        assertThat(page.getContent()).extracting(Donacion::getId).containsExactly(assigned.getId());
     }
 
 }

@@ -28,23 +28,26 @@ public interface DonacionRepository extends JpaRepository<Donacion, Long> {
     )
     Page<Donacion> findByOrganizacionId(@Param("orgId") Long orgId, Pageable pageable);
 
-    @Query("SELECT d FROM Donacion d JOIN FETCH d.donante JOIN FETCH d.necesidad JOIN FETCH d.necesidad.organizacion")
+    // LEFT JOIN FETCH (slice 5b): an unassigned FONDO_COMUN donación has necesidad == null and must
+    // still be returned, not silently dropped by an inner JOIN FETCH
+    // (`specs/donacion-fondo-comun/spec.md` "Reading an unassigned pool donation does not error").
+    @Query("SELECT d FROM Donacion d JOIN FETCH d.donante LEFT JOIN FETCH d.necesidad n LEFT JOIN FETCH n.organizacion")
     List<Donacion> findAllWithDonante();
 
     @Query(
-            value = "SELECT d FROM Donacion d JOIN FETCH d.donante JOIN FETCH d.necesidad n JOIN FETCH n.organizacion",
+            value = "SELECT d FROM Donacion d JOIN FETCH d.donante LEFT JOIN FETCH d.necesidad n LEFT JOIN FETCH n.organizacion",
             countQuery = "SELECT COUNT(d) FROM Donacion d"
     )
     Page<Donacion> findAllWithDonante(Pageable pageable);
 
-    @Query("SELECT d FROM Donacion d JOIN FETCH d.donante JOIN FETCH d.necesidad n JOIN FETCH n.organizacion WHERE d.id = :id")
+    @Query("SELECT d FROM Donacion d JOIN FETCH d.donante LEFT JOIN FETCH d.necesidad n LEFT JOIN FETCH n.organizacion WHERE d.id = :id")
     Optional<Donacion> findByIdWithRelations(@Param("id") Long id);
 
-    @Query("SELECT d FROM Donacion d JOIN FETCH d.donante JOIN FETCH d.necesidad n JOIN FETCH n.organizacion WHERE d.donante.id = :donanteId")
+    @Query("SELECT d FROM Donacion d JOIN FETCH d.donante LEFT JOIN FETCH d.necesidad n LEFT JOIN FETCH n.organizacion WHERE d.donante.id = :donanteId")
     List<Donacion> findByDonante_IdWithRelations(@Param("donanteId") Long donanteId);
 
     @Query(
-            value = "SELECT d FROM Donacion d JOIN FETCH d.donante JOIN FETCH d.necesidad n JOIN FETCH n.organizacion WHERE d.donante.id = :donanteId",
+            value = "SELECT d FROM Donacion d JOIN FETCH d.donante LEFT JOIN FETCH d.necesidad n LEFT JOIN FETCH n.organizacion WHERE d.donante.id = :donanteId",
             countQuery = "SELECT COUNT(d) FROM Donacion d WHERE d.donante.id = :donanteId"
     )
     Page<Donacion> findByDonante_IdWithRelations(@Param("donanteId") Long donanteId, Pageable pageable);
@@ -53,8 +56,8 @@ public interface DonacionRepository extends JpaRepository<Donacion, Long> {
             value = """
                 SELECT d FROM Donacion d
                   JOIN FETCH d.donante dn
-                  JOIN FETCH d.necesidad n
-                  JOIN FETCH n.organizacion o
+                  LEFT JOIN FETCH d.necesidad n
+                  LEFT JOIN FETCH n.organizacion o
                 WHERE d.estado IN :estados
                   AND (:q IS NULL OR :q = ''
                     OR LOWER(o.nombre)       LIKE LOWER(CONCAT('%', :q, '%'))
@@ -64,11 +67,13 @@ public interface DonacionRepository extends JpaRepository<Donacion, Long> {
                 """,
             countQuery = """
                 SELECT COUNT(d) FROM Donacion d
+                  LEFT JOIN d.necesidad n
+                  LEFT JOIN n.organizacion o
                 WHERE d.estado IN :estados
                   AND (:q IS NULL OR :q = ''
-                    OR LOWER(d.necesidad.organizacion.nombre) LIKE LOWER(CONCAT('%', :q, '%'))
-                    OR LOWER(d.donante.nombre)                LIKE LOWER(CONCAT('%', :q, '%'))
-                    OR LOWER(d.necesidad.descripcion)         LIKE LOWER(CONCAT('%', :q, '%'))
+                    OR LOWER(o.nombre)        LIKE LOWER(CONCAT('%', :q, '%'))
+                    OR LOWER(d.donante.nombre) LIKE LOWER(CONCAT('%', :q, '%'))
+                    OR LOWER(n.descripcion)   LIKE LOWER(CONCAT('%', :q, '%'))
                     OR CAST(d.id AS string) = :q)
                 """
     )

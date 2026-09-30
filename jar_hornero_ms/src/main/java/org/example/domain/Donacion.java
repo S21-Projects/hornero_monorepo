@@ -34,9 +34,36 @@ public class Donacion {
     @JoinColumn(name = "donante_id", nullable = false)
     private Donante donante;
 
+    // Nullable per AD-3/AD-13 (tesis-core-features slice 5b): a FONDO_COMUN donación waits in the
+    // pool with no necesidad until a ronda assigns it. The underlying FK relaxation lives in the
+    // hand-written `scripts/sql/V001__donaciones_necesidad_id_nullable.sql` — see EsquemaVerificador
+    // for the runtime guard that keeps FONDO_COMUN creation safe until that script has run.
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "necesidad_id", nullable = false)
+    @JoinColumn(name = "necesidad_id", nullable = true)
     private Necesidad necesidad;
+
+    // Additive/nullable per the D4 convention: null == DIRECTA (every donación created before this
+    // change). Immutable after creation (`updatable = false`) — no code path, including the
+    // ADMINISTRADOR override, may change a donación's channel post-creation
+    // (`specs/donacion-fondo-comun/spec.md` "Modalidad Vocabulary and Immutability").
+    @Enumerated(EnumType.STRING)
+    @Column(name = "modalidad", nullable = true, updatable = false)
+    private ModalidadDonacion modalidad;
+
+    // The following three fields are populated only for FONDO_COMUN donations, at creation time.
+    // `latitud`/`longitud` are the donante-marked pickup point fed to the ronda solver
+    // (`scoring.go:10-17`) and are write-only: no `DonacionResponse`/`DonacionActivaResponse` ever
+    // serializes them (`specs/donacion-fondo-comun/spec.md` "Location and Categoria Required for
+    // Pool Donations").
+    @Enumerated(EnumType.STRING)
+    @Column(name = "categoria", nullable = true)
+    private CategoriaAlimento categoria;
+
+    @Column(name = "latitud")
+    private Double latitud;
+
+    @Column(name = "longitud")
+    private Double longitud;
 
     @Column(name = "confirmada_donante_en")
     private Instant confirmadaDonanteEn;
@@ -52,4 +79,13 @@ public class Donacion {
 
     @Column(name = "override_en")
     private Instant overrideEn;
+
+    /**
+     * Coalesced read per the D4 convention: a {@code null} {@link #modalidad} (every donación
+     * created before this change) is {@code DIRECTA}. Callers should prefer this over the raw
+     * {@link #getModalidad()} getter for any decision that depends on the donación's channel.
+     */
+    public ModalidadDonacion getModalidadEfectiva() {
+        return modalidad != null ? modalidad : ModalidadDonacion.DIRECTA;
+    }
 }
