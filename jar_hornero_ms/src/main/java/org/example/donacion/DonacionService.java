@@ -19,7 +19,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
-import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.EnumSet;
@@ -133,35 +132,6 @@ public class DonacionService {
         }
         TransicionesDonacion.validar(d.getEstado(), nuevoEstado);
         d.setEstado(nuevoEstado);
-        return toResponse(donacionRepository.save(d));
-    }
-
-    /**
-     * Kept for backward compatibility until slice 3c retires the plain confirm button in favour of
-     * the code-verified path ({@code EntregaService}). Delegates the shared confirmation/transition
-     * logic to {@link ConfirmacionEntrega}, exactly as {@code EntregaService.verificar} does.
-     */
-    @Transactional
-    public DonacionResponse confirmarEntrega(Long id, Long actorId) {
-        Donacion d = donacionRepository.findByIdWithRelations(id)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Donacion not found"));
-
-        ParticipantesDonacion.Parte parte = ParticipantesDonacion.parteDe(d, actorId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.FORBIDDEN, "Access denied"));
-
-        if (d.getEstado().isTerminal()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "Cannot confirm delivery on a terminal donation");
-        }
-        if (d.getEstado() != EstadoDonacion.ACEPTADA
-                && d.getEstado() != EstadoDonacion.EN_CAMINO
-                && d.getEstado() != EstadoDonacion.PENDIENTE_CONFIRMACION) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "Cannot confirm delivery in state " + d.getEstado());
-        }
-
-        ConfirmacionEntrega.registrar(d, parte, Clock.systemDefaultZone());
-
         return toResponse(donacionRepository.save(d));
     }
 

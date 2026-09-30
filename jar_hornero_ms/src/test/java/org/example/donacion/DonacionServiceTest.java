@@ -309,98 +309,10 @@ class DonacionServiceTest {
                 .hasMessageContaining("400");
     }
 
-    // --- confirmarEntrega (mutual confirmation) ---
-
-    @Test
-    void confirmarEntrega_foreignActor_throwsForbidden() {
-        Donacion d = donacionFor(1L, miOrganizacion);
-        d.setEstado(EstadoDonacion.ACEPTADA);
-        when(donacionRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(d));
-
-        assertThatThrownBy(() -> donacionService.confirmarEntrega(1L, 999L))
-                .isInstanceOf(ResponseStatusException.class)
-                .hasMessageContaining("403");
-    }
-
-    @Test
-    void confirmarEntrega_donanteFirst_setsOnlyDonanteTimestampAndPendiente() {
-        Donacion d = donacionFor(1L, miOrganizacion);
-        d.setEstado(EstadoDonacion.ACEPTADA);
-        when(donacionRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(d));
-        when(donacionRepository.save(any(Donacion.class))).thenAnswer(inv -> inv.getArgument(0));
-
-        DonacionResponse response = donacionService.confirmarEntrega(1L, 2L); // donante id
-
-        assertThat(response.estado()).isEqualTo("PENDIENTE_CONFIRMACION");
-        assertThat(response.confirmadaDonanteEn()).isNotNull();
-        assertThat(response.confirmadaReferenteEn()).isNull();
-    }
-
-    @Test
-    void confirmarEntrega_secondConfirmerCompletesDelivery() {
-        Donacion d = donacionFor(1L, miOrganizacion);
-        d.setEstado(EstadoDonacion.PENDIENTE_CONFIRMACION);
-        d.setConfirmadaDonanteEn(java.time.Instant.now());
-        when(donacionRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(d));
-        when(donacionRepository.save(any(Donacion.class))).thenAnswer(inv -> inv.getArgument(0));
-
-        DonacionResponse response = donacionService.confirmarEntrega(1L, 1L); // referente id
-
-        assertThat(response.estado()).isEqualTo("ENTREGADA");
-        assertThat(response.confirmadaDonanteEn()).isNotNull();
-        assertThat(response.confirmadaReferenteEn()).isNotNull();
-        assertThat(response.fechaEntrega()).isEqualTo(LocalDate.now());
-    }
-
-    @Test
-    void confirmarEntrega_sameActorConfirmsTwice_isIdempotentNoOp() {
-        Donacion d = donacionFor(1L, miOrganizacion);
-        d.setEstado(EstadoDonacion.PENDIENTE_CONFIRMACION);
-        java.time.Instant firstConfirm = java.time.Instant.now().minusSeconds(60);
-        d.setConfirmadaDonanteEn(firstConfirm);
-        when(donacionRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(d));
-        when(donacionRepository.save(any(Donacion.class))).thenAnswer(inv -> inv.getArgument(0));
-
-        DonacionResponse response = donacionService.confirmarEntrega(1L, 2L); // donante again
-
-        assertThat(response.estado()).isEqualTo("PENDIENTE_CONFIRMACION");
-        assertThat(response.confirmadaDonanteEn()).isEqualTo(firstConfirm);
-        assertThat(response.confirmadaReferenteEn()).isNull();
-    }
-
-    @Test
-    void confirmarEntrega_enCaminoSkipsStraightToPendiente() {
-        Donacion d = donacionFor(1L, miOrganizacion);
-        d.setEstado(EstadoDonacion.EN_CAMINO);
-        when(donacionRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(d));
-        when(donacionRepository.save(any(Donacion.class))).thenAnswer(inv -> inv.getArgument(0));
-
-        DonacionResponse response = donacionService.confirmarEntrega(1L, 1L); // referente
-
-        assertThat(response.estado()).isEqualTo("PENDIENTE_CONFIRMACION");
-        assertThat(response.confirmadaReferenteEn()).isNotNull();
-    }
-
-    @Test
-    void confirmarEntrega_terminalState_throwsBadRequest() {
-        Donacion d = donacionFor(1L, miOrganizacion);
-        d.setEstado(EstadoDonacion.CANCELADA);
-        when(donacionRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(d));
-
-        assertThatThrownBy(() -> donacionService.confirmarEntrega(1L, 1L))
-                .isInstanceOf(ResponseStatusException.class)
-                .hasMessageContaining("400");
-    }
-
-    @Test
-    void confirmarEntrega_ofrecidaState_throwsBadRequest() {
-        Donacion d = donacionFor(1L, miOrganizacion);
-        when(donacionRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(d));
-
-        assertThatThrownBy(() -> donacionService.confirmarEntrega(1L, 1L))
-                .isInstanceOf(ResponseStatusException.class)
-                .hasMessageContaining("400");
-    }
+    // confirmarEntrega (the plain unconditional confirm) was retired in slice 3c-ii — spec
+    // `donacion-entrega-codigo`'s "Retirement of the Unconditional Confirm Action". The
+    // code-verified path's equivalent coverage lives in EntregaServiceTest, which exercises the
+    // same shared ConfirmacionEntrega.registrar helper this method used to delegate to.
 
     // --- overrideEstado (admin escape hatch) ---
 

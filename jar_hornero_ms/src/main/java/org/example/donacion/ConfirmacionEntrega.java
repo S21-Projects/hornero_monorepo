@@ -7,10 +7,11 @@ import java.time.Clock;
 import java.time.LocalDate;
 
 /**
- * Shared confirmation/transition logic used by both the legacy {@code confirmarEntrega} button
- * (kept working identically until slice 3c retires it) and {@code EntregaService.verificar} (the
- * code-verified path, slice 3a). Design AD-5/AD-6 calls this a single package-private method on
- * {@code DonacionService}; it is a standalone class here instead because {@code EntregaService}
+ * Shared confirmation/transition logic. Used only by {@code EntregaService.verificar} (the
+ * code-verified path, slice 3a) now that slice 3c-ii retired the legacy unconditional
+ * {@code confirmarEntrega} button/endpoint. Design AD-5/AD-6 calls this a single
+ * package-private method on {@code DonacionService}; it is a standalone class here instead
+ * because {@code EntregaService}
  * lives in the {@code org.example.donacion.entrega} sub-package, and Java package-private
  * visibility does not extend to sub-packages — a public static helper is the equivalent
  * single-implementation shape without duplicating the logic in each caller.

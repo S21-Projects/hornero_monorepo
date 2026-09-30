@@ -22,7 +22,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 /**
@@ -154,5 +156,17 @@ class DonacionControllerTest {
                 .andExpect(status().isOk());
 
         assertThat(captor.getValue().getPageSize()).isEqualTo(100);
+    }
+
+    // ─── Retirement: the plain confirm-entrega endpoint no longer exists ─────
+    // Spec `donacion-entrega-codigo` — "Old confirm endpoint no longer exists": no code path
+    // resolves the retired handler; the code-verified path (EntregaController) is the only route
+    // to ENTREGADA besides the admin override.
+
+    @Test
+    @WithMockUser
+    void confirmarEntrega_retiredRoute_returns404() throws Exception {
+        mockMvc.perform(post("/api/donaciones/1/confirmar-entrega").with(csrf()))
+                .andExpect(status().isNotFound());
     }
 }
