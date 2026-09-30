@@ -153,15 +153,6 @@ export class DonacionesController {
   }
 
   @Roles(Role.DONANTE, Role.REFERENTE)
-  @Post(':id/confirmar-entrega')
-  @ApiOperation({
-    summary: 'Confirm delivery of a donation (DONANTE or REFERENTE)',
-  })
-  confirmarEntrega(@Param('id', ParseIntPipe) id: number, @Req() req: Request) {
-    return this.donacionesService.confirmarEntrega(id, this.getToken(req));
-  }
-
-  @Roles(Role.DONANTE, Role.REFERENTE)
   @Post(':id/entrega/codigo')
   @HttpCode(201)
   @ApiOperation({

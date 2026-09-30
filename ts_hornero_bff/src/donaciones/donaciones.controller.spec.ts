@@ -11,7 +11,6 @@ describe('DonacionesController', () => {
     findDeMiOrganizacion: jest.Mock;
     decidir: jest.Mock;
     actualizarEstado: jest.Mock;
-    confirmarEntrega: jest.Mock;
     overrideEstado: jest.Mock;
     findActivas: jest.Mock;
     generarCodigoEntrega: jest.Mock;
@@ -27,7 +26,6 @@ describe('DonacionesController', () => {
       findDeMiOrganizacion: jest.fn(),
       decidir: jest.fn(),
       actualizarEstado: jest.fn(),
-      confirmarEntrega: jest.fn(),
       overrideEstado: jest.fn(),
       findActivas: jest.fn(),
       generarCodigoEntrega: jest.fn(),
@@ -111,28 +109,6 @@ describe('DonacionesController', () => {
   describe('actualizarEstado', () => {
     it('is restricted to DONANTE, matching the MS @PreAuthorize flip', () => {
       expect(rolesOf('actualizarEstado')).toEqual([Role.DONANTE]);
-    });
-  });
-
-  describe('confirmarEntrega', () => {
-    it('reads the access_token cookie and forwards id to the service', async () => {
-      const donacion = { id: 1, estado: 'PENDIENTE_CONFIRMACION' };
-      service.confirmarEntrega.mockResolvedValue(donacion);
-
-      const result = await controller.confirmarEntrega(
-        1,
-        requestWithToken('token-123'),
-      );
-
-      expect(service.confirmarEntrega).toHaveBeenCalledWith(1, 'token-123');
-      expect(result).toBe(donacion);
-    });
-
-    it('is restricted to DONANTE and REFERENTE, matching the MS @PreAuthorize', () => {
-      expect(rolesOf('confirmarEntrega')).toEqual([
-        Role.DONANTE,
-        Role.REFERENTE,
-      ]);
     });
   });
 
