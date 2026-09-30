@@ -12,7 +12,15 @@ Engram mirror: `sdd/tesis-core-features/apply-progress`.
   `acreditacion.tsx` view now renders evidence files too. ≈226 authored changed lines, committed in b2d5366.
 - Slice 3a — Delivery code backend (MS). DONE (18/18, MS 320/320, validator PASS).
 - **Slice 3b — Delivery code BFF proxy. DONE (6/6, BFF full suite 123/123 passing).**
-- Slices 3c-7: not started.
+- Slice 3b committed b674320.
+- Slice 3c-i — QR render/scan adapter + delivery-code building blocks (admin). DONE (admin 265/265,
+  build+lint clean). Libraries: qrcode.react@4.2.0 (React 19 peer ok); qr-scanner@1.4.2 rejected
+  (no release since 2022-11) in favour of AD-7 fallback barcode-detector@3.2.2 behind escanearQr.ts.
+  ~1060 lines; committed in three seams per the user size policy (deps + lib/qr, presentational
+  components, scanner + hooks).
+- Size policy (user, 2026-09-30): slices over ~500 lines are split into commits along natural seams
+  that each build and pass tests; size:exception only when no clean seam exists.
+- Slices 3c-ii to 7: not started.
 
 ## Completed Tasks (Slice 1)
 

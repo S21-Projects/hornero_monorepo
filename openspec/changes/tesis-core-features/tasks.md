@@ -323,36 +323,47 @@ together — no intermediate deploy has the screen without the retirement, or vi
 
 ### 3c-i — QR/scan client library
 
-- [ ] 3c.1 Verify at apply time: confirm `qrcode.react` and `qr-scanner` (nimiq) current versions,
+- [x] 3c.1 Verify at apply time: confirm `qrcode.react` and `qr-scanner` (nimiq) current versions,
       React 19 peer range, MIT license, and last-release recency; if `qr-scanner` looks unmaintained,
       swap to the `barcode-detector` ponyfill inside the same adapter module with no screen changes
       (AD-7). Record the chosen versions in this checklist item's commit.
-- [ ] 3c.2 RED — `ts_hornero_admin/src/lib/qr/payload.test.ts`: parses/formats
+      **Verified 2026-09-30**: `qrcode.react@4.2.0` (peer `react: ^16.8.0 || ^17.0.0 || ^18.0.0 ||
+      ^19.0.0`, last published 2024-12-11) — kept. `qr-scanner@1.4.2` last published 2022-11-23
+      (~4 years stale, no maintenance activity) — judged unmaintained; swapped to the design's
+      named fallback `barcode-detector@3.2.2` (last published 2026-08-16, framework-agnostic, no
+      React peer needed) per AD-7. Adapter module boundary absorbs the swap with no component
+      changes.
+- [x] 3c.2 RED — `ts_hornero_admin/src/lib/qr/payload.test.ts`: parses/formats
       `HORNERO-ENTREGA:{donacionId}:{codigo}` and the bare 6-digit form; rejects a payload for a
       different `donacionId`.
-- [ ] 3c.3 GREEN — Create `ts_hornero_admin/src/lib/qr/payload.ts`. Satisfies 3c.2.
-- [ ] 3c.4 RED — `ts_hornero_admin/src/lib/qr/escanearQr.test.ts` (`vi.mock` the underlying
+- [x] 3c.3 GREEN — Create `ts_hornero_admin/src/lib/qr/payload.ts`. Satisfies 3c.2.
+- [x] 3c.4 RED — `ts_hornero_admin/src/lib/qr/escanearQr.test.ts` (`vi.mock` the underlying
       scanner library, never the camera): `iniciar(video, onPayload)` invokes the callback on a
       decoded payload; `detener()` cleans up.
-- [ ] 3c.5 GREEN — Create `ts_hornero_admin/src/lib/qr/escanearQr.ts`: adapter using
-      `BarcodeDetector` when present, falling back to `qr-scanner`'s worker-based decoder. Satisfies
-      3c.4.
-- [ ] 3c.6 RED — Component tests for `CodigoQr.test.tsx` (renders `QRCodeSVG` from a code),
+- [x] 3c.5 GREEN — Create `ts_hornero_admin/src/lib/qr/escanearQr.ts`: adapter using
+      `BarcodeDetector` when present, falling back to `barcode-detector`'s ponyfill decoder (see
+      3c.1 deviation — `qr-scanner` judged unmaintained). Satisfies 3c.4.
+- [x] 3c.6 RED — Component tests for `CodigoQr.test.tsx` (renders `QRCodeSVG` from a code),
       `CodigoInput.test.tsx` (6-digit numeric input, `inputMode="numeric"`,
       `autoComplete="one-time-code"`), `Countdown.test.tsx` (ticks down, reaches zero), and
       `EstadoConfirmacion.test.tsx` (renders both parties' status).
-- [ ] 3c.7 GREEN — Create `ts_hornero_admin/src/components/entrega/CodigoQr.tsx`,
+- [x] 3c.7 GREEN — Create `ts_hornero_admin/src/components/entrega/CodigoQr.tsx`,
       `CodigoInput.tsx`, `Countdown.tsx`, `EstadoConfirmacion.tsx`. Satisfies 3c.6.
-- [ ] 3c.8 RED — `ts_hornero_admin/src/components/entrega/EscanerQr.test.tsx` (lazy component,
+- [x] 3c.8 RED — `ts_hornero_admin/src/components/entrega/EscanerQr.test.tsx` (lazy component,
       `vi.mock('../../lib/qr/escanearQr')`): shows the scan button, starts/stops the adapter, shows
       a fallback reason when permission is denied or no camera exists, and the typed input stays
       usable regardless.
-- [ ] 3c.9 GREEN — Create `ts_hornero_admin/src/components/entrega/EscanerQr.tsx` (dynamic
+- [x] 3c.9 GREEN — Create `ts_hornero_admin/src/components/entrega/EscanerQr.tsx` (dynamic
       `import()` of the adapter, only loaded on "Escanear código" tap). Satisfies 3c.8.
-- [ ] 3c.10 RED — `ts_hornero_admin/src/lib/hooks/useEntrega.test.ts`: `useEstadoEntrega` polls
+- [x] 3c.10 RED — `ts_hornero_admin/src/lib/hooks/useEntrega.test.ts`: `useEstadoEntrega` polls
       every 3s until `ENTREGADA` then stops; `useGenerarCodigo`, `useVerificarCodigo` call the 3b
       routes and invalidate the estado query.
-- [ ] 3c.11 GREEN — Create `ts_hornero_admin/src/lib/hooks/useEntrega.ts`. Satisfies 3c.10.
+- [x] 3c.11 GREEN — Create `ts_hornero_admin/src/lib/hooks/useEntrega.ts`. Satisfies 3c.10.
+      **Deviation (task ordering only)**: 3c.21 (`package.json` dependency additions) was pulled
+      forward into this 3c-i batch per the orchestrator's explicit instruction, instead of staying
+      in 3c-ii — `qrcode.react` and `barcode-detector` (not `qr-scanner`, see 3c.1) were added now
+      so `npm test`/`npm run build` are green for this batch in isolation. 3c.12-3c.22 (route
+      wiring, old-button/endpoint retirement) remain untouched, still `[ ]`, still scoped to 3c-ii.
 
 **Verification (3c-i):** `cd ts_hornero_admin && npm test -- qr entrega/Codigo entrega/Escaner entrega/Countdown entrega/Estado`
 
@@ -381,8 +392,10 @@ together — no intermediate deploy has the screen without the retirement, or vi
       Satisfies 3c.18 (MS side).
 - [ ] 3c.20 GREEN — `ts_hornero_bff/src/donaciones/*`: remove the `confirmar-entrega` route and
       service method. Satisfies 3c.18 (BFF side).
-- [ ] 3c.21 GREEN — `ts_hornero_admin/package.json`: add `qrcode.react`, `qr-scanner` (or the
+- [x] 3c.21 GREEN — `ts_hornero_admin/package.json`: add `qrcode.react`, `qr-scanner` (or the
       chosen fallback per 3c.1) as dependencies.
+      **Done early, in the 3c-i batch** (orchestrator instruction): added `qrcode.react@4.2.0` and
+      `barcode-detector@3.2.2` (the AD-7 fallback — not `qr-scanner`, see 3c.1's verification note).
 - [ ] 3c.22 REFACTOR — Confirm `TransicionesDonacion` needs no further entries now that
       `confirmarEntrega` is gone; the code-verified path is the only route to `ENTREGADA` besides
       `overrideEstado`.
