@@ -2,10 +2,13 @@ package org.example.acreditacion;
 
 import lombok.RequiredArgsConstructor;
 import org.example.acreditacion.dto.AcreditacionResponse;
+import org.example.acreditacion.dto.ColaAuditoriaFiltro;
 import org.example.acreditacion.dto.EventoResponse;
+import org.example.acreditacion.dto.EvidenciaEnColaResponse;
 import org.example.acreditacion.dto.EvidenciaResponse;
 import org.example.acreditacion.dto.LegajoResponse;
 import org.example.acreditacion.dto.RequisitoEnLegajo;
+import org.example.acreditacion.dto.TabCola;
 import org.example.domain.CategoriaAlimento;
 import org.example.domain.EstadoEvidencia;
 import org.example.domain.EstadoRequisitoLegajo;
@@ -23,6 +26,8 @@ import org.example.domain.TipoEvidencia;
 import org.example.user.Administrador;
 import org.example.user.Usuario;
 import org.example.user.UsuarioRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -314,6 +319,41 @@ public class AcreditacionService {
                 .filter(e -> filtro == null || e.getEstado() == filtro)
                 .map(EvidenciaResponse::from)
                 .toList();
+    }
+
+    /**
+     * AD-8 (tesis-core-features, slice 4a), `specs/auditoria-cola-global/spec.md`: backing method
+     * for {@code GET /api/auditoria/evidencias}, the cross-org audit queue. {@code requisito} and
+     * {@code nivel} both narrow the {@code requisito IN} set passed to
+     * {@link OrganizacionEvidenciaRepository#buscarCola}, which the query always receives
+     * non-empty (every {@link RequisitoAcreditacion} when the caller applies neither filter) to
+     * avoid a null-collection binding. When both are set, the result is their intersection.
+     */
+    public Page<EvidenciaEnColaResponse> colaAuditoria(ColaAuditoriaFiltro filtro, Pageable pageable) {
+        Set<RequisitoAcreditacion> requisitos = EnumSet.allOf(RequisitoAcreditacion.class);
+        if (filtro.nivel() != null) {
+            requisitos.retainAll(requisitosPorNivel(filtro.nivel()));
+        }
+        if (filtro.requisito() != null) {
+            requisitos = requisitos.contains(filtro.requisito())
+                    ? EnumSet.of(filtro.requisito())
+                    : EnumSet.noneOf(RequisitoAcreditacion.class);
+        }
+        boolean vencidas = filtro.tab() == TabCola.VENCIDAS;
+
+        return evidenciaRepository.buscarCola(vencidas, EstadoEvidencia.PENDIENTE, LocalDate.now(),
+                        requisitos, filtro.tipoEvidencia(), pageable)
+                .map(EvidenciaEnColaResponse::from);
+    }
+
+    private Set<RequisitoAcreditacion> requisitosPorNivel(NivelAcreditacion nivel) {
+        Set<RequisitoAcreditacion> matching = EnumSet.noneOf(RequisitoAcreditacion.class);
+        for (RequisitoAcreditacion requisito : RequisitoAcreditacion.values()) {
+            if (requisito.getNivelExigido() == nivel) {
+                matching.add(requisito);
+            }
+        }
+        return matching;
     }
 
     /**

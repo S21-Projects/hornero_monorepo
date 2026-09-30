@@ -4,12 +4,15 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 
 import java.lang.reflect.Method;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -96,6 +99,112 @@ class OrganizacionEvidenciaRepositoryTest {
                 org.getId(), "org-evidencia/" + org.getId() + "/no-existe.jpg");
 
         assertThat(existe).isFalse();
+    }
+
+    // --- Slice 4a (tesis-core-features), task 4a.1: buscarCola backs the cross-org audit queue
+    // (AD-8, `specs/auditoria-cola-global/spec.md`). "Vencidas" takes precedence: a row that is
+    // simultaneously PENDIENTE and expired must appear there, never in "Pendientes".
+
+    @Test
+    void buscarCola_pendientesTab_returnsPendienteNotExpired() {
+        Organizacion org = persistOrganizacion("org-pend");
+        OrganizacionEvidencia vigente = evidenciaRepository.save(
+                nuevaEvidencia(org, RequisitoAcreditacion.NO_DISCRIMINACION));
+
+        Page<OrganizacionEvidencia> page = evidenciaRepository.buscarCola(
+                false, EstadoEvidencia.PENDIENTE, LocalDate.now(),
+                Set.of(RequisitoAcreditacion.values()), null, PageRequest.of(0, 20));
+
+        assertThat(page.getContent()).extracting(OrganizacionEvidencia::getId)
+                .containsExactly(vigente.getId());
+    }
+
+    @Test
+    void buscarCola_pendientesTab_excludesExpiredPendiente() {
+        Organizacion org = persistOrganizacion("org-pend-exp");
+        evidenciaRepository.save(OrganizacionEvidencia.nueva(org, RequisitoAcreditacion.NO_DISCRIMINACION,
+                TipoEvidencia.DECLARACION, "declaración", LocalDate.now().minusDays(30),
+                LocalDate.now().minusDays(1), 1L));
+
+        Page<OrganizacionEvidencia> page = evidenciaRepository.buscarCola(
+                false, EstadoEvidencia.PENDIENTE, LocalDate.now(),
+                Set.of(RequisitoAcreditacion.values()), null, PageRequest.of(0, 20));
+
+        assertThat(page.getContent()).isEmpty();
+    }
+
+    @Test
+    void buscarCola_vencidasTab_includesAnyExpiredRowRegardlessOfEstado() {
+        Organizacion org = persistOrganizacion("org-venc");
+        OrganizacionEvidencia aprobadaExpirada = OrganizacionEvidencia.nueva(org,
+                RequisitoAcreditacion.NO_DISCRIMINACION, TipoEvidencia.DECLARACION, "declaración",
+                LocalDate.now().minusDays(30), LocalDate.now().minusDays(1), 1L);
+        aprobadaExpirada.setEstado(EstadoEvidencia.APROBADA);
+        evidenciaRepository.save(aprobadaExpirada);
+        evidenciaRepository.save(nuevaEvidencia(org, RequisitoAcreditacion.SEDE_INSCRIPTA_INDIVIDUALMENTE));
+
+        Page<OrganizacionEvidencia> page = evidenciaRepository.buscarCola(
+                true, EstadoEvidencia.PENDIENTE, LocalDate.now(),
+                Set.of(RequisitoAcreditacion.values()), null, PageRequest.of(0, 20));
+
+        assertThat(page.getContent()).extracting(OrganizacionEvidencia::getId)
+                .containsExactly(aprobadaExpirada.getId());
+    }
+
+    @Test
+    void buscarCola_vencidasTab_excludesReemplazadaUnlessExpired() {
+        Organizacion org = persistOrganizacion("org-venc-reempl");
+        OrganizacionEvidencia reemplazadaVigente = nuevaEvidencia(org, RequisitoAcreditacion.NO_DISCRIMINACION);
+        reemplazadaVigente.setEstado(EstadoEvidencia.REEMPLAZADA);
+        evidenciaRepository.save(reemplazadaVigente);
+
+        Page<OrganizacionEvidencia> page = evidenciaRepository.buscarCola(
+                true, EstadoEvidencia.PENDIENTE, LocalDate.now(),
+                Set.of(RequisitoAcreditacion.values()), null, PageRequest.of(0, 20));
+
+        assertThat(page.getContent()).isEmpty();
+    }
+
+    @Test
+    void buscarCola_filtersByRequisito() {
+        Organizacion org = persistOrganizacion("org-req");
+        OrganizacionEvidencia match = evidenciaRepository.save(
+                nuevaEvidencia(org, RequisitoAcreditacion.RADIO_50KM_BANCO_ALIMENTOS));
+        evidenciaRepository.save(nuevaEvidencia(org, RequisitoAcreditacion.NO_DISCRIMINACION));
+
+        Page<OrganizacionEvidencia> page = evidenciaRepository.buscarCola(
+                false, EstadoEvidencia.PENDIENTE, LocalDate.now(),
+                Set.of(RequisitoAcreditacion.RADIO_50KM_BANCO_ALIMENTOS), null, PageRequest.of(0, 20));
+
+        assertThat(page.getContent()).extracting(OrganizacionEvidencia::getId).containsExactly(match.getId());
+    }
+
+    @Test
+    void buscarCola_filtersByTipoEvidenciaAndCombinesWithRequisito() {
+        Organizacion org = persistOrganizacion("org-tipo");
+        OrganizacionEvidencia foto = evidenciaRepository.save(OrganizacionEvidencia.nueva(org,
+                RequisitoAcreditacion.CONDICIONES_SANITARIAS_ADECUADAS, TipoEvidencia.FOTO, null,
+                LocalDate.now(), null, 1L, "org-evidencia/" + org.getId() + "/foto.jpg"));
+        evidenciaRepository.save(nuevaEvidencia(org, RequisitoAcreditacion.CONDICIONES_SANITARIAS_ADECUADAS));
+
+        Page<OrganizacionEvidencia> page = evidenciaRepository.buscarCola(
+                false, EstadoEvidencia.PENDIENTE, LocalDate.now(),
+                Set.of(RequisitoAcreditacion.CONDICIONES_SANITARIAS_ADECUADAS), TipoEvidencia.FOTO,
+                PageRequest.of(0, 20));
+
+        assertThat(page.getContent()).extracting(OrganizacionEvidencia::getId).containsExactly(foto.getId());
+    }
+
+    @Test
+    void buscarCola_noMatchesReturnsEmptyPageWithCorrectMetadata() {
+        persistOrganizacion("org-empty");
+
+        Page<OrganizacionEvidencia> page = evidenciaRepository.buscarCola(
+                false, EstadoEvidencia.PENDIENTE, LocalDate.now(),
+                Set.of(RequisitoAcreditacion.ACEPTA_AUDITORIAS_SIN_AVISO), null, PageRequest.of(0, 20));
+
+        assertThat(page.getContent()).isEmpty();
+        assertThat(page.getTotalElements()).isZero();
     }
 
     @Test

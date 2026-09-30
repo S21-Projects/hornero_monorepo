@@ -67,6 +67,14 @@ public class SecurityConfig {
                                 "/api/organizaciones/*/acreditacion",
                                 "/api/organizaciones/*/acreditacion/**",
                                 "/api/organizaciones/*/legajo").authenticated()
+                        // AD-8 (tesis-core-features, slice 4a): the cross-org audit queue lives on
+                        // its own root, deliberately NOT under /api/organizaciones/**, so it does
+                        // not depend on this file's matcher ordering relative to that resource's
+                        // permitAll GET block below. Still declared explicitly, and ahead of
+                        // /api/necesidades and /api/donaciones' permitAll GET blocks, out of the
+                        // same defense-in-depth discipline as every other admin-only matcher here.
+                        .requestMatchers(org.springframework.http.HttpMethod.GET,
+                                "/api/auditoria/**").hasRole("ADMINISTRADOR")
                         // AD-6: delivery-code confirmation state is never world-readable.
                         // Declared before the permitAll GET-donaciones block below (Spring
                         // evaluates matchers in declaration order) — placement after it would
