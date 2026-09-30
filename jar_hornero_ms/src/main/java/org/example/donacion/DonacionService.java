@@ -19,12 +19,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
-import java.util.EnumMap;
 import java.util.EnumSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -32,18 +31,6 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class DonacionService {
-
-    private static final Map<EstadoDonacion, Set<EstadoDonacion>> TRANSICIONES_PERMITIDAS =
-            new EnumMap<>(EstadoDonacion.class);
-
-    static {
-        TRANSICIONES_PERMITIDAS.put(EstadoDonacion.OFRECIDA,
-                EnumSet.of(EstadoDonacion.ACEPTADA, EstadoDonacion.RECHAZADA, EstadoDonacion.CANCELADA));
-        TRANSICIONES_PERMITIDAS.put(EstadoDonacion.ACEPTADA,
-                EnumSet.of(EstadoDonacion.EN_CAMINO, EstadoDonacion.CANCELADA));
-        TRANSICIONES_PERMITIDAS.put(EstadoDonacion.EN_CAMINO,
-                EnumSet.of(EstadoDonacion.CANCELADA));
-    }
 
     private final DonacionRepository donacionRepository;
     private final NecesidadRepository necesidadRepository;
@@ -119,15 +106,16 @@ public class DonacionService {
     public DonacionResponse decidir(Long id, EstadoDonacion nuevoEstado, Long referenteId) {
         Donacion d = donacionRepository.findByIdWithRelations(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Donacion not found"));
-        var referente = d.getNecesidad().getOrganizacion().getReferente();
-        if (referente == null || !referente.getId().equals(referenteId)) {
+        ParticipantesDonacion.Parte parte = ParticipantesDonacion.parteDe(d, referenteId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.FORBIDDEN, "Access denied"));
+        if (parte != ParticipantesDonacion.Parte.REFERENTE) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Access denied");
         }
         if (nuevoEstado != EstadoDonacion.ACEPTADA && nuevoEstado != EstadoDonacion.RECHAZADA) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                     "Invalid decision: " + nuevoEstado);
         }
-        validateTransition(d.getEstado(), nuevoEstado);
+        TransicionesDonacion.validar(d.getEstado(), nuevoEstado);
         d.setEstado(nuevoEstado);
         return toResponse(donacionRepository.save(d));
     }
@@ -143,22 +131,23 @@ public class DonacionService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                     "Invalid state transition: " + nuevoEstado);
         }
-        validateTransition(d.getEstado(), nuevoEstado);
+        TransicionesDonacion.validar(d.getEstado(), nuevoEstado);
         d.setEstado(nuevoEstado);
         return toResponse(donacionRepository.save(d));
     }
 
+    /**
+     * Kept for backward compatibility until slice 3c retires the plain confirm button in favour of
+     * the code-verified path ({@code EntregaService}). Delegates the shared confirmation/transition
+     * logic to {@link ConfirmacionEntrega}, exactly as {@code EntregaService.verificar} does.
+     */
     @Transactional
     public DonacionResponse confirmarEntrega(Long id, Long actorId) {
         Donacion d = donacionRepository.findByIdWithRelations(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Donacion not found"));
 
-        boolean esDonante = d.getDonante().getId().equals(actorId);
-        var referente = d.getNecesidad().getOrganizacion().getReferente();
-        boolean esReferente = referente != null && referente.getId().equals(actorId);
-        if (!esDonante && !esReferente) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Access denied");
-        }
+        ParticipantesDonacion.Parte parte = ParticipantesDonacion.parteDe(d, actorId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.FORBIDDEN, "Access denied"));
 
         if (d.getEstado().isTerminal()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
@@ -171,19 +160,7 @@ public class DonacionService {
                     "Cannot confirm delivery in state " + d.getEstado());
         }
 
-        if (esDonante && d.getConfirmadaDonanteEn() == null) {
-            d.setConfirmadaDonanteEn(Instant.now());
-        } else if (esReferente && d.getConfirmadaReferenteEn() == null) {
-            d.setConfirmadaReferenteEn(Instant.now());
-        }
-        // else: same actor confirming again -> idempotent no-op on the timestamp
-
-        if (d.getConfirmadaDonanteEn() != null && d.getConfirmadaReferenteEn() != null) {
-            d.setEstado(EstadoDonacion.ENTREGADA);
-            d.setFechaEntrega(LocalDate.now());
-        } else {
-            d.setEstado(EstadoDonacion.PENDIENTE_CONFIRMACION);
-        }
+        ConfirmacionEntrega.registrar(d, parte, Clock.systemDefaultZone());
 
         return toResponse(donacionRepository.save(d));
     }
@@ -240,14 +217,6 @@ public class DonacionService {
                     "Cannot delete a donation that is not in OFRECIDA state");
         }
         donacionRepository.delete(d);
-    }
-
-    private void validateTransition(EstadoDonacion current, EstadoDonacion next) {
-        boolean valid = TRANSICIONES_PERMITIDAS.getOrDefault(current, Set.of()).contains(next);
-        if (!valid) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "Invalid state transition: " + current + " -> " + next);
-        }
     }
 
     private DonacionResponse toResponse(Donacion d) {
