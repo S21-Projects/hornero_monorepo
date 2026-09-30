@@ -24,9 +24,10 @@ Engram mirror: `sdd/tesis-core-features/apply-progress`.
   "Completed Tasks (Slice 3c-ii)" below.
 - Size policy (user, 2026-09-30): slices over ~500 lines are split into commits along natural seams
   that each build and pass tests; size:exception only when no clean seam exists.
-- **Slice 4a (MS only) — Cross-org audit queue backend. MS tasks 4a.1-4a.7 DONE (7/7), this batch
-  (2026-09-30). BFF tasks 4a.8-4a.9 NOT started (a later batch).** ~440 authored changed lines
-  (MS only), well within budget. MS full suite 326/326.
+- **Slice 4a — Cross-org audit queue backend. DONE (9/9): MS tasks 4a.1-4a.7 committed (`5633ad3`);
+  BFF tasks 4a.8-4a.9 done this batch (2026-09-30).** MS ~440 authored changed lines (committed
+  separately), BFF ~280 this batch, both well within budget. BFF full suite 129/129. Not yet
+  committed (this batch's BFF half).
 - Slice 4b and 5-7: not started.
 
 ## Completed Tasks (Slice 1)
@@ -696,23 +697,89 @@ record as the "filtros" bundle design.md names but does not spell out as a type;
 name and behavior (tab precedence, `nivel` → `nivelExigido` resolution, non-empty `requisito IN`,
 `JOIN FETCH` + explicit `countQuery`, default sort `cargadoEn ASC`) matches AD-8 verbatim.
 
-**Remaining for Slice 4a**: BFF tasks 4a.8 (RED — `acreditacion.controller.spec.ts` or sibling
-`auditoria` controller test: whitelisted query params forwarded, `@Roles(ADMINISTRADOR)`) and 4a.9
-(GREEN — `ts_hornero_bff/src/acreditacion/acreditacion.controller.ts` +
-`acreditacion.service.ts`: `GET auditoria/evidencias`). Not started in this batch by explicit scope
-instruction.
+**Remaining for Slice 4a (at the start of this batch)**: BFF tasks 4a.8 (RED — sibling `auditoria`
+controller test: whitelisted query params forwarded, `@Roles(ADMINISTRADOR)`) and 4a.9 (GREEN —
+`GET auditoria/evidencias`). Completed this batch, see "Slice 4a (BFF half)" below.
 
-**Suggested commit message** (once the BFF half lands and the whole slice ships together, per
-`tasks.md`'s single "USER COMMIT POINT" for slice 4a): `feat(auditoria): add cross-org audit queue
-read endpoint`. This MS-only batch is not committed on its own — no commit was made in this batch
-(HARD: no mutating git commands were run).
+## Slice 4a (BFF half — tasks 4a.8-4a.9, 2026-09-30) — this batch, full detail
+
+Scope: only `ts_hornero_bff` tasks 4a.8-4a.9, per the orchestrator's narrow-batch instruction. The
+MS half (4a.1-4a.7) was already committed (`5633ad3`) before this batch started. Strict TDD:
+RED confirmed (module/method not found) before every GREEN.
+
+**Contract read directly from the MS** (not assumed): `AuditoriaController.java`,
+`dto/{EvidenciaEnColaResponse,TabCola,ColaAuditoriaFiltro}.java` — `GET /api/auditoria/evidencias`
+with query params `tab` (default `PENDIENTES`), `nivel`, `requisito`, `tipoEvidencia`, `page`,
+`size`, `sort`, `@PreAuthorize("hasRole('ADMINISTRADOR')")`.
+
+**Decision**: added a new sibling `AuditoriaController` (`@Controller('auditoria')`) in the
+`acreditacion` module, per `tasks.md`'s own "or a small sibling `auditoria` controller" option —
+`AcreditacionController`'s base path is `organizaciones/:id`, which cannot host a cross-org route.
+Added `colaAuditoria(filtro, accessToken)` to the existing `AcreditacionService` (raw passthrough
+via the existing `buildQuery` helper, mirroring `NecesidadesService.getNecesidades`'s
+`page`/`size`/`sort` passthrough — no BFF-side validation of `tab`/`nivel`/`requisito`/
+`tipoEvidencia`, the MS is the single authority). Errors propagate via the existing
+`AxiosExceptionFilter` — no `try/catch` added.
+
+**TDD Cycle Evidence**
+
+| Task(s) | Test file | RED confirmed | GREEN |
+|---|---|---|---|
+| 4a.8 (controller) | `auditoria.controller.spec.ts` (new) | ✅ `Cannot find module './auditoria.controller'` | ✅ 5/5 |
+| 4a.8/4a.9 (service) | `acreditacion.service.spec.ts` (+3 cases) | ✅ `service.colaAuditoria is not a function` (3 failing, 13 pre-existing passing) | ✅ 16/16 (whole file) |
+
+**Files Changed**
+
+| File | Action | What Was Done |
+|---|---|---|
+| `ts_hornero_bff/src/acreditacion/auditoria.controller.spec.ts` | Created | 5 tests: `@Roles(ADMINISTRADOR)` metadata, not `@Public`, `UnauthorizedException` with no cookie, all 7 query params forwarded, undefined filters forwarded when absent |
+| `ts_hornero_bff/src/acreditacion/auditoria.controller.ts` | Created | `@Controller('auditoria')`, `GET evidencias` → `colaAuditoria`, `@Roles(Role.ADMINISTRADOR)` |
+| `ts_hornero_bff/src/acreditacion/dto/cola-auditoria-filtro.dto.ts` | Created | `ColaAuditoriaFiltro` interface — the 7 raw optional query-param fields |
+| `ts_hornero_bff/src/acreditacion/acreditacion.service.spec.ts` | Modified | +3 tests for `colaAuditoria`: full filter forwarding with `buildQuery` encoding, omits unset filters, returns MS body unchanged |
+| `ts_hornero_bff/src/acreditacion/acreditacion.service.ts` | Modified | `colaAuditoria(filtro, accessToken)`: `GET /api/auditoria/evidencias` via `buildQuery` + Bearer header |
+| `ts_hornero_bff/src/acreditacion/acreditacion.module.ts` | Modified | Registered `AuditoriaController` alongside `AcreditacionController` |
+| `openspec/changes/tesis-core-features/tasks.md` | Modified | 4a.8, 4a.9 marked `[x]` |
+
+**Work Unit Evidence**
+
+| Evidence | Value |
+|---|---|
+| Focused test command / result | `npm test -- acreditacion` → 43/43 (35 baseline + 8 new, across 4 suites) |
+| Runtime harness | N/A — no real-app/supertest boundary exists for this route today (the sibling `acreditacion.routing.spec.ts` precedent tests `organizaciones/:slug` vs `organizaciones/:id/acreditacion` shadowing specifically; the new `/auditoria/evidencias` path is a fresh top-level segment with no existing route to shadow it, so the unit-level controller test covering role metadata + param forwarding is the appropriate layer) |
+| Rollback boundary | All 7 files above, self-contained to `ts_hornero_bff/src/acreditacion/` + `tasks.md`; no MS/admin changes in this batch |
+
+**Full BFF suite**: `npm test` → **129/129 passing** (0 failures; up from 121 baseline — 8 new
+tests, matches 121+8=129).
+
+**Lint**: `npx eslint` on all 6 touched/created `ts_hornero_bff` files → clean (0 errors, 0
+warnings) after 2 fixes: prettier import-wrapping in `auditoria.controller.ts`, and
+`@typescript-eslint/unbound-method` in the spec (switched to the existing `rolesOf(methodName)`
+indexed-access helper pattern already used in `acreditacion.controller.spec.ts`, rather than a
+direct `AuditoriaController.prototype.evidencias` property reference). No unrelated files
+reformatted.
+
+**Size**: authored changed lines (`git diff --numstat` for modified + full line count for new
+files): modified `acreditacion.module.ts` 2+1, `acreditacion.service.spec.ts` 69+0,
+`acreditacion.service.ts` 17+0 = 89; new `auditoria.controller.spec.ts` 118, `auditoria.controller.ts`
+52, `cola-auditoria-filtro.dto.ts` 15 = 185; `tasks.md` 3+3 = 6. **Total ≈280 authored changed
+lines** — well within the 400-line budget, no delivery-strategy decision required.
+
+**Deviations from design**: none. Matches AD-8 and `specs/auditoria-cola-global/spec.md` exactly
+— cross-org scope, ADMINISTRADOR-only, all 7 query params forwarded unchanged, envelope untouched
+(MS wraps in `ApiResponse`/`PageData`, BFF returns the body as-is).
+
+**Suggested commit message**: `feat(bff): proxy the cross-org audit queue read endpoint`. Not
+committed in this batch — no mutating git commands were run (HARD constraint honored). This
+completes slice 4a (9/9 tasks); the whole slice's single "USER COMMIT POINT" per `tasks.md` is now
+satisfied by this commit plus the already-committed MS half (`5633ad3`).
 
 ## Status
 
 Slice 1: 10/10 tasks complete. Slice 2: 24/24 tasks complete. Slice 3a: 18/18 tasks complete.
 Slice 3b: 6/6 tasks complete. Slice 3c-i: 12/12 tasks complete (incl. 3c.21 pulled forward).
-Slice 3c-ii: 11/11 tasks complete (3c.12-3c.20, 3c.22). **Slice 4a: 7/9 tasks complete (MS-only
-4a.1-4a.7 done this batch, 2026-09-30; BFF 4a.8-4a.9 remain).** Slice 4b and 5-7: not started.
+Slice 3c-ii: 11/11 tasks complete (3c.12-3c.20, 3c.22). **Slice 4a: 9/9 tasks complete — MS
+4a.1-4a.7 committed (`5633ad3`); BFF 4a.8-4a.9 done this batch (2026-09-30), not yet committed.**
+Slice 4b and 5-7: not started.
 
 Slices 1 and 2 (2a/2b) are already committed (`a87ebe9`, `c241250`, plus the slice-1 commit).
 Uncommitted on `feat/tesis-core-features-03a-entrega-codigo`: task 2.24's changes and all of
@@ -744,9 +811,9 @@ and `feat(ms): add mutual delivery-code confirmation backend` (slice 3a).
   batch). Matches `tasks.md`'s single "USER COMMIT POINT" for slice 3b:
   `feat(bff): proxy delivery-code generate/verify/status routes`. All 5 changed/created files are
   `ts_hornero_bff/src/donaciones/**` only — nothing else on this branch to reconcile.
-- Slice 4a (MS only, this batch): **no decision needed** — ≈440 authored changed lines, within
-  the 400-line budget on a self-contained 9-file scope (no BFF/admin changes yet). Not committed
-  in this batch; the full slice-4a commit point waits for the BFF half (4a.8-4a.9).
+- Slice 4a: **no decision needed** — MS half ≈440 authored changed lines (committed separately as
+  `5633ad3`), BFF half ≈280 authored changed lines this batch, both within the 400-line budget on
+  their own. BFF half not yet committed.
 - Slice 3c-ii: **not yet decided by the user** — ≈854 authored changed lines vs slice 3c's shared
   400-500 forecast (already spent by 3c-i alone). Recommending the 4-commit split above (per the
   user's own size policy) rather than `size:exception`, since every seam is independently green

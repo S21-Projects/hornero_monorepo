@@ -456,10 +456,10 @@ Depends on: none. Spec: `auditoria-cola-global`. Design: AD-8.
 - [x] 4a.7 GREEN — `jar_hornero_ms/.../config/SecurityConfig.java`: add
       `.requestMatchers("/api/auditoria/**").hasRole("ADMINISTRADOR")` (deliberately not under
       /api/organizaciones/**), plus `@PreAuthorize` on the controller as defense-in-depth.
-- [ ] 4a.8 RED — `ts_hornero_bff/src/acreditacion/acreditacion.controller.spec.ts` (or a small
-      sibling `auditoria` controller in the same module): whitelisted query params forwarded,
+- [x] 4a.8 RED — `ts_hornero_bff/src/acreditacion/auditoria.controller.spec.ts` (new sibling
+      `AuditoriaController` in the same module): whitelisted query params forwarded,
       `@Roles(ADMINISTRADOR)`.
-- [ ] 4a.9 GREEN — `ts_hornero_bff/src/acreditacion/acreditacion.controller.ts`,
+- [x] 4a.9 GREEN — `ts_hornero_bff/src/acreditacion/auditoria.controller.ts` (new),
       `acreditacion.service.ts`: add `GET auditoria/evidencias`. Satisfies 4a.8.
 
 **Verification (slice 4a):**
