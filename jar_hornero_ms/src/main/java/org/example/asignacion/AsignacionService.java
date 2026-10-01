@@ -7,6 +7,7 @@ import org.example.domain.Donacion;
 import org.example.domain.DonacionRepository;
 import org.example.domain.AsignacionRepository;
 import org.example.domain.Organizacion;
+import org.example.domain.Ronda;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -52,11 +53,12 @@ public class AsignacionService {
 
     private AsignacionResponse toResponse(Asignacion a) {
         Organizacion org = a.getOrganizacion();
+        Ronda ronda = a.getRonda();
         return new AsignacionResponse(
                 a.getId(),
-                a.getRonda() != null ? a.getRonda().getId() : null,
-                a.getRonda() != null && a.getRonda().getEjecutadaEn() != null
-                        ? a.getRonda().getEjecutadaEn().atZone(java.time.ZoneOffset.UTC).toLocalDate() : null,
+                ronda != null ? ronda.getId() : null,
+                ronda != null && ronda.getEjecutadaEn() != null
+                        ? ronda.getEjecutadaEn().atZone(java.time.ZoneOffset.UTC).toLocalDate() : null,
                 a.getNecesidad() != null ? a.getNecesidad().getId() : null,
                 org != null ? org.getId() : null,
                 org != null ? org.getNombre() : null,
@@ -72,7 +74,12 @@ public class AsignacionService {
                 a.getDeficitFuente(),
                 a.getCodigoRadio(),
                 a.getCreadaEn(),
-                a.getResueltaEn()
+                a.getResueltaEn(),
+                ronda != null ? ronda.getPesoDeficit() : null,
+                ronda != null ? ronda.getPesoUrgencia() : null,
+                ronda != null ? ronda.getPesoProximidad() : null,
+                ronda != null ? ronda.getPesoEspera() : null,
+                ronda != null ? ronda.getPesoCumplimiento() : null
         );
     }
 }
