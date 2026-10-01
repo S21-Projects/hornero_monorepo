@@ -54,7 +54,8 @@ came from the fondo común, admin cannot see modalidad, onboarding counter missi
       find the next level and count non-APROBADA requisitos for it; handles N3 (no next level) and
       legajo loading/error by hiding the counter; RED→GREEN in `BienvenidaAcreditacion.test.tsx`
       (9/9, 5 new).
-- [ ] T8 Astro public site: entry point explaining the fondo común and linking to /donar. Route: delegated.
+- [x] T8 Astro public site: entry point explaining the fondo común and linking to /donar. Route: delegated.
+  - 2026-10-01: added "Doná al fondo común" section to `ts_hornero_astro/src/pages/index.astro` (4 criteria + CTA to `${PUBLIC_SPA_URL}/donar`, reusing the existing env-var pattern from `Nav.astro`/`[slug].astro`); `npm run build` green (no test runner in this service).
 
 ## Acceptance
 

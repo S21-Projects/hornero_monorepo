@@ -13,8 +13,55 @@ try {
   // BFF unavailable at build time or runtime — render with empty list
   orgs = [];
 }
+
+const PUBLIC_SPA_URL = import.meta.env.PUBLIC_SPA_URL ?? '';
+const CRITERIOS = [
+  { titulo: 'Déficit de cobertura', texto: 'cuánto le falta a la zona frente a lo que necesita.' },
+  { titulo: 'Urgencia', texto: 'qué tan crítica es la necesidad declarada.' },
+  { titulo: 'Cercanía', texto: 'qué tan cerca está la organización de la donación.' },
+  { titulo: 'Tiempo de espera', texto: 'cuánto hace que la necesidad espera ser cubierta.' },
+];
 ---
 
 <Layout title="El Hornero — Comedores Córdoba">
   <HomeMapExplorer client:only="react" orgs={orgs} />
+
+  <!-- ── Fondo común ──────────────────────────────────────────────────── -->
+  <section class="border-t border-[var(--line-soft)] bg-[var(--card-2)]">
+    <div class="mx-auto max-w-[900px] px-4 py-14 text-center sm:px-6 sm:py-16">
+      <span
+        class="inline-block rounded-[var(--r-pill)] bg-[var(--straw)] px-3.5 py-1.5 text-[12.5px] font-extrabold text-[var(--earth)]"
+      >
+        Fondo común
+      </span>
+      <h2 class="mt-5 text-2xl font-black tracking-tight sm:text-3xl">Doná al fondo común</h2>
+      <p class="mx-auto mt-4 max-w-[62ch] text-[15px] leading-relaxed text-[var(--ink-2)]">
+        No elegís a qué organización va tu donación: nuestro motor de asignación la envía
+        adonde más impacto genera, evaluando el <strong class="font-extrabold text-[var(--earth)]">déficit
+        de cobertura</strong>, la <strong class="font-extrabold text-[var(--earth)]">urgencia</strong>, la
+        <strong class="font-extrabold text-[var(--earth)]">cercanía</strong> y el <strong class="font-extrabold text-[var(--earth)]">tiempo de espera</strong>
+        de cada necesidad, además del historial de cumplimiento de la organización — y solo entre
+        las que están acreditadas para esa categoría de alimento.
+      </p>
+
+      <dl class="mx-auto mt-9 grid max-w-[700px] grid-cols-1 gap-4 text-left sm:grid-cols-2">
+        {CRITERIOS.map(({ titulo, texto }) => (
+          <div class="rounded-[var(--r-card)] border border-[var(--line)] bg-[var(--card)] p-4">
+            <dt class="text-[13px] font-extrabold text-[var(--horn)]">{titulo}</dt>
+            <dd class="mt-1 ml-0 text-[13.5px] leading-relaxed text-[var(--ink-2)]">{texto}</dd>
+          </div>
+        ))}
+      </dl>
+
+      <a
+        href={`${PUBLIC_SPA_URL}/donar`}
+        class="mt-9 inline-block rounded-[var(--r-btn)] bg-[var(--horn)] px-6 py-3 text-[15px] font-extrabold text-white no-underline shadow-[0_2px_0_#A8481699] transition-[filter] hover:brightness-105"
+      >
+        Donar al fondo común
+      </a>
+      <p class="mt-3 text-[12.5px] text-[var(--ink-3)]">
+        Si no iniciaste sesión, te vamos a pedir que ingreses antes de confirmar la donación.
+      </p>
+    </div>
+  </section>
 </Layout>
