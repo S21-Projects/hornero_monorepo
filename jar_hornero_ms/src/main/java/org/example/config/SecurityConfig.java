@@ -84,6 +84,22 @@ public class SecurityConfig {
                         // EntregaController/EntregaService.
                         .requestMatchers(org.springframework.http.HttpMethod.GET,
                                 "/api/donaciones/*/entrega").authenticated()
+                        // AD-9 (tesis-core-features, slice 5c-ii): manual ronda trigger/history is
+                        // ADMINISTRADOR-only at every verb — spec `ronda-asignacion`'s "Manual
+                        // ADMINISTRADOR Trigger Only" requirement. `/api/rondas/**` is its own root
+                        // (not under /api/donaciones/** or /api/organizaciones/**), so this matcher
+                        // does not depend on declaration order relative to those resources' permitAll
+                        // GET blocks below, but it is still declared ahead of them out of the same
+                        // defense-in-depth discipline as every other admin-only matcher here.
+                        .requestMatchers("/api/rondas/**").hasRole("ADMINISTRADOR")
+                        // AD-9: an assignment's score breakdown and ronda history are never
+                        // world-readable. Declared before the permitAll GET-donaciones block below
+                        // (Spring evaluates matchers in declaration order) — placement after it would
+                        // silently leak scoring/explainability data to anonymous users. Role
+                        // granularity (owner donante, involved referente, admin) is enforced by
+                        // AsignacionController/AsignacionService.
+                        .requestMatchers(org.springframework.http.HttpMethod.GET,
+                                "/api/donaciones/*/asignaciones").authenticated()
                         // Public read-only endpoints — no account required
                         .requestMatchers(org.springframework.http.HttpMethod.GET,
                                 "/api/organizaciones",
