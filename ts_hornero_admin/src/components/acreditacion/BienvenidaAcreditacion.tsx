@@ -2,8 +2,10 @@ import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { Text } from '../ui/Typography';
 import { Badge } from '../Badge';
-import { useAcreditacion } from '../../lib/hooks/useAcreditacion';
+import { useAcreditacion, useLegajo } from '../../lib/hooks/useAcreditacion';
 import { NIVEL_LADDER } from '../../lib/acreditacion';
+import { EstadoRequisitoLegajo } from '../../types/domain';
+import type { NivelAcreditacion } from '../../types/domain';
 
 interface BienvenidaAcreditacionProps {
   organizacionId: number;
@@ -28,7 +30,25 @@ export function BienvenidaAcreditacion({
   onMasTarde,
 }: BienvenidaAcreditacionProps) {
   const acreditacion = useAcreditacion(organizacionId);
+  const legajo = useLegajo(organizacionId);
   const nivelActual = acreditacion.data?.nivel;
+
+  // Next rung in the ladder after the organización's current one; `undefined` at N3 (no next
+  // level, matching NIVEL_LADDER's own terminal entry) or while the current level isn't known yet.
+  const nivelActualIndex = nivelActual
+    ? NIVEL_LADDER.findIndex((entry) => entry.nivel === nivelActual)
+    : -1;
+  const nivelSiguiente: NivelAcreditacion | undefined =
+    nivelActualIndex >= 0 && nivelActualIndex < NIVEL_LADDER.length - 1
+      ? NIVEL_LADDER[nivelActualIndex + 1].nivel
+      : undefined;
+
+  const requisitosFaltantes =
+    nivelSiguiente && legajo.isSuccess
+      ? (legajo.data?.requisitos ?? []).filter(
+          (r) => r.nivelExigido === nivelSiguiente && r.estado !== EstadoRequisitoLegajo.APROBADA,
+        ).length
+      : undefined;
 
   return (
     <div style={{ width: '100%', maxWidth: 560, display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -39,6 +59,13 @@ export function BienvenidaAcreditacion({
         Tu nivel de acreditación crece con evidencia que un administrador revisa. Así es la
         escalera:
       </Text>
+
+      {nivelSiguiente && requisitosFaltantes != null && (
+        <Text as="p" variant="body-sm" color="earth" style={{ textAlign: 'center' }}>
+          Para llegar a {nivelSiguiente} te {requisitosFaltantes === 1 ? 'falta' : 'faltan'}{' '}
+          {requisitosFaltantes} {requisitosFaltantes === 1 ? 'requisito' : 'requisitos'}
+        </Text>
+      )}
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         {NIVEL_LADDER.map((entry) => (
