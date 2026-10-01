@@ -2,6 +2,8 @@ package org.example.necesidad;
 
 import org.example.auth.VerificacionService;
 import org.example.config.AcreditacionProperties;
+import org.example.domain.Articulo;
+import org.example.domain.ArticuloRepository;
 import org.example.domain.CategoriaAlimento;
 import org.example.domain.EstadoOrganizacion;
 import org.example.domain.Necesidad;
@@ -10,6 +12,7 @@ import org.example.domain.NivelAcreditacion;
 import org.example.domain.Organizacion;
 import org.example.domain.OrganizacionRepository;
 import org.example.domain.PrioridadNecesidad;
+import org.example.domain.UnidadArticulo;
 import org.example.necesidad.dto.CrearNecesidadRequest;
 import org.example.user.Referente;
 import org.junit.jupiter.api.BeforeEach;
@@ -21,6 +24,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -51,14 +55,19 @@ class NecesidadServiceCategoriaCapTest {
     @Mock
     private AcreditacionProperties acreditacionProperties;
 
+    @Mock
+    private ArticuloRepository articuloRepository;
+
     @InjectMocks
     private NecesidadService necesidadService;
 
     private Referente referente;
+    private long nextArticuloId;
 
     @BeforeEach
     void setUp() {
         referente = new Referente(1L, "Ref Test", "ref@test.com", "encoded", true);
+        nextArticuloId = 1L;
         lenient().when(necesidadRepository.countByOrganizacion_IdAndEstadoIn(eq(1L), any())).thenReturn(0L);
         lenient().when(necesidadRepository.save(any(Necesidad.class))).thenAnswer(inv -> inv.getArgument(0));
     }
@@ -73,9 +82,22 @@ class NecesidadServiceCategoriaCapTest {
         return org;
     }
 
+    /**
+     * Builds a request selecting one freshly-minted articulo of the given categoria (feature
+     * catalogo-articulos, decision 6: categoria is now derived from the selection, never
+     * hand-picked) and stubs the repository to resolve it.
+     */
     private CrearNecesidadRequest requestCon(CategoriaAlimento categoria) {
+        long articuloId = nextArticuloId++;
+        Articulo articulo = new Articulo();
+        articulo.setId(articuloId);
+        articulo.setNombre("Articulo " + articuloId);
+        articulo.setCategoria(categoria);
+        articulo.setUnidad(UnidadArticulo.KG);
+        articulo.setActivo(true);
+        lenient().when(articuloRepository.findById(articuloId)).thenReturn(Optional.of(articulo));
         return new CrearNecesidadRequest(
-                "Descripcion", PrioridadNecesidad.MEDIA, LocalDate.now().plusDays(10), 1L, categoria);
+                "Descripcion", PrioridadNecesidad.MEDIA, LocalDate.now().plusDays(10), 1L, List.of(articuloId));
     }
 
     @Test
@@ -123,15 +145,15 @@ class NecesidadServiceCategoriaCapTest {
         }
     }
 
+    // Feature catalogo-articulos, decision 6: a necesidad with zero articulos no longer exists —
+    // categoria can never be hand-picked/null on the crear path anymore, it is always derived.
     @Test
-    void categoriaNullBehavesExactlyAsBeforeAtN1() {
-        Organizacion org = organizacionAt(NivelAcreditacion.N1);
-        when(organizacionRepository.findByIdAndReferente_Id(1L, 1L)).thenReturn(Optional.of(org));
-        when(acreditacionProperties.capPara(NivelAcreditacion.N1)).thenReturn(3L);
+    void crearSinArticulosEsRechazada() {
+        CrearNecesidadRequest dto = new CrearNecesidadRequest(
+                "Descripcion", PrioridadNecesidad.MEDIA, LocalDate.now().plusDays(10), 1L, List.of());
 
-        var response = necesidadService.crear(requestCon(null), 1L);
-
-        assertThat(response.organizacionId()).isEqualTo(1L);
-        assertThat(response.categoria()).isNull();
+        assertThatThrownBy(() -> necesidadService.crear(dto, 1L))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("400");
     }
 }

@@ -140,6 +140,21 @@ public class DonacionService {
         d.setLineas(lineas);
         d.setCategoria(CategoriaAlimento.masExigente(categorias));
 
+        // Closes the C5 gap (feature catalogo-articulos, decision 6): a DIRECTA donación must
+        // offer at least one articulo the target necesidad actually requested — otherwise the
+        // match carries no real signal, same spirit as the ronda's articulo-level hard filter.
+        if (modalidad != ModalidadDonacion.FONDO_COMUN) {
+            Set<Long> articulosSolicitados = d.getNecesidad().getArticulos().stream()
+                    .map(na -> na.getArticulo().getId())
+                    .collect(Collectors.toSet());
+            boolean compatible = lineas.stream()
+                    .anyMatch(l -> articulosSolicitados.contains(l.getArticulo().getId()));
+            if (!compatible) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "ARTICULO_INCOMPATIBLE: la donación no incluye ningún articulo solicitado por la necesidad");
+            }
+        }
+
         return toResponse(donacionRepository.save(d));
     }
 

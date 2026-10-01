@@ -2,6 +2,9 @@ package org.example.necesidad;
 
 import org.example.auth.VerificacionService;
 import org.example.config.AcreditacionProperties;
+import org.example.domain.Articulo;
+import org.example.domain.ArticuloRepository;
+import org.example.domain.CategoriaAlimento;
 import org.example.domain.EstadoNecesidad;
 import org.example.domain.EstadoOrganizacion;
 import org.example.domain.Necesidad;
@@ -10,6 +13,8 @@ import org.example.domain.NivelAcreditacion;
 import org.example.domain.Organizacion;
 import org.example.domain.OrganizacionRepository;
 import org.example.domain.PrioridadNecesidad;
+import org.example.domain.UnidadArticulo;
+import org.example.necesidad.dto.ActualizarNecesidadRequest;
 import org.example.necesidad.dto.CrearNecesidadRequest;
 import org.example.user.Referente;
 import org.junit.jupiter.api.BeforeEach;
@@ -50,6 +55,9 @@ class NecesidadServiceTest {
     @Mock
     private AcreditacionProperties acreditacionProperties;
 
+    @Mock
+    private ArticuloRepository articuloRepository;
+
     @InjectMocks
     private NecesidadService necesidadService;
 
@@ -70,6 +78,16 @@ class NecesidadServiceTest {
         organizacion.setNivel(NivelAcreditacion.N1);
         organizacion.setReferente(referente);
         defaultPageable = PageRequest.of(0, 20);
+
+        // Feature catalogo-articulos, decision 6: crear() now always resolves articuloIds — a
+        // single active NO_PERECEDERO articulo (fits N1) covers every `crear` test below.
+        Articulo articulo = new Articulo();
+        articulo.setId(1L);
+        articulo.setNombre("Arroz");
+        articulo.setCategoria(CategoriaAlimento.NO_PERECEDERO);
+        articulo.setUnidad(UnidadArticulo.KG);
+        articulo.setActivo(true);
+        org.mockito.Mockito.lenient().when(articuloRepository.findById(1L)).thenReturn(Optional.of(articulo));
     }
 
     private Necesidad buildNecesidad(Long id) {
@@ -142,7 +160,7 @@ class NecesidadServiceTest {
     @Test
     void crear_foreignOrganizacionId_throwsForbidden() {
         CrearNecesidadRequest dto = new CrearNecesidadRequest(
-                "Descripcion", PrioridadNecesidad.MEDIA, LocalDate.now().plusDays(10), 99L, null);
+                "Descripcion", PrioridadNecesidad.MEDIA, LocalDate.now().plusDays(10), 99L, List.of(1L));
 
         when(organizacionRepository.findByIdAndReferente_Id(99L, 1L)).thenReturn(Optional.empty());
 
@@ -154,7 +172,7 @@ class NecesidadServiceTest {
     @Test
     void crear_ownedOrganizacionId_succeeds() {
         CrearNecesidadRequest dto = new CrearNecesidadRequest(
-                "Descripcion", PrioridadNecesidad.MEDIA, LocalDate.now().plusDays(10), 1L, null);
+                "Descripcion", PrioridadNecesidad.MEDIA, LocalDate.now().plusDays(10), 1L, List.of(1L));
 
         when(organizacionRepository.findByIdAndReferente_Id(1L, 1L)).thenReturn(Optional.of(organizacion));
         when(acreditacionProperties.capPara(NivelAcreditacion.N1)).thenReturn(3L);
@@ -170,7 +188,7 @@ class NecesidadServiceTest {
     @Test
     void crear_unverifiedEmail_throwsForbiddenBeforeTouchingOrganizacion() {
         CrearNecesidadRequest dto = new CrearNecesidadRequest(
-                "Descripcion", PrioridadNecesidad.MEDIA, LocalDate.now().plusDays(10), 1L, null);
+                "Descripcion", PrioridadNecesidad.MEDIA, LocalDate.now().plusDays(10), 1L, List.of(1L));
 
         doThrow(new ResponseStatusException(HttpStatus.FORBIDDEN, "EMAIL_NO_VERIFICADO"))
                 .when(verificacionService).requireVerified(1L);
@@ -180,6 +198,106 @@ class NecesidadServiceTest {
                 .hasMessageContaining("EMAIL_NO_VERIFICADO");
 
         org.mockito.Mockito.verifyNoInteractions(organizacionRepository);
+    }
+
+    // --- crear — catalogo-articulos (decision 6) ---
+
+    @Test
+    void crear_sinArticulos_throwsBadRequest() {
+        CrearNecesidadRequest dto = new CrearNecesidadRequest(
+                "Descripcion", PrioridadNecesidad.MEDIA, LocalDate.now().plusDays(10), 1L, List.of());
+
+        assertThatThrownBy(() -> necesidadService.crear(dto, 1L))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("400");
+
+        org.mockito.Mockito.verifyNoInteractions(organizacionRepository);
+    }
+
+    @Test
+    void crear_articuloInactivo_throwsBadRequest() {
+        CrearNecesidadRequest dto = new CrearNecesidadRequest(
+                "Descripcion", PrioridadNecesidad.MEDIA, LocalDate.now().plusDays(10), 1L, List.of(2L));
+
+        Articulo inactivo = new Articulo();
+        inactivo.setId(2L);
+        inactivo.setNombre("Leche");
+        inactivo.setCategoria(CategoriaAlimento.REFRIGERADO);
+        inactivo.setUnidad(UnidadArticulo.LITRO);
+        inactivo.setActivo(false);
+
+        when(organizacionRepository.findByIdAndReferente_Id(1L, 1L)).thenReturn(Optional.of(organizacion));
+        when(acreditacionProperties.capPara(NivelAcreditacion.N1)).thenReturn(3L);
+        when(articuloRepository.findById(2L)).thenReturn(Optional.of(inactivo));
+
+        assertThatThrownBy(() -> necesidadService.crear(dto, 1L))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("400");
+    }
+
+    @Test
+    void crear_articuloDesconocido_throwsBadRequest() {
+        CrearNecesidadRequest dto = new CrearNecesidadRequest(
+                "Descripcion", PrioridadNecesidad.MEDIA, LocalDate.now().plusDays(10), 1L, List.of(999L));
+
+        when(organizacionRepository.findByIdAndReferente_Id(1L, 1L)).thenReturn(Optional.of(organizacion));
+        when(acreditacionProperties.capPara(NivelAcreditacion.N1)).thenReturn(3L);
+        when(articuloRepository.findById(999L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> necesidadService.crear(dto, 1L))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("400");
+    }
+
+    @Test
+    void crear_derivaCategoriaDelArticuloSeleccionado() {
+        CrearNecesidadRequest dto = new CrearNecesidadRequest(
+                "Descripcion", PrioridadNecesidad.MEDIA, LocalDate.now().plusDays(10), 1L, List.of(1L));
+
+        when(organizacionRepository.findByIdAndReferente_Id(1L, 1L)).thenReturn(Optional.of(organizacion));
+        when(acreditacionProperties.capPara(NivelAcreditacion.N1)).thenReturn(3L);
+        when(necesidadRepository.save(org.mockito.ArgumentMatchers.any(Necesidad.class)))
+                .thenAnswer(inv -> inv.getArgument(0));
+
+        NecesidadResponse response = necesidadService.crear(dto, 1L);
+
+        assertThat(response.categoria()).isEqualTo(CategoriaAlimento.NO_PERECEDERO);
+        assertThat(response.articulos()).hasSize(1);
+        assertThat(response.articulos().get(0).id()).isEqualTo(1L);
+    }
+
+    // --- actualizar — catalogo-articulos (decision 6) ---
+
+    @Test
+    void actualizar_articuloIdsVacio_throwsBadRequest() {
+        Necesidad n = buildNecesidad(1L);
+        when(necesidadRepository.findById(1L)).thenReturn(Optional.of(n));
+
+        var dto = new ActualizarNecesidadRequest();
+        dto.setArticuloIds(List.of());
+
+        assertThatThrownBy(() -> necesidadService.actualizar(1L, dto, 1L))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("400");
+    }
+
+    @Test
+    void actualizar_articuloInactivo_throwsBadRequest() {
+        Necesidad n = buildNecesidad(1L);
+        when(necesidadRepository.findById(1L)).thenReturn(Optional.of(n));
+
+        Articulo inactivo = new Articulo();
+        inactivo.setId(2L);
+        inactivo.setCategoria(CategoriaAlimento.REFRIGERADO);
+        inactivo.setActivo(false);
+        when(articuloRepository.findById(2L)).thenReturn(Optional.of(inactivo));
+
+        var dto = new ActualizarNecesidadRequest();
+        dto.setArticuloIds(List.of(2L));
+
+        assertThatThrownBy(() -> necesidadService.actualizar(1L, dto, 1L))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("400");
     }
 
     // --- checkOwnership via actualizar ---
