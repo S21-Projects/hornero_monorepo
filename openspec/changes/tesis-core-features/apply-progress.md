@@ -67,7 +67,11 @@ Engram mirror: `sdd/tesis-core-features/apply-progress`.
   427/427 passing, BUILD SUCCESS. NOT yet committed. See "Slice 5f-ii" section below for full
   detail. **Slice 5 series (5a-5f) is now fully complete** — only the manual end-to-end
   "USER ACTION" check remains, and it is not automatable.
-- Slices 6a-7: not started.
+- **Slice 6a — Worker compliance term. DONE (7/7 numbered tasks 6a.1–6a.7, plus an unnumbered
+  6a.8 follow-up closing an older AD-10 Hungarian-oracle review item), 2026-10-01.** ≈527 authored
+  changed lines, proposed as 3 natural-seam commits (none needs `size:exception`). Worker full
+  `go test ./...` passes (6 packages), `go vet ./...` clean, `gofmt -l .` clean, HTTP/CLI parity
+  verified. See "Slice 6a" section below for full detail. Slices 6b-7: not started.
 
 ## Completed Tasks (Slice 1)
 
@@ -2228,3 +2232,210 @@ ACTION" manual end-to-end check on `make up-local` (create a `FONDO_COMUN` donac
 ronda as ADMINISTRADOR → accept as referente → exchange delivery codes both ways → confirm
 `ENTREGADA`). Slices 6a/6b (worker + MS compliance term) and slice 7 remain `[ ]`, not started.
 Ready for the user's 3 commits, then archive or continue to slice 6a.
+
+## Completed Tasks (Slice 6a — Worker compliance term, 2026-10-01)
+
+Strict TDD throughout: every unit below was written as a failing test first (confirmed RED via
+actual `go test` compile/assertion failures), then made GREEN. Scope: tasks 6a.1–6a.7, plus one
+unnumbered follow-up (6a.8) closing an older AD-10 review item (Hungarian brute-force oracle with
+`Inf` cells). Spec: `specs/asignacion-historial-cumplimiento/spec.md` (the amended version already
+on disk: resolved = `ENTREGADA`/`RECHAZADA` only, `CANCELADA` excluded — 8/9, not 8/10 — so no
+further spec delta was needed this batch). Design: `design.md` AD-11 (compliance term) + AD-14
+(worker contract is versioned/additive).
+
+- [x] 6a.1 RED — `go_algorithms_worker/internal/assign/cumplimiento_test.go` (new, 5 cases):
+      `PriorCumplimiento` averages `entregadas/total` across candidates with history (nil
+      candidates excluded from the average), falls back to `0.5` when nobody in the ronda has
+      history, and an explicit override wins outright. `TasaCumplimiento` matches the spec's own
+      worked example (8 entregadas / 1 fallida, `p0=0.5`, `m=5` → `10.5/14`), and both `nil` and
+      `&ConteoCumplimiento{}` reduce to exactly `p0` (no special-casing needed — the formula
+      already collapses correctly when counts are zero). Confirmed RED: compile failure
+      (`undefined: ConteoCumplimiento`/`PriorCumplimiento`/`TasaCumplimiento`).
+- [x] 6a.4 GREEN — Created `go_algorithms_worker/internal/assign/cumplimiento.go`:
+      `ConteoCumplimiento{Entregadas, Fallidas int}`, `PseudoObsPorDefecto = 5.0`,
+      `PriorCumplimiento(conteos []*ConteoCumplimiento, override *float64) float64`,
+      `TasaCumplimiento(conteo *ConteoCumplimiento, p0, m float64) float64`. 5/5 passing.
+- [x] 6a.2 RED — `go_algorithms_worker/internal/assign/scoring_test.go` (+4 cases):
+      `Pesos.Normalizados()` divides every term proportionally (tested with all-equal weights →
+      all `0.2`), and with `Cumplimiento: 0` on the old four-term defaults (`0.35/0.30/0.20/0.15`,
+      already summing to 1) reduces to exactly the same four values — the spec's own "setting
+      compliance weight to zero reproduces the old score" scenario. A new
+      `TestScoreConDesglosePonderaCumplimiento` proves the fifth term is actually wired into the
+      weighted sum (not just carried for display) by setting `Candidato.TasaCumplimiento = 0.8`
+      and checking the full 5-term weighted sum against the returned score. Confirmed RED: compile
+      failure (`unknown field Cumplimiento`, `Normalizados undefined`, `TasaCumplimiento
+      undefined`).
+- [x] 6a.5 GREEN — Modified `go_algorithms_worker/internal/assign/scoring.go`:
+      - `Candidato.TasaCumplimiento float64` (json:"-" — always resolved by the contrato mapping
+        layer before reaching the solver; the Go zero value is a deliberately inert 0 contribution
+        for any test that constructs a `Candidato` directly without going through `contrato`,
+        which is exactly what keeps every pre-6a test's expected numbers unchanged — see
+        "Deviations/behavioural note" below).
+      - `Pesos.Cumplimiento float64` + `Pesos.Normalizados()` (divides all 5 by their sum; returns
+        `w` unchanged on the degenerate all-zero sum instead of dividing by zero).
+      - `Desglose.Cumplimiento float64`.
+      - New `PesosPorDefecto`: `{Deficit: 0.30, Urgencia: 0.25, Proximidad: 0.17, Espera: 0.13,
+        Cumplimiento: 0.15}` (sums to 1.00, so `Normalizados()` is a no-op on these exact values).
+      - `ScoreConDesglose` now calls `w.Normalizados()` before the weighted sum, and adds
+        `desglose.Cumplimiento = c.TasaCumplimiento` as the fifth term.
+      9/9 passing (scoring_test.go in full).
+- [x] 6a.3 RED — `go_algorithms_worker/internal/contrato/ronda_v1_test.go` (+5 cases, new
+      `resolvedorVacio()` helper mirroring `internal/api/handler_test.go`'s): decodes
+      `candidatos[].cumplimiento {entregadas, fallidas}` (present/absent), `pesos.cumplimiento`,
+      `parametros.cumplimientoPrior`, `parametros.cumplimientoPseudoObs`; `ACandidatos` resolves
+      `p0` from the ronda's own raw counts and applies the smoothed rate per candidate including
+      the one with no history at all; an explicit `cumplimientoPrior` override wins;
+      `ResolverParametros` merges `cumplimientoPseudoObs` onto the resolved `assign.Parametros`,
+      echoed back like every other normalization constant. Confirmed RED: compile failures
+      (`unknown field Cumplimiento`, `undefined: CumplimientoV1`, `too many arguments in call to
+      e.ACandidatos`, `p.CumplimientoPseudoObs undefined`).
+- [x] 6a.6 GREEN — Modified `go_algorithms_worker/internal/contrato/ronda_v1.go`:
+      - `CandidatoV1.Cumplimiento *CumplimientoV1` (new `CumplimientoV1{Entregadas, Fallidas int}`
+        type).
+      - `ParametrosV1.CumplimientoPrior *float64` (new field; `CumplimientoPseudoObs` already
+        existed, reserved since 5a — this slice is the one that actually consumes it).
+      - `ACandidatos` signature changed to `(resolvedor *geo.Resolvedor, pseudoObs float64)
+        ([]assign.Candidato, map[int64]CandidatoResuelto)`: builds the per-candidate
+        `[]*assign.ConteoCumplimiento` from the wire payload, computes `p0` once via
+        `assign.PriorCumplimiento` (honoring `e.Parametros.CumplimientoPrior` if set), then calls
+        `assign.TasaCumplimiento` per candidate. `pseudoObs` is passed in rather than re-resolved
+        inside `ACandidatos`, so there is exactly one place (`ResolverParametros`) that merges the
+        request's `ParametrosV1` onto the defaults.
+      - `assign.Parametros` gained `CumplimientoPseudoObs float64` (echoed on the response,
+        defaulted to `assign.PseudoObsPorDefecto` in `ParametrosPorDefecto`); `ResolverParametros`
+        merges the request's override onto it.
+      - Updated the two call sites — `internal/api/handler.go` and `main.go`'s `cmdAssign` (the
+        CLI) — to pass `parametros.CumplimientoPseudoObs` to `ACandidatos`, keeping **HTTP/CLI
+        parity**: verified by running `go run . assign --input testdata/ronda-v1/request.json`
+        and diffing its stdout against the HTTP golden fixture — byte-identical (modulo
+        pretty-printing).
+      13/13 passing (contrato package in full, including the pre-existing suite).
+- [x] 6a.7 GREEN — Updated golden fixtures and contract doc:
+      - `testdata/ronda-v1/request.json`: added `"cumplimiento": {"entregadas": 8, "fallidas": 1}`
+        to the one candidate, demonstrating the new additive field.
+      - `testdata/ronda-v1/response.json`: regenerated from the actual handler output (not
+        hand-computed) — `desglose.cumplimiento: 0.8889` (the single candidate is also the only
+        one with history, so `p0 = tasa = 8/9` self-consistently), `pesos` now the new 5-term
+        defaults, `parametros.cumplimientoPseudoObs: 5` newly echoed, `score`/`scoreTotal` updated
+        to `0.5326855684846372`.
+      - `contract/ronda-v1.md`: documented `candidatos[].cumplimiento`, `pesos.cumplimiento`,
+        `parametros.cumplimientoPrior`/`cumplimientoPseudoObs`, the new default weights, and
+        `Normalizados()`'s behavior; updated the request/response examples; noted both the 5c and
+        6b MS-fixture-copy points.
+- [x] 6a.8 (follow-up, not in the original numbered list; explicitly requested in this batch's
+      scope) — closed an older AD-10 review item: `internal/assign/hungarian_test.go` gained
+      `TestHungarianMatchesBruteForceWithInfCells`, extending the existing brute-force oracle
+      (`TestHungarianMatchesBruteForce`) to matrices containing the solver's own `Inf` sentinel
+      (`MaxFloat64/4`, not `math.Inf` — matching exactly what `matrizConDescarte`'s dummy columns
+      actually produce) in dummy-column style (one finite "self" cell per row, `Inf` everywhere
+      else for that row's dummy group). Verified the test is a genuine oracle, not a tautology, by
+      two separate fault-injection runs against `Hungarian`'s core loop (both reverted
+      immediately, diffed back to `git`-tracked content to confirm a byte-identical revert):
+      flipping `cur < minv[j]` to `cur > minv[j]` hung the algorithm (infinite loop, killed after
+      timeout — the flip breaks termination, not just correctness); a safer fault
+      (`p[j] > 0 && j != m` in the final row→column mapping) produced a clean, fast failure in
+      **both** `TestHungarianMatchesBruteForce` (pre-existing) and the new
+      `TestHungarianMatchesBruteForceWithInfCells` (`got -5.2/4.8, want -12.3/9.2`), proving the
+      new test actually catches a broken solver and isn't redundant with the pre-existing one.
+
+### TDD Cycle Evidence (Slice 6a)
+
+| Task(s) | Test file | RED confirmed | GREEN |
+|---|---|---|---|
+| 6a.1/6a.4 | `cumplimiento_test.go` (new) | ✅ compile failure (`undefined: ConteoCumplimiento` etc.) | ✅ 5/5 |
+| 6a.2/6a.5 | `scoring_test.go` (+4 cases) | ✅ compile failure (`unknown field Cumplimiento`, `Normalizados undefined`) | ✅ 9/9 (whole file) |
+| 6a.3/6a.6 | `ronda_v1_test.go` (+5 cases) | ✅ compile failure (`unknown field Cumplimiento`, `undefined: CumplimientoV1`, wrong arg count) | ✅ 13/13 (whole file) |
+| 6a.8 (follow-up) | `hungarian_test.go` (+1 case) | not a missing-code RED (Hungarian was already correct) — verified instead by **two fault-injection runs** against `Hungarian`'s core comparison and final mapping, both caught by the new test, both cleanly reverted | ✅ 4/4 (whole file) |
+
+### Files Changed (Slice 6a)
+
+| File | Action | What Was Done |
+|---|---|---|
+| `go_algorithms_worker/internal/assign/cumplimiento.go` | Created | `ConteoCumplimiento`, `PriorCumplimiento`, `TasaCumplimiento`, `PseudoObsPorDefecto` |
+| `go_algorithms_worker/internal/assign/cumplimiento_test.go` | Created | 5 tests |
+| `go_algorithms_worker/internal/assign/scoring.go` | Modified | `Pesos.Cumplimiento` + `Normalizados()`, `Desglose.Cumplimiento`, `Candidato.TasaCumplimiento`, new `PesosPorDefecto`, `ScoreConDesglose` wiring |
+| `go_algorithms_worker/internal/assign/scoring_test.go` | Modified | +4 tests |
+| `go_algorithms_worker/internal/assign/hungarian_test.go` | Modified | +1 test (Inf-cell oracle, 6a.8 follow-up) |
+| `go_algorithms_worker/internal/contrato/ronda_v1.go` | Modified | `CumplimientoV1`, `CandidatoV1.Cumplimiento`, `ParametrosV1.CumplimientoPrior`, `assign.Parametros.CumplimientoPseudoObs`, `ACandidatos` signature + prior/rate wiring, `ResolverParametros` wiring |
+| `go_algorithms_worker/internal/contrato/ronda_v1_test.go` | Modified | +5 tests, +`resolvedorVacio()` helper |
+| `go_algorithms_worker/internal/api/handler.go` | Modified | `ACandidatos` call site passes `parametros.CumplimientoPseudoObs` |
+| `go_algorithms_worker/main.go` | Modified | Same call-site fix in the CLI (`cmdAssign`), for HTTP/CLI parity |
+| `go_algorithms_worker/testdata/ronda-v1/request.json` | Modified | +`cumplimiento` example field |
+| `go_algorithms_worker/testdata/ronda-v1/response.json` | Modified | Regenerated (new weights, 5th desglose term, echoed `cumplimientoPseudoObs`) |
+| `go_algorithms_worker/contract/ronda-v1.md` | Modified | Documented the additive fields, new defaults, `Normalizados()` behavior |
+| `openspec/changes/tesis-core-features/tasks.md` | Modified | 6a.1–6a.7 marked `[x]`, 6a.8 follow-up added and marked `[x]` |
+
+### Deviations from Design / behavioural note
+
+- None that change AD-11/AD-14's intent. One worth flagging explicitly: `Candidato.TasaCumplimiento`
+  is a plain `float64` (Go zero value `0`), not resolved-by-default to the neutral prior at the
+  `assign` package level. The "candidates without the field get `p0`" guarantee from AD-11 and the
+  spec is honored entirely by the `contrato.ACandidatos` mapping layer (6a.6), which always calls
+  `assign.TasaCumplimiento` — including for candidates with no raw counts — before constructing an
+  `assign.Candidato`. Any test that constructs an `assign.Candidato` literal directly (every
+  pre-6a test in `ronda_test.go`/`scoring_test.go`) gets `TasaCumplimiento = 0`, which is an inert
+  0% compliance contribution, not the neutral prior — but since none of those tests weight
+  compliance intentionally and `0 * any weight = 0`, every existing hardcoded-formula test
+  (`TestScoreConDesgloseDelegaMismoValorQueScore`, `TestRondaPopulaDesglose`,
+  `TestPenalizacionCeroReproduceRondaOriginal`'s `rondaOriginal` oracle) continued to pass
+  unmodified, because they all compute their "want" value symbolically from `PesosPorDefecto.*`
+  rather than hardcoded numeric literals — they automatically picked up the new default weights on
+  both sides of the comparison. No test file needed a numeric update beyond the four scoring_test.go
+  additions and one hungarian_test.go addition described above.
+- `parametros.cumplimientoPrior` is intentionally wire-only — it is consumed inside
+  `ACandidatos` and never promoted onto `assign.Parametros`, since (unlike `cumplimientoPseudoObs`)
+  it is not itself a persistent normalization constant the response needs to echo for
+  explainability; design.md's own worked JSON example doesn't echo it either.
+- AD-14's "Request carries `pesos.cumplimiento`" decodes automatically — `EntradaRondaV1.Pesos` is
+  already `*assign.Pesos`, so adding the field to `assign.Pesos` was sufficient; no `contrato`-side
+  wire type needed its own mirror field.
+
+### Verification (slice 6a) — actually run
+
+- `cd go_algorithms_worker && go test ./internal/assign/... -run Cumplimiento -v` → **5/5 passing**.
+- `cd go_algorithms_worker && go test ./internal/assign/... -run "Normalizados|PonderaCumplimiento" -v` → **2/2 passing** (plus the delegation test unaffected).
+- `cd go_algorithms_worker && go test ./internal/contrato/... -v` → **13/13 passing** (whole package).
+- `cd go_algorithms_worker && go test ./... -count=1` → **all 6 packages ok** (api, assign, contrato, geo, metrics, renacom — `renacom`'s dataset test passes in this environment, unrelated to this slice either way).
+- `cd go_algorithms_worker && go vet ./...` → clean, no output.
+- `cd go_algorithms_worker && gofmt -l .` → clean, no output (no unformatted files).
+- `go build ./...` → clean (catches the CLI's `main.go` call-site, which `go test` alone would have missed since `main` has no test file).
+- HTTP/CLI parity: `go run . assign --input testdata/ronda-v1/request.json` (no `--data` override,
+  uses the committed `data/renacom.csv`) → stdout byte-identical (modulo indentation) to the HTTP
+  golden `response.json`.
+- Fault-injection sanity on the new Hungarian oracle test: see 6a.8 above — two separate injected
+  bugs, both caught, both reverted and diff-confirmed clean against the pre-batch file.
+
+### Review Workload / Size (slice 6a)
+
+Authored changed lines (`git diff --numstat`, generated golden fixtures excluded from the budget
+count per the review-workload guard, new files counted in full):
+
+- `contract/ronda-v1.md`: 30+12 = 42
+- `internal/api/handler.go`: 1+1 = 2
+- `internal/assign/hungarian_test.go`: 40+0 = 40
+- `internal/assign/scoring.go`: 63+23 = 86
+- `internal/assign/scoring_test.go`: 53+0 = 53
+- `internal/contrato/ronda_v1.go`: 46+5 = 51
+- `internal/contrato/ronda_v1_test.go`: 113+0 = 113
+- `main.go`: 1+1 = 2
+- `internal/assign/cumplimiento.go` (new): 54
+- `internal/assign/cumplimiento_test.go` (new): 84
+
+**Slice 6a total: ≈527 authored changed lines** — over the 400-line review budget, under the
+user's own ~500-line "split along natural seams" threshold only slightly. Per the user's standing
+size policy (natural-seam commits, `size:exception` only when no clean seam exists), proposed as 3
+commits, none individually needing `size:exception`:
+
+1. `feat(worker): add compliance-history scoring term with neutral prior` — the `internal/assign`
+   seam: `cumplimiento.go` (+test), `scoring.go` (+test), `hungarian_test.go`'s Inf-cell oracle
+   follow-up. ≈317 lines. This is tasks.md's own documented **USER COMMIT POINT** for slice 6a.
+2. `feat(worker): wire compliance counts and prior/pseudo-obs overrides into the v1 contract` —
+   the `internal/contrato` seam: `ronda_v1.go` (+test), plus the two call-site fixes in
+   `internal/api/handler.go` and `main.go` for HTTP/CLI parity. ≈168 lines.
+3. `docs(worker): document the compliance term and regenerate v1 golden fixtures` —
+   `contract/ronda-v1.md` + `testdata/ronda-v1/{request,response}.json`. ≈42 authored lines (the
+   two JSON fixtures are generated/golden, excluded from the authored-risk count, but included in
+   the commit for snapshot identity).
+
+Per the HARD no-mutating-git-commands instruction, no commit was executed by this agent — all 3
+commits above are proposed only, pending the user's explicit go-ahead.

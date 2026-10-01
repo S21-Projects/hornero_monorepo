@@ -963,33 +963,37 @@ suite exists across services; this manual run is the documented substitute per `
 
 Depends on: 5a (may run in parallel with 5b–5f). Spec: `asignacion-historial-cumplimiento`.
 
-- [ ] 6a.1 RED — `go_algorithms_worker/internal/assign/cumplimiento_test.go`: `p0` computed as the
+- [x] 6a.1 RED — `go_algorithms_worker/internal/assign/cumplimiento_test.go`: `p0` computed as the
       ronda-average rate over candidates with history; `p0 = 0.5` when the whole ronda has zero
       history; the smoothed rate formula (`m = 5` pseudo-observations, or the overridden
       `parametros.cumplimientoPrior` in place of `p0`) matches the spec's worked example (8
       entregadas / 1 fallida ⇒ excludes `CANCELADA`, handled MS-side in 6b — this test only checks
       the worker's smoothing math given raw counts).
-- [ ] 6a.2 RED — `go_algorithms_worker/internal/assign/scoring_test.go`: `Pesos.Cumplimiento` +
+- [x] 6a.2 RED — `go_algorithms_worker/internal/assign/scoring_test.go`: `Pesos.Cumplimiento` +
       `Normalizados()` renormalize the five terms; `Cumplimiento = 0` reproduces the four-term
       score exactly (property test against the pre-change formula); accreditation still hard-filters
       via `acepta()`, unaffected by compliance.
-- [ ] 6a.3 RED — `go_algorithms_worker/internal/contrato/ronda_v1_test.go`: optional
+- [x] 6a.3 RED — `go_algorithms_worker/internal/contrato/ronda_v1_test.go`: optional
       `cumplimiento {entregadas, fallidas}` per candidate and optional `pesos.cumplimiento` and
       `parametros.cumplimientoPrior` decode correctly; absent fields default to the neutral-prior
       behavior (candidates without the field get `p0`, per AD-11, satisfying design's note that 5c
       candidates before 6b also default correctly).
-- [ ] 6a.4 GREEN — Create `go_algorithms_worker/internal/assign/cumplimiento.go`: `p0` +
+- [x] 6a.4 GREEN — Create `go_algorithms_worker/internal/assign/cumplimiento.go`: `p0` +
       smoothed-rate computation, honoring an optional caller-supplied prior override. Satisfies
       6a.1.
-- [ ] 6a.5 GREEN — Modify `go_algorithms_worker/internal/assign/scoring.go`: add
+- [x] 6a.5 GREEN — Modify `go_algorithms_worker/internal/assign/scoring.go`: add
       `Pesos.Cumplimiento`, update `Normalizados()`, new defaults (deficit 0.30, urgencia 0.25,
       proximidad 0.17, espera 0.13, cumplimiento 0.15); add `Candidato.TasaCumplimiento`. Satisfies
       6a.2.
-- [ ] 6a.6 GREEN — Modify `go_algorithms_worker/internal/contrato/ronda_v1.go`: optional
+- [x] 6a.6 GREEN — Modify `go_algorithms_worker/internal/contrato/ronda_v1.go`: optional
       `cumplimiento`, `pesos.cumplimiento`, `parametros.cumplimientoPrior`. Satisfies 6a.3.
-- [ ] 6a.7 GREEN — Modify `go_algorithms_worker/testdata/ronda-v1/*`,
+- [x] 6a.7 GREEN — Modify `go_algorithms_worker/testdata/ronda-v1/*`,
       `go_algorithms_worker/contract/ronda-v1.md`: additive fields documented and reflected in the
       golden fixtures (re-copy into `jar_hornero_ms/src/test/resources/contract/` happens in 6b).
+- [x] 6a.8 (follow-up, not originally numbered) — extended `hungarian_test.go` with
+      `TestHungarianMatchesBruteForceWithInfCells`: the brute-force oracle now also covers
+      matrices containing the solver's own `Inf` sentinel in dummy-column style, closing the
+      earlier AD-10 review follow-up.
 
 **Verification (slice 6a):** `cd go_algorithms_worker && go test ./...`
 

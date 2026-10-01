@@ -7,8 +7,8 @@ answers `400 VERSION_NO_SOPORTADA`. v1 only grows optional fields — a breaking
 The Go types behind this document live in `internal/contrato/ronda_v1.go`. The golden fixtures at
 `testdata/ronda-v1/{request,response}.json` are asserted byte-for-shape by
 `internal/api/handler_test.go`'s `TestRondaGoldenRoundtrip`, and are **copied into**
-`jar_hornero_ms/src/test/resources/contract/` in slice 5c — both copies change together, in the
-same commit, whenever this contract changes.
+`jar_hornero_ms/src/test/resources/contract/` (first in slice 5c, re-copied in slice 6b) — both
+copies change together, in the same commit, whenever this contract changes.
 
 ## Request
 
@@ -36,7 +36,8 @@ same commit, whenever this contract changes.
       "urgencia": 0.6,
       "diasDesdeUltimaDonacion": 14,
       "categoriasAceptadas": ["NO_PERECEDERO"],
-      "categoriasPermitidas": ["NO_PERECEDERO"]
+      "categoriasPermitidas": ["NO_PERECEDERO"],
+      "cumplimiento": { "entregadas": 8, "fallidas": 1 }
     }
   ],
   "pesos": null,
@@ -50,9 +51,19 @@ same commit, whenever this contract changes.
 - `candidatos[].deficit` is a nullable override (AD-2): absent/`null` lets the worker resolve the
   coverage deficit itself (`codigoRadio` → nearest precise point → `1.0` neutral); present
   (including `0.0`) always wins.
+- `candidatos[].cumplimiento` is additive (AD-11, slice 6a): `{entregadas, fallidas}` raw counts,
+  already classified MS-side (`ENTREGADA`→entregada, `RECHAZADA`→fallida, `CANCELADA` and
+  non-terminal donaciones excluded from both). Absent/`null` is equivalent to `{0, 0}` — the
+  candidate simply receives the ronda's neutral prior, with no special handling required on
+  either side. The worker computes `p0` (the prior) as the average resolved rate across every
+  candidate in the ronda that has history, or `0.5` if nobody does, then smooths each candidate's
+  own rate toward it with `m` pseudo-observations: `tasa = (entregadas + m·p0) / (entregadas +
+  fallidas + m)`.
 - `pesos`/`parametros` are optional overrides of `assign.PesosPorDefecto` /
   `assign.ParametrosPorDefecto`. Every field inside `parametros` is itself optional — only the
-  ones present replace the default.
+  ones present replace the default. `pesos.cumplimiento` (slice 6a) weights the compliance term;
+  `parametros.cumplimientoPrior` overrides the computed `p0` outright; `parametros.
+  cumplimientoPseudoObs` overrides `m` (default `5`).
 - Body is capped at 1 MiB; `donaciones`/`candidatos` are each capped at 500 items; every
   coordinate must be finite and within `[-90, 90]` / `[-180, 180]`. `categoria` and
   `categoriasAceptadas`/`categoriasPermitidas` are free-text pass-through — an unrecognized value
@@ -68,32 +79,39 @@ same commit, whenever this contract changes.
       "donacionId": 17,
       "necesidadId": 40,
       "organizacionId": 8,
-      "score": 0.4719,
+      "score": 0.5327,
       "distanciaKm": 2.1998,
       "costoOportunidad": 0,
-      "desglose": { "deficit": 0.3333, "urgencia": 0.6, "proximidad": 0.7596, "espera": 0.1556 },
+      "desglose": { "deficit": 0.3333, "urgencia": 0.6, "proximidad": 0.7596, "espera": 0.1556,
+                    "cumplimiento": 0.8889 },
       "deficitFuente": "NEUTRAL",
       "codigoRadio": ""
     }
   ],
   "sinAsignar": [],
-  "scoreTotal": 0.4719,
-  "pesos": { "deficit": 0.35, "urgencia": 0.30, "proximidad": 0.20, "espera": 0.15 },
+  "scoreTotal": 0.5327,
+  "pesos": { "deficit": 0.30, "urgencia": 0.25, "proximidad": 0.17, "espera": 0.13, "cumplimiento": 0.15 },
   "parametros": {
     "distanciaMediaKm": 8, "distanciaMaximaKm": 30, "esperaMaximaDias": 90,
-    "deficitMaximo": 3, "penalizacionNoAsignar": 0.10
+    "deficitMaximo": 3, "penalizacionNoAsignar": 0.10, "cumplimientoPseudoObs": 5
   }
 }
 ```
 
-- `desglose` (AD-14, née `ScoreDetallado`) carries the four normalized [0,1] terms behind
-  `score`; a `cumplimiento` fifth term is added in slice 6a (AD-11), additively.
+- `desglose` (AD-14, née `ScoreDetallado`) carries the five normalized [0,1] terms behind
+  `score`, including `cumplimiento` (AD-11, slice 6a) — a plain passthrough of the candidate's
+  smoothed rate, already computed server-side.
+- `desglose`/`score` are computed from `Pesos.Normalizados()`: every weight (present or
+  defaulted) is divided by the sum of all five, so a request's weights need not sum to 1 and
+  configuring `cumplimiento: 0` reproduces the pre-6a four-term formula exactly.
+  `assign.PesosPorDefecto` is now `{deficit: 0.30, urgencia: 0.25, proximidad: 0.17, espera: 0.13,
+  cumplimiento: 0.15}` (previously `{0.35, 0.30, 0.20, 0.15}` with no compliance term).
 - `deficitFuente` is one of `PROVISTO | RADIO | CERCANO | NEUTRAL` (AD-2) — which rule resolved
   this candidate's coverage deficit. Until the INDEC population CSV is mounted (`POBLACION_CSV`),
   every candidate resolves to `NEUTRAL` — a known, documented limitation, not a bug.
 - `sinAsignar` always lists every unmatched donación id explicitly — never omitted.
 - `pesos`/`parametros` echo back the values actually applied (defaults merged with any request
-  override), for explainability/audit.
+  override), for explainability/audit. `parametros.cumplimientoPseudoObs` is new in slice 6a.
 
 ## Response — 400 / 413
 
