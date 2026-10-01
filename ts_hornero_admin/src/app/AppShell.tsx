@@ -28,6 +28,7 @@ const NAV_LINKS: Record<UserRole, NavItem[]> = {
     { to: '/control-donaciones', label: 'Donaciones', icon: <Gift size={ICON_SIZE} /> },
     { to: '/auditoria', label: 'Auditoría', icon: <ClipboardTick size={ICON_SIZE} /> },
     { to: '/rondas', label: 'Rondas', icon: <Refresh2 size={ICON_SIZE} /> },
+    { to: '/catalogo', label: 'Catálogo', icon: <Box size={ICON_SIZE} /> },
   ],
   REFERENTE: [
     { to: '/dashboard', label: 'Dashboard', icon: <Grid1 size={ICON_SIZE} /> },

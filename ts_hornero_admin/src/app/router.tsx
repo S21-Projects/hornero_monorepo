@@ -26,6 +26,7 @@ import LegajoPage from '../routes/legajo';
 import EntregaPage from '../routes/entrega';
 import AuditoriaPage from '../routes/auditoria';
 import RondasPage from '../routes/rondas';
+import CatalogoPage from '../routes/catalogo';
 
 export const router = createBrowserRouter([
   // ── Public-only routes (redirect away when authenticated) ──────────────
@@ -99,6 +100,7 @@ export const router = createBrowserRouter([
           { path: '/control-donaciones', element: <ControlDonacionesPage /> },
           { path: '/auditoria', element: <AuditoriaPage /> },
           { path: '/rondas', element: <RondasPage /> },
+          { path: '/catalogo', element: <CatalogoPage /> },
         ],
       },
     ],
