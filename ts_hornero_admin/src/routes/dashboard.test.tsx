@@ -132,4 +132,27 @@ describe('DashboardPage', () => {
     const link = screen.getByRole('link', { name: /confirmar entrega/i });
     expect(link).toHaveAttribute('href', '/donaciones/3/entrega');
   });
+
+  // T4 — fondo común offers pending decision show a badge and a rejection notice next to Rechazar.
+  it('shows a "Fondo común" badge and a rejection notice for a pending donación with modalidad FONDO_COMUN', () => {
+    mockOrganizacion([organizacion]);
+    mockNecesidades(necesidades);
+    mockDonaciones([{ id: 4, estado: 'OFRECIDA', necesidadId: 1, organizacionId: 7, modalidad: 'FONDO_COMUN' }]);
+
+    render(<MemoryRouter><DashboardPage /></MemoryRouter>);
+
+    expect(screen.getByText('Fondo común')).toBeInTheDocument();
+    expect(screen.getByText(/vuelve al fondo común y no se le volverá a ofrecer a esta organización/i)).toBeInTheDocument();
+  });
+
+  it('does not show the fondo común badge or notice for a pending donación with modalidad DIRECTA', () => {
+    mockOrganizacion([organizacion]);
+    mockNecesidades(necesidades);
+    mockDonaciones([{ id: 5, estado: 'OFRECIDA', necesidadId: 1, organizacionId: 7, modalidad: 'DIRECTA' }]);
+
+    render(<MemoryRouter><DashboardPage /></MemoryRouter>);
+
+    expect(screen.queryByText('Fondo común')).not.toBeInTheDocument();
+    expect(screen.queryByText(/vuelve al fondo común/i)).not.toBeInTheDocument();
+  });
 });
