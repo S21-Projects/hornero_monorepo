@@ -40,3 +40,5 @@ app:
     generar-max: 5
     generar-window-minutes: 15
     generar-cooldown-seconds: 30
+  worker:
+    url: ""
