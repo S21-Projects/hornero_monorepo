@@ -3,8 +3,11 @@ package org.example.donacion;
 import lombok.RequiredArgsConstructor;
 import org.example.auth.VerificacionService;
 import org.example.config.EsquemaVerificador;
+import org.example.domain.Asignacion;
+import org.example.domain.AsignacionRepository;
 import org.example.domain.Donacion;
 import org.example.domain.DonacionRepository;
+import org.example.domain.EstadoAsignacion;
 import org.example.domain.EstadoDonacion;
 import org.example.domain.ModalidadDonacion;
 import org.example.domain.Necesidad;
@@ -39,6 +42,7 @@ public class DonacionService {
     private final OrganizacionRepository organizacionRepository;
     private final VerificacionService verificacionService;
     private final EsquemaVerificador esquemaVerificador;
+    private final AsignacionRepository asignacionRepository;
 
     public Page<DonacionResponse> findAll(Pageable pageable) {
         return donacionRepository.findAllWithDonante(pageable)
@@ -163,9 +167,8 @@ public class DonacionService {
 
         // AD-3 devolución al fondo: a FONDO_COMUN rejection is NOT a state change to RECHAZADA
         // (OFRECIDA -> OFRECIDA per the AD-5 table) — it only clears the vigente `necesidad`, so the
-        // donación becomes eligible for the next ronda again. `Asignacion` bookkeeping (marking the
-        // prior assignment RECHAZADA, excluding the org from future rondas) is deferred to slice 5c,
-        // which is when `Asignacion` first exists.
+        // donación becomes eligible for the next ronda again. The prior `Asignacion` resolves to
+        // RECHAZADA (slice 5c-ii), excluding the org from future rondas for this donación (AD-9).
         if (nuevoEstado == EstadoDonacion.RECHAZADA
                 && d.getModalidadEfectiva() == ModalidadDonacion.FONDO_COMUN) {
             if (d.getEstado() != EstadoDonacion.OFRECIDA || d.getNecesidad() == null) {
@@ -176,12 +179,18 @@ public class DonacionService {
             // `necesidad.getDonaciones()` — that collection is `orphanRemoval = true` and doing so
             // would delete this donación row on flush.
             d.setNecesidad(null);
-            return toResponse(donacionRepository.save(d));
+            DonacionResponse response = toResponse(donacionRepository.save(d));
+            resolverAsignacionVigente(id, EstadoAsignacion.RECHAZADA);
+            return response;
         }
 
         TransicionesDonacion.validar(d.getEstado(), nuevoEstado);
         d.setEstado(nuevoEstado);
-        return toResponse(donacionRepository.save(d));
+        DonacionResponse response = toResponse(donacionRepository.save(d));
+        if (nuevoEstado == EstadoDonacion.ACEPTADA) {
+            resolverAsignacionVigente(id, EstadoAsignacion.ACEPTADA);
+        }
+        return response;
     }
 
     @Transactional
@@ -197,7 +206,11 @@ public class DonacionService {
         }
         TransicionesDonacion.validar(d.getEstado(), nuevoEstado);
         d.setEstado(nuevoEstado);
-        return toResponse(donacionRepository.save(d));
+        DonacionResponse response = toResponse(donacionRepository.save(d));
+        if (nuevoEstado == EstadoDonacion.CANCELADA) {
+            resolverAsignacionVigente(id, EstadoAsignacion.CANCELADA);
+        }
+        return response;
     }
 
     @Transactional
@@ -237,7 +250,28 @@ public class DonacionService {
         d.setOverrideAdminId(adminId);
         d.setOverrideEn(Instant.now());
 
-        return toResponse(donacionRepository.save(d));
+        DonacionResponse response = toResponse(donacionRepository.save(d));
+        if (nuevoEstado == EstadoDonacion.ACEPTADA
+                || nuevoEstado == EstadoDonacion.RECHAZADA
+                || nuevoEstado == EstadoDonacion.CANCELADA) {
+            resolverAsignacionVigente(id, EstadoAsignacion.valueOf(nuevoEstado.name()));
+        }
+        return response;
+    }
+
+    /**
+     * Resolves the vigente (still-{@code PROPUESTA}) {@link Asignacion} for a donación to the
+     * matching terminal {@link EstadoAsignacion} — AD-3/AD-9, slice 5c-ii. A no-op for a
+     * {@code DIRECTA} donación or any donación the worker never assigned (no {@code PROPUESTA} row).
+     */
+    private void resolverAsignacionVigente(Long donacionId, EstadoAsignacion destino) {
+        asignacionRepository
+                .findFirstByDonacion_IdAndEstadoOrderByCreadaEnDesc(donacionId, EstadoAsignacion.PROPUESTA)
+                .ifPresent(asignacion -> {
+                    asignacion.setEstado(destino);
+                    asignacion.setResueltaEn(Instant.now());
+                    asignacionRepository.save(asignacion);
+                });
     }
 
     @Transactional
