@@ -9,6 +9,32 @@ Rama activa: `feat/acreditacion-trazabilidad` (creada desde `feat/ui-updates`)
 
 ---
 
+## 0. Estado actual (actualizado 2026-10-01)
+
+Las secciones siguientes (1-8) quedaron como registro histórico de la sesión en la que se
+escribieron y no se reescriben retroactivamente. Estado real a la fecha de esta actualización:
+
+- **Pilar de acreditación progresiva** (`acreditacion-progresiva`): completado e implementado;
+  el cambio SDD quedó archivado (`openspec/changes/archive/2026-09-21-acreditacion-progresiva/`).
+  Los dos ítems diferidos de la sección 8 de este documento (categoría de alimento en el MS, y el
+  endpoint de imágenes filtrando evidencias) están resueltos: `Necesidad.categoria` existe y el
+  acceso a archivos de evidencia está atado a una fila de `OrganizacionEvidencia` (AD-12 de
+  `openspec/changes/tesis-core-features/design.md`).
+- **Pilar de asignación priorizada y trazabilidad** (`tesis-core-features`): slices 1 a 6b
+  implementados y verificados (ver `openspec/changes/tesis-core-features/apply-progress.md`).
+  El motor de asignación corre como worker HTTP interno, la ronda se dispara manualmente por un
+  administrador, y la entrega se valida con el código de un solo uso (QR + ingreso manual). La
+  limitación operativa que sigue abierta es el CSV poblacional del INDEC, sin el cual el término
+  de déficit resuelve a un valor neutro constante (ver `documento.md`, sección 8.4).
+- **Documento de tesis** (`docs/tesis/documento.md`) y sus diagramas: actualizados en esta misma
+  revisión (slice 7 de `tesis-core-features`) para describir el sistema ya implementado en lugar
+  del comprometido; ya no quedan afirmaciones de "no implementado" sobre el fondo común o la
+  entrega con código de un solo uso.
+- Pregunta abierta #3 de la sección 6 (población por radio censal) sigue sin resolver: es la
+  limitación operativa nombrada arriba, no una pregunta de diseño.
+
+---
+
 ## 1. Configuración de sesión SDD
 
 Respuestas del preflight, para repetirlas igual al reiniciar:
