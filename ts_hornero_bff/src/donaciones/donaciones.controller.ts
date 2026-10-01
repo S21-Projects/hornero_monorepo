@@ -209,4 +209,14 @@ export class DonacionesController {
   eliminar(@Param('id', ParseIntPipe) id: number, @Req() req: Request) {
     return this.donacionesService.eliminar(id, this.getToken(req));
   }
+
+  @Roles(Role.DONANTE, Role.REFERENTE, Role.ADMINISTRADOR)
+  @Get(':id/asignaciones')
+  @ApiOperation({
+    summary:
+      'Assignment history for a donation (owner donante, involved referente, admin)',
+  })
+  asignaciones(@Param('id', ParseIntPipe) id: number, @Req() req: Request) {
+    return this.donacionesService.asignaciones(id, this.getToken(req));
+  }
 }

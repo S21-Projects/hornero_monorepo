@@ -146,6 +146,14 @@ export class DonacionesService {
     return data;
   }
 
+  async asignaciones(id: number, accessToken: string) {
+    const { data } = await this.httpService.axiosRef.get(
+      `${this.msUrl}/api/donaciones/${id}/asignaciones`,
+      { headers: this.authHeaders(accessToken) },
+    );
+    return data;
+  }
+
   async findActivas(
     accessToken: string,
     page?: string,
