@@ -34,8 +34,9 @@ came from the fondo común, admin cannot see modalidad, onboarding counter missi
       QR both sides, ENTREGADA, audit queue, evidence file. Route: inline. Fixes 541f94d, 46bb931.
       Audit queue: admin 200 (PENDIENTES/VENCIDAS/nivel filter), donante 403, anonymous 401.
       Evidence files: own missing 404, other org 403, donante 403, public /images with evidence key 403.
-- [ ] T2 Docs: CLAUDE.md (worker service, :8090 internal, new flows) + docs/deploy-rpi-cloudflare.md
-      (worker container, POBLACION_CSV). Route: inline (2 doc files, mechanical).
+- [x] T2 Docs: CLAUDE.md (worker in the service chain, Go commands, make backup/migrate,
+      scripts/sql) + docs/deploy-rpi-cloudflare.md (make migrate, develop branch, 6 services, worker
+      healthcheck, POBLACION_CSV, removed stale make start-local note). Route: inline.
 - [x] T3 Makefile `backup` + `migrate` targets (backup, then every scripts/sql/V*.sql in order; `ENV_FILE=.env.local` for local). Verified against the local stack; backups/ gitignored. Route: inline.
 - [ ] T4 Referente dashboard: fondo común badge on assigned pool offers + notice that rejecting
       returns it to the pool. Route: delegated (admin, tests).

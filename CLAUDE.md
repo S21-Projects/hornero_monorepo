@@ -15,7 +15,13 @@ Browser → ts_hornero_astro :4321 (Astro SSR — public/anonymous site)
         → ts_hornero_bff   :3001 (NestJS BFF — auth proxy + aggregation)
         → jar_hornero_ms   :8081 (Spring Boot — domain logic, JWT issuer)
         → PostgreSQL       :5432
+jar_hornero_ms → go_algorithms_worker :8090 (Go — donation assignment rondas; internal only,
+                 no host port; the MS calls it over HTTP at WORKER_URL=http://worker:8090)
 ```
+
+The worker is only called when an ADMINISTRADOR triggers a ronda (`POST /api/rondas`); the MS
+starts and serves everything else when it is down (the ronda answers 503). Its `metrics` and
+`assign` CLI subcommands still exist for offline batch runs.
 
 `ts_hornero_app` (the original Next.js frontend) is **deprecated**: code is still in the repo
 but unreferenced by the Makefile and `docker-compose.yml`. Do not build on it; new frontend work
@@ -35,6 +41,9 @@ make up              # prod-parity: full stack in Docker incl. Postgres, uses ro
 make up-local        # fast local: dummy secrets + local MinIO instead of R2, uses .env.local
 make down             # stop docker; `docker compose down -v` to also drop the DB volume
 make seed             # run scripts/seed.ts against the BFF (creates seed users/orgs)
+make backup           # gzipped pg_dump of the running postgres into backups/ (gitignored)
+make migrate          # backup, then apply every scripts/sql/V*.sql in order (idempotent);
+                      # add ENV_FILE=.env.local for the local stack, restart ms afterwards
 ```
 
 In production, the Pi runs `docker compose up --build -d` directly, not through the Makefile
@@ -67,6 +76,11 @@ npm run dev
 npm run build           # tsc -b && vite build
 npm run lint
 npm test                # vitest run
+
+# go_algorithms_worker  (Go)
+go test ./...
+go vet ./...
+go run . serve --addr :8090 --data data/renacom.csv   # the HTTP mode compose runs
 ```
 
 There is no root-level aggregate lint/test command — run them per service.
@@ -154,6 +168,9 @@ R2 (it only has a microSD, so images stay off-device).
 - `claude_design/` — standalone JSX/CSS design mockups (a design system canvas), **not** wired into
   the running app; reference only.
 - `scripts/seed.ts` — DB seeding run via `make seed` (invoked from `ts_hornero_bff`).
+- `scripts/sql/` — hand-written, idempotent schema scripts for changes `ddl-auto=update` cannot
+  make (relaxing NOT NULL, widening enum CHECK constraints). Applied with `make migrate`; see
+  `scripts/sql/README.md`. The MS `EsquemaVerificador` reports a pending script at startup.
 - `.env.example` — template for the root `.env` (prod-parity, `make up`), the single source of
   truth for every service. `.env.local.example` — template for `.env.local` (`make up-local`,
   dummy secrets + local MinIO, never touches the real bucket).
