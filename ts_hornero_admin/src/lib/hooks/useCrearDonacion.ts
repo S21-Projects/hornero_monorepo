@@ -5,6 +5,8 @@ import type { Donacion, CrearDonacionInput } from '../../types/domain';
 export function useCrearDonacion() {
   const queryClient = useQueryClient();
 
+  // `CrearDonacionInput` is a union (DIRECTA vs FONDO_COMUN, `specs/donacion-fondo-comun`); the
+  // BFF's `CrearDonacionDto` accepts the same body shape for both via `modalidad`.
   return useMutation<Donacion, Error, CrearDonacionInput>({
     mutationFn: (input) =>
       api.post<Donacion>('/donaciones', input).then((r) => r.data),
