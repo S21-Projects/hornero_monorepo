@@ -25,6 +25,8 @@ import org.example.domain.NivelAcreditacion;
 import org.example.domain.Organizacion;
 import org.example.domain.Ronda;
 import org.example.domain.RondaRepository;
+import org.example.user.Usuario;
+import org.example.user.UsuarioRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
@@ -63,6 +65,7 @@ public class RondaService {
     private final RondaRepository rondaRepository;
     private final EntradaRondaFactory entradaRondaFactory;
     private final AsignadorClient asignadorClient;
+    private final UsuarioRepository usuarioRepository;
     private final Clock clock;
     private final TransactionTemplate transactionTemplate;
     private final ReentrantLock lock = new ReentrantLock();
@@ -73,6 +76,7 @@ public class RondaService {
                          RondaRepository rondaRepository,
                          EntradaRondaFactory entradaRondaFactory,
                          AsignadorClient asignadorClient,
+                         UsuarioRepository usuarioRepository,
                          Clock clock,
                          PlatformTransactionManager transactionManager) {
         this.donacionRepository = donacionRepository;
@@ -81,6 +85,7 @@ public class RondaService {
         this.rondaRepository = rondaRepository;
         this.entradaRondaFactory = entradaRondaFactory;
         this.asignadorClient = asignadorClient;
+        this.usuarioRepository = usuarioRepository;
         this.clock = clock;
         this.transactionTemplate = new TransactionTemplate(transactionManager);
     }
@@ -138,8 +143,11 @@ public class RondaService {
     }
 
     public RondaResponse toResponse(Ronda r) {
+        String ejecutadaPorNombre = r.getEjecutadaPor() != null
+                ? usuarioRepository.findById(r.getEjecutadaPor()).map(Usuario::getNombre).orElse(null)
+                : null;
         return new RondaResponse(
-                r.getId(), r.getEjecutadaEn(), r.getFinalizadaEn(), r.getEjecutadaPor(),
+                r.getId(), r.getEjecutadaEn(), r.getFinalizadaEn(), r.getEjecutadaPor(), ejecutadaPorNombre,
                 r.getEstado().name(), r.getError(), r.getVersionContrato(),
                 r.getDonacionesConsideradas(), r.getCandidatosConsiderados(),
                 r.getAsignadas(), r.getSinAsignar(), r.getDescartadas(), r.getScoreTotal(),
