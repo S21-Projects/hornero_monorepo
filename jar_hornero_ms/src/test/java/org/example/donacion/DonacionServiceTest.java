@@ -2,9 +2,12 @@ package org.example.donacion;
 
 import org.example.auth.VerificacionService;
 import org.example.config.EsquemaVerificador;
+import org.example.domain.Asignacion;
+import org.example.domain.AsignacionRepository;
 import org.example.domain.CategoriaAlimento;
 import org.example.domain.Donacion;
 import org.example.domain.DonacionRepository;
+import org.example.domain.EstadoAsignacion;
 import org.example.domain.EstadoDonacion;
 import org.example.domain.ModalidadDonacion;
 import org.example.domain.Necesidad;
@@ -57,6 +60,9 @@ class DonacionServiceTest {
     @Mock
     private EsquemaVerificador esquemaVerificador;
 
+    @Mock
+    private AsignacionRepository asignacionRepository;
+
     @InjectMocks
     private DonacionService donacionService;
 
@@ -91,6 +97,15 @@ class DonacionServiceTest {
         d.setDonante(donante);
         d.setNecesidad(necesidad);
         return d;
+    }
+
+    /** A vigente (PROPUESTA) {@code Asignacion} row for 5c-ii's accept/devolución/cancel/override
+     * resolution tests (AD-3). */
+    private Asignacion asignacionVigente() {
+        Asignacion a = new Asignacion();
+        a.setId(500L);
+        a.setEstado(EstadoAsignacion.PROPUESTA);
+        return a;
     }
 
     // --- findDeMisOrganizaciones ---
@@ -210,6 +225,37 @@ class DonacionServiceTest {
     }
 
     @Test
+    void decidir_ofrecidaToAceptada_resuelveAsignacionVigenteComoAceptada() {
+        // 5c-ii / AD-3: accepting a FONDO_COMUN donación's offer resolves the ronda's PROPUESTA
+        // Asignacion row to ACEPTADA, replacing 5b.12's no-op stub.
+        Donacion d = donacionFor(1L, miOrganizacion);
+        Asignacion vigente = asignacionVigente();
+        when(donacionRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(d));
+        when(donacionRepository.save(any(Donacion.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(asignacionRepository.findFirstByDonacion_IdAndEstadoOrderByCreadaEnDesc(1L, EstadoAsignacion.PROPUESTA))
+                .thenReturn(Optional.of(vigente));
+
+        donacionService.decidir(1L, EstadoDonacion.ACEPTADA, 1L);
+
+        assertThat(vigente.getEstado()).isEqualTo(EstadoAsignacion.ACEPTADA);
+        assertThat(vigente.getResueltaEn()).isNotNull();
+        verify(asignacionRepository).save(vigente);
+    }
+
+    @Test
+    void decidir_ofrecidaToAceptada_sinAsignacionVigente_noLanzaYNoGuardaNada() {
+        // A DIRECTA donación (or a FONDO_COMUN donación with no PROPUESTA row) has nothing to
+        // resolve — this must stay a silent no-op, not an error.
+        Donacion d = donacionFor(1L, miOrganizacion);
+        when(donacionRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(d));
+        when(donacionRepository.save(any(Donacion.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        donacionService.decidir(1L, EstadoDonacion.ACEPTADA, 1L);
+
+        verify(asignacionRepository, org.mockito.Mockito.never()).save(any(Asignacion.class));
+    }
+
+    @Test
     void decidir_ofrecidaToRechazada_succeeds() {
         Donacion d = donacionFor(1L, miOrganizacion);
         when(donacionRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(d));
@@ -274,6 +320,24 @@ class DonacionServiceTest {
         DonacionResponse response = donacionService.actualizarEstado(1L, EstadoDonacion.CANCELADA, 2L);
 
         assertThat(response.estado()).isEqualTo("CANCELADA");
+    }
+
+    @Test
+    void actualizarEstado_cancelada_resuelveAsignacionVigenteComoCancelada() {
+        // 5c-ii / AD-3: a donante cancelling an offer resolves the ronda's PROPUESTA Asignacion row
+        // to CANCELADA.
+        Donacion d = donacionFor(1L, miOrganizacion);
+        Asignacion vigente = asignacionVigente();
+        when(donacionRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(d));
+        when(donacionRepository.save(any(Donacion.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(asignacionRepository.findFirstByDonacion_IdAndEstadoOrderByCreadaEnDesc(1L, EstadoAsignacion.PROPUESTA))
+                .thenReturn(Optional.of(vigente));
+
+        donacionService.actualizarEstado(1L, EstadoDonacion.CANCELADA, 2L);
+
+        assertThat(vigente.getEstado()).isEqualTo(EstadoAsignacion.CANCELADA);
+        assertThat(vigente.getResueltaEn()).isNotNull();
+        verify(asignacionRepository).save(vigente);
     }
 
     @Test
@@ -438,6 +502,39 @@ class DonacionServiceTest {
         assertThat(d.getOverrideMotivo()).isEqualTo("Donante inalcanzable");
         assertThat(d.getOverrideAdminId()).isEqualTo(42L);
         assertThat(d.getOverrideEn()).isNotNull();
+    }
+
+    @Test
+    void overrideEstado_haciaCancelada_resuelveAsignacionVigenteComoCancelada() {
+        // 5c-ii / AD-3: an admin override to ACEPTADA/RECHAZADA/CANCELADA resolves the vigente
+        // Asignacion the same way the ordinary accept/devolución/cancel paths do.
+        Donacion d = donacionFor(1L, miOrganizacion);
+        d.setEstado(EstadoDonacion.ACEPTADA);
+        Asignacion vigente = asignacionVigente();
+        when(donacionRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(d));
+        when(donacionRepository.save(any(Donacion.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(asignacionRepository.findFirstByDonacion_IdAndEstadoOrderByCreadaEnDesc(1L, EstadoAsignacion.PROPUESTA))
+                .thenReturn(Optional.of(vigente));
+
+        donacionService.overrideEstado(1L, EstadoDonacion.CANCELADA, "Donante inalcanzable", 42L);
+
+        assertThat(vigente.getEstado()).isEqualTo(EstadoAsignacion.CANCELADA);
+        assertThat(vigente.getResueltaEn()).isNotNull();
+    }
+
+    @Test
+    void overrideEstado_haciaEntregada_noResuelveAsignacion_noEsUnEstadoDeAsignacion() {
+        // ENTREGADA (and EN_CAMINO / PENDIENTE_CONFIRMACION) have no matching EstadoAsignacion —
+        // overriding into one of them must not touch the Asignacion history at all.
+        Donacion d = donacionFor(1L, miOrganizacion);
+        d.setEstado(EstadoDonacion.PENDIENTE_CONFIRMACION);
+        when(donacionRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(d));
+        when(donacionRepository.save(any(Donacion.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        donacionService.overrideEstado(1L, EstadoDonacion.ENTREGADA, "Entrega verificada por soporte", 42L);
+
+        verify(asignacionRepository, org.mockito.Mockito.never())
+                .findFirstByDonacion_IdAndEstadoOrderByCreadaEnDesc(any(), any());
     }
 
     // ─── findActivas ───────────────────────────────────────────────────────
@@ -681,6 +778,28 @@ class DonacionServiceTest {
         assertThat(response.estado()).isEqualTo("OFRECIDA");
         assertThat(response.necesidadId()).isNull();
         assertThat(d.getNecesidad()).isNull();
+    }
+
+    @Test
+    void decidir_fondoComunAsignada_rechazada_resuelveAsignacionVigenteComoRechazada() {
+        // 5c-ii / AD-3: a devolución al fondo resolves the ronda's PROPUESTA Asignacion row to
+        // RECHAZADA, which is also what excludes this organización from a later ronda for this
+        // donación (AsignacionRepository.findOrganizacionIdsByDonacionIdAndEstado).
+        Donacion d = donacionFor(1L, miOrganizacion);
+        d.setModalidad(ModalidadDonacion.FONDO_COMUN);
+        Necesidad necesidadAsignada = d.getNecesidad();
+        necesidadAsignada.getDonaciones().add(d);
+        Asignacion vigente = asignacionVigente();
+        when(donacionRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(d));
+        when(donacionRepository.save(any(Donacion.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(asignacionRepository.findFirstByDonacion_IdAndEstadoOrderByCreadaEnDesc(1L, EstadoAsignacion.PROPUESTA))
+                .thenReturn(Optional.of(vigente));
+
+        donacionService.decidir(1L, EstadoDonacion.RECHAZADA, 1L);
+
+        assertThat(vigente.getEstado()).isEqualTo(EstadoAsignacion.RECHAZADA);
+        assertThat(vigente.getResueltaEn()).isNotNull();
+        verify(asignacionRepository).save(vigente);
     }
 
     @Test

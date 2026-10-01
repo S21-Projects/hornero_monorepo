@@ -46,7 +46,18 @@ Engram mirror: `sdd/tesis-core-features/apply-progress`.
   null-safety; DTO/service wiring), see "Completed Tasks (Slice 5b)" /
   "Review Workload / Size (slice 5b)" below. Full MS suite 366/366 passing, on branch
   `feat/tesis-core-features-05b-pool-schema`, NOT yet committed.
-- Slices 5c-7: not started.
+- **Slice 5c-i — Asignación persistence + RondaService core (MS). DONE (8/8: 5c.1-5c.8),
+  2026-09-30, COMMITTED (`f8de064..5f05662`).** ≈1587 authored changed lines — proposed as 4
+  natural-seam commits (seam 4 flagged `size:exception`). Full MS suite 388/388 passing at the
+  time. See "Slice 5c-i" section below for full detail.
+- **Slice 5c-ii — Worker HTTP client + controllers + security + DonacionService vigente-asignación
+  resolution (MS). DONE (12/12: 5c.9-5c.20), 2026-10-01, resumed from a stalled prior batch, NOT
+  yet committed.** ≈1031 authored changed lines across 3 proposed commit seams (none individually
+  needs `size:exception`). Only 5c.12/5c.17 (the `DonacionService` resolution) had true observed
+  RED→GREEN this session; the rest was reviewed-complete from the stalled batch (RED not
+  re-observed). Full MS suite **419/419 passing, 0 failures, 0 errors, BUILD SUCCESS**. See "Slice
+  5c-ii" section below for full detail.
+- Slices 5d-7: not started.
 
 ## Completed Tasks (Slice 1)
 
@@ -853,6 +864,18 @@ and `feat(ms): add mutual delivery-code confirmation backend` (slice 3a).
   (see "Review Workload / Size (slice 5a)" below), each independently green and in the required
   dependency order (assign penalty → geo resolver → wire contract → HTTP handler/serve → compose
   and docs).
+- Slice 5b: **not yet decided by the user** — ≈1104 authored changed lines, over the 400-line
+  budget. Recommending the 4-commit natural-seam split (see "Completed Tasks (Slice 5b)" /
+  "Review Workload / Size (slice 5b)" below), seam 4 flagged `size:exception`.
+- Slice 5c-i: **not yet decided by the user at the time it was authored — now COMMITTED**
+  (`f8de064..5f05662`), so this decision is moot for 5c-i itself; recorded for history: ≈1587
+  authored changed lines, recommended 4-commit natural-seam split with seam 4 (`RondaService` +
+  its test, ≈795 lines) flagged `size:exception` since the service and its test verify one
+  indivisible AD-9 algorithm.
+- Slice 5c-ii: **not yet decided by the user** — ≈1031 authored changed lines, over the 400-line
+  budget. Recommending the 3-commit natural-seam split above ("Proposed commit seams (5c-ii)"),
+  none of which individually needs `size:exception` — each seam stays near or under 400 lines and
+  is independently green.
 
 ## Completed Tasks (Slice 4b — Cross-org audit queue screen, admin, 2026-09-30)
 
@@ -1552,3 +1575,161 @@ review correlation, and splitting the algorithm's steps across commits would lea
 commits non-compiling or behaviorally incomplete.
 
 - Slice 5c-i orchestrator check (2026-09-30): RondaService tests were written together with the code (no observed RED). Mutation check: removing the N0 exclusion fails RondaServiceTest (covered); removing the write-time "already assigned" guard was NOT caught -> added `donationAlreadyAssignedAtWriteTimeIsCountedAsDescartadaNotReassigned`, observed RED against the mutant (1 failure) and GREEN against the real code (12/12).
+
+## Slice 5c-ii — Worker client + controllers + security (MS) — resumed batch, 2026-10-01
+
+Scope: `AsignadorClient`'s real HTTP implementation, `RondaController`, `AsignacionController`,
+`SecurityConfig` wiring for `/api/rondas/**` and `/api/donaciones/*/asignaciones`, and
+`DonacionService`'s vigente-asignación resolution (replacing 5b.12's no-op stub). 5c-i (committed
+`f8de064..5f05662`) provided the `AsignadorClient` interface, worker contract v1 DTOs, and the
+`Ronda`/`Asignacion` domain model this slice builds on.
+
+**Reconciliation of a stalled prior batch**: this apply picked up with most of 5c-ii's production
+code and tests already written but uncommitted, and none of 5c.9–5c.20 marked `[x]`. Compiled
+(`mvn test-compile` — clean), then reviewed and ran each partial file's test class individually
+before marking anything done:
+
+- `HttpAsignadorClientTest` (5c.9/5c.13/5c.14) — reviewed against the RED criteria (golden
+  request/response fidelity, timeout constants, blank-URL fallback, down/malformed/4xx → 503/502
+  mapping) and found complete. Ran standalone: **7/7 pass**.
+- `RondaControllerTest` (5c.10/5c.15) — reviewed (admin-only at every verb, 403 for
+  REFERENTE/DONANTE, 401/403 anonymous) and found complete. Ran standalone: **9/9 pass**.
+- `AsignacionControllerTest` (5c.11/5c.16) — reviewed (owning donante, involved referente, admin
+  succeed; unrelated actor forbidden) and found complete. Ran standalone: **5/5 pass**.
+- `SecurityConfig`, `application.yml`×2, `docker-compose.yml` (5c.18/5c.19) — reviewed, matches the
+  task spec exactly (matchers declared before the broad permitAll GET blocks; `WORKER_URL` env var
+  wired through).
+- `AsignadorNoConfiguradoClient`/`AsignadorConfig` (5c.20) — reviewed: the placeholder `@Component`
+  from 5c-i was correctly removed and replaced by `AsignadorConfig`'s conditional bean (blank URL →
+  `AsignadorNoConfiguradoClient`, else `HttpAsignadorClient`).
+- **`DonacionService`'s vigente-asignación resolution (5c.12/5c.17) was genuinely not started** —
+  this is the piece a previous agent stalled before writing. Implemented in this session with true
+  observed RED→GREEN (see below).
+
+**RED not re-observed (resumed batch)**: for 5c.9–5c.11, 5c.13–5c.16, 5c.18–5c.20, the
+implementation and its test were already written and passing when this batch resumed — this
+session could not honestly observe a RED state for that already-complete work, only confirm GREEN
+and review the code against the task's stated acceptance criteria. Recorded per-task above instead
+of silently claiming a fresh TDD cycle.
+
+### 5c.12/5c.17 — DonacionService vigente-asignación resolution (true RED→GREEN, this session)
+
+**What was built**:
+- `AsignacionRepository.findFirstByDonacion_IdAndEstadoOrderByCreadaEnDesc(donacionId, estado)` —
+  finds the vigente (still-`PROPUESTA`) assignment for a donación, if any.
+- `DonacionService.resolverAsignacionVigente(donacionId, destino)` (private helper): looks up the
+  vigente `PROPUESTA` assignment and, if present, sets its `estado` to `destino` and `resueltaEn` to
+  `Instant.now()`, then saves it. A no-op (no exception) when there is no vigente assignment —
+  covers `DIRECTA` donations and any `FONDO_COMUN` donación the worker never assigned.
+- Wired into `DonacionService`:
+  - `decidir` ACEPTADA → `resolverAsignacionVigente(id, ACEPTADA)`.
+  - `decidir` RECHAZADA on a `FONDO_COMUN` donación (the devolución-al-fondo branch) →
+    `resolverAsignacionVigente(id, RECHAZADA)`.
+  - `actualizarEstado` CANCELADA (donante cancel) → `resolverAsignacionVigente(id, CANCELADA)`.
+  - `overrideEstado` → `resolverAsignacionVigente(id, EstadoAsignacion.valueOf(nuevoEstado.name()))`
+    only when `nuevoEstado` is `ACEPTADA`/`RECHAZADA`/`CANCELADA` — `ENTREGADA`, `EN_CAMINO`, and
+    `PENDIENTE_CONFIRMACION` have no matching `EstadoAsignacion` and are left untouched.
+
+**TDD Cycle Evidence**:
+
+| Test | RED (before 5c.17) | GREEN (after 5c.17) |
+|---|---|---|
+| `decidir_ofrecidaToAceptada_resuelveAsignacionVigenteComoAceptada` | `NullPointerException` — no `asignacionRepository` field on `DonacionService` | Pass |
+| `decidir_ofrecidaToAceptada_sinAsignacionVigente_noLanzaYNoGuardaNada` | Same NPE (whole test class failed to construct `DonacionService` via `@InjectMocks` once the mock field was added, before the production field existed) | Pass |
+| `decidir_fondoComunAsignada_rechazada_resuelveAsignacionVigenteComoRechazada` | Same NPE | Pass |
+| `actualizarEstado_cancelada_resuelveAsignacionVigenteComoCancelada` | Same NPE | Pass |
+| `overrideEstado_haciaCancelada_resuelveAsignacionVigenteComoCancelada` | Same NPE | Pass |
+| `overrideEstado_haciaEntregada_noResuelveAsignacion_noEsUnEstadoDeAsignacion` | Same NPE | Pass |
+
+Sequencing actually observed: added the `@Mock AsignacionRepository asignacionRepository` field to
+`DonacionServiceTest` first (needed so `@InjectMocks` could resolve `DonacionService`'s new
+constructor parameter) — at that intermediate point the *existing* 48 tests still passed (the mock
+defaults to `Optional.empty()` for the unstubbed method, so `resolverAsignacionVigente`'s
+`ifPresent` was a no-op everywhere). Then added the 6 new tests above with explicit
+`when(asignacionRepository.findFirstByDonacion_IdAndEstadoOrderByCreadaEnDesc(...))` stubs — these
+6 failed with the `NullPointerException` shown (the production field/method didn't exist yet).
+Implemented `AsignacionRepository`'s new method, `DonacionService`'s field and
+`resolverAsignacionVigente` helper, and the four call sites — all 6 new tests passed, and the full
+`DonacionServiceTest` class stayed green (54/54).
+
+### Work Unit Evidence (5c.12/5c.17 — this session's actual new work)
+
+| Evidence | Value |
+|---|---|
+| Focused test command and result | `mvn test -Dtest=DonacionServiceTest` → **54/54 pass**, 0 failures, 0 errors |
+| Runtime harness | N/A — pure unit-level Mockito test; the closest runtime check is the full `mvn test` run below, which proves `AsignacionRepository`'s new query method compiles against the real JPA model and the full context boots |
+| Rollback boundary | Additive: one new repository method, one new private helper, and four call sites inside existing `DonacionService` methods (`decidir`, `actualizarEstado`, `overrideEstado`) — no existing method signature changed. Reverting restores 5b.12's no-op behavior exactly |
+
+### 5c-ii — full verification (this session)
+
+- `mvn test -Dtest=HttpAsignadorClientTest,RondaControllerTest,AsignacionControllerTest,DonacionServiceTest`
+  → all green (per-class counts above).
+- **Full `mvn test` → 419/419 pass, 0 failures, 0 errors, BUILD SUCCESS.**
+
+### Proposed commit seams (5c-ii, not yet committed — size policy: ≈1031 authored changed lines)
+
+1. `feat(ms): call the worker over HTTP` (≈320 lines) — `asignacion/worker/HttpAsignadorClient.java`,
+   `AsignadorConfig.java`, `asignacion/worker/dto/CandidatoEntradaV1.java` (`@JsonInclude` addition),
+   `test/java/.../asignacion/worker/HttpAsignadorClientTest.java`,
+   `test/resources/contract/{request,response}.json`. Independent;
+   `mvn test -Dtest=HttpAsignadorClientTest` green standing alone (once 5c-i's `AsignadorClient`
+   interface/DTOs/exceptions exist, which they already do, committed).
+2. `feat(ms): expose ronda/asignacion endpoints and lock down SecurityConfig` (≈500 lines) —
+   `asignacion/RondaController.java`, `asignacion/AsignacionController.java`,
+   `asignacion/AsignacionService.java`, `asignacion/dto/{RondaResponse,RondaFondoResponse,
+   AsignacionResponse}.java`, the `RondaService.java` additions (`listar`/`detalle`/`fondoEstado`/
+   `toResponse`), `config/SecurityConfig.java`, `asignacion/worker/AsignadorNoConfiguradoClient.java`
+   (placeholder → real conditional wiring), `application.yml`×2, `docker-compose.yml`
+   (`WORKER_URL`), `test/java/.../asignacion/{RondaControllerTest,AsignacionControllerTest}.java`.
+   Depends on seam 1 (`AsignadorConfig`) to have a bean satisfying `AsignadorClient` other than the
+   5c-i placeholder.
+3. `feat(ms): resolve the vigente asignación on accept/devolución/cancel/override` (≈170 lines) —
+   `domain/AsignacionRepository.java` (new query method), `donacion/DonacionService.java`
+   (resolution helper + 4 call sites), `test/java/.../donacion/DonacionServiceTest.java` (new mock
+   field + 6 tests). Independent of seams 1–2; only depends on 5c-i's `Asignacion`/`EstadoAsignacion`
+   (already committed).
+
+No `size:exception` needed if landed as these 3 seams — each stays near or under the 400-line
+budget, and each is independently green:
+`mvn test -Dtest=HttpAsignadorClientTest` (seam 1),
+`mvn test -Dtest=RondaControllerTest,AsignacionControllerTest` (seam 2, once seam 1 is applied),
+`mvn test -Dtest=DonacionServiceTest` (seam 3, independent of 1–2).
+
+**USER COMMIT POINT (5c-ii)**: `feat(ms): call the worker over HTTP and expose ronda/asignacion endpoints`
+(per the task file — the 3 seams above are one suggested split of that single logical commit point).
+
+### 5c-ii — mutation gaps closed (corrective batch, 2026-10-01)
+
+Orchestrator mutation testing found two surviving mutants (no test caught them). Both closed with
+new tests, each proven RED against the exact mutant (mutant applied to the real file, focused test
+run, production file restored byte-for-byte and verified green again before moving on):
+
+- **M1 — `HttpAsignadorClient.ejecutar`**: mutating the `catch (ResourceAccessException e)` branch
+  to throw `AsignadorRespuestaInvalidaException` instead of `AsignadorNoDisponibleException` left
+  `HttpAsignadorClientTest` 8/8 green, because the existing "unreachable" test used
+  `withServerError()` (a mocked 5xx, which goes through the `RestClientResponseException` branch),
+  never a real connection failure. Added
+  `workerConnectionRefused_throwsAsignadorNoDisponible` — binds the real
+  timeout-configured `HttpAsignadorClient` constructor to a closed local port (no mock server) so
+  Spring's `RestClient` genuinely raises `ResourceAccessException`. RED confirmed
+  (`AsignadorRespuestaInvalidaException` thrown instead of `AsignadorNoDisponibleException`);
+  GREEN confirmed after restoring the original file.
+- **M2 — `AsignacionService.historial`**: replacing the ownership guard
+  `if (!esAdmin && !esDonanteDueno(...) && !esReferenteInvolucrado(...))` with `if (false)` left
+  `AsignacionControllerTest` 5/5 green, because that test mocks `AsignacionService` and never
+  exercises the real guard. Added `AsignacionServiceTest` (new Mockito unit test, 5 cases:
+  owning donante OK, involved referente OK, admin OK, non-owning donante → 403, uninvolved
+  referente → 403). RED confirmed (2 of 5 forbidden-path tests failed — "Expecting code to raise a
+  throwable"); GREEN confirmed after restoring the original file.
+
+Both production files diffed byte-identical against the pre-mutation copy before re-running tests.
+
+Full `mvn test` after both fixes → **425/425 pass, 0 failures, 0 errors, BUILD SUCCESS** (up from
+419/419 — 6 new tests: 1 in `HttpAsignadorClientTest`, 5 in the new `AsignacionServiceTest`).
+
+Files touched this batch:
+- `jar_hornero_ms/src/test/java/org/example/asignacion/worker/HttpAsignadorClientTest.java` (+1 test)
+- `jar_hornero_ms/src/test/java/org/example/asignacion/AsignacionServiceTest.java` (new file, 5 tests)
+
+No production code changed (mutants were applied only transiently to the scratchpad-backed copies
+and reverted).

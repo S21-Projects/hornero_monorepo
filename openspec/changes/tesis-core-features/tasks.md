@@ -720,44 +720,79 @@ Depends on: 5a (worker contract), 5b (schema). Sub-split per the forecast: **5c-
 
 ### 5c-ii — Worker client + controllers + security
 
-- [ ] 5c.9 RED — `jar_hornero_ms/src/test/.../asignacion/worker/HttpAsignadorClientTest.java`
+- [x] 5c.9 RED — `jar_hornero_ms/src/test/.../asignacion/worker/HttpAsignadorClientTest.java`
       (`MockRestServiceServer` against the golden fixtures copied from
       `go_algorithms_worker/testdata/ronda-v1/`): request serializes to exactly the golden request;
       response deserializes to exactly the golden response; connect timeout 2s / read timeout 30s
       configured; blank `app.worker.url` yields an `AsignadorNoConfigurado` client that throws for a
       503.
-- [ ] 5c.10 RED — `jar_hornero_ms/src/test/.../asignacion/RondaControllerTest.java`
+      **TDD note (resumed batch)**: this file was already written and GREEN when this batch resumed
+      — RED not re-observed (resumed batch). Reviewed against 5c.9's RED criteria and confirmed
+      complete: golden request/response fidelity, timeout constants, and the blank-URL →
+      `AsignadorNoConfiguradoClient` → `AsignadorNoDisponibleException` path are all covered, plus
+      extra coverage for the down/malformed/4xx → `AsignadorRespuestaInvalidaException` mapping.
+- [x] 5c.10 RED — `jar_hornero_ms/src/test/.../asignacion/RondaControllerTest.java`
       (`@WebMvcTest` + real `SecurityConfig`): `POST /api/rondas` admin-only, 403 for
       REFERENTE/DONANTE, 401/403 anonymous; `GET /api/rondas`, /api/rondas/{id},
       /api/rondas/fondo admin-only.
-- [ ] 5c.11 RED — `jar_hornero_ms/src/test/.../asignacion/AsignacionControllerTest.java`:
+      **TDD note (resumed batch)**: RED not re-observed (resumed batch) — reviewed and confirmed
+      complete against the criteria above.
+- [x] 5c.11 RED — `jar_hornero_ms/src/test/.../asignacion/AsignacionControllerTest.java`:
       `GET /api/donaciones/{id}/asignaciones` accessible to the owning donante, any referente
       involved in the donation's assignment history, and admin; denied to unrelated actors.
-- [ ] 5c.12 RED — Assertions in `DonacionServiceTest.java` (or a new
-      `DonacionAsignacionResolutionTest.java`): accept, devolución, cancel, and `overrideEstado`
-      each resolve the vigente `Asignacion` to the matching `EstadoAsignacion`
+      **TDD note (resumed batch)**: RED not re-observed (resumed batch) — reviewed and confirmed
+      complete against the criteria above.
+- [x] 5c.12 RED — Assertions in `DonacionServiceTest.java`: accept, devolución, cancel, and
+      `overrideEstado` each resolve the vigente `Asignacion` to the matching `EstadoAsignacion`
       (`ACEPTADA`, `RECHAZADA`, `CANCELADA`), replacing 5b.12's no-op stub.
-- [ ] 5c.13 GREEN — Create `jar_hornero_ms/.../asignacion/worker/AsignadorClient.java` (interface),
+      True RED→GREEN observed in this session: added
+      `decidir_ofrecidaToAceptada_resuelveAsignacionVigenteComoAceptada`,
+      `decidir_ofrecidaToAceptada_sinAsignacionVigente_noLanzaYNoGuardaNada`,
+      `decidir_fondoComunAsignada_rechazada_resuelveAsignacionVigenteComoRechazada`,
+      `actualizarEstado_cancelada_resuelveAsignacionVigenteComoCancelada`,
+      `overrideEstado_haciaCancelada_resuelveAsignacionVigenteComoCancelada`,
+      `overrideEstado_haciaEntregada_noResuelveAsignacion_noEsUnEstadoDeAsignacion` — all failed with
+      `NullPointerException` (no `asignacionRepository` field wired, stub no-op from 5b.12) before
+      5c.17's implementation, then passed after.
+- [x] 5c.13 GREEN — Create `jar_hornero_ms/.../asignacion/worker/AsignadorClient.java` (interface),
       `HttpAsignadorClient.java` (Spring `RestClient`), `AsignadorConfig.java`, `dto/*` (request/
       response wire DTOs). Satisfies 5c.9.
-- [ ] 5c.14 GREEN — Copy `go_algorithms_worker/testdata/ronda-v1/{request,response}.json` into
+      (`AsignadorClient` and `dto/*` were created in 5c-i per that slice's documented deviation;
+      this task's remaining scope — `HttpAsignadorClient`, `AsignadorConfig` — was already present
+      and reviewed complete when this batch resumed.)
+- [x] 5c.14 GREEN — Copy `go_algorithms_worker/testdata/ronda-v1/{request,response}.json` into
       `jar_hornero_ms/src/test/resources/contract/`, referenced by 5c.9's test (both copies change
       together per AD-14).
-- [ ] 5c.15 GREEN — Create `jar_hornero_ms/.../asignacion/RondaController.java`: `POST
+- [x] 5c.15 GREEN — Create `jar_hornero_ms/.../asignacion/RondaController.java`: `POST
       /api/rondas`, `GET /api/rondas`, `GET /api/rondas/{id}`, `GET /api/rondas/fondo`. Satisfies
       5c.10.
-- [ ] 5c.16 GREEN — Create `jar_hornero_ms/.../asignacion/AsignacionController.java` (or add to
+- [x] 5c.16 GREEN — Create `jar_hornero_ms/.../asignacion/AsignacionController.java` (or add to
       `DonacionController`): `GET /api/donaciones/{id}/asignaciones`. Satisfies 5c.11.
-- [ ] 5c.17 GREEN — Modify `jar_hornero_ms/.../donacion/DonacionService.java`: implement the
+- [x] 5c.17 GREEN — Modify `jar_hornero_ms/.../donacion/DonacionService.java`: implement the
       vigente-asignación resolution stubbed in 5b.12. Satisfies 5c.12.
-- [ ] 5c.18 GREEN — `jar_hornero_ms/.../config/SecurityConfig.java`: /api/rondas/**
+      Added `AsignacionRepository.findFirstByDonacion_IdAndEstadoOrderByCreadaEnDesc(donacionId,
+      PROPUESTA)` and a private `resolverAsignacionVigente(donacionId, destino)` helper in
+      `DonacionService`, called from `decidir` (ACEPTADA and the FONDO_COMUN devolución branch),
+      `actualizarEstado` (CANCELADA), and `overrideEstado` (ACEPTADA/RECHAZADA/CANCELADA targets
+      only — ENTREGADA/EN_CAMINO/PENDIENTE_CONFIRMACION have no matching `EstadoAsignacion` and are
+      explicitly left untouched, pinned by
+      `overrideEstado_haciaEntregada_noResuelveAsignacion_noEsUnEstadoDeAsignacion`). A `DIRECTA`
+      donación or any donación with no `PROPUESTA` row is a silent no-op (`Optional.empty()`), never
+      an error — pinned by
+      `decidir_ofrecidaToAceptada_sinAsignacionVigente_noLanzaYNoGuardaNada`.
+- [x] 5c.18 GREEN — `jar_hornero_ms/.../config/SecurityConfig.java`: /api/rondas/**
       `hasRole("ADMINISTRADOR")`; `GET /api/donaciones/*/asignaciones` `.authenticated()` declared
       before the donaciones permitAll matcher.
-- [ ] 5c.19 GREEN — `jar_hornero_ms/src/main/resources/application.yml`,
+- [x] 5c.19 GREEN — `jar_hornero_ms/src/main/resources/application.yml`,
       `docker-compose.yml`: `app.worker.url: ${WORKER_URL:}`; MS service environment
       `WORKER_URL: http://worker:8090`.
-- [ ] 5c.20 REFACTOR — Confirm `RondaService.ejecutar` wires `HttpAsignadorClient` (not the fake) in
+- [x] 5c.20 REFACTOR — Confirm `RondaService.ejecutar` wires `HttpAsignadorClient` (not the fake) in
       the Spring context, and the fake stays test-only.
+      Confirmed: `AsignadorNoConfiguradoClient` is no longer `@Component` (placeholder removed per
+      5c-i's note); `AsignadorConfig.asignadorClient` is the sole bean source, returning
+      `HttpAsignadorClient` when `app.worker.url` is non-blank and `AsignadorNoConfiguradoClient`
+      otherwise. `RondaServiceTest` continues to use a hand-rolled fake `AsignadorClient`
+      (test-only, never a Spring bean).
 
 **Verification (5c-ii):**
 `cd jar_hornero_ms && mvn test -Dtest=HttpAsignadorClientTest,RondaControllerTest,AsignacionControllerTest,DonacionServiceTest`
