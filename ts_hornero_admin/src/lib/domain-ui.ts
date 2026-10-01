@@ -72,6 +72,24 @@ export const MODALIDAD_DONACION: Record<string, BadgeConfig> = {
   FONDO_COMUN: { tone: 'neutral', label: 'Fondo común' },
 };
 
+/**
+ * `CategoriaAlimento` (feature catalogo-articulos). Shared by the articulo catalog screen and —
+ * once work units F/G/H land — the donación línea and necesidad articulo pickers.
+ */
+export const CATEGORIA_ALIMENTO: Record<string, BadgeConfig> = {
+  NO_PERECEDERO: { tone: 'neutral', label: 'No perecedero' },
+  REFRIGERADO:   { tone: 'sky',     label: 'Refrigerado' },
+  CONGELADO:     { tone: 'sky',     label: 'Congelado' },
+};
+
+/** `UnidadArticulo` (feature catalogo-articulos). Plain lowercase unit labels, not a badge. */
+export const UNIDAD_ARTICULO: Record<string, string> = {
+  KG:      'kg',
+  PAQUETE: 'paquete',
+  LITRO:   'litro',
+  UNIDAD:  'unidad',
+};
+
 /** `FaseDonacion` (AD-4) — only the two pool-only phases need their own label here (T5); the
  * rest overlap with `ESTADO_DONACION`'s existing labels. */
 export const FASE_DONACION: Record<string, BadgeConfig> = {
