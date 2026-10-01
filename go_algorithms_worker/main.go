@@ -153,7 +153,7 @@ func cmdAssign(args []string) error {
 	pesos := entrada.ResolverPesos()
 	parametros, _ := entrada.ResolverParametros()
 	donaciones := entrada.ADonaciones()
-	candidatos, meta := entrada.ACandidatos(resolvedor)
+	candidatos, meta := entrada.ACandidatos(resolvedor, parametros.CumplimientoPseudoObs)
 
 	resultado := assign.Ronda(donaciones, candidatos, pesos, parametros)
 	salida := contrato.AResultado(resultado, meta, pesos, parametros)

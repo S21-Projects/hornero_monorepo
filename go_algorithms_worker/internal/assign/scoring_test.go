@@ -141,6 +141,59 @@ func TestScoreConDesgloseDelegaMismoValorQueScore(t *testing.T) {
 	}
 }
 
+// TestNormalizadosDivideProporcionalmente: AD-11 — adding the compliance weight on top must not
+// unbalance the existing four; Normalizados() divides every term by the sum so any configuration
+// reads as a 0-1 contribution.
+func TestNormalizadosDivideProporcionalmente(t *testing.T) {
+	w := Pesos{Deficit: 2, Urgencia: 2, Proximidad: 2, Espera: 2, Cumplimiento: 2}
+
+	got := w.Normalizados()
+
+	want := Pesos{Deficit: 0.2, Urgencia: 0.2, Proximidad: 0.2, Espera: 0.2, Cumplimiento: 0.2}
+	if got != want {
+		t.Fatalf("Normalizados() = %+v, want %+v", got, want)
+	}
+}
+
+// TestNormalizadosCumplimientoCeroReproduceFormulaDeCuatroTerminos: the spec's own scenario —
+// with Cumplimiento weighted at 0, Normalizados() must reduce the other four back to exactly the
+// pre-6a PesosPorDefecto ratios (0.35/0.30/0.20/0.15, which already sum to 1).
+func TestNormalizadosCumplimientoCeroReproduceFormulaDeCuatroTerminos(t *testing.T) {
+	w := Pesos{Deficit: 0.35, Urgencia: 0.30, Proximidad: 0.20, Espera: 0.15, Cumplimiento: 0}
+
+	got := w.Normalizados()
+
+	if math.Abs(got.Deficit-w.Deficit) > 1e-9 || math.Abs(got.Urgencia-w.Urgencia) > 1e-9 ||
+		math.Abs(got.Proximidad-w.Proximidad) > 1e-9 || math.Abs(got.Espera-w.Espera) > 1e-9 ||
+		got.Cumplimiento != 0 {
+		t.Fatalf("Normalizados() = %+v, want unchanged %+v (already summed to 1)", got, w)
+	}
+}
+
+// TestScoreConDesglosePonderaCumplimiento proves the fifth term is actually wired into the
+// weighted sum, not just carried in the Desglose for display.
+func TestScoreConDesglosePonderaCumplimiento(t *testing.T) {
+	d := Donacion{ID: 1, Latitud: latCentro, Longitud: lngCentro}
+	c := candidato(10, 100, latCentro, lngCentro)
+	c.TasaCumplimiento = 0.8
+
+	desglose, score, ok := ScoreConDesglose(d, c, PesosPorDefecto, ParametrosPorDefecto)
+	if !ok {
+		t.Fatal("expected a feasible pair")
+	}
+	if desglose.Cumplimiento != 0.8 {
+		t.Fatalf("desglose.Cumplimiento = %v, want 0.8 (passthrough of TasaCumplimiento)", desglose.Cumplimiento)
+	}
+
+	w := PesosPorDefecto.Normalizados()
+	want := w.Deficit*desglose.Deficit + w.Urgencia*desglose.Urgencia +
+		w.Proximidad*desglose.Proximidad + w.Espera*desglose.Espera +
+		w.Cumplimiento*desglose.Cumplimiento
+	if math.Abs(want-score) > 1e-9 {
+		t.Fatalf("score = %v, want %v (weighted sum including cumplimiento)", score, want)
+	}
+}
+
 func TestScoreConDesgloseParInfeasibleDevuelveFalse(t *testing.T) {
 	d := Donacion{ID: 1, Latitud: latCentro, Longitud: lngCentro, Categoria: "ROPA"}
 	c := candidatoConCategorias([]string{"NO_PERECEDERO"}, nil)

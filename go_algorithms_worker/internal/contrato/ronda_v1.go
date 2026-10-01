@@ -72,12 +72,23 @@ type CandidatoV1 struct {
 	DiasDesdeUltimaDonacion int      `json:"diasDesdeUltimaDonacion"`
 	CategoriasAceptadas     []string `json:"categoriasAceptadas,omitempty"`
 	CategoriasPermitidas    []string `json:"categoriasPermitidas,omitempty"`
+
+	// Cumplimiento is the candidate organizacion's raw resolved-donation counts (AD-11, 6b). nil
+	// means the producer sent none — either it predates 6b or the organizacion has no history —
+	// and the worker treats that exactly like {0, 0}, resolving to the ronda's neutral prior.
+	Cumplimiento *CumplimientoV1 `json:"cumplimiento,omitempty"`
+}
+
+// CumplimientoV1 is one candidate's raw compliance counts, additive in 6a (AD-11). The MS
+// classifies ENTREGADA as entregada, RECHAZADA as fallida, and excludes CANCELADA and any
+// non-terminal donacion from both — the worker only ever sees already-classified counts.
+type CumplimientoV1 struct {
+	Entregadas int `json:"entregadas"`
+	Fallidas   int `json:"fallidas"`
 }
 
 // ParametrosV1 is the optional per-request override of the normalization constants. Every field
 // is a pointer so "omitted" (use the worker default) is distinguishable from "explicitly zero".
-// CumplimientoPseudoObs is reserved for slice 6a (AD-11); it is accepted and validated as a
-// number today but not yet consumed.
 type ParametrosV1 struct {
 	DistanciaMediaKm      *float64 `json:"distanciaMediaKm,omitempty"`
 	DistanciaMaximaKm     *float64 `json:"distanciaMaximaKm,omitempty"`
@@ -85,7 +96,14 @@ type ParametrosV1 struct {
 	DeficitMaximo         *float64 `json:"deficitMaximo,omitempty"`
 	PenalizacionNoAsignar *float64 `json:"penalizacionNoAsignar,omitempty"`
 	RadioResolucionKm     *float64 `json:"radioResolucionKm,omitempty"`
+
+	// CumplimientoPseudoObs overrides AD-11's smoothing strength m (default
+	// assign.PseudoObsPorDefecto). Consumed in 6a by ACandidatos.
 	CumplimientoPseudoObs *float64 `json:"cumplimientoPseudoObs,omitempty"`
+
+	// CumplimientoPrior overrides AD-11's neutral prior p0 — the ronda-wide average compliance
+	// rate the worker would otherwise compute itself. Consumed in 6a by ACandidatos.
+	CumplimientoPrior *float64 `json:"cumplimientoPrior,omitempty"`
 }
 
 // Validar runs every AD-14 wire-level check: supported major version, item-count limits, and
@@ -146,11 +164,30 @@ type CandidatoResuelto struct {
 }
 
 // ACandidatos maps the wire candidatos onto assign.Candidato, resolving each one's coverage
-// deficit through resolvedor (AD-2). It also returns, per necesidadId, which rule produced that
-// deficit — the handler needs it to fill deficitFuente/codigoRadio on matched assignments.
-func (e EntradaRondaV1) ACandidatos(resolvedor *geo.Resolvedor) ([]assign.Candidato, map[int64]CandidatoResuelto) {
+// deficit through resolvedor (AD-2) and compliance rate through AD-11's smoothed-rate formula.
+// pseudoObs is the already-resolved m (ResolverParametros's CumplimientoPseudoObs, defaulted or
+// overridden) — passed in rather than re-resolved here so there is exactly one place that merges
+// the request's ParametrosV1 onto the defaults. It also returns, per necesidadId, which rule
+// produced that deficit — the handler needs it to fill deficitFuente/codigoRadio on matched
+// assignments.
+func (e EntradaRondaV1) ACandidatos(resolvedor *geo.Resolvedor, pseudoObs float64) ([]assign.Candidato, map[int64]CandidatoResuelto) {
 	out := make([]assign.Candidato, len(e.Candidatos))
 	meta := make(map[int64]CandidatoResuelto, len(e.Candidatos))
+
+	conteos := make([]*assign.ConteoCumplimiento, len(e.Candidatos))
+	for i, c := range e.Candidatos {
+		if c.Cumplimiento != nil {
+			conteos[i] = &assign.ConteoCumplimiento{
+				Entregadas: c.Cumplimiento.Entregadas,
+				Fallidas:   c.Cumplimiento.Fallidas,
+			}
+		}
+	}
+	var priorOverride *float64
+	if e.Parametros != nil {
+		priorOverride = e.Parametros.CumplimientoPrior
+	}
+	p0 := assign.PriorCumplimiento(conteos, priorOverride)
 
 	for i, c := range e.Candidatos {
 		deficit, fuente := resolvedor.Resolver(c.Latitud, c.Longitud, c.CodigoRadio, c.Deficit)
@@ -165,6 +202,7 @@ func (e EntradaRondaV1) ACandidatos(resolvedor *geo.Resolvedor) ([]assign.Candid
 			DiasDesdeUltimaDonacion: c.DiasDesdeUltimaDonacion,
 			CategoriasAceptadas:     c.CategoriasAceptadas,
 			CategoriasPermitidas:    c.CategoriasPermitidas,
+			TasaCumplimiento:        assign.TasaCumplimiento(conteos[i], p0, pseudoObs),
 		}
 		meta[c.NecesidadID] = CandidatoResuelto{Fuente: fuente, CodigoRadio: c.CodigoRadio}
 	}
@@ -204,6 +242,9 @@ func (e EntradaRondaV1) ResolverParametros() (assign.Parametros, float64) {
 	}
 	if v.PenalizacionNoAsignar != nil {
 		p.PenalizacionNoAsignar = *v.PenalizacionNoAsignar
+	}
+	if v.CumplimientoPseudoObs != nil {
+		p.CumplimientoPseudoObs = *v.CumplimientoPseudoObs
 	}
 	if v.RadioResolucionKm != nil {
 		radioResolucionKm = *v.RadioResolucionKm

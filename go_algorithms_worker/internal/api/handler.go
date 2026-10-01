@@ -75,7 +75,7 @@ func (h *Handler) ronda(w http.ResponseWriter, r *http.Request) {
 	parametros, _ := entrada.ResolverParametros() // radioResolucionKm: see the ResolverParametros deviation note.
 
 	donaciones := entrada.ADonaciones()
-	candidatos, meta := entrada.ACandidatos(h.resolvedor)
+	candidatos, meta := entrada.ACandidatos(h.resolvedor, parametros.CumplimientoPseudoObs)
 
 	resultado := assign.Ronda(donaciones, candidatos, pesos, parametros)
 	salida := contrato.AResultado(resultado, meta, pesos, parametros)

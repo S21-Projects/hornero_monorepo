@@ -77,15 +77,42 @@ type Candidato struct {
 	// what makes the field additive and behaviour-neutral until a producer
 	// sets it.
 	CategoriasPermitidas []string `json:"categoriasPermitidas,omitempty"`
+
+	// TasaCumplimiento is the candidate's smoothed compliance rate (AD-11), already resolved to a
+	// plain [0, 1] value by the time it reaches the solver — either from its own history or the
+	// ronda's neutral prior. The zero value (unset) is a deliberately inert 0% contribution for
+	// any caller that constructs a Candidato directly without going through the contrato mapping
+	// layer, which is what keeps every pre-6a test unaffected: the weighted term it adds is
+	// Cumplimiento weight * 0 = 0.
+	TasaCumplimiento float64 `json:"-"`
 }
 
-// Pesos weights the four scoring terms. They need not sum to 1, but keeping
-// them normalized makes the resulting score readable as a 0-1 quality.
+// Pesos weights the five scoring terms. They need not sum to 1 — Normalizados() divides by the
+// sum so any configuration still reads as a 0-1 quality.
 type Pesos struct {
-	Deficit    float64 `json:"deficit"`
-	Urgencia   float64 `json:"urgencia"`
-	Proximidad float64 `json:"proximidad"`
-	Espera     float64 `json:"espera"`
+	Deficit      float64 `json:"deficit"`
+	Urgencia     float64 `json:"urgencia"`
+	Proximidad   float64 `json:"proximidad"`
+	Espera       float64 `json:"espera"`
+	Cumplimiento float64 `json:"cumplimiento"`
+}
+
+// Normalizados divides every term by their sum (AD-11), so the five weights always read as a 0-1
+// contribution regardless of how a caller configured them — including the degenerate case where
+// Cumplimiento is weighted at 0, which must reduce the remaining four back to exactly their own
+// ratios. The zero-sum case (every weight 0) is returned unchanged rather than dividing by zero.
+func (w Pesos) Normalizados() Pesos {
+	suma := w.Deficit + w.Urgencia + w.Proximidad + w.Espera + w.Cumplimiento
+	if suma == 0 {
+		return w
+	}
+	return Pesos{
+		Deficit:      w.Deficit / suma,
+		Urgencia:     w.Urgencia / suma,
+		Proximidad:   w.Proximidad / suma,
+		Espera:       w.Espera / suma,
+		Cumplimiento: w.Cumplimiento / suma,
+	}
 }
 
 // Desglose is the per-criterion breakdown behind one Score call, each term
@@ -93,19 +120,24 @@ type Pesos struct {
 // match explainable: the same numbers get persisted on Asignacion and shown
 // to donantes/referentes as "why this match".
 type Desglose struct {
-	Deficit    float64 `json:"deficit"`
-	Urgencia   float64 `json:"urgencia"`
-	Proximidad float64 `json:"proximidad"`
-	Espera     float64 `json:"espera"`
+	Deficit      float64 `json:"deficit"`
+	Urgencia     float64 `json:"urgencia"`
+	Proximidad   float64 `json:"proximidad"`
+	Espera       float64 `json:"espera"`
+	Cumplimiento float64 `json:"cumplimiento"`
 }
 
 // PesosPorDefecto favours coverage deficit, with a meaningful anti-starvation
-// term so no comedor can be starved by permanently losing on the other three.
+// term so no comedor can be starved by permanently losing on the other three,
+// and a compliance-history term (AD-11) that rewards organizaciones with a
+// reliable delivery record without ever hard-filtering on it. Already sums to
+// 1, so Normalizados() is a no-op on these exact values.
 var PesosPorDefecto = Pesos{
-	Deficit:    0.35,
-	Urgencia:   0.30,
-	Proximidad: 0.20,
-	Espera:     0.15,
+	Deficit:      0.30,
+	Urgencia:     0.25,
+	Proximidad:   0.17,
+	Espera:       0.13,
+	Cumplimiento: 0.15,
 }
 
 // Parametros holds the normalization constants. Every raw input lives on a
@@ -129,6 +161,10 @@ type Parametros struct {
 	// EsperaMaximaDias). Zero reproduces the pre-AD-10 solver exactly — see
 	// TestPenalizacionCeroReproduceRondaOriginal.
 	PenalizacionNoAsignar float64 `json:"penalizacionNoAsignar"`
+
+	// CumplimientoPseudoObs is AD-11's smoothing strength m (see PseudoObsPorDefecto). Echoed
+	// back on the response's parametros, like every other normalization constant.
+	CumplimientoPseudoObs float64 `json:"cumplimientoPseudoObs"`
 }
 
 // ParametrosPorDefecto are tuned for a city-sized round (Córdoba).
@@ -137,6 +173,7 @@ var ParametrosPorDefecto = Parametros{
 	DistanciaMaximaKm:     30,
 	EsperaMaximaDias:      90,
 	DeficitMaximo:         3,
+	CumplimientoPseudoObs: PseudoObsPorDefecto,
 	PenalizacionNoAsignar: 0.10,
 }
 
@@ -206,16 +243,19 @@ func ScoreConDesglose(d Donacion, c Candidato, w Pesos, p Parametros) (Desglose,
 	// term never collapses to zero, so a far comedor in a starved radio can
 	// still win on the other three terms.
 	desglose := Desglose{
-		Proximidad: math.Exp(-km / p.DistanciaMediaKm),
-		Deficit:    math.Min(c.Deficit, p.DeficitMaximo) / p.DeficitMaximo,
-		Urgencia:   math.Max(0, math.Min(c.Urgencia, 1)),
-		Espera:     math.Min(float64(c.DiasDesdeUltimaDonacion)/float64(p.EsperaMaximaDias), 1),
+		Proximidad:   math.Exp(-km / p.DistanciaMediaKm),
+		Deficit:      math.Min(c.Deficit, p.DeficitMaximo) / p.DeficitMaximo,
+		Urgencia:     math.Max(0, math.Min(c.Urgencia, 1)),
+		Espera:       math.Min(float64(c.DiasDesdeUltimaDonacion)/float64(p.EsperaMaximaDias), 1),
+		Cumplimiento: c.TasaCumplimiento,
 	}
 
-	score := w.Deficit*desglose.Deficit +
-		w.Urgencia*desglose.Urgencia +
-		w.Proximidad*desglose.Proximidad +
-		w.Espera*desglose.Espera
+	pesos := w.Normalizados()
+	score := pesos.Deficit*desglose.Deficit +
+		pesos.Urgencia*desglose.Urgencia +
+		pesos.Proximidad*desglose.Proximidad +
+		pesos.Espera*desglose.Espera +
+		pesos.Cumplimiento*desglose.Cumplimiento
 
 	return desglose, score, true
 }
