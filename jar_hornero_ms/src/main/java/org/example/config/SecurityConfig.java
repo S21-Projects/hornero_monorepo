@@ -92,6 +92,14 @@ public class SecurityConfig {
                         // GET blocks below, but it is still declared ahead of them out of the same
                         // defense-in-depth discipline as every other admin-only matcher here.
                         .requestMatchers("/api/rondas/**").hasRole("ADMINISTRADOR")
+                        // Feature catalogo-articulos (C3): the catalog is publicly readable but
+                        // ADMINISTRADOR-only to write. The GET permitAll matcher must be declared
+                        // before the catch-all admin-only matcher on the same root (Spring
+                        // evaluates matchers in declaration order) — swapping the order would make
+                        // every verb admin-only, including GET.
+                        .requestMatchers(org.springframework.http.HttpMethod.GET,
+                                "/api/articulos", "/api/articulos/**").permitAll()
+                        .requestMatchers("/api/articulos/**").hasRole("ADMINISTRADOR")
                         // AD-9: an assignment's score breakdown and ronda history are never
                         // world-readable. Declared before the permitAll GET-donaciones block below
                         // (Spring evaluates matchers in declaration order) — placement after it would

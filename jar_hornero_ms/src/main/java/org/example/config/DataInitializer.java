@@ -6,6 +6,9 @@ import jakarta.persistence.PersistenceContext;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.example.domain.Articulo;
+import org.example.domain.ArticuloRepository;
+import org.example.domain.CategoriaAlimento;
 import org.example.domain.Donacion;
 import org.example.domain.DonacionRepository;
 import org.example.domain.EstadoDonacion;
@@ -17,6 +20,7 @@ import org.example.domain.NecesidadRepository;
 import org.example.domain.Organizacion;
 import org.example.domain.OrganizacionRepository;
 import org.example.domain.PrioridadNecesidad;
+import org.example.domain.UnidadArticulo;
 import org.example.user.Administrador;
 import org.example.user.Donante;
 import org.example.user.Referente;
@@ -42,6 +46,7 @@ public class DataInitializer {
     private final BCryptPasswordEncoder passwordEncoder;
     private final NecesidadRepository necesidadRepository;
     private final DonacionRepository donacionRepository;
+    private final ArticuloRepository articuloRepository;
 
     @PersistenceContext
     private EntityManager entityManager;
@@ -57,8 +62,55 @@ public class DataInitializer {
         seedAdmin();
         seedUsers();
         seedOrganizaciones();
+        seedArticulos();
         seedNecesidades();
         seedDonaciones();
+    }
+
+    /**
+     * Feature catalogo-articulos, work unit A (C1-C3/C14's seed carve-out): the initial fixed
+     * catalog, idempotent by {@code nombre} so re-running {@link #init()} (e.g. every app restart)
+     * never duplicates rows. Covers all three {@link CategoriaAlimento} values with realistic
+     * items and a sensible {@link UnidadArticulo} per item (decision 3).
+     */
+    private void seedArticulos() {
+        record Semilla(String nombre, CategoriaAlimento categoria, UnidadArticulo unidad) {}
+
+        List<Semilla> catalogo = List.of(
+                // NO_PERECEDERO
+                new Semilla("Arroz", CategoriaAlimento.NO_PERECEDERO, UnidadArticulo.KG),
+                new Semilla("Fideos", CategoriaAlimento.NO_PERECEDERO, UnidadArticulo.PAQUETE),
+                new Semilla("Legumbres", CategoriaAlimento.NO_PERECEDERO, UnidadArticulo.KG),
+                new Semilla("Harina", CategoriaAlimento.NO_PERECEDERO, UnidadArticulo.KG),
+                new Semilla("Aceite", CategoriaAlimento.NO_PERECEDERO, UnidadArticulo.LITRO),
+                new Semilla("Azúcar", CategoriaAlimento.NO_PERECEDERO, UnidadArticulo.KG),
+                new Semilla("Conservas", CategoriaAlimento.NO_PERECEDERO, UnidadArticulo.UNIDAD),
+                // REFRIGERADO
+                new Semilla("Leche", CategoriaAlimento.REFRIGERADO, UnidadArticulo.LITRO),
+                new Semilla("Yogur", CategoriaAlimento.REFRIGERADO, UnidadArticulo.UNIDAD),
+                new Semilla("Queso", CategoriaAlimento.REFRIGERADO, UnidadArticulo.KG),
+                // CONGELADO
+                new Semilla("Carne", CategoriaAlimento.CONGELADO, UnidadArticulo.KG),
+                new Semilla("Pollo", CategoriaAlimento.CONGELADO, UnidadArticulo.KG),
+                new Semilla("Verduras congeladas", CategoriaAlimento.CONGELADO, UnidadArticulo.PAQUETE)
+        );
+
+        int creados = 0;
+        for (Semilla semilla : catalogo) {
+            if (articuloRepository.findByNombreIgnoreCase(semilla.nombre()).isPresent()) {
+                continue;
+            }
+            Articulo a = new Articulo();
+            a.setNombre(semilla.nombre());
+            a.setCategoria(semilla.categoria());
+            a.setUnidad(semilla.unidad());
+            a.setActivo(true);
+            articuloRepository.save(a);
+            creados++;
+        }
+        if (creados > 0) {
+            log.info("Seeded {} articulo(s) in the catalog", creados);
+        }
     }
 
     @EventListener(ApplicationReadyEvent.class)
