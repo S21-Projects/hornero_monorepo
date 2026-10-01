@@ -1,5 +1,7 @@
 package org.example.asignacion;
 
+import org.example.asignacion.dto.RondaFondoResponse;
+import org.example.asignacion.dto.RondaResponse;
 import org.example.asignacion.worker.AsignadorClient;
 import org.example.asignacion.worker.AsignadorNoDisponibleException;
 import org.example.asignacion.worker.AsignadorRespuestaInvalidaException;
@@ -23,6 +25,8 @@ import org.example.domain.NivelAcreditacion;
 import org.example.domain.Organizacion;
 import org.example.domain.Ronda;
 import org.example.domain.RondaRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -107,6 +111,40 @@ public class RondaService {
         } finally {
             lock.unlock();
         }
+    }
+
+    /** {@code GET /api/rondas}: most recent first. */
+    public Page<RondaResponse> listar(Pageable pageable) {
+        return rondaRepository.findAllByOrderByEjecutadaEnDesc(pageable).map(this::toResponse);
+    }
+
+    /** {@code GET /api/rondas/{id}}. */
+    public RondaResponse detalle(Long id) {
+        Ronda ronda = rondaRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Ronda not found"));
+        return toResponse(ronda);
+    }
+
+    /** {@code GET /api/rondas/fondo}: pool size and the oldest waiting donación, before triggering a ronda. */
+    public RondaFondoResponse fondoEstado() {
+        List<Donacion> pool = donacionRepository.findByModalidadAndEstadoAndNecesidadIsNull(
+                ModalidadDonacion.FONDO_COMUN, EstadoDonacion.OFRECIDA);
+        LocalDate masAntigua = pool.stream()
+                .map(Donacion::getFechaOferta)
+                .filter(java.util.Objects::nonNull)
+                .min(LocalDate::compareTo)
+                .orElse(null);
+        return new RondaFondoResponse(pool.size(), masAntigua);
+    }
+
+    public RondaResponse toResponse(Ronda r) {
+        return new RondaResponse(
+                r.getId(), r.getEjecutadaEn(), r.getFinalizadaEn(), r.getEjecutadaPor(),
+                r.getEstado().name(), r.getError(), r.getVersionContrato(),
+                r.getDonacionesConsideradas(), r.getCandidatosConsiderados(),
+                r.getAsignadas(), r.getSinAsignar(), r.getDescartadas(), r.getScoreTotal(),
+                r.getPesoDeficit(), r.getPesoUrgencia(), r.getPesoProximidad(),
+                r.getPesoEspera(), r.getPesoCumplimiento());
     }
 
     private Lectura leer() {
