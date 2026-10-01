@@ -316,7 +316,43 @@ worker, then ronda wiring, then BFF, then admin UI, then seeds/reset, then docs.
 
 ### Work unit F — Admin SPA: catalog management screen
 
-- **C10** — New ADMINISTRADOR-only route `catalogo-articulos.tsx` (list + create + edit +
+- [x] **C10** — DONE 2026-10-01: `useArticulos.test.tsx` (5/5) + `mapArticuloError.test.ts` (3/3) +
+  `catalogo.test.tsx` (8/8) RED→GREEN. Full admin suite 361/361, `npm run build` (tsc -b + vite
+  build) green, `eslint` clean on every touched file. Route is `/catalogo` (per orchestrator's
+  explicit routing instruction) backed by `ts_hornero_admin/src/routes/catalogo.tsx` (not
+  `catalogo-articulos.tsx` as originally named here — deliberate, not a drift); hooks are
+  `useArticulos`/`useCrearArticulo`/`useEditarArticulo`/`useDesactivarArticulo` (edit named
+  `useEditarArticulo`, not `useActualizarArticulo`, to match the Spanish verb used by the rest of
+  this hook file's own docstrings). `types/domain.ts` gained `CategoriaAlimento`, `UnidadArticulo`,
+  `Articulo`, `ArticuloInput` — kept as the one canonical catalog type set (not copied) for reuse
+  by work units G/H's donación línea / necesidad articulo pickers. `lib/domain-ui.ts` gained
+  `CATEGORIA_ALIMENTO` (badge config) and `UNIDAD_ARTICULO` (plain lowercase labels), same reuse
+  intent. Screen: list via `PaginatedTable` (single static page — `GET /articulos` is unpaginated)
+  with a categoría `<select>` filter, a "Mostrar inactivos" checkbox (toggles
+  `useArticulos(true)`), a name search box, inline create form (toggled by "Nuevo artículo"),
+  inline edit form per row via `renderRowDetail`/`expandedKeys`, and a two-click
+  Desactivar→Confirmar pattern mirroring `routes/rondas.tsx`'s existing confirm convention (no
+  shared `Modal` component exists in this codebase to reuse instead — confirmed during research).
+  Inactive rows show the `ACTIVO` badge and render no actions (no reactivate endpoint on the MS
+  side, per decision 3). Nav entry added to `AppShell.tsx`'s `ADMINISTRADOR` block (`Box` icon,
+  already imported in that file) and the route registered in `router.tsx`'s existing
+  `ADMINISTRADOR`-only `ProtectedRoute` block (no new gate needed). Files touched/created:
+  `ts_hornero_admin/src/types/domain.ts`, `ts_hornero_admin/src/lib/domain-ui.ts`,
+  `ts_hornero_admin/src/lib/hooks/useArticulos.ts` (new),
+  `ts_hornero_admin/src/lib/hooks/useArticulos.test.tsx` (new),
+  `ts_hornero_admin/src/lib/hooks/mapArticuloError.ts` (new),
+  `ts_hornero_admin/src/lib/hooks/mapArticuloError.test.ts` (new),
+  `ts_hornero_admin/src/routes/catalogo.tsx` (new),
+  `ts_hornero_admin/src/routes/catalogo.test.tsx` (new), `ts_hornero_admin/src/app/router.tsx`,
+  `ts_hornero_admin/src/app/AppShell.tsx`. ~715 changed lines (over the ~450 est. and the feature
+  doc's ~500 heuristic — largest share is the two test files, which the heuristic explicitly
+  doesn't penalize; no artificial splitting applied). Route taken: delegated direct, done inline
+  in this single-worker pass (parent orchestrator already delegated the whole work unit; no
+  further internal sub-delegation needed since the full scope was mapped by one exploration pass
+  before writing). No commit made — HARD no-mutating-git-commands constraint for this pass; commit
+  seams below are for the orchestrator's own commit step.
+
+- **C10 (original task text, superseded by the DONE note above)** — New ADMINISTRADOR-only route `catalogo-articulos.tsx` (list + create + edit +
   deactivate), `useArticulos`/`useCrearArticulo`/`useActualizarArticulo`/`useDesactivarArticulo`
   TanStack Query hooks, nav entry gated by role (mirror existing `ProtectedRoute` role-gating
   pattern used for other admin-only screens).
