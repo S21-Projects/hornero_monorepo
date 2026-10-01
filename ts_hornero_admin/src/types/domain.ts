@@ -66,6 +66,45 @@ export const CategoriaDonacion = {
 } as const;
 export type CategoriaDonacion = typeof CategoriaDonacion[keyof typeof CategoriaDonacion];
 
+/**
+ * Mirrors MS `CategoriaAlimento` (`jar_hornero_ms/.../domain/CategoriaAlimento.java`, feature
+ * catalogo-articulos). Shared by the articulo catalog and — once work units F/G/H land — the
+ * donación línea and necesidad articulo pickers, so this stays the one canonical type rather than
+ * each form declaring its own copy. Same values as `CategoriaDonacion`, kept as a distinct type
+ * since that one predates the catalog and is scoped to the donación create DTO.
+ */
+export const CategoriaAlimento = {
+  NO_PERECEDERO: 'NO_PERECEDERO',
+  REFRIGERADO: 'REFRIGERADO',
+  CONGELADO: 'CONGELADO',
+} as const;
+export type CategoriaAlimento = typeof CategoriaAlimento[keyof typeof CategoriaAlimento];
+
+/** Mirrors MS `UnidadArticulo` (feature catalogo-articulos, work unit A). */
+export const UnidadArticulo = {
+  KG: 'KG',
+  PAQUETE: 'PAQUETE',
+  LITRO: 'LITRO',
+  UNIDAD: 'UNIDAD',
+} as const;
+export type UnidadArticulo = typeof UnidadArticulo[keyof typeof UnidadArticulo];
+
+/** Mirrors MS `ArticuloResponse` (`GET/POST/PUT /articulos`, BFF `articulos` proxy, work unit E). */
+export interface Articulo {
+  id: number;
+  nombre: string;
+  categoria: CategoriaAlimento;
+  unidad: UnidadArticulo;
+  activo: boolean;
+}
+
+/** Body for `POST /articulos` and `PUT /articulos/:id` (full edit — MS requires all 3 fields). */
+export interface ArticuloInput {
+  nombre: string;
+  categoria: CategoriaAlimento;
+  unidad: UnidadArticulo;
+}
+
 // --- Info pública (aceptaDonaciones, sitioWebUrl, donacionDirectaUrl) ---
 // Live values are always present on any authenticated response. Pending
 // values are populated only while a referente-submitted change awaits
