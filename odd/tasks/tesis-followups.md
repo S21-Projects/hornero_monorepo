@@ -30,8 +30,10 @@ came from the fondo común, admin cannot see modalidad, onboarding counter missi
 
 ## Tasks
 
-- [ ] T1 E2E smoke test in Docker (`up-local`): worker healthy, donar fondo común, ronda, accept,
-      QR both sides, ENTREGADA, audit queue, evidence file. Route: inline (state/ops). Fix what breaks.
+- [x] T1 E2E smoke test in Docker (`up-local`): worker healthy, donar fondo común, ronda, accept,
+      QR both sides, ENTREGADA, audit queue, evidence file. Route: inline. Fixes 541f94d, 46bb931.
+      Audit queue: admin 200 (PENDIENTES/VENCIDAS/nivel filter), donante 403, anonymous 401.
+      Evidence files: own missing 404, other org 403, donante 403, public /images with evidence key 403.
 - [ ] T2 Docs: CLAUDE.md (worker service, :8090 internal, new flows) + docs/deploy-rpi-cloudflare.md
       (worker container, POBLACION_CSV). Route: inline (2 doc files, mechanical).
 - [x] T3 Makefile `backup` + `migrate` targets (backup, then every scripts/sql/V*.sql in order; `ENV_FILE=.env.local` for local). Verified against the local stack; backups/ gitignored. Route: inline.
