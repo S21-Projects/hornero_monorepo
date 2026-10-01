@@ -57,6 +57,46 @@ func TestHungarianMatchesBruteForce(t *testing.T) {
 	}
 }
 
+// TestHungarianMatchesBruteForceWithInfCells closes the earlier follow-up from AD-10's review:
+// matrizConDescarte's dummy columns are Inf everywhere except their own donation's row, so the
+// solver must be correct on matrices containing Inf cells, not just finite ones. It uses the
+// package's own Inf sentinel (MaxFloat64/4, not math.Inf) — exactly what matrizConDescarte
+// produces — since a real math.Inf would risk Inf-Inf=NaN inside the algorithm's potentials,
+// which is not what production code ever actually constructs.
+func TestHungarianMatchesBruteForceWithInfCells(t *testing.T) {
+	rng := rand.New(rand.NewSource(13))
+
+	for caso := 0; caso < 200; caso++ {
+		n := 1 + rng.Intn(5)
+		// One dummy column per row, dummy-column style (AD-10's matrizConDescarte): Inf on every
+		// other row, a finite "discard cost" on its own row — plus the real candidate columns.
+		realCols := rng.Intn(3)
+		m := realCols + n
+
+		cost := make([][]float64, n)
+		for i := range cost {
+			cost[i] = make([]float64, m)
+			for j := 0; j < realCols; j++ {
+				cost[i][j] = math.Round(rng.Float64()*200-100) / 10
+			}
+			for j := 0; j < n; j++ {
+				if j == i {
+					cost[i][realCols+j] = math.Round(rng.Float64()*50) / 10
+				} else {
+					cost[i][realCols+j] = Inf
+				}
+			}
+		}
+
+		_, total := Hungarian(cost)
+		esperado := bruteForce(cost)
+
+		if math.Abs(total-esperado) > 1e-9 {
+			t.Fatalf("case %d (%dx%d, %d dummy cols): got %v, brute force %v", caso, n, m, n, total, esperado)
+		}
+	}
+}
+
 func TestHungarianAssignsDistinctColumns(t *testing.T) {
 	cost := [][]float64{
 		{1, 2, 3},

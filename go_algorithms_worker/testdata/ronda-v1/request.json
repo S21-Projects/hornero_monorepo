@@ -19,7 +19,8 @@
       "urgencia": 0.6,
       "diasDesdeUltimaDonacion": 14,
       "categoriasAceptadas": ["NO_PERECEDERO"],
-      "categoriasPermitidas": ["NO_PERECEDERO"]
+      "categoriasPermitidas": ["NO_PERECEDERO"],
+      "cumplimiento": { "entregadas": 8, "fallidas": 1 }
     }
   ],
   "pesos": null,
