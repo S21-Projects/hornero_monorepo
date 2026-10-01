@@ -65,3 +65,9 @@ export const ACTIVO: Record<string, BadgeConfig> = {
   'true':  { tone: 'ok',      label: 'Activo' },
   'false': { tone: 'neutral', label: 'Inactivo' },
 };
+
+/** `ModalidadDonacion` (slice 5e/5f, `specs/donacion-fondo-comun`). */
+export const MODALIDAD_DONACION: Record<string, BadgeConfig> = {
+  DIRECTA:     { tone: 'sky',     label: 'Directa' },
+  FONDO_COMUN: { tone: 'neutral', label: 'Fondo común' },
+};
