@@ -1,12 +1,17 @@
 import {
+  ArrayMinSize,
+  IsArray,
   IsIn,
   IsOptional,
   IsString,
   Validate,
+  ValidateNested,
   ValidationArguments,
   ValidatorConstraint,
   ValidatorConstraintInterface,
 } from 'class-validator';
+import { Type } from 'class-transformer';
+import { DonacionLineaDto } from './donacion-linea.dto.js';
 
 /**
  * Mirrors `CreateDonacionRequest`'s modalidad-dependent cross-field rule in the MS
@@ -36,32 +41,6 @@ class NecesidadIdCrossFieldConstraint implements ValidatorConstraintInterface {
   }
 }
 
-/** `categoria`: required for FONDO_COMUN, forbidden for DIRECTA. */
-@ValidatorConstraint({ name: 'categoriaCrossField', async: false })
-class CategoriaCrossFieldConstraint implements ValidatorConstraintInterface {
-  private static readonly CATEGORIAS = [
-    'NO_PERECEDERO',
-    'REFRIGERADO',
-    'CONGELADO',
-  ];
-
-  validate(value: unknown, args: ValidationArguments): boolean {
-    if (resolveModalidad(args.object) === 'FONDO_COMUN') {
-      return (
-        typeof value === 'string' &&
-        CategoriaCrossFieldConstraint.CATEGORIAS.includes(value)
-      );
-    }
-    return value === undefined || value === null;
-  }
-
-  defaultMessage(args: ValidationArguments): string {
-    return resolveModalidad(args.object) === 'FONDO_COMUN'
-      ? 'categoria is required for FONDO_COMUN donations'
-      : 'categoria is not allowed for DIRECTA donations';
-  }
-}
-
 /** `latitud`/`longitud`: required for FONDO_COMUN, forbidden for DIRECTA. */
 @ValidatorConstraint({ name: 'coordenadaCrossField', async: false })
 class CoordenadaCrossFieldConstraint implements ValidatorConstraintInterface {
@@ -80,9 +59,11 @@ class CoordenadaCrossFieldConstraint implements ValidatorConstraintInterface {
 }
 
 /**
- * `modalidad`, optional `necesidadId`, `categoria`, `latitud`, `longitud` with cross-field rules
- * matching `CreateDonacionRequest` (MS, slice 5b) — `FONDO_COMUN` requires `categoria` + coords and
- * forbids `necesidadId`; `DIRECTA` requires `necesidadId` and forbids `categoria`/coords.
+ * `modalidad`, optional `necesidadId`, `lineas`, `latitud`, `longitud` with cross-field rules
+ * matching `CreateDonacionRequest` (MS) — `FONDO_COMUN` requires coords and forbids `necesidadId`;
+ * `DIRECTA` requires `necesidadId` and forbids coords. `lineas` is required for both modalidades
+ * (feature catalogo-articulos, decision 4): `categoria` is no longer a client-supplied field, it
+ * is always derived from `lineas` by the MS.
  */
 export class CrearDonacionDto {
   @IsOptional()
@@ -96,8 +77,11 @@ export class CrearDonacionDto {
   @IsString()
   observaciones?: string;
 
-  @Validate(CategoriaCrossFieldConstraint)
-  categoria?: string;
+  @IsArray()
+  @ArrayMinSize(1)
+  @ValidateNested({ each: true })
+  @Type(() => DonacionLineaDto)
+  lineas: DonacionLineaDto[];
 
   @Validate(CoordenadaCrossFieldConstraint)
   latitud?: number;
