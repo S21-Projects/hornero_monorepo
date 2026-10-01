@@ -12,6 +12,7 @@ import { UploadModule } from './upload/upload.module.js';
 import { ImagesModule } from './images/images.module.js';
 import { AcreditacionModule } from './acreditacion/acreditacion.module.js';
 import { EvidenciaFilesModule } from './evidencia-files/evidencia-files.module.js';
+import { RondasModule } from './rondas/rondas.module.js';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard.js';
 import { RolesGuard } from './auth/guards/roles.guard.js';
 
@@ -27,6 +28,7 @@ import { RolesGuard } from './auth/guards/roles.guard.js';
     ImagesModule,
     AcreditacionModule,
     EvidenciaFilesModule,
+    RondasModule,
   ],
   controllers: [AppController],
   providers: [
