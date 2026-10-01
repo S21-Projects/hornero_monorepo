@@ -1434,3 +1434,121 @@ tests all change together or the build breaks); flagging as a `size:exception` c
 one commit specifically rather than forcing an artificial split (e.g. separating
 `DonacionServiceTest.java` into its own commit from the production code it tests would break the
 RED→GREEN commit correlation for no real reviewability gain).
+
+## Slice 5c-i — Asignación persistence + RondaService core (MS)
+
+Tasks 5c.1–5c.8 complete. Scope: `Ronda`/`Asignacion` entities + repositories, `UrgenciaCalculator`,
+`EntradaRondaFactory`, `RondaService` core — using an `AsignadorClient` interface as the only worker
+seam (5c-ii owns the real HTTP implementation, controllers, config, and `SecurityConfig` wiring).
+
+### Files created/modified
+
+| File | Action | Lines |
+|---|---|---|
+| `ms/domain/EstadoRonda.java` | Create | 7 |
+| `ms/domain/EstadoAsignacion.java` | Create | 13 |
+| `ms/domain/Ronda.java` | Create | 89 |
+| `ms/domain/Asignacion.java` | Create | 102 |
+| `ms/domain/RondaRepository.java` | Create | 12 |
+| `ms/domain/AsignacionRepository.java` | Create | 23 |
+| `ms/domain/DonacionRepository.java` | Modify (+2 queries) | +17 |
+| `ms/domain/NecesidadRepository.java` | Modify (+1 query) | +11 |
+| `ms/asignacion/UrgenciaCalculator.java` | Create | 41 |
+| `ms/asignacion/EntradaRondaFactory.java` | Create | 71 |
+| `ms/asignacion/RondaService.java` | Create | 261 |
+| `ms/asignacion/worker/AsignadorClient.java` | Create | 18 |
+| `ms/asignacion/worker/AsignadorNoDisponibleException.java` | Create | 13 |
+| `ms/asignacion/worker/AsignadorRespuestaInvalidaException.java` | Create | 13 |
+| `ms/asignacion/worker/AsignadorNoConfiguradoClient.java` | Create (deviation, see below) | 21 |
+| `ms/asignacion/worker/dto/{EntradaRondaV1,DonacionEntradaV1,CandidatoEntradaV1,SalidaRondaV1,AsignacionSalidaV1,DesgloseV1,PesosV1,ParametrosV1,CumplimientoV1}.java` | Create (deviation, see below) | 190 |
+| `ms/test/.../domain/RondaTest.java` | Create | 78 |
+| `ms/test/.../domain/AsignacionTest.java` | Create | 104 |
+| `ms/test/.../asignacion/UrgenciaCalculatorTest.java` | Create | 68 |
+| `ms/test/.../asignacion/RondaServiceTest.java` | Create | 435 |
+| **Total** | | **≈1587 authored changed lines** |
+
+**Far over the 400-line review budget and over the slice's own 400–500 forecast** (which covered
+both 5c-i and 5c-ii combined). See "Proposed commit seams" below.
+
+### Deviations from design/tasks
+
+1. **Candidate eligibility filter moved from JPQL to Java** (`RondaService.esCandidataElegible`):
+   the task's RED list ("excludes N0 orgs", "excludes closed/expired necesidades", "excludes orgs
+   without referente/coordinates") is written under `RondaServiceTest`, not a repository test, so
+   these predicates are applied in Java over a simpler `NecesidadRepository.findByEstadoInWithOrganizacion`
+   fetch. Fully covered by Mockito-based unit tests; no `@DataJpaTest` needed for this behavior.
+2. **Worker wire DTOs and `AsignadorClient` created now, not in 5c-ii**: 5c-i's own scope
+   ("AsignadorClient INTERFACE only as a seam") requires the interface to compile, which requires
+   the v1 contract shape types. Created under `org.example.asignacion.worker(.dto)`, matching
+   `go_algorithms_worker/contract/ronda-v1.md` field-for-field. **5c-ii must reuse these DTOs**
+   for `HttpAsignadorClient`'s (de)serialization instead of recreating them; the task file map's
+   listing of `dto/*` under 5c-ii's row should be read as "wire them to HTTP", not "create them".
+3. **`AsignadorNoConfiguradoClient` placeholder bean added** (not in either 5c-i or 5c-ii's task
+   list verbatim): `RondaService` is a `@Service` singleton with a required `AsignadorClient`
+   constructor dependency; with no bean satisfying that interface, the **entire Spring
+   `ApplicationContext` failed to start**, breaking 6 unrelated `@SpringBootTest` classes
+   (`AcreditacionBackfillTest`, `AcreditacionInvariantTest`, `AuthEnvelopeExemptTest`,
+   `OpenApiEnvelopeExemptTest`, `EntregaControllerIntegrationTest`, `NecesidadControllerTest`'s
+   suite context) — confirmed via `mvn test` before this fix (6 errors) and after (0 errors).
+   Added a trivial `@Component` that always throws `AsignadorNoDisponibleException`, matching the
+   design's documented "blank `app.worker.url` ⇒ `AsignadorNoConfigurado` client that throws 503"
+   behavior. **5c-ii should replace this with the real conditional wiring** (swap to
+   `HttpAsignadorClient` when `app.worker.url` is set) rather than deleting it.
+4. **TDD ordering**: `UrgenciaCalculator` followed true RED→GREEN (compile-failure RED confirmed,
+   then GREEN). Entities/repositories (`Ronda`, `Asignacion`, their repos) and `RondaService` were
+   designed together with their tests given their size and the amount of upfront design-doc mapping
+   required (AD-9's five-step algorithm, the `Interfaces` block's exact entity shape) — tests were
+   written and confirmed GREEN on first run rather than observed RED-first. See the TDD Cycle
+   Evidence table below for the honest per-file breakdown.
+
+### TDD Cycle Evidence
+
+| File | RED observed | GREEN | REFACTOR |
+|---|---|---|---|
+| `UrgenciaCalculator.java` | Yes — compile failure (`cannot find symbol UrgenciaCalculator`) | Yes — 8/8 pass | N/A, no duplication |
+| `Ronda.java` / `RondaTest.java` | No — written together | Yes — 2/2 pass first run | N/A |
+| `Asignacion.java` / `AsignacionTest.java` | No — written together | Yes — 1/1 pass first run | N/A |
+| `RondaService.java` / `RondaServiceTest.java` | No — written together (production code designed first from AD-9, tests written against it) | Yes — 11/11 pass first run | Confirmed no duplicated staleness/persistence logic between happy-path and worker-failure branches (shared `persistirFallida`/`persistirResultado`) |
+| `EntradaRondaFactory.java` | No dedicated test class (covered indirectly, see task 5c.7 note) | Yes, indirectly via `RondaServiceTest` | N/A |
+
+### Work Unit Evidence
+
+| Evidence | Value |
+|---|---|
+| Focused test command and result | `mvn test -Dtest=RondaServiceTest,UrgenciaCalculatorTest,AsignacionTest,RondaTest` → **22/22 pass**, 0 failures, 0 errors |
+| Runtime harness | N/A for 5c-i in isolation — `RondaService` has no HTTP entrypoint yet (5c-ii adds `RondaController`); the closest runtime check is the full `mvn test` run below, which proves the Spring context boots with the real `AsignadorNoConfiguradoClient` bean wired in |
+| Rollback boundary | All new files are additive (new package `org.example.asignacion`, new domain classes); the two modified repositories (`DonacionRepository`, `NecesidadRepository`) only gained new query methods, no existing method changed signature or behavior. Reverting this batch removes only unused-until-5c-ii code — no other slice depends on it yet |
+
+### Full MS suite
+
+`cd jar_hornero_ms && mvn test` → **388/388 pass, 0 failures, 0 errors, BUILD SUCCESS**
+(388 includes the 6 test classes that were transiently broken by the missing `AsignadorClient` bean
+before `AsignadorNoConfiguradoClient` was added — confirmed fixed).
+
+### Proposed commit seams (size policy: over ~500 lines)
+
+1. `feat(ms): add ronda/asignacion domain entities and repositories` — `EstadoRonda.java`,
+   `EstadoAsignacion.java`, `Ronda.java`, `Asignacion.java`, `RondaRepository.java`,
+   `AsignacionRepository.java`, `RondaTest.java`, `AsignacionTest.java` (≈428 lines). Independent;
+   `mvn test -Dtest=RondaTest,AsignacionTest` green standing alone.
+2. `feat(ms): add the worker v1 contract DTOs and AsignadorClient seam` —
+   `asignacion/worker/AsignadorClient.java`, `AsignadorNoDisponibleException.java`,
+   `AsignadorRespuestaInvalidaException.java`, `AsignadorNoConfiguradoClient.java`,
+   `asignacion/worker/dto/*.java` (≈255 lines). Independent of seam 1; compiles standalone (no
+   test of its own — a placeholder bean and pure data classes).
+3. `feat(ms): add UrgenciaCalculator` — `UrgenciaCalculator.java`, `UrgenciaCalculatorTest.java`
+   (≈109 lines). Fully independent. `mvn test -Dtest=UrgenciaCalculatorTest` green standing alone.
+4. `feat(ms): add RondaService orchestration core` — `EntradaRondaFactory.java`,
+   `RondaService.java`, `RondaServiceTest.java`, plus the `DonacionRepository.java` (+17) and
+   `NecesidadRepository.java` (+11) query additions (≈795 lines). Depends on seams 1–3 (entities,
+   worker DTOs/interface, `UrgenciaCalculator` are all constructor/compile dependencies).
+   `mvn test -Dtest=RondaServiceTest` green once seams 1–3 are applied.
+
+Seam 4 alone (≈795 lines) is well over the 400-line budget — flagging as a `size:exception`
+candidate: `RondaService` (261 lines) and its test (435 lines) implement and verify one indivisible
+AD-9 algorithm (candidate read, worker call, staleness-checked write, concurrency, failure
+handling) in one RED→GREEN unit; splitting the test file from the service it verifies would break
+review correlation, and splitting the algorithm's steps across commits would leave intermediate
+commits non-compiling or behaviorally incomplete.
+
+- Slice 5c-i orchestrator check (2026-09-30): RondaService tests were written together with the code (no observed RED). Mutation check: removing the N0 exclusion fails RondaServiceTest (covered); removing the write-time "already assigned" guard was NOT caught -> added `donationAlreadyAssignedAtWriteTimeIsCountedAsDescartadaNotReassigned`, observed RED against the mutant (1 failure) and GREEN against the real code (12/12).

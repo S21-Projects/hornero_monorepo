@@ -647,7 +647,7 @@ Depends on: 5a (worker contract), 5b (schema). Sub-split per the forecast: **5c-
 
 ### 5c-i — Entities + RondaService core
 
-- [ ] 5c.1 RED — `jar_hornero_ms/src/test/.../asignacion/RondaServiceTest.java`: candidate query
+- [x] 5c.1 RED — `jar_hornero_ms/src/test/.../asignacion/RondaServiceTest.java`: candidate query
       excludes N0 organizaciones (RED test pinning the empty-`categoriasPermitidas` = uncapped
       worker behavior interacting with `AcreditacionService.categoriasPermitidas(N0)` being empty),
       excludes closed/expired necesidades, excludes orgs without a referente or coordinates;
@@ -657,22 +657,61 @@ Depends on: 5a (worker contract), 5b (schema). Sub-split per the forecast: **5c-
       `503`, `502`, nothing assigned; a donation that went stale between read and write (donante
       cancelled mid-call) is counted as `descartadas`, not assigned; happy path persists `Ronda` +
       `Asignacion` rows and sets `donacion.necesidad`.
-- [ ] 5c.2 RED — `jar_hornero_ms/src/test/.../asignacion/UrgenciaCalculatorTest.java`: `urgencia =
+      **Deviation**: the "excludes N0/expired/no-referente-or-coordinates" eligibility predicate
+      moved from JPQL (`NecesidadRepository`) into a Java-side filter inside `RondaService`
+      (`esCandidataElegible`), so it stays covered by plain Mockito unit tests instead of a
+      `@DataJpaTest` fixture — this matches the task's own framing of these as `RondaServiceTest`
+      RED cases, not a repository test. `NecesidadRepository` gained a simpler
+      `findByEstadoInWithOrganizacion` fetch instead of a complex filtering `@Query`.
+      **TDD note**: written and passing against the already-implemented `RondaService`/
+      `EntradaRondaFactory` (not strict RED-first for this file) — see the TDD Cycle Evidence table
+      in `apply-progress.md`.
+- [x] 5c.2 RED — `jar_hornero_ms/src/test/.../asignacion/UrgenciaCalculatorTest.java`: `urgencia =
       max(base(prioridad), vencimiento)` per the documented constants and clamp.
-- [ ] 5c.3 RED — `jar_hornero_ms/src/test/.../domain/AsignacionTest.java` /
+- [x] 5c.3 RED — `jar_hornero_ms/src/test/.../domain/AsignacionTest.java` /
       `RondaTest.java` (`@DataJpaTest`): entity persistence round-trips every field in AD-9's model,
       including `deficitFuente`, `codigoRadio` and the weight snapshot columns.
-- [ ] 5c.4 GREEN — Create `jar_hornero_ms/.../domain/EstadoRonda.java`,
+      **TDD note**: entities were created together with these tests (not strict RED-first) given
+      their mechanical, spec-dictated shape (design.md's `Ronda`/`Asignacion` interface block);
+      confirmed GREEN on first run.
+- [x] 5c.4 GREEN — Create `jar_hornero_ms/.../domain/EstadoRonda.java`,
       `jar_hornero_ms/.../domain/Ronda.java`, `RondaRepository.java`.
-- [ ] 5c.5 GREEN — Create `jar_hornero_ms/.../domain/EstadoAsignacion.java`,
+- [x] 5c.5 GREEN — Create `jar_hornero_ms/.../domain/EstadoAsignacion.java`,
       `jar_hornero_ms/.../domain/Asignacion.java`, `AsignacionRepository.java` (indexes on
       `donacion_id`, `ronda_id`). Satisfies 5c.3.
-- [ ] 5c.6 GREEN — Create `jar_hornero_ms/.../asignacion/UrgenciaCalculator.java`. Satisfies 5c.2.
-- [ ] 5c.7 GREEN — Create `jar_hornero_ms/.../asignacion/EntradaRondaFactory.java`: assembles
-      `EntradaRondaV1` from the pool, candidates, days-since-last-donation, and exclusions (worker
-      client and compliance counts injected as collaborators, mocked in this task's tests).
-- [ ] 5c.8 GREEN — Create `jar_hornero_ms/.../asignacion/RondaService.java`: `ejecutar(adminId)`
+- [x] 5c.6 GREEN — Create `jar_hornero_ms/.../asignacion/UrgenciaCalculator.java`. Satisfies 5c.2.
+      True RED→GREEN: `UrgenciaCalculatorTest` failed to compile (`cannot find symbol
+      UrgenciaCalculator`) before the class existed, then passed once created.
+- [x] 5c.7 GREEN — Create `jar_hornero_ms/.../asignacion/EntradaRondaFactory.java`: assembles
+      `EntradaRondaV1` from the pool, candidates, days-since-last-donation, and exclusions.
+      **Deviation**: takes `AcreditacionService` directly as a constructor collaborator (its
+      `categoriasPermitidas` method is `public`) instead of an injected `Function` — simpler, and
+      `AcreditacionService` is already a Spring-managed singleton with no compliance-count
+      dependency yet (6b doesn't exist). No dedicated test class; covered indirectly through
+      `RondaServiceTest`'s captured `EntradaRondaV1` assertions (candidate list, exclusions,
+      urgencia/diasDesdeUltimaDonacion), per the task's own verification list (only
+      `RondaServiceTest`, `UrgenciaCalculatorTest`, `AsignacionTest`, `RondaTest` are named).
+- [x] 5c.8 GREEN — Create `jar_hornero_ms/.../asignacion/RondaService.java`: `ejecutar(adminId)`
       implementing AD-9's five steps against a fake `AsignadorClient` collaborator. Satisfies 5c.1.
+      **Deviation (scope note for 5c-ii)**: 5c-i's own scope required an `AsignadorClient`
+      interface seam, which in turn required the worker contract v1 wire DTOs
+      (`EntradaRondaV1`/`SalidaRondaV1`/etc.) to exist so the interface method signature compiles —
+      these were created now under `org.example.asignacion.worker(.dto)`, even though the task
+      file map nominally lists `dto/*` under 5c-ii (5c.13). **5c-ii should reuse these DTOs
+      as-is** for `HttpAsignadorClient`'s (de)serialization rather than recreating them.
+      Also added `AsignadorNoDisponibleException`, `AsignadorRespuestaInvalidaException`, and a
+      placeholder `AsignadorNoConfiguradoClient` (`@Component`, always throws
+      `AsignadorNoDisponibleException`) — required so the full Spring application context can boot
+      at all (a `@Service` singleton with an unsatisfied constructor dependency fails
+      `ApplicationContext` startup for every `@SpringBootTest`, which broke 6 unrelated test
+      classes until this placeholder was added). **5c-ii should replace this placeholder** with the
+      real conditional wiring (`HttpAsignadorClient` when `app.worker.url` is set, this
+      no-op/`AsignadorNoConfigurado` behavior when blank) rather than deleting it outright — its
+      behavior already matches the design's documented blank-URL fallback.
+      Uses `TransactionTemplate`/`PlatformTransactionManager` (already an established pattern in
+      this codebase, see `EntregaControllerIntegrationTest`) for two explicit transactional phases
+      (read, then write) around the worker call, per AD-9's "call the worker outside any
+      transaction" requirement.
 
 **Verification (5c-i):**
 `cd jar_hornero_ms && mvn test -Dtest=RondaServiceTest,UrgenciaCalculatorTest,AsignacionTest,RondaTest`
