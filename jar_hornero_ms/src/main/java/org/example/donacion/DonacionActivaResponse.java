@@ -2,9 +2,11 @@ package org.example.donacion;
 
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.List;
 
 /**
- * Same null-safety and write-only-location contract as {@link DonacionResponse} — see its javadoc.
+ * Same null-safety and write-only-location contract as {@link DonacionResponse} — see its javadoc,
+ * including {@code lineas} (feature catalogo-articulos, decision 4).
  */
 public record DonacionActivaResponse(
         Long id,
@@ -25,5 +27,6 @@ public record DonacionActivaResponse(
         Instant overrideEn,
         String modalidad,
         String categoria,
-        String fase
+        String fase,
+        List<DonacionLineaResponse> lineas
 ) {}

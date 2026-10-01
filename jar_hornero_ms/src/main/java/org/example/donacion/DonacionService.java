@@ -3,9 +3,13 @@ package org.example.donacion;
 import lombok.RequiredArgsConstructor;
 import org.example.auth.VerificacionService;
 import org.example.config.EsquemaVerificador;
+import org.example.domain.Articulo;
+import org.example.domain.ArticuloRepository;
 import org.example.domain.Asignacion;
 import org.example.domain.AsignacionRepository;
+import org.example.domain.CategoriaAlimento;
 import org.example.domain.Donacion;
+import org.example.domain.DonacionLinea;
 import org.example.domain.DonacionRepository;
 import org.example.domain.EstadoAsignacion;
 import org.example.domain.EstadoDonacion;
@@ -15,6 +19,7 @@ import org.example.domain.NecesidadRepository;
 import org.example.domain.Organizacion;
 import org.example.domain.OrganizacionRepository;
 import org.example.donacion.dto.CreateDonacionRequest;
+import org.example.donacion.dto.DonacionLineaRequest;
 import org.example.user.Donante;
 import org.example.user.UsuarioRepository;
 import org.springframework.data.domain.Page;
@@ -26,6 +31,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Set;
@@ -43,6 +49,7 @@ public class DonacionService {
     private final VerificacionService verificacionService;
     private final EsquemaVerificador esquemaVerificador;
     private final AsignacionRepository asignacionRepository;
+    private final ArticuloRepository articuloRepository;
 
     public Page<DonacionResponse> findAll(Pageable pageable) {
         return donacionRepository.findAllWithDonante(pageable)
@@ -68,10 +75,6 @@ public class DonacionService {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                         "FONDO_COMUN donations cannot target a necesidad directly");
             }
-            if (dto.getCategoria() == null) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                        "categoria is required for FONDO_COMUN donations");
-            }
             if (dto.getLatitud() == null || dto.getLongitud() == null) {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                         "latitud/longitud are required for FONDO_COMUN donations");
@@ -84,10 +87,17 @@ public class DonacionService {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                         "necesidadId is required for DIRECTA donations");
             }
-            if (dto.getCategoria() != null || dto.getLatitud() != null || dto.getLongitud() != null) {
+            if (dto.getLatitud() != null || dto.getLongitud() != null) {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                        "categoria/latitud/longitud are only allowed for FONDO_COMUN donations");
+                        "latitud/longitud are only allowed for FONDO_COMUN donations");
             }
+        }
+
+        // Feature catalogo-articulos, decision 4: every donación (both modalidades) requires at
+        // least one línea. Cheap shape check before any articulo lookup.
+        if (dto.getLineas() == null || dto.getLineas().isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Donación requires at least one línea (articulo + cantidad)");
         }
 
         Donante donante = (Donante) usuarioRepository.findById(donanteId)
@@ -101,7 +111,6 @@ public class DonacionService {
         d.setModalidad(modalidad);
 
         if (modalidad == ModalidadDonacion.FONDO_COMUN) {
-            d.setCategoria(dto.getCategoria());
             d.setLatitud(dto.getLatitud());
             d.setLongitud(dto.getLongitud());
             d.setNecesidad(null);
@@ -110,6 +119,26 @@ public class DonacionService {
                     .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Necesidad not found"));
             d.setNecesidad(necesidad);
         }
+
+        // Decision 5: categoria is always derived from the lines, never hand-entered — reject any
+        // línea whose articulo is unknown or deactivated (decision 3: a deactivated articulo must
+        // no longer be offerable, but existing references to it keep resolving).
+        List<DonacionLinea> lineas = new ArrayList<>();
+        List<CategoriaAlimento> categorias = new ArrayList<>();
+        for (DonacionLineaRequest lr : dto.getLineas()) {
+            Articulo articulo = articuloRepository.findById(lr.getArticuloId())
+                    .filter(Articulo::isActivo)
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                            "Articulo inválido o inactivo: " + lr.getArticuloId()));
+            DonacionLinea linea = new DonacionLinea();
+            linea.setArticulo(articulo);
+            linea.setCantidad(lr.getCantidad());
+            linea.setDonacion(d);
+            lineas.add(linea);
+            categorias.add(articulo.getCategoria());
+        }
+        d.setLineas(lineas);
+        d.setCategoria(CategoriaAlimento.masExigente(categorias));
 
         return toResponse(donacionRepository.save(d));
     }
@@ -316,8 +345,19 @@ public class DonacionService {
                 d.getConfirmadaReferenteEn(),
                 d.getModalidadEfectiva().name(),
                 d.getCategoria() != null ? d.getCategoria().name() : null,
-                FaseDonacion.de(d).name()
+                FaseDonacion.de(d).name(),
+                toLineaResponses(d)
         );
+    }
+
+    private List<DonacionLineaResponse> toLineaResponses(Donacion d) {
+        return d.getLineas().stream()
+                .map(l -> new DonacionLineaResponse(
+                        l.getArticulo().getId(),
+                        l.getArticulo().getNombre(),
+                        l.getArticulo().getUnidad() != null ? l.getArticulo().getUnidad().name() : null,
+                        l.getCantidad()))
+                .collect(Collectors.toList());
     }
 
     private DonacionActivaResponse toActivaResponse(Donacion d) {
@@ -345,7 +385,8 @@ public class DonacionService {
                 d.getOverrideEn(),
                 d.getModalidadEfectiva().name(),
                 d.getCategoria() != null ? d.getCategoria().name() : null,
-                FaseDonacion.de(d).name()
+                FaseDonacion.de(d).name(),
+                toLineaResponses(d)
         );
     }
 }

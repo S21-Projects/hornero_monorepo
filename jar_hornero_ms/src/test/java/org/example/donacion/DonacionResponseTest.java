@@ -43,7 +43,7 @@ class DonacionResponseTest {
         DonacionResponse response = new DonacionResponse(
                 1L, LocalDate.now(), null, "OFRECIDA", "obs", "Donante",
                 null, null, "", "", 2L, (Instant) null, (Instant) null,
-                "FONDO_COMUN", "NO_PERECEDERO", "EN_FONDO"
+                "FONDO_COMUN", "NO_PERECEDERO", "EN_FONDO", java.util.List.of()
         );
 
         Map<?, ?> json = MAPPER.readValue(MAPPER.writeValueAsString(response), Map.class);
@@ -58,7 +58,7 @@ class DonacionResponseTest {
                 1L, LocalDate.now(), null, "OFRECIDA", "obs", 2L, "Donante",
                 null, "", null, "", (Instant) null, (Instant) null,
                 null, null, (Instant) null,
-                "FONDO_COMUN", "NO_PERECEDERO", "EN_FONDO"
+                "FONDO_COMUN", "NO_PERECEDERO", "EN_FONDO", java.util.List.of()
         );
 
         Map<?, ?> json = MAPPER.readValue(MAPPER.writeValueAsString(response), Map.class);

@@ -6,6 +6,8 @@ import org.example.user.Donante;
 
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "donaciones")
@@ -79,6 +81,11 @@ public class Donacion {
 
     @Column(name = "override_en")
     private Instant overrideEn;
+
+    // Feature catalogo-articulos, decision 4: N lines of articulo + cantidad, for both
+    // modalidades. Additive table (`donacion_lineas`), nothing existing is dropped or renamed.
+    @OneToMany(mappedBy = "donacion", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<DonacionLinea> lineas = new ArrayList<>();
 
     /**
      * Coalesced read per the D4 convention: a {@code null} {@link #modalidad} (every donación

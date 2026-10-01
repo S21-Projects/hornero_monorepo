@@ -118,7 +118,7 @@ worker, then ronda wiring, then BFF, then admin UI, then seeds/reset, then docs.
 
 ### Work unit A — MS: Articulo catalog entity + admin CRUD
 
-- **C1** — Add `Articulo` entity (`nombre`, `categoria: CategoriaAlimento`,
+- [x] **C1** — DONE 2026-10-01: `ArticuloRepositoryTest` RED→GREEN (3/3). Add `Articulo` entity (`nombre`, `categoria: CategoriaAlimento`,
   `unidad: UnidadArticulo` enum [`KG`,`PAQUETE`,`LITRO`,`UNIDAD`], `activo: boolean default true`)
   + `ArticuloRepository`.
   - Files: `jar_hornero_ms/src/main/java/org/example/domain/Articulo.java` (new),
@@ -131,7 +131,7 @@ worker, then ronda wiring, then BFF, then admin UI, then seeds/reset, then docs.
     ambiguity).
   - Est. ~80 lines.
 
-- **C2** — `ArticuloService` + DTOs (`CrearArticuloRequest`, `ActualizarArticuloRequest`,
+- [x] **C2** — DONE 2026-10-01: `ArticuloServiceTest` (6/6) + `ArticuloControllerSecurityTest` (9/9) RED→GREEN. `ArticuloService` + DTOs (`CrearArticuloRequest`, `ActualizarArticuloRequest`,
   `ArticuloResponse`) + `ArticuloController`: `GET /api/articulos` (public, `activo=true` by
   default, admin can pass `?incluirInactivos=true`), `POST /api/articulos` (ADMINISTRADOR),
   `PUT /api/articulos/{id}` (ADMINISTRADOR, edits nombre/categoria/unidad),
@@ -149,7 +149,7 @@ worker, then ronda wiring, then BFF, then admin UI, then seeds/reset, then docs.
     plus their tests).
   - Est. ~350 lines.
 
-- **C3** — Wire `SecurityConfig`: public GET `/api/articulos/**`, everything else on that root
+- [x] **C3** — DONE 2026-10-01: covered by `ArticuloControllerSecurityTest` matcher-ordering cases, GREEN. Wire `SecurityConfig`: public GET `/api/articulos/**`, everything else on that root
   needs `ADMINISTRADOR` (mirror the `/api/rondas/**` admin-only matcher pattern already there).
   - Files: `jar_hornero_ms/src/main/java/org/example/config/SecurityConfig.java`.
   - Tests first: extend `ArticuloControllerSecurityTest` (already covers this; this task is the
@@ -159,9 +159,16 @@ worker, then ronda wiring, then BFF, then admin UI, then seeds/reset, then docs.
   - Route: inline (single file, mechanical, pattern already established by existing matchers).
   - Est. ~15 lines.
 
+- [x] **A-seed** (not a numbered task in this doc; done ahead of C14 at the orchestrator's explicit
+  request for work unit A): `DataInitializer.seedArticulos()` idempotently seeds a 13-item catalog
+  covering all 3 `CategoriaAlimento` values, called before `seedNecesidades()`/`seedDonaciones()`.
+  `DataInitializerArticuloSeedTest` RED→GREEN (2/2). `seedNecesidades()`/`seedDonaciones()`
+  themselves are untouched — still C14's job (work unit I, out of this pass's scope).
+
 ### Work unit B — MS: Donación lines + categoria derivation
 
-- **C4** — Add `DonacionLinea` child entity (`articulo: Articulo`, `cantidad: BigDecimal`, owned
+- [x] **C4** — DONE 2026-10-01: `CategoriaAlimentoTest` (4/4) + `DonacionLineaTest` (2/2) +
+  `DonacionRepositoryTest` (12/12, no regression) RED→GREEN. Add `DonacionLinea` child entity (`articulo: Articulo`, `cantidad: BigDecimal`, owned
   `@ManyToOne` back to `Donacion`, `@OneToMany(cascade=ALL, orphanRemoval=true)` on `Donacion`).
   Remove nothing from `Donacion` (keep `observaciones` as optional notes per decision 7).
   Derive `Donacion.categoria` as the most-demanding categoria across its lines (decision 5) —
@@ -182,7 +189,13 @@ worker, then ronda wiring, then BFF, then admin UI, then seeds/reset, then docs.
     not break — needs careful review of `DonacionResponseTest`'s record-component assertions).
   - Est. ~180 lines.
 
-- **C5** — Update `CreateDonacionRequest`/`DonacionService.crear` to accept
+- [x] **C5** — DONE 2026-10-01: `DonacionServiceTest` (57/57) + `DonacionResponseTest` (4/4) +
+  `DonacionControllerTest` (7/7) RED→GREEN. Judgment call made (flagged in doc's "Open technical
+  questions"): the client-supplied `categoria` field was **dropped entirely** from
+  `CreateDonacionRequest` (not kept as an optional cross-check) — `categoria` is now always
+  derived from `lineas` for both modalidades, so there is no code path left where a client value
+  could contradict the lines. `DonacionResponse`/`DonacionActivaResponse` gained `lineas` as their
+  new last record component (all 3 call sites across main+test updated). Update `CreateDonacionRequest`/`DonacionService.crear` to accept
   `List<LineaRequest>` (articulo id + cantidad, `cantidad > 0` via `@Positive`), build
   `DonacionLinea`s, derive `categoria` from them (replacing the current direct `categoria` input
   field — keep the field on the DTO only for the FONDO_COMUN pickup-matching validation path if
@@ -447,6 +460,13 @@ worker, then ronda wiring, then BFF, then admin UI, then seeds/reset, then docs.
 
 ## Progress
 
+- 2026-10-01: Work units A (C1-C3 + idempotent catalog seed) and B (C4-C5 only — **C6 explicitly
+  deferred** to a later pass per orchestrator scoping, not done in this pass) implemented in
+  `jar_hornero_ms` under strict TDD. Full MS suite: 465/465 passing, 0 failures/errors. See
+  "Key Learnings" in the implementation worker's report for the full file list, RED→GREEN
+  evidence, and judgment calls (categoria field dropped from `CreateDonacionRequest`, DIRECTA
+  articulo-compatibility check not implemented — blocked on C6/`NecesidadArticulo`). Necesidad is
+  untouched; its `categoria` input path and lack of articulo selection are unchanged until C6.
 - 2026-10-01: Document created after exploration (decisions read from Engram #723; code read:
   `CategoriaAlimento`, `Donacion`, `Necesidad`, their DTOs/responses, `EntradaRondaFactory`,
   `SecurityConfig`, worker `ronda_v1.go`/`scoring.go`, `RondaService.esCandidataElegible`,

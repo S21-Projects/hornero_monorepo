@@ -2,6 +2,8 @@ package org.example.donacion;
 
 import org.example.auth.VerificacionService;
 import org.example.config.EsquemaVerificador;
+import org.example.domain.Articulo;
+import org.example.domain.ArticuloRepository;
 import org.example.domain.Asignacion;
 import org.example.domain.AsignacionRepository;
 import org.example.domain.CategoriaAlimento;
@@ -14,7 +16,9 @@ import org.example.domain.Necesidad;
 import org.example.domain.NecesidadRepository;
 import org.example.domain.Organizacion;
 import org.example.domain.OrganizacionRepository;
+import org.example.domain.UnidadArticulo;
 import org.example.donacion.dto.CreateDonacionRequest;
+import org.example.donacion.dto.DonacionLineaRequest;
 import org.example.user.Donante;
 import org.example.user.Referente;
 import org.example.user.UsuarioRepository;
@@ -63,6 +67,9 @@ class DonacionServiceTest {
     @Mock
     private AsignacionRepository asignacionRepository;
 
+    @Mock
+    private ArticuloRepository articuloRepository;
+
     @InjectMocks
     private DonacionService donacionService;
 
@@ -83,6 +90,31 @@ class DonacionServiceTest {
         // Default: schema already migrated (V001 ran). Only the dedicated ESQUEMA_PENDIENTE test
         // overrides this.
         org.mockito.Mockito.lenient().when(esquemaVerificador.necesidadIdEsNullable()).thenReturn(true);
+    }
+
+    // ─── catalogo-articulos helpers ─────────────────────────────────────────────
+
+    private Articulo articuloActivo(Long id, CategoriaAlimento categoria) {
+        Articulo a = new Articulo();
+        a.setId(id);
+        a.setNombre("Arroz");
+        a.setCategoria(categoria);
+        a.setUnidad(UnidadArticulo.KG);
+        a.setActivo(true);
+        return a;
+    }
+
+    private DonacionLineaRequest linea(Long articuloId, String cantidad) {
+        DonacionLineaRequest l = new DonacionLineaRequest();
+        l.setArticuloId(articuloId);
+        l.setCantidad(new java.math.BigDecimal(cantidad));
+        return l;
+    }
+
+    /** Stubs a single active NO_PERECEDERO articulo (id 1L) and returns a one-line list for it. */
+    private List<DonacionLineaRequest> unaLineaNoPerecedero() {
+        when(articuloRepository.findById(1L)).thenReturn(Optional.of(articuloActivo(1L, CategoriaAlimento.NO_PERECEDERO)));
+        return List.of(linea(1L, "2"));
     }
 
     private Donacion donacionFor(Long id, Organizacion org) {
@@ -163,6 +195,7 @@ class DonacionServiceTest {
         CreateDonacionRequest dto = new CreateDonacionRequest();
         dto.setNecesidadId(100L);
         dto.setObservaciones("Puedo traer 10 litros esta semana");
+        dto.setLineas(unaLineaNoPerecedero());
 
         when(necesidadRepository.findById(100L)).thenReturn(Optional.of(necesidad));
         when(usuarioRepository.findById(2L)).thenReturn(Optional.of(donante));
@@ -171,6 +204,8 @@ class DonacionServiceTest {
         DonacionResponse response = donacionService.crear(dto, 2L);
 
         assertThat(response.necesidadId()).isEqualTo(100L);
+        assertThat(response.categoria()).isEqualTo("NO_PERECEDERO");
+        assertThat(response.lineas()).hasSize(1);
         verify(verificacionService).requireVerified(2L);
     }
 
@@ -583,6 +618,7 @@ class DonacionServiceTest {
         CreateDonacionRequest dto = new CreateDonacionRequest();
         dto.setModalidad(ModalidadDonacion.DIRECTA);
         dto.setNecesidadId(100L);
+        dto.setLineas(unaLineaNoPerecedero());
 
         when(necesidadRepository.findById(100L)).thenReturn(Optional.of(necesidad));
         when(usuarioRepository.findById(2L)).thenReturn(Optional.of(donante));
@@ -602,6 +638,7 @@ class DonacionServiceTest {
 
         CreateDonacionRequest dto = new CreateDonacionRequest();
         dto.setNecesidadId(100L);
+        dto.setLineas(unaLineaNoPerecedero());
 
         when(necesidadRepository.findById(100L)).thenReturn(Optional.of(necesidad));
         when(usuarioRepository.findById(2L)).thenReturn(Optional.of(donante));
@@ -624,11 +661,12 @@ class DonacionServiceTest {
     }
 
     @Test
-    void crear_directaConCategoriaOCoordenadas_throwsBadRequest() {
+    void crear_directaConCoordenadas_throwsBadRequest() {
         CreateDonacionRequest dto = new CreateDonacionRequest();
         dto.setModalidad(ModalidadDonacion.DIRECTA);
         dto.setNecesidadId(100L);
-        dto.setCategoria(CategoriaAlimento.NO_PERECEDERO);
+        dto.setLatitud(-34.6);
+        dto.setLongitud(-58.4);
 
         assertThatThrownBy(() -> donacionService.crear(dto, 2L))
                 .isInstanceOf(ResponseStatusException.class)
@@ -636,10 +674,10 @@ class DonacionServiceTest {
     }
 
     @Test
-    void crear_fondoComun_conCategoriaYCoordenadas_persisteSinNecesidad() {
+    void crear_fondoComun_conCoordenadas_derivaCategoriaDeLasLineas_persisteSinNecesidad() {
         CreateDonacionRequest dto = new CreateDonacionRequest();
         dto.setModalidad(ModalidadDonacion.FONDO_COMUN);
-        dto.setCategoria(CategoriaAlimento.NO_PERECEDERO);
+        dto.setLineas(unaLineaNoPerecedero());
         dto.setLatitud(-34.6);
         dto.setLongitud(-58.4);
 
@@ -649,6 +687,7 @@ class DonacionServiceTest {
         DonacionResponse response = donacionService.crear(dto, 2L);
 
         assertThat(response.modalidad()).isEqualTo("FONDO_COMUN");
+        assertThat(response.categoria()).isEqualTo("NO_PERECEDERO");
         assertThat(response.necesidadId()).isNull();
         assertThat(response.organizacionId()).isNull();
         verifyNoInteractions(necesidadRepository);
@@ -659,7 +698,6 @@ class DonacionServiceTest {
         CreateDonacionRequest dto = new CreateDonacionRequest();
         dto.setModalidad(ModalidadDonacion.FONDO_COMUN);
         dto.setNecesidadId(100L);
-        dto.setCategoria(CategoriaAlimento.NO_PERECEDERO);
         dto.setLatitud(-34.6);
         dto.setLongitud(-58.4);
 
@@ -669,22 +707,76 @@ class DonacionServiceTest {
     }
 
     @Test
-    void crear_fondoComun_sinCategoria_throwsBadRequest() {
+    void crear_sinLineas_throwsBadRequest() {
         CreateDonacionRequest dto = new CreateDonacionRequest();
         dto.setModalidad(ModalidadDonacion.FONDO_COMUN);
         dto.setLatitud(-34.6);
         dto.setLongitud(-58.4);
+        dto.setLineas(List.of());
 
         assertThatThrownBy(() -> donacionService.crear(dto, 2L))
                 .isInstanceOf(ResponseStatusException.class)
                 .hasMessageContaining("400");
+    }
+
+    @Test
+    void crear_lineaConArticuloInactivo_throwsBadRequest() {
+        CreateDonacionRequest dto = new CreateDonacionRequest();
+        dto.setModalidad(ModalidadDonacion.FONDO_COMUN);
+        dto.setLatitud(-34.6);
+        dto.setLongitud(-58.4);
+        dto.setLineas(List.of(linea(1L, "2")));
+
+        Articulo inactivo = articuloActivo(1L, CategoriaAlimento.NO_PERECEDERO);
+        inactivo.setActivo(false);
+        when(articuloRepository.findById(1L)).thenReturn(Optional.of(inactivo));
+        when(usuarioRepository.findById(2L)).thenReturn(Optional.of(donante));
+
+        assertThatThrownBy(() -> donacionService.crear(dto, 2L))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("400");
+    }
+
+    @Test
+    void crear_lineaConArticuloDesconocido_throwsBadRequest() {
+        CreateDonacionRequest dto = new CreateDonacionRequest();
+        dto.setModalidad(ModalidadDonacion.FONDO_COMUN);
+        dto.setLatitud(-34.6);
+        dto.setLongitud(-58.4);
+        dto.setLineas(List.of(linea(999L, "2")));
+
+        when(articuloRepository.findById(999L)).thenReturn(Optional.empty());
+        when(usuarioRepository.findById(2L)).thenReturn(Optional.of(donante));
+
+        assertThatThrownBy(() -> donacionService.crear(dto, 2L))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("400");
+    }
+
+    @Test
+    void crear_lineasMixtas_categoriaDerivadaEsLaMasExigente() {
+        CreateDonacionRequest dto = new CreateDonacionRequest();
+        dto.setModalidad(ModalidadDonacion.FONDO_COMUN);
+        dto.setLatitud(-34.6);
+        dto.setLongitud(-58.4);
+        dto.setLineas(List.of(linea(1L, "2"), linea(2L, "1")));
+
+        when(articuloRepository.findById(1L)).thenReturn(Optional.of(articuloActivo(1L, CategoriaAlimento.NO_PERECEDERO)));
+        when(articuloRepository.findById(2L)).thenReturn(Optional.of(articuloActivo(2L, CategoriaAlimento.CONGELADO)));
+        when(usuarioRepository.findById(2L)).thenReturn(Optional.of(donante));
+        when(donacionRepository.save(any(Donacion.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        DonacionResponse response = donacionService.crear(dto, 2L);
+
+        assertThat(response.categoria()).isEqualTo("CONGELADO");
+        assertThat(response.lineas()).hasSize(2);
     }
 
     @Test
     void crear_fondoComun_sinCoordenadas_throwsBadRequest() {
         CreateDonacionRequest dto = new CreateDonacionRequest();
         dto.setModalidad(ModalidadDonacion.FONDO_COMUN);
-        dto.setCategoria(CategoriaAlimento.NO_PERECEDERO);
+        dto.setLineas(List.of(linea(1L, "2")));
 
         assertThatThrownBy(() -> donacionService.crear(dto, 2L))
                 .isInstanceOf(ResponseStatusException.class)
@@ -696,9 +788,9 @@ class DonacionServiceTest {
         when(esquemaVerificador.necesidadIdEsNullable()).thenReturn(false);
         CreateDonacionRequest dto = new CreateDonacionRequest();
         dto.setModalidad(ModalidadDonacion.FONDO_COMUN);
-        dto.setCategoria(CategoriaAlimento.NO_PERECEDERO);
         dto.setLatitud(-34.6);
         dto.setLongitud(-58.4);
+        dto.setLineas(List.of(linea(1L, "2")));
 
         assertThatThrownBy(() -> donacionService.crear(dto, 2L))
                 .isInstanceOf(ResponseStatusException.class)
@@ -712,6 +804,7 @@ class DonacionServiceTest {
         CreateDonacionRequest directa = new CreateDonacionRequest();
         directa.setModalidad(ModalidadDonacion.DIRECTA);
         directa.setNecesidadId(100L);
+        directa.setLineas(unaLineaNoPerecedero());
         when(necesidadRepository.findById(100L)).thenReturn(Optional.of(necesidad));
         when(usuarioRepository.findById(2L)).thenReturn(Optional.of(donante));
         when(donacionRepository.save(any(Donacion.class))).thenAnswer(inv -> inv.getArgument(0));
