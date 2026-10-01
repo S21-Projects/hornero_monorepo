@@ -62,7 +62,13 @@ export default function RondasPage() {
     { key: 'asignadas', header: 'Asignadas', align: 'right', render: (r) => <Text variant="body-sm">{r.asignadas}</Text> },
     { key: 'sinAsignar', header: 'Sin asignar', align: 'right', render: (r) => <Text variant="body-sm">{r.sinAsignar}</Text> },
     { key: 'score', header: 'Score total', align: 'right', render: (r) => <Text variant="body-sm">{r.scoreTotal != null ? r.scoreTotal.toFixed(2) : '—'}</Text> },
-    { key: 'ejecutadaPor', header: 'Ejecutada por', render: (r) => <Text variant="body-sm" color="ink-3">Admin #{r.ejecutadaPor}</Text> },
+    {
+      key: 'ejecutadaPor',
+      header: 'Ejecutada por',
+      render: (r) => (
+        <Text variant="body-sm" color="ink-3">{r.ejecutadaPorNombre ?? `Admin #${r.ejecutadaPor}`}</Text>
+      ),
+    },
   ];
 
   return (
