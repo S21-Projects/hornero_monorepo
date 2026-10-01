@@ -88,6 +88,31 @@ describe('DonacionesService', () => {
     });
   });
 
+  describe('asignaciones', () => {
+    it('GETs the MS /asignaciones endpoint with a Bearer header', async () => {
+      const data = [{ id: 1, estado: 'PROPUESTA' }];
+      httpService.axiosRef.get.mockResolvedValue({ data });
+
+      const result = await service.asignaciones(1, 'token-123');
+
+      expect(httpService.axiosRef.get).toHaveBeenCalledWith(
+        'http://ms:8081/api/donaciones/1/asignaciones',
+        { headers: { Authorization: 'Bearer token-123' } },
+      );
+      expect(result).toEqual(data);
+    });
+
+    it('rethrows an MS error response unchanged', async () => {
+      const error = {
+        isAxiosError: true,
+        response: { status: 403, data: { message: 'Access denied' } },
+      };
+      httpService.axiosRef.get.mockRejectedValue(error);
+
+      await expect(service.asignaciones(1, 'token-123')).rejects.toBe(error);
+    });
+  });
+
   describe('findActivas', () => {
     it('GETs the MS /activas endpoint with a Bearer header and no query params', async () => {
       const data = { content: [], totalElements: 0 };

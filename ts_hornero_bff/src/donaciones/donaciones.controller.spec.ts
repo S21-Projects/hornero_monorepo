@@ -16,6 +16,7 @@ describe('DonacionesController', () => {
     generarCodigoEntrega: jest.Mock;
     verificarCodigoEntrega: jest.Mock;
     estadoEntrega: jest.Mock;
+    asignaciones: jest.Mock;
   };
 
   const requestWithToken = (token?: string) =>
@@ -31,6 +32,7 @@ describe('DonacionesController', () => {
       generarCodigoEntrega: jest.fn(),
       verificarCodigoEntrega: jest.fn(),
       estadoEntrega: jest.fn(),
+      asignaciones: jest.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -237,6 +239,29 @@ describe('DonacionesController', () => {
 
     it('is restricted to ADMINISTRADOR, matching the MS @PreAuthorize', () => {
       expect(rolesOf('findActivas')).toEqual([Role.ADMINISTRADOR]);
+    });
+  });
+
+  describe('asignaciones', () => {
+    it('reads the access_token cookie and forwards id to the service', async () => {
+      const historial = [{ id: 1, estado: 'PROPUESTA' }];
+      service.asignaciones.mockResolvedValue(historial);
+
+      const result = await controller.asignaciones(
+        1,
+        requestWithToken('token-123'),
+      );
+
+      expect(service.asignaciones).toHaveBeenCalledWith(1, 'token-123');
+      expect(result).toBe(historial);
+    });
+
+    it('is restricted to DONANTE, REFERENTE and ADMINISTRADOR, matching the MS @PreAuthorize', () => {
+      expect(rolesOf('asignaciones')).toEqual([
+        Role.DONANTE,
+        Role.REFERENTE,
+        Role.ADMINISTRADOR,
+      ]);
     });
   });
 });
