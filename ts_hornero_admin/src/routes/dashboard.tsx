@@ -13,6 +13,9 @@ import { useDonacionesDeMiOrg } from '../lib/hooks/useDonacionesDeMiOrg';
 import { useDecidirDonacion } from '../lib/hooks/useDecidirDonacion';
 import { necesidadesPorEstado, donacionesPorEstado } from '../lib/metricas';
 import { formatFecha } from '../lib/format';
+import { Badge } from '../components/Badge';
+import { MODALIDAD_DONACION } from '../lib/domain-ui';
+import { ModalidadDonacion } from '../types/domain';
 import type { Donacion } from '../types/domain';
 
 // A referente may generate/verify delivery codes while ACEPTADA, EN_CAMINO or
@@ -29,11 +32,18 @@ interface DonacionAccionableRowProps {
 function DonacionAccionableRow({ donacion }: DonacionAccionableRowProps) {
   const decidir = useDecidirDonacion();
   const isMutatingThis = decidir.isPending && decidir.variables?.id === donacion.id;
+  const esFondoComun = donacion.modalidad === ModalidadDonacion.FONDO_COMUN;
+  const modalidadCfg = esFondoComun ? MODALIDAD_DONACION[donacion.modalidad as string] : undefined;
 
   return (
     <Card as="article" style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 8 }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          {modalidadCfg && (
+            <div style={{ marginBottom: 2 }}>
+              <Badge tone={modalidadCfg.tone} label={modalidadCfg.label} />
+            </div>
+          )}
           {donacion.donanteName && <Text variant="body">{donacion.donanteName}</Text>}
           {donacion.fechaOferta && (
             <Text variant="caption" color="ink-3">Ofrecida: {formatFecha(donacion.fechaOferta)}</Text>
@@ -66,6 +76,12 @@ function DonacionAccionableRow({ donacion }: DonacionAccionableRowProps) {
           </Button>
         </div>
       </div>
+
+      {esFondoComun && (
+        <Text variant="micro" color="ink-3">
+          Si rechazás esta oferta, vuelve al fondo común y no se le volverá a ofrecer a esta organización.
+        </Text>
+      )}
 
       {decidir.isError && decidir.variables?.id === donacion.id && (
         <Text variant="micro" color="urgent">No se pudo actualizar la donación. Intentá de nuevo.</Text>
