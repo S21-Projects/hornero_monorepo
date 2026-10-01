@@ -905,24 +905,27 @@ Depends on: 5d. Sub-split per the forecast: **5f-i** (donante-facing progress/de
 
 ### 5f-i — Donación progress + detail
 
-- [ ] 5f.1 RED — `ts_hornero_admin/src/components/donacion/ProgresoDonacion.test.tsx`: maps every
+- [x] 5f.1 RED — `ts_hornero_admin/src/components/donacion/ProgresoDonacion.test.tsx`: maps every
       `FaseDonacion` value to the correct visual step, distinguishing `EN_FONDO` (unassigned) from
       `ASIGNADA`.
-- [ ] 5f.2 RED — `ts_hornero_admin/src/components/donacion/DesgloseScore.test.tsx`: renders each
+- [x] 5f.2 RED — `ts_hornero_admin/src/components/donacion/DesgloseScore.test.tsx`: renders each
       per-criterion contribution (`term × weight`) and `deficitFuente`.
-- [ ] 5f.3 GREEN — Create `ts_hornero_admin/src/components/donacion/ProgresoDonacion.tsx`.
+- [x] 5f.3 GREEN — Create `ts_hornero_admin/src/components/donacion/ProgresoDonacion.tsx`.
       Satisfies 5f.1.
-- [ ] 5f.4 GREEN — Create `ts_hornero_admin/src/components/donacion/DesgloseScore.tsx`. Satisfies
+- [x] 5f.4 GREEN — Create `ts_hornero_admin/src/components/donacion/DesgloseScore.tsx`. Satisfies
       5f.2.
-- [ ] 5f.5 RED — `ts_hornero_admin/src/lib/hooks/useAsignaciones.test.ts`: fetches
-      `GET :id/asignaciones` and exposes the timeline.
-- [ ] 5f.6 GREEN — Create `ts_hornero_admin/src/lib/hooks/useAsignaciones.ts`. Satisfies 5f.5.
-- [ ] 5f.7 RED — `ts_hornero_admin/src/routes/donacion-detalle.test.tsx`: shows the progress
+- [x] 5f.5 RED — `ts_hornero_admin/src/lib/hooks/useAsignaciones.test.ts` (created as `.test.tsx`,
+      same as `useDonacion.test.tsx`/`useEntrega.test.tsx` — the `QueryClientProvider` wrapper is
+      JSX): fetches `GET :id/asignaciones` and exposes the timeline.
+- [x] 5f.6 GREEN — Create `ts_hornero_admin/src/lib/hooks/useAsignaciones.ts`. Satisfies 5f.5.
+- [x] 5f.7 RED — `ts_hornero_admin/src/routes/donacion-detalle.test.tsx`: shows the progress
       (5f.3), modalidad badge, assigned organizacion, ronda date, score breakdown (5f.4), assignment
       timeline; null organizacion renders as "Esperando ronda"; `?nueva=1` shows a success banner.
-- [ ] 5f.8 GREEN — Create `ts_hornero_admin/src/routes/donacion-detalle.tsx`
-      (/mis-donaciones/:id). Satisfies 5f.7.
-- [ ] 5f.9 GREEN — Modify `ts_hornero_admin/src/routes/mis-donaciones.tsx`: modalidad badge, link
+- [x] 5f.8 GREEN — Create `ts_hornero_admin/src/routes/donacion-detalle.tsx`
+      (/mis-donaciones/:id). Satisfies 5f.7. Also registered the route in `router.tsx`'s DONANTE
+      block — required for 5e's `navigate('/mis-donaciones/:id?nueva=1')` to resolve to a real
+      screen instead of 404.
+- [x] 5f.9 GREEN — Modify `ts_hornero_admin/src/routes/mis-donaciones.tsx`: modalidad badge, link
       to the detail route, handle a null organizacion gracefully.
 
 **Verification (5f-i):** `cd ts_hornero_admin && npm test -- donacion-detalle Progreso Desglose useAsignaciones mis-donaciones`
@@ -941,6 +944,10 @@ Depends on: 5d. Sub-split per the forecast: **5f-i** (donante-facing progress/de
       Satisfies 5f.12.
 - [ ] 5f.14 GREEN — `ts_hornero_admin/src/app/router.tsx`, `ts_hornero_admin/src/app/AppShell.tsx`:
       register /rondas under the ADMINISTRADOR block + nav entry.
+- [ ] 5f.15 RED/GREEN (follow-up from 5f-i, orchestrator) — `jar_hornero_ms/.../asignacion/dto/AsignacionResponse.java`:
+      expose the weights the ronda actually applied (from `asignacion.getRonda()` pesos) and make
+      `DesgloseScore` use them instead of the hardcoded pre-6a defaults; otherwise the "term × weight"
+      display drifts as soon as 6a renormalizes the weights or a ronda uses overrides.
 
 **Verification (5f-ii):** `cd ts_hornero_admin && npm test -- rondas && npm run build`
 

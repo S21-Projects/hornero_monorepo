@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { useMisDonaciones } from '../lib/hooks/useMisDonaciones';
 import { usePageClamp } from '../lib/hooks/usePageClamp';
 import { useCancelarDonacion } from '../lib/hooks/useCancelarDonacion';
-import { ESTADO_DONACION, FALLBACK_BADGE } from '../lib/domain-ui';
+import { ESTADO_DONACION, FALLBACK_BADGE, MODALIDAD_DONACION } from '../lib/domain-ui';
 import { formatFecha } from '../lib/format';
 import { AsyncSection } from '../components/AsyncSection';
 import { Badge } from '../components/Badge';
@@ -28,6 +28,7 @@ interface DonacionRowProps {
 
 function DonacionRow({ donacion: d }: DonacionRowProps) {
   const estadoCfg = ESTADO_DONACION[d.estado] ?? FALLBACK_BADGE;
+  const modalidadCfg = d.modalidad ? (MODALIDAD_DONACION[d.modalidad] ?? FALLBACK_BADGE) : undefined;
   const cancelar = useCancelarDonacion();
 
   const canCancel = CANCELABLE_ESTADOS.has(d.estado);
@@ -38,10 +39,17 @@ function DonacionRow({ donacion: d }: DonacionRowProps) {
     <Card as="article" style={{ padding: '20px 24px' }}>
       <div style={{ marginBottom: 10, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
         <Badge tone={estadoCfg.tone} label={estadoCfg.label} />
+        {modalidadCfg && <Badge tone={modalidadCfg.tone} label={modalidadCfg.label} />}
         {d.confirmadaDonanteEn && (
           <Text variant="caption" color="ink-3">Ya confirmaste la entrega</Text>
         )}
       </div>
+
+      {/* FONDO_COMUN starts with `organizacionId: null` until a ronda assigns it — rendered
+          gracefully as a plain link to the detail screen, never assumed to be set. */}
+      <Link to={`/mis-donaciones/${d.id}`} style={{ textDecoration: 'none', display: 'inline-block', marginBottom: 8 }}>
+        <Text variant="label" color="horn" as="span">Ver detalle →</Text>
+      </Link>
 
       {d.fechaOferta && (
         <Text variant="body-sm" color="ink-2" style={{ marginBottom: 2 }}>

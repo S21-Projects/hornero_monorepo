@@ -37,6 +37,38 @@ function renderPage() {
   );
 }
 
+// Task 5f.9: modalidad badge, a link to the detail screen, and a null organizacion rendered
+// gracefully (FONDO_COMUN still waiting for a ronda).
+describe('MisDonacionesPage — fondo común progress link', () => {
+  it('shows the modalidad badge and a link to the detail screen', () => {
+    vi.mocked(useMisDonaciones).mockReturnValue({
+      data: makePage([{ ...donacionConfirmable, modalidad: 'FONDO_COMUN' }]),
+      isLoading: false,
+      isError: false,
+      isFetching: false,
+    } as unknown as ReturnType<typeof useMisDonaciones>);
+
+    renderPage();
+
+    expect(screen.getByText(/fondo com[uú]n/i)).toBeInTheDocument();
+    const link = screen.getByRole('link', { name: /ver detalle/i });
+    expect(link).toHaveAttribute('href', '/mis-donaciones/1');
+  });
+
+  it('renders a null organizacion gracefully instead of crashing', () => {
+    vi.mocked(useMisDonaciones).mockReturnValue({
+      data: makePage([
+        { ...donacionConfirmable, modalidad: 'FONDO_COMUN', organizacionId: null, estado: 'OFRECIDA' },
+      ]),
+      isLoading: false,
+      isError: false,
+      isFetching: false,
+    } as unknown as ReturnType<typeof useMisDonaciones>);
+
+    expect(() => renderPage()).not.toThrow();
+  });
+});
+
 describe('MisDonacionesPage — confirm-entrega retirement', () => {
   it('shows a "Confirmar entrega" link to the new screen, not the old plain button', () => {
     vi.mocked(useMisDonaciones).mockReturnValue({

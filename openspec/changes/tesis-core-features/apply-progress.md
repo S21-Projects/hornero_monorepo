@@ -1968,3 +1968,124 @@ to run, same as slice 5d's precedent.
 **7/7 tasks (5e.1–5e.7) complete.** `openspec/changes/tesis-core-features/tasks.md` slice 5e
 checkboxes updated to `[x]`. Ready for the next slice (5f — progress/detail/admin ronda) or
 archive once the user has committed this slice's 2 seams.
+
+## Slice 5f-i — Donación progress + detail (admin) — complete (2026-10-01)
+
+Strict TDD throughout. Scope: exactly tasks 5f.1–5f.9 (the 5f-i sub-split per the Review Workload
+Forecast) — `donacion-detalle.tsx`, `ProgresoDonacion`, `DesgloseScore`, `useAsignaciones.ts`, plus
+`mis-donaciones.tsx`'s modalidad badge/link (5f.9 is listed inside the 5f-i task block in
+`tasks.md`, even though the forecast's sub-split table had originally proposed it for 5f-ii —
+`tasks.md`'s actual numbered breakdown is authoritative). 5f-ii (admin `/rondas` screen,
+`useRondas.ts`, nav wiring) is explicitly out of scope for this batch.
+
+### Implementation notes / deviations
+
+- **5f.1/5f.3 (`ProgresoDonacion`)**: the real MS `FaseDonacion` enum (`org.example.donacion.
+  FaseDonacion`, AD-4) has 9 values — `EN_FONDO, ASIGNADA, OFRECIDA, ACEPTADA, EN_CAMINO,
+  CONFIRMANDO, ENTREGADA, RECHAZADA, CANCELADA` — but the admin SPA's `FaseDonacion` const (added
+  in 5e.6) only had 4. **Deviation (necessary, not scope creep)**: extended
+  `ts_hornero_admin/src/types/domain.ts`'s `FaseDonacion` to all 9 values so the component can
+  honestly satisfy "maps every `FaseDonacion` value" (5f.1). Mapped onto the shared 4-step strip
+  (Ofrecida → Asignación → En camino → Entregada): `OFRECIDA`→step 0, `ASIGNADA`/`ACEPTADA`→step 1,
+  `EN_CAMINO`/`CONFIRMANDO`→step 2, `ENTREGADA`→step 3; `EN_FONDO` renders the strip with no
+  current step plus an explicit "En espera de asignación" line; `RECHAZADA`/`CANCELADA` render the
+  strip (frozen at whatever step) plus a terminal banner. Current step marked via
+  `aria-current="step"` (accessible, no color-only signal).
+- **5f.2/5f.4 (`DesgloseScore`)**: `AsignacionResponse` (MS) carries raw per-criterion terms
+  (`terminoDeficit`, etc. — confirmed via `RondaService.java:278`,
+  `asignacion.setTerminoDeficit(desglose.getDeficit())`, i.e. straight from the worker's raw
+  `desglose`, not already weighted), but does **not** carry the ronda's applied weights — only
+  `Ronda` entity does, and `Ronda` isn't exposed on this endpoint. **Deviation**: hardcoded the
+  worker's pre-6a default weights (`go_algorithms_worker/internal/assign/scoring.go` `PesosDefault`
+  — deficit 0.35, urgencia 0.30, proximidad 0.20, espera 0.15) as a local `PESO_DEFAULT` constant,
+  documented with a comment pointing at the gotcha, so "term × weight" (5f.2's literal wording) is
+  satisfiable without inventing a new endpoint out of scope for this batch. If a ronda is ever
+  triggered with custom weight overrides, the displayed contribution breakdown would be
+  cosmetically wrong (score total itself is still exact, from `AsignacionResponse.score`) — flagged
+  as a known limitation, not fixed here (would require exposing `Ronda.pesoDeficit` etc. on
+  `AsignacionResponse`, a backend change outside `ts_hornero_admin`'s allowed edit root for this
+  batch). 5th criterion (`cumplimiento`) renders conditionally once
+  `terminoCumplimiento` is non-null (slice 6b), using weight 0.15 per the post-6a default table.
+  Every bar exposes its numeric value as text (`data-testid="desglose-valor"`), never color-only.
+- **5f.5/5f.6 (`useAsignaciones`)**: added `AsignacionHistorial` to `types/domain.ts` mirroring
+  `AsignacionResponse.java` field-for-field. Test file created as `useAsignaciones.test.tsx` (not
+  `.ts` as tasks.md literally names it) — same as the existing `useDonacion.test.tsx`/
+  `useEntrega.test.tsx` precedent, since the `QueryClientProvider` wrapper needs JSX.
+- **5f.7/5f.8 (`donacion-detalle.tsx`)**: composes `useDonacion` (modalidad/fase/estado) +
+  `useAsignaciones` (history; the last row is treated as the current/vigente assignment — append-
+  only history per spec `ronda-asignacion`). Renders: back link, `?nueva=1` success banner, header
+  ("Donación #id · asignada en la ronda del dd/mm" once assigned), estado + modalidad badges,
+  `ProgresoDonacion`, an "Organización destino" card ("Esperando ronda" when no assignment yet —
+  5f.7's explicit null-organizacion scenario), `DesgloseScore` for the vigente assignment, a plain
+  text timeline of every historical `Asignacion` row, and a "Confirmar entrega →" link when the
+  donación is in a confirmable estado (reusing the existing `/donaciones/:id/entrega` screen from
+  slice 3c — no new delivery UI invented here).
+  - **Registered the route** in `router.tsx`'s existing DONANTE `ProtectedRoute` block
+    (`/mis-donaciones/:id`) — not listed as a separate task, but required: `nueva-donacion.tsx`
+    (slice 5e) already calls `navigate('/mis-donaciones/${id}?nueva=1')`, which would 404 without
+    this. Minimal one-line addition to an existing block, not the 5f-ii nav/router slice (which is
+    specifically about the admin `/rondas` screen + `AppShell` nav entry).
+  - **Known gap vs. the mockup** (disclosed, not silently dropped): the design brief describes
+    "org name + necesidad + barrio" in the header. Neither `DonacionResponse` nor
+    `AsignacionResponse` currently exposes necesidad descripción or a structured "barrio" field (no
+    such field exists anywhere in the domain — grepped the whole repo). Rendered what the actual
+    DTOs expose (`organizacionNombre`) instead of inventing fields; flagged here for a future
+    slice/backend change if the product wants that extra context literally.
+- **5f.9 (`mis-donaciones.tsx`)**: added a `MODALIDAD_DONACION` badge config to `lib/domain-ui.ts`
+  (DIRECTA → sky, FONDO_COMUN → neutral), a modalidad badge next to the estado pill, and a
+  "Ver detalle →" link to `/mis-donaciones/${id}` on every row. A `null` `organizacionId` (pool
+  donación not yet assigned) renders with no special-casing needed — nothing in the row reads
+  `organizacionId` directly, so it was already null-safe; added an explicit regression test
+  (`renderPage` with `organizacionId: null`) asserting no crash.
+
+### TDD Cycle Evidence (slice 5f-i)
+
+| Task | RED | GREEN | REFACTOR |
+|---|---|---|---|
+| 5f.1/5f.3 | `ProgresoDonacion.test.tsx`: import resolution failure (module didn't exist); after first implementation attempt, 2/7 failed because `EN_FONDO`/terminal fases hid the strip entirely instead of showing it with no current step — fixed by always rendering the strip | 7/7 pass | None needed — single presentational component |
+| 5f.2/5f.4 | `DesgloseScore.test.tsx`: import resolution failure | 5/5 pass | Fixed a `tsc` error post-GREEN (duplicate `key` prop from spreading a `Criterio` object that itself carried a `key` field) by destructuring `key` out before spreading — behavior unchanged, caught by `npm run build`, not vitest |
+| 5f.5/5f.6 | `useAsignaciones.test.tsx`: import resolution failure | 2/2 pass | None needed |
+| 5f.7/5f.8 | `donacion-detalle.test.tsx`: import resolution failure; first implementation attempt had 1/5 fail (`getByText` ambiguous match — both the header and the history row render the same ronda date / org name) — fixed by asserting `getAllByText(...).length > 0` instead of a single-match `getByText` | 5/5 pass | None needed |
+| 5f.9 | Added two new tests to the existing `mis-donaciones.test.tsx`; both failed (badge text / "Ver detalle" link absent) before the row JSX changed | 2/2 new + 2/2 pre-existing pass (4/4 total in file) | None needed |
+
+### Work Unit Evidence (slice 5f-i)
+
+| Evidence | Value |
+|---|---|
+| Focused test command and exact result | `npx vitest run mis-donaciones donacion-detalle ProgresoDonacion DesgloseScore useAsignaciones` → 5 files, 23/23 tests pass |
+| Runtime harness command/scenario and exact result | `npm run build` (`tsc -b && vite build`) → clean after fixing the duplicate-`key` TS error; full `npx vitest run` → 65 suites / 318 tests pass (no regressions); `npx eslint` on every touched/created file → 0 issues |
+| Rollback boundary | This batch is one seam: `types/domain.ts` (`FaseDonacion` extension + new `AsignacionHistorial`), `lib/domain-ui.ts` (`MODALIDAD_DONACION`), `lib/hooks/useAsignaciones.ts`, `components/donacion/{ProgresoDonacion,DesgloseScore}.tsx`, `routes/donacion-detalle.tsx`, `routes/mis-donaciones.tsx`, `app/router.tsx`. Revert as a unit; does not touch 5f-ii (not created yet), 5d (BFF, untouched), or any backend service |
+
+### Files Changed (slice 5f-i)
+
+| File | Action | Lines (authored, incl. tests) |
+|---|---|---|
+| `ts_hornero_admin/src/types/domain.ts` | Modified | +42/-3 |
+| `ts_hornero_admin/src/lib/domain-ui.ts` | Modified | +6 |
+| `ts_hornero_admin/src/lib/hooks/useAsignaciones.ts` | Created | 18 |
+| `ts_hornero_admin/src/lib/hooks/useAsignaciones.test.tsx` | Created | 62 |
+| `ts_hornero_admin/src/components/donacion/ProgresoDonacion.tsx` | Created | 104 |
+| `ts_hornero_admin/src/components/donacion/ProgresoDonacion.test.tsx` | Created | 56 |
+| `ts_hornero_admin/src/components/donacion/DesgloseScore.tsx` | Created | 96 |
+| `ts_hornero_admin/src/components/donacion/DesgloseScore.test.tsx` | Created | 70 |
+| `ts_hornero_admin/src/routes/donacion-detalle.tsx` | Created | 111 |
+| `ts_hornero_admin/src/routes/donacion-detalle.test.tsx` | Created | 112 |
+| `ts_hornero_admin/src/routes/mis-donaciones.tsx` | Modified | +10/-1 |
+| `ts_hornero_admin/src/routes/mis-donaciones.test.tsx` | Modified | +32 |
+| `ts_hornero_admin/src/app/router.tsx` | Modified | +2 |
+
+**Total ≈ 718 authored lines** — over the 5f-i sub-split's implied share of the 350–450 forecast,
+driven by the 9-value `FaseDonacion` mapping (more branches/tests than the original 4-value type
+implied) and the `donacion-detalle.tsx` route composing 4 data/section blocks each with its own
+assertions. No scope creep: file list matches design.md's 5f table entries assigned to 5f-i plus
+the one necessary router line. Per the HARD no-mutating-git-commands instruction, no commit was
+executed by this agent.
+
+**USER COMMIT POINT (5f-i)**: `feat(admin): show fondo comun progress and score breakdown in mis donaciones`
+
+### Status
+
+**9/9 tasks (5f.1–5f.9) complete.** `openspec/changes/tesis-core-features/tasks.md` 5f-i
+checkboxes updated to `[x]`. 5f-ii (admin `/rondas` screen, `useRondas.ts`, router/`AppShell` nav
+wiring for `/rondas`) remains `[ ]` and is the next unit. Ready for 5f-ii or archive once the user
+has committed this seam.
