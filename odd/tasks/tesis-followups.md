@@ -38,12 +38,22 @@ came from the fondo común, admin cannot see modalidad, onboarding counter missi
       scripts/sql) + docs/deploy-rpi-cloudflare.md (make migrate, develop branch, 6 services, worker
       healthcheck, POBLACION_CSV, removed stale make start-local note). Route: inline.
 - [x] T3 Makefile `backup` + `migrate` targets (backup, then every scripts/sql/V*.sql in order; `ENV_FILE=.env.local` for local). Verified against the local stack; backups/ gitignored. Route: inline.
-- [ ] T4 Referente dashboard: fondo común badge on assigned pool offers + notice that rejecting
-      returns it to the pool. Route: delegated (admin, tests).
-- [ ] T5 Admin control de donaciones: modalidad + fase columns/badges. Route: delegated.
-- [ ] T6 Ronda history: executor name instead of "Admin #id" (MS RondaResponse + admin). Route: delegated.
-- [ ] T7 Bienvenida: "Para llegar a N1 te faltan N requisitos" computed from acreditación data.
-      Route: delegated.
+- [x] T4 Referente dashboard: fondo común badge on assigned pool offers + notice that rejecting
+      returns it to the pool. Route: delegated (admin, tests). Evidence: `dashboard.tsx` badge +
+      notice next to Rechazar; RED→GREEN in `dashboard.test.tsx`; admin suite 345/345.
+- [x] T5 Admin control de donaciones: modalidad + fase columns/badges. Route: delegated. Evidence:
+      new `Modalidad` column + `FASE_DONACION` badge (`domain-ui.ts`) in `control-donaciones.tsx`;
+      new `control-donaciones.test.tsx` (2 tests), RED→GREEN; admin suite 345/345.
+- [x] T6 Ronda history: executor name instead of "Admin #id" (MS RondaResponse + admin). Route: delegated.
+      Evidence: `RondaResponse.ejecutadaPorNombre` resolved via `UsuarioRepository` in
+      `RondaService.toResponse` (null-safe); `rondas.tsx` renders it with "Admin #id" fallback; MS
+      RED→GREEN in `RondaServiceTest` (436/436 full suite); admin `rondas.test.tsx` updated (10/10).
+      BFF `rondas` module is an untyped passthrough — no change needed.
+- [x] T7 Bienvenida: "Para llegar a N1 te faltan N requisitos" computed from acreditación data.
+      Route: delegated. Evidence: `BienvenidaAcreditacion.tsx` uses `useLegajo` + `NIVEL_LADDER` to
+      find the next level and count non-APROBADA requisitos for it; handles N3 (no next level) and
+      legajo loading/error by hiding the counter; RED→GREEN in `BienvenidaAcreditacion.test.tsx`
+      (9/9, 5 new).
 - [ ] T8 Astro public site: entry point explaining the fondo común and linking to /donar. Route: delegated.
 
 ## Acceptance
@@ -67,3 +77,7 @@ Each task: behavior observed (tests or manual e2e evidence), suites green, one w
     categoria = "accepts all" for the worker). User decided a full item catalog → new feature
     `odd/tasks/catalogo-articulos.md` (decisions in Engram `odd/catalogo-articulos/decisions`),
     plus cleaning the non-real stored data.
+- T4–T7 (2026-10-01), delegated direct (admin + MS), strict TDD (RED observed before each GREEN):
+  admin full suite 345/345, `npm run build` clean, `npm run lint` clean; MS full suite 436/436.
+  BFF untouched — `rondas` module proxies `RondaResponse` untyped. Pending: work-unit commits
+  (one per task) and a push, left for the orchestrator per the no-git-mutation constraint.
