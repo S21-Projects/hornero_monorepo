@@ -1,0 +1,123 @@
+package org.example.articulo;
+
+import org.example.articulo.dto.ActualizarArticuloRequest;
+import org.example.articulo.dto.CrearArticuloRequest;
+import org.example.domain.Articulo;
+import org.example.domain.ArticuloRepository;
+import org.example.domain.CategoriaAlimento;
+import org.example.domain.UnidadArticulo;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.web.server.ResponseStatusException;
+
+import java.util.List;
+import java.util.Optional;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+@ExtendWith(MockitoExtension.class)
+class ArticuloServiceTest {
+
+    @Mock
+    private ArticuloRepository articuloRepository;
+
+    @InjectMocks
+    private ArticuloService articuloService;
+
+    private Articulo articulo(Long id, String nombre, boolean activo) {
+        Articulo a = new Articulo();
+        a.setId(id);
+        a.setNombre(nombre);
+        a.setCategoria(CategoriaAlimento.NO_PERECEDERO);
+        a.setUnidad(UnidadArticulo.KG);
+        a.setActivo(activo);
+        return a;
+    }
+
+    @Test
+    void crear_persistsNewActivoArticulo() {
+        CrearArticuloRequest dto = new CrearArticuloRequest();
+        dto.setNombre("Arroz");
+        dto.setCategoria(CategoriaAlimento.NO_PERECEDERO);
+        dto.setUnidad(UnidadArticulo.KG);
+        when(articuloRepository.save(any(Articulo.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        ArticuloResponse response = articuloService.crear(dto);
+
+        assertThat(response.nombre()).isEqualTo("Arroz");
+        assertThat(response.activo()).isTrue();
+        ArgumentCaptor<Articulo> captor = ArgumentCaptor.forClass(Articulo.class);
+        verify(articuloRepository).save(captor.capture());
+        assertThat(captor.getValue().isActivo()).isTrue();
+    }
+
+    @Test
+    void actualizar_existingArticulo_editsNombreCategoriaUnidad() {
+        Articulo existing = articulo(1L, "Arroz", true);
+        when(articuloRepository.findById(1L)).thenReturn(Optional.of(existing));
+        when(articuloRepository.save(any(Articulo.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        ActualizarArticuloRequest dto = new ActualizarArticuloRequest();
+        dto.setNombre("Arroz Largo Fino");
+        dto.setCategoria(CategoriaAlimento.NO_PERECEDERO);
+        dto.setUnidad(UnidadArticulo.PAQUETE);
+
+        ArticuloResponse response = articuloService.actualizar(1L, dto);
+
+        assertThat(response.nombre()).isEqualTo("Arroz Largo Fino");
+        assertThat(response.unidad()).isEqualTo(UnidadArticulo.PAQUETE.name());
+    }
+
+    @Test
+    void actualizar_unknownId_throwsNotFound() {
+        when(articuloRepository.findById(99L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> articuloService.actualizar(99L, new ActualizarArticuloRequest()))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("404");
+    }
+
+    @Test
+    void desactivar_setsActivoFalse_neverDeletesTheRow() {
+        Articulo existing = articulo(1L, "Arroz", true);
+        when(articuloRepository.findById(1L)).thenReturn(Optional.of(existing));
+        when(articuloRepository.save(any(Articulo.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        articuloService.desactivar(1L);
+
+        assertThat(existing.isActivo()).isFalse();
+        verify(articuloRepository).save(existing);
+        verify(articuloRepository, org.mockito.Mockito.never()).delete(any(Articulo.class));
+        verify(articuloRepository, org.mockito.Mockito.never()).deleteById(any());
+    }
+
+    @Test
+    void listar_sinIncluirInactivos_devuelveSoloActivos() {
+        when(articuloRepository.findByActivoTrue())
+                .thenReturn(List.of(articulo(1L, "Arroz", true)));
+
+        List<ArticuloResponse> result = articuloService.listar(false);
+
+        assertThat(result).extracting(ArticuloResponse::nombre).containsExactly("Arroz");
+        verify(articuloRepository).findByActivoTrue();
+    }
+
+    @Test
+    void listar_incluirInactivos_devuelveTodos() {
+        when(articuloRepository.findAll())
+                .thenReturn(List.of(articulo(1L, "Arroz", true), articulo(2L, "Queso viejo", false)));
+
+        List<ArticuloResponse> result = articuloService.listar(true);
+
+        assertThat(result).extracting(ArticuloResponse::nombre)
+                .containsExactlyInAnyOrder("Arroz", "Queso viejo");
+    }
+}
