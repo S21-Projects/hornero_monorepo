@@ -3,6 +3,7 @@ package org.example.asignacion;
 import lombok.RequiredArgsConstructor;
 import org.example.acreditacion.AcreditacionService;
 import org.example.asignacion.worker.dto.CandidatoEntradaV1;
+import org.example.asignacion.worker.dto.CumplimientoV1;
 import org.example.asignacion.worker.dto.DonacionEntradaV1;
 import org.example.asignacion.worker.dto.EntradaRondaV1;
 import org.example.domain.CategoriaAlimento;
@@ -27,17 +28,22 @@ public class EntradaRondaFactory {
     private static final long ESPERA_MAXIMA_DIAS_DEFECTO = 90;
 
     private final AcreditacionService acreditacionService;
+    private final CumplimientoCalculator cumplimientoCalculator;
 
     public EntradaRondaV1 crear(List<Donacion> pool,
                                  List<Necesidad> candidatas,
                                  Map<Long, Long> diasDesdeUltimaDonacionPorOrganizacion,
                                  Map<Long, List<Long>> organizacionesExcluidasPorDonacion,
                                  LocalDate hoy) {
+        // One grouped query for the whole ronda (AD-11, 6b) — never per-candidate, to avoid an
+        // N+1 pattern against `donacion`.
+        Map<Long, CumplimientoV1> cumplimientoPorOrganizacion = cumplimientoCalculator.calcular();
+
         EntradaRondaV1 entrada = new EntradaRondaV1();
         entrada.setVersion(1);
         entrada.setDonaciones(pool.stream().map(d -> donacionEntrada(d, organizacionesExcluidasPorDonacion, hoy)).toList());
         entrada.setCandidatos(candidatas.stream()
-                .map(n -> candidatoEntrada(n, diasDesdeUltimaDonacionPorOrganizacion, hoy))
+                .map(n -> candidatoEntrada(n, diasDesdeUltimaDonacionPorOrganizacion, cumplimientoPorOrganizacion, hoy))
                 .toList());
         return entrada;
     }
@@ -53,7 +59,8 @@ public class EntradaRondaFactory {
         return e;
     }
 
-    private CandidatoEntradaV1 candidatoEntrada(Necesidad n, Map<Long, Long> diasDesdeUltimaDonacionPorOrganizacion, LocalDate hoy) {
+    private CandidatoEntradaV1 candidatoEntrada(Necesidad n, Map<Long, Long> diasDesdeUltimaDonacionPorOrganizacion,
+                                                 Map<Long, CumplimientoV1> cumplimientoPorOrganizacion, LocalDate hoy) {
         Organizacion organizacion = n.getOrganizacion();
         CandidatoEntradaV1 c = new CandidatoEntradaV1();
         c.setNecesidadId(n.getId());
@@ -66,6 +73,9 @@ public class EntradaRondaFactory {
         c.setCategoriasAceptadas(n.getCategoria() != null ? List.of(n.getCategoria().name()) : List.of());
         c.setCategoriasPermitidas(acreditacionService.categoriasPermitidas(organizacion.getNivel())
                 .stream().map(CategoriaAlimento::name).toList());
+        // null when the organización has no resolved (ENTREGADA/RECHAZADA) history yet — the
+        // worker resolves that absence to the ronda's neutral prior (AD-11).
+        c.setCumplimiento(cumplimientoPorOrganizacion.get(organizacion.getId()));
         return c;
     }
 }

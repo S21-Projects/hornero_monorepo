@@ -59,7 +59,7 @@ class HttpAsignadorClientTest {
         assertThat(salida.getAsignaciones()).hasSize(1);
         assertThat(salida.getAsignaciones().get(0).getDonacionId()).isEqualTo(17L);
         assertThat(salida.getAsignaciones().get(0).getNecesidadId()).isEqualTo(40L);
-        assertThat(salida.getScoreTotal()).isEqualTo(0.47191766226950776);
+        assertThat(salida.getScoreTotal()).isEqualTo(0.5326855684846372);
     }
 
     @Test
@@ -74,8 +74,9 @@ class HttpAsignadorClientTest {
 
         SalidaRondaV1 salida = client.ejecutar(new EntradaRondaV1());
 
-        assertThat(salida.getPesos().getDeficit()).isEqualTo(0.35);
+        assertThat(salida.getPesos().getDeficit()).isEqualTo(0.3);
         assertThat(salida.getAsignaciones().get(0).getDesglose().getProximidad()).isEqualTo(0.759588311347539);
+        assertThat(salida.getAsignaciones().get(0).getDesglose().getCumplimiento()).isEqualTo(0.888888888888889);
         assertThat(salida.getAsignaciones().get(0).getDeficitFuente()).isEqualTo("NEUTRAL");
     }
 
