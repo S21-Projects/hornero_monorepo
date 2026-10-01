@@ -3,17 +3,18 @@ import { render, screen } from '@testing-library/react';
 import { CriteriosAsignacionPanel } from './CriteriosAsignacionPanel';
 
 // Slice 5e / spec `donacion-fondo-comun` — "Nueva Donación Screen": the panel must explain the
-// 4 scoring criteria (déficit, urgencia, proximidad, espera) without exposing any
-// organizacion-identifying data before assignment. The 5th criterion (cumplimiento) arrives
-// cosmetically in slice 6b — not asserted here.
+// 5 scoring criteria (déficit, urgencia, proximidad, espera, cumplimiento) without exposing any
+// organizacion-identifying data before assignment. The 5th criterion (cumplimiento) was added
+// cosmetically in slice 6b (AD-11).
 describe('CriteriosAsignacionPanel', () => {
-  it('renders the 4 scoring criteria with short explanations', () => {
+  it('renders the 5 scoring criteria with short explanations', () => {
     render(<CriteriosAsignacionPanel />);
 
     expect(screen.getByText(/déficit de cobertura/i)).toBeInTheDocument();
     expect(screen.getByText(/urgencia/i)).toBeInTheDocument();
     expect(screen.getByText(/proximidad/i)).toBeInTheDocument();
     expect(screen.getByText(/tiempo de espera/i)).toBeInTheDocument();
+    expect(screen.getByText(/cumplimiento hist[oó]rico/i)).toBeInTheDocument();
   });
 
   it('never renders organizacion-identifying data', () => {

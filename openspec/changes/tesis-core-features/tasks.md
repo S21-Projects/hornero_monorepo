@@ -1003,33 +1003,49 @@ Depends on: 5a (may run in parallel with 5b–5f). Spec: `asignacion-historial-c
 
 Depends on: 5c, 6a. Spec: `asignacion-historial-cumplimiento`.
 
-- [ ] 6b.1 RED — `jar_hornero_ms/src/test/.../asignacion/CumplimientoCalculatorTest.java`: a
+- [x] 6b.1 RED — `jar_hornero_ms/src/test/.../asignacion/CumplimientoCalculatorTest.java`: a
       grouped count query classifies `ENTREGADA` → entregada, `RECHAZADA` → fallida, and excludes
       every `CANCELADA` and non-terminal donation from both numerator and denominator (matching the
       spec's amended scenario: 8 ENTREGADA + 1 CANCELADA + 1 RECHAZADA ⇒ 8/9, not 8/10).
-- [ ] 6b.2 RED — Assertions in `EntradaRondaFactoryTest.java` (extending 5c's factory tests):
+- [x] 6b.2 RED — New `EntradaRondaFactoryTest.java` (no dedicated factory test existed from 5c —
+      only indirect coverage via `RondaServiceTest`'s mocked `EntradaRondaFactory`): asserts
       `cumplimiento {entregadas, fallidas}` is attached per candidate in the assembled
-      `EntradaRondaV1`.
-- [ ] 6b.3 RED — Assertions in `AsignacionTest.java`, `RondaServiceTest.java`: `terminoCumplimiento`
-      is persisted on `Asignacion` once the worker response carries a `desglose.cumplimiento` value.
-- [ ] 6b.4 GREEN — Create `jar_hornero_ms/.../asignacion/CumplimientoCalculator.java`: one grouped
+      `EntradaRondaV1`, is `null` for an organización absent from the calculator's map, and the
+      calculator is invoked exactly once per `crear()` call (not once per candidate).
+- [x] 6b.3 RED — Assertion added to `RondaServiceTest.happyPathPersistsRondaAndAsignacionAndSetsDonacionNecesidad`:
+      `terminoCumplimiento` is persisted on `Asignacion` once the worker response carries a
+      non-null `desglose.cumplimiento` value. RED confirmed by fault injection (temporarily
+      removed `RondaService`'s `setTerminoCumplimiento` call, re-ran, saw the new assertion fail,
+      restored it) since the generic persistence line already existed from 5c-ii and a
+      write-before-implementing RED wasn't available for it.
+- [x] 6b.4 GREEN — Created `jar_hornero_ms/.../asignacion/CumplimientoCalculator.java`: one grouped
       query (`org.id, estado, count`) over `donacion` rows with `estado IN (ENTREGADA, RECHAZADA)`
       only. Satisfies 6b.1.
-- [ ] 6b.5 GREEN — Modify `jar_hornero_ms/.../domain/DonacionRepository.java`: add the aggregate
-      query backing 6b.4.
-- [ ] 6b.6 GREEN — Modify `jar_hornero_ms/.../asignacion/EntradaRondaFactory.java`: attach
-      `cumplimiento` counts per candidate via `CumplimientoCalculator`. Satisfies 6b.2.
-- [ ] 6b.7 GREEN — Modify `jar_hornero_ms/.../domain/Asignacion.java`: persist
-      `terminoCumplimiento` (nullable, populated once 6a's response field is present). Satisfies
-      6b.3.
-- [ ] 6b.8 GREEN — Re-copy the updated `go_algorithms_worker/testdata/ronda-v1/*` fixtures into
+- [x] 6b.5 GREEN — Modified `jar_hornero_ms/.../domain/DonacionRepository.java`: added
+      `contarPorOrganizacionYEstado` backing 6b.4 (inner join on `necesidad` naturally excludes
+      pool donations with no `necesidad`, per AD-11's "signal from `donacion` rows only" rule).
+- [x] 6b.6 GREEN — Modified `jar_hornero_ms/.../asignacion/EntradaRondaFactory.java`: calls
+      `CumplimientoCalculator.calcular()` once per `crear()` (not per candidate, avoiding N+1) and
+      attaches the result per candidate organización. Satisfies 6b.2. `RondaServiceTest`'s manual
+      `new EntradaRondaFactory(...)` construction updated with the new constructor parameter.
+- [x] 6b.7 GREEN — `jar_hornero_ms/.../domain/Asignacion.java`'s `terminoCumplimiento` column/field
+      and `RondaService.nuevaAsignacion`'s `setTerminoCumplimiento(desglose.getCumplimiento())`
+      call already existed (pre-dating this batch, from 5c-ii/5f-ii) — confirmed generic and
+      correct as-is; only the missing test coverage (6b.3) was added, no production change needed.
+- [x] 6b.8 GREEN — Re-copied the updated `go_algorithms_worker/testdata/ronda-v1/*` fixtures into
       `jar_hornero_ms/src/test/resources/contract/` (per AD-14's "both copies change together"
-      rule).
-- [ ] 6b.9 GREEN — Modify `ts_hornero_admin/src/components/donacion/DesgloseScore.tsx`,
-      `CriteriosAsignacionPanel.tsx`: render the 5th (cumplimiento) criterion.
-- [ ] 6b.10 RED/GREEN — Add or extend a vitest assertion in `DesgloseScore.test.tsx` covering the
-      5th criterion, then implement 6b.9 to satisfy it (small, may ride together as one commit per
-      the design note that this piece "may ride in 6b or a follow-up").
+      rule). Updated `HttpAsignadorClientTest`'s hardcoded golden-derived assertions (scoreTotal,
+      `pesos.deficit`, the new `desglose.cumplimiento` value) to match — confirmed RED (2 failures)
+      before the fixture copy, GREEN (9/9) after updating the assertions.
+- [x] 6b.9 GREEN — `ts_hornero_admin/src/components/donacion/DesgloseScore.tsx` already rendered
+      the 5th (cumplimiento) criterion generically (pre-dating this batch, from slice 5f.15's
+      follow-up) — confirmed by its existing test coverage. `CriteriosAsignacionPanel.tsx` (the
+      static "¿Cómo se elige el destino?" explainer) was still 4-criteria-only; added the 5th
+      "Cumplimiento histórico" entry.
+- [x] 6b.10 RED/GREEN — `DesgloseScore.test.tsx` already covered the 5th criterion (pre-existing).
+      Added the missing RED/GREEN pair for `CriteriosAsignacionPanel.test.tsx` instead: new
+      assertion `getByText(/cumplimiento hist[oó]rico/i)` confirmed RED (not found), then GREEN
+      after 6b.9's panel change.
 
 **Verification (slice 6b):**
 `cd jar_hornero_ms && mvn test -Dtest=CumplimientoCalculatorTest,EntradaRondaFactoryTest,RondaServiceTest`

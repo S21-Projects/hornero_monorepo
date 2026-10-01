@@ -71,7 +71,12 @@ Engram mirror: `sdd/tesis-core-features/apply-progress`.
   6a.8 follow-up closing an older AD-10 Hungarian-oracle review item), 2026-10-01.** ≈527 authored
   changed lines, proposed as 3 natural-seam commits (none needs `size:exception`). Worker full
   `go test ./...` passes (6 packages), `go vet ./...` clean, `gofmt -l .` clean, HTTP/CLI parity
-  verified. See "Slice 6a" section below for full detail. Slices 6b-7: not started.
+  verified. See "Slice 6a" section below for full detail.
+- **Slice 6b — MS compliance signal. DONE (10/10: 6b.1–6b.10), 2026-10-01.** ≈339 authored changed
+  lines (56 modified + 283 in 3 new files) — within the 400-line budget, no split needed. MS full
+  `mvn test` 433/433 passing. Admin full `npm test` 334/334 passing, `npm run build` success,
+  touched-file lint clean. NOT yet committed. See "Slice 6b" section below for full detail. Slice 7
+  (docs-only): not started — **implementation slices 1–6b are now fully complete**.
 
 ## Completed Tasks (Slice 1)
 
@@ -2439,3 +2444,165 @@ commits, none individually needing `size:exception`:
 
 Per the HARD no-mutating-git-commands instruction, no commit was executed by this agent — all 3
 commits above are proposed only, pending the user's explicit go-ahead.
+
+## Completed Tasks (Slice 6b — MS compliance signal, 2026-10-01)
+
+Depends on 5c, 6a (both already committed/complete). Spec: `asignacion-historial-cumplimiento`.
+Allowed edit roots respected: only `jar_hornero_ms` and `ts_hornero_admin` source files, plus this
+`openspec/changes/tesis-core-features` tracker, were touched.
+
+- [x] 6b.1 RED — new `CumplimientoCalculatorTest.java` (`@DataJpaTest`, 3 cases: mixed history
+      8 ENTREGADA + 1 CANCELADA + 1 RECHAZADA ⇒ map entry `{8, 1}`; an org with only non-terminal
+      history is absent from the map entirely; a pool donación with `necesidad == null` is
+      excluded). Confirmed RED: `mvn test-compile` failed with "cannot find symbol: class
+      CumplimientoCalculator".
+- [x] 6b.2 RED — new `EntradaRondaFactoryTest.java` (Mockito unit test, 3 cases: a candidate whose
+      organización has a calculator entry gets it attached; one without a calculator entry gets
+      `null` cumplimiento; the calculator is invoked exactly once per `crear()` call regardless of
+      candidate count — guards against an N+1 regression). Confirmed RED: compile failure
+      (`EntradaRondaFactory` constructor arity mismatch against the not-yet-added
+      `CumplimientoCalculator` parameter).
+- [x] 6b.3 RED — extended `RondaServiceTest.happyPathPersistsRondaAndAsignacionAndSetsDonacionNecesidad`:
+      changed the test's `DesgloseV1` fixture from a `null` to a real `0.8888888888888889`
+      cumplimiento value and added `assertThat(asignacion.getTerminoCumplimiento()).isEqualTo(...)`.
+      `RondaService.nuevaAsignacion`'s `setTerminoCumplimiento(desglose.getCumplimiento())` call
+      already existed generically (from 5c-ii), so a standard "write test, watch it fail to
+      compile" RED wasn't available. Confirmed RED by **fault injection**: temporarily commented
+      out that one production line, re-ran the single test — failed (`AssertionError: Expecting
+      actual not to be null`) — then restored the line and re-ran clean (confirmed via `mvn clean
+      test-compile` to rule out a stale-class false negative, which did occur once and was caught).
+- [x] 6b.4/6b.5 GREEN — created `CumplimientoCalculator` (`@Component`) wrapping a new
+      `DonacionRepository.contarPorOrganizacionYEstado(Collection<EstadoDonacion>)` grouped query
+      (`SELECT n.organizacion.id, d.estado, COUNT(d) FROM Donacion d JOIN d.necesidad n WHERE
+      d.estado IN :estados GROUP BY n.organizacion.id, d.estado`, called with
+      `{ENTREGADA, RECHAZADA}`). The inner `JOIN d.necesidad` (not `LEFT JOIN`) naturally excludes
+      any pool donación with `necesidad IS NULL` — matching AD-11's "signal from `donacion` rows
+      only, pool devoluciones not counted" rule without an extra filter. `calcular()` returns
+      `Map<Long organizacionId, CumplimientoV1>`; an organización with zero resolved donaciones is
+      simply absent from the map (not a `{0,0}` entry) — `EntradaRondaFactory` and the worker both
+      already treat "absent" as "use the neutral prior" per AD-11/the existing `@JsonInclude
+      (NON_NULL)` convention on `CandidatoEntradaV1.cumplimiento`.
+- [x] 6b.6 GREEN — `EntradaRondaFactory` gained a `CumplimientoCalculator` constructor dependency;
+      `crear()` calls `cumplimientoCalculator.calcular()` exactly **once** per ronda (not once per
+      candidate — avoids an N+1 query pattern against `donacion`) and `candidatoEntrada` looks up
+      `cumplimientoPorOrganizacion.get(organizacion.getId())`, leaving it `null` when absent.
+      `RondaServiceTest`'s manual `new EntradaRondaFactory(acreditacionService,
+      cumplimientoCalculator)` construction updated with a new `@Mock CumplimientoCalculator`
+      field, stubbed `lenient()` to return `Map.of()` for every test except the happy path (which
+      needs the real `DesgloseV1` value from 6b.3, not the request-side calculator — these are
+      independent flows: 6b.2/6b.6 is the ronda **input** side, 6b.3/6b.7 is the ronda **output**
+      persistence side).
+- [x] 6b.7 — no production change needed: `Asignacion.terminoCumplimiento` (nullable `Double`
+      column), `AsignacionResponse.terminoCumplimiento`, and
+      `RondaService.nuevaAsignacion`'s `setTerminoCumplimiento(desglose.getCumplimiento())` call
+      all already existed from an earlier slice (5c-ii/5f-ii), confirmed correct and generic by
+      6b.3's fault-injection RED/GREEN above — no code to write, only the missing test coverage.
+- [x] 6b.8 GREEN — copied `go_algorithms_worker/testdata/ronda-v1/{request,response}.json` over
+      `jar_hornero_ms/src/test/resources/contract/{request,response}.json` verbatim (per AD-14).
+      This immediately broke `HttpAsignadorClientTest`'s hardcoded golden-derived assertions
+      (`scoreTotal` 0.4719→0.5327, `pesos.deficit` 0.35→0.3) — confirmed RED (2/9 failing) before
+      touching the test file, then updated the 2 stale assertions and added one new assertion
+      (`desglose.getCumplimiento()).isEqualTo(0.888888888888889)`) to actually exercise the new
+      field. Confirmed GREEN: 9/9.
+- [x] 6b.9/6b.10 — `ts_hornero_admin/src/components/donacion/DesgloseScore.tsx` already rendered
+      the 5th (cumplimiento) criterion generically, with full test coverage in
+      `DesgloseScore.test.tsx` — both pre-dating this batch (from slice 5f.15's follow-up, per its
+      own docstring: "The 5th criterion (cumplimiento) only appears once slice 6b starts populating
+      it" — 6b now does, via 6b.6). The remaining 4-criteria-only piece was the static
+      `CriteriosAsignacionPanel.tsx` explainer (the "¿Cómo se elige el destino?" side panel on the
+      Nueva Donación screen) and its test's explicit "5th criterion arrives cosmetically in slice
+      6b — not asserted here" comment. Added a
+      `getByText(/cumplimiento hist[oó]rico/i)` assertion to
+      `CriteriosAsignacionPanel.test.tsx` — confirmed RED (`TestingLibraryElementError`: unable to
+      find the text), then added the 5th `CRITERIOS` entry ("Cumplimiento histórico" / "Favorece
+      organizaciones con buen historial de entregas en donaciones anteriores.") — confirmed GREEN.
+
+### TDD Cycle Evidence (Slice 6b)
+
+| Task(s) | Test file | RED confirmed | GREEN |
+|---|---|---|---|
+| 6b.1/6b.4/6b.5 | `CumplimientoCalculatorTest.java` (new) | ✅ compile failure (`class CumplimientoCalculator` not found) | ✅ 3/3 |
+| 6b.2/6b.6 | `EntradaRondaFactoryTest.java` (new) | ✅ compile failure (constructor arity mismatch) | ✅ 3/3 |
+| 6b.3/6b.7 | `RondaServiceTest.java` (+1 assertion) | ✅ fault-injection RED (`AssertionError`, line temporarily removed, caught one stale-class false negative via `mvn clean`) | ✅ 12/12 (whole file) |
+| 6b.8 | `HttpAsignadorClientTest.java` (+1 assertion, 2 updated) | ✅ 2/9 failing (stale hardcoded golden values) immediately after the fixture copy | ✅ 9/9 |
+| 6b.9/6b.10 | `CriteriosAsignacionPanel.test.tsx` (+1 assertion) | ✅ `TestingLibraryElementError` (text not found) | ✅ 2/2 (whole file) |
+
+### Files Changed (Slice 6b)
+
+| File | Action | What Was Done |
+|---|---|---|
+| `jar_hornero_ms/src/main/java/org/example/asignacion/CumplimientoCalculator.java` | Created | Grouped-query wrapper, `calcular(): Map<Long, CumplimientoV1>` |
+| `jar_hornero_ms/src/main/java/org/example/domain/DonacionRepository.java` | Modified | `contarPorOrganizacionYEstado` aggregate query |
+| `jar_hornero_ms/src/main/java/org/example/asignacion/EntradaRondaFactory.java` | Modified | `CumplimientoCalculator` dependency, one `calcular()` call per `crear()`, per-candidate attachment |
+| `jar_hornero_ms/src/test/java/org/example/asignacion/CumplimientoCalculatorTest.java` | Created | 3 tests |
+| `jar_hornero_ms/src/test/java/org/example/asignacion/EntradaRondaFactoryTest.java` | Created | 3 tests |
+| `jar_hornero_ms/src/test/java/org/example/asignacion/RondaServiceTest.java` | Modified | `@Mock CumplimientoCalculator`, non-null `terminoCumplimiento` assertion |
+| `jar_hornero_ms/src/test/java/org/example/asignacion/worker/HttpAsignadorClientTest.java` | Modified | 2 assertions updated, 1 added, to match the new golden fixtures |
+| `jar_hornero_ms/src/test/resources/contract/request.json` | Modified | Re-copied from the worker golden (adds `cumplimiento` to the one candidate) |
+| `jar_hornero_ms/src/test/resources/contract/response.json` | Modified | Re-copied from the worker golden (adds `desglose.cumplimiento`, `pesos.cumplimiento`, `parametros.cumplimientoPseudoObs`, updated `score`/`scoreTotal`/`pesos.*`) |
+| `ts_hornero_admin/src/components/donacion/CriteriosAsignacionPanel.tsx` | Modified | 5th `CRITERIOS` entry ("Cumplimiento histórico") |
+| `ts_hornero_admin/src/components/donacion/CriteriosAsignacionPanel.test.tsx` | Modified | +1 assertion, updated docstring/test name (4→5 criteria) |
+
+### Deviations from Design
+
+- None against `design.md` AD-11. Two things were discovered, not deviated from: (a) 6b.3's and
+  6b.7's "assign a RED test" instruction assumed the production code didn't exist yet — it already
+  did, generically, from 5c-ii/5f-ii, so the RED for that task was proven by fault injection
+  instead of a missing-class compile failure (same honest pattern used for slice 3a.5 earlier in
+  this change); (b) 6b.9's `DesgloseScore.tsx` half was likewise already done from 5f.15 — only
+  `CriteriosAsignacionPanel.tsx` (named in the same task line) still needed the 5th entry.
+- `tasks.md`'s 6b.2 wording ("extending 5c's factory tests") assumed a dedicated
+  `EntradaRondaFactoryTest.java` already existed from slice 5c. It did not — 5c's factory coverage
+  was always indirect, through `RondaServiceTest`'s mocked `EntradaRondaFactory` construction. This
+  batch created the first dedicated unit test for `EntradaRondaFactory` instead of extending one.
+
+### Verification (slice 6b) — actually run
+
+- `cd jar_hornero_ms && mvn test -Dtest=CumplimientoCalculatorTest,EntradaRondaFactoryTest,RondaServiceTest,HttpAsignadorClientTest,AsignacionTest`
+  → **28/28 passing** (3+3+12+9+1).
+- `cd jar_hornero_ms && mvn test` (full suite) → **433/433 passing**, `BUILD SUCCESS`.
+- `cd ts_hornero_admin && npx vitest run src/components/donacion/CriteriosAsignacionPanel.test.tsx src/components/donacion/DesgloseScore.test.tsx`
+  → **10/10 passing**.
+- `cd ts_hornero_admin && npm test -- --run` (full suite) → **334/334 passing**.
+- `cd ts_hornero_admin && npm run build` → success (same pre-existing >500kB chunk-size warning as
+  every prior slice).
+- `cd ts_hornero_admin && npx eslint src/components/donacion/CriteriosAsignacionPanel.tsx
+  src/components/donacion/CriteriosAsignacionPanel.test.tsx` → clean.
+- The MS manual verification command from `tasks.md` ("Manual: verify the 5th criterion appears in
+  a ronda breakdown on `make up-local`") was **not run** — it requires a live stack and is listed
+  as tasks.md's own manual/USER ACTION-style check for this slice, not something this batch can
+  automate; `DesgloseScore.test.tsx`'s pre-existing coverage plus this batch's
+  `CriteriosAsignacionPanel.test.tsx` coverage are the closest automated proxies.
+
+### Review Workload / Size (slice 6b)
+
+Authored changed lines (`git diff --numstat`, the 2 contract JSON fixtures are generated/golden —
+excluded from the authored-risk count per the review-workload guard, but still part of the commit
+for snapshot identity):
+
+- `EntradaRondaFactory.java`: 12+2 = 14
+- `DonacionRepository.java`: 10+0 = 10
+- `RondaServiceTest.java`: 7+2 = 9
+- `HttpAsignadorClientTest.java`: 3+2 = 5
+- `CriteriosAsignacionPanel.tsx`: 6+2 = 8
+- `CriteriosAsignacionPanel.test.tsx`: 5+4 = 9
+- `CumplimientoCalculator.java` (new): 45
+- `CumplimientoCalculatorTest.java` (new): 131
+- `EntradaRondaFactoryTest.java` (new): 107
+
+**Slice 6b total: ≈338 authored changed lines** — a little over the slice's own 150-250 forecast,
+but well within the 400-line review budget. No split needed, no `size:exception` required — one
+commit per the user's standing size policy (split only when no clean seam exists or size exceeds
+~500 lines).
+
+**USER COMMIT POINT (slice 6b)**: `feat(ms): feed compliance-history counts into the ronda input`
+
+Per the HARD no-mutating-git-commands instruction, no commit was executed by this agent — the
+single commit above (covering all of `jar_hornero_ms` + `ts_hornero_admin` for this slice) is
+proposed only, pending the user's explicit go-ahead.
+
+## USER ACTION reminder (slice 6b, carried forward)
+
+`tasks.md`'s own manual verification step for slice 6b — "verify the 5th criterion appears in a
+ronda breakdown on `make up-local`" — was not performed; it requires a live stack (worker + MS +
+admin all running together) and is this slice's equivalent of a USER ACTION item.

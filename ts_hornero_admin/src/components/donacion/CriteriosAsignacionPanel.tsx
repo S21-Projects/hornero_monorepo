@@ -6,9 +6,9 @@ interface Criterio {
   descripcion: string;
 }
 
-// Spec `donacion-fondo-comun` — "Nueva Donación Screen": static explainer of the 4 scoring
+// Spec `donacion-fondo-comun` — "Nueva Donación Screen": static explainer of the 5 scoring
 // criteria the assignment engine uses, without exposing organizacion-identifying data before
-// assignment. A 5th criterion (cumplimiento) is planned cosmetically for slice 6b.
+// assignment. The 5th criterion (cumplimiento, AD-11) was added cosmetically in slice 6b.
 const CRITERIOS: Criterio[] = [
   {
     titulo: 'Déficit de cobertura',
@@ -25,6 +25,10 @@ const CRITERIOS: Criterio[] = [
   {
     titulo: 'Tiempo de espera',
     descripcion: 'Evita que una misma organización espere demasiadas rondas sin recibir nada.',
+  },
+  {
+    titulo: 'Cumplimiento histórico',
+    descripcion: 'Favorece organizaciones con buen historial de entregas en donaciones anteriores.',
   },
 ];
 
