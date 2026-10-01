@@ -191,6 +191,19 @@ class DonacionRepositoryTest {
         assertThat(found.get().getNecesidad()).isNull();
     }
 
+    // Found by the e2e smoke test: the ronda write phase locks the pool donation with this query
+    // before assigning it, so an inner join on necesidad made every assignment a "descartada".
+    @Test
+    void findByIdForUpdate_unassignedPoolDonation_isFound() {
+        Donante donante = crearDonante("Lock Fondo");
+        Donacion unassigned = crearDonacionSinNecesidad(donante);
+
+        var found = donacionRepository.findByIdForUpdate(unassigned.getId());
+
+        assertThat(found).isPresent();
+        assertThat(found.get().getNecesidad()).isNull();
+    }
+
     @Test
     void findByDonanteIdWithRelations_unassignedPoolDonation_returnedWithoutError() {
         Donante donante = crearDonante("Luis Fondo");

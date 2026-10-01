@@ -102,9 +102,14 @@ public interface DonacionRepository extends JpaRepository<Donacion, Long> {
      * {@code EntregaService.verificar}: without this lock, two concurrent verifications each read
      * "the other party hasn't confirmed yet" and the donación can get stuck at
      * {@code PENDIENTE_CONFIRMACION} forever instead of reaching {@code ENTREGADA} exactly once.
+     *
+     * <p>Locks only the donación row, with no fetch joins: an unassigned FONDO_COMUN donación has
+     * no necesidad (an inner join would hide it from the ronda write phase), and Postgres rejects
+     * {@code FOR UPDATE} on the nullable side of an outer join. Relations load lazily inside the
+     * caller's transaction.
      */
     @Lock(LockModeType.PESSIMISTIC_WRITE)
-    @Query("SELECT d FROM Donacion d JOIN FETCH d.donante JOIN FETCH d.necesidad n JOIN FETCH n.organizacion WHERE d.id = :id")
+    @Query("SELECT d FROM Donacion d WHERE d.id = :id")
     Optional<Donacion> findByIdForUpdate(@Param("id") Long id);
 
     /**
