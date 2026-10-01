@@ -1,3 +1,4 @@
+import { HTTP_CODE_METADATA } from '@nestjs/common/constants';
 import { Test, TestingModule } from '@nestjs/testing';
 import type { Request } from 'express';
 import { ROLES_KEY } from '../auth/decorators/roles.decorator.js';
@@ -158,6 +159,14 @@ describe('DonacionesController', () => {
   });
 
   describe('verificarCodigoEntrega', () => {
+    it('answers 200, not the POST default 201: verifying creates nothing', () => {
+      const status = Reflect.getMetadata(
+        HTTP_CODE_METADATA,
+        DonacionesController.prototype.verificarCodigoEntrega,
+      ) as number | undefined;
+      expect(status).toBe(200);
+    });
+
     it('reads the access_token cookie and forwards id + dto to the service', async () => {
       const estado = {
         estado: 'PENDIENTE_CONFIRMACION',

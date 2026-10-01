@@ -167,6 +167,7 @@ export class DonacionesController {
 
   @Roles(Role.DONANTE, Role.REFERENTE)
   @Post(':id/entrega/verificar')
+  @HttpCode(200)
   @ApiOperation({
     summary: "Verify the counterpart's delivery code (DONANTE or REFERENTE)",
   })
