@@ -26,3 +26,6 @@ target/
 .idea/
 .vscode/
 *.iml
+
+# Local database dumps (make backup / make migrate) — contain user data
+backups/

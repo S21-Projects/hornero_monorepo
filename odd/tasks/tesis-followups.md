@@ -34,7 +34,7 @@ came from the fondo común, admin cannot see modalidad, onboarding counter missi
       QR both sides, ENTREGADA, audit queue, evidence file. Route: inline (state/ops). Fix what breaks.
 - [ ] T2 Docs: CLAUDE.md (worker service, :8090 internal, new flows) + docs/deploy-rpi-cloudflare.md
       (worker container, POBLACION_CSV). Route: inline (2 doc files, mechanical).
-- [ ] T3 Makefile `migrate` target (backup + V001). Route: inline (1 file).
+- [x] T3 Makefile `backup` + `migrate` targets (backup, then every scripts/sql/V*.sql in order; `ENV_FILE=.env.local` for local). Verified against the local stack; backups/ gitignored. Route: inline.
 - [ ] T4 Referente dashboard: fondo común badge on assigned pool offers + notice that rejecting
       returns it to the pool. Route: delegated (admin, tests).
 - [ ] T5 Admin control de donaciones: modalidad + fase columns/badges. Route: delegated.
