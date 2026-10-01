@@ -71,3 +71,10 @@ export const MODALIDAD_DONACION: Record<string, BadgeConfig> = {
   DIRECTA:     { tone: 'sky',     label: 'Directa' },
   FONDO_COMUN: { tone: 'neutral', label: 'Fondo común' },
 };
+
+/** `FaseDonacion` (AD-4) — only the two pool-only phases need their own label here (T5); the
+ * rest overlap with `ESTADO_DONACION`'s existing labels. */
+export const FASE_DONACION: Record<string, BadgeConfig> = {
+  EN_FONDO: { tone: 'neutral', label: 'En espera de asignación' },
+  ASIGNADA: { tone: 'sky',     label: 'Asignada' },
+};

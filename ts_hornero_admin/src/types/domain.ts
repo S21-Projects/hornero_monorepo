@@ -184,6 +184,8 @@ export interface RondaResponse {
   ejecutadaEn: string;
   finalizadaEn: string | null;
   ejecutadaPor: number;
+  /** Resolved server-side from `usuarios` (T6); `null` when the executor account no longer exists. */
+  ejecutadaPorNombre: string | null;
   estado: 'COMPLETADA' | 'FALLIDA';
   error: string | null;
   versionContrato: number;
@@ -458,4 +460,6 @@ export interface DonacionActiva {
   overrideMotivo?: string;
   overrideAdminId?: number;
   overrideEn?: string;
+  modalidad?: ModalidadDonacion;
+  fase?: FaseDonacion;
 }

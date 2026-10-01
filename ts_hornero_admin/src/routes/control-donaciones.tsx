@@ -9,7 +9,7 @@ import { Text } from '../components/ui/Typography';
 import { useDonacionesActivas } from '../lib/hooks/useDonacionesActivas';
 import { useOverrideEstadoDonacion } from '../lib/hooks/useOverrideEstadoDonacion';
 import { usePageClamp } from '../lib/hooks/usePageClamp';
-import { ESTADO_DONACION, FALLBACK_BADGE } from '../lib/domain-ui';
+import { ESTADO_DONACION, FALLBACK_BADGE, MODALIDAD_DONACION, FASE_DONACION } from '../lib/domain-ui';
 import { formatFecha } from '../lib/format';
 import type { DonacionActiva, EstadoDonacion } from '../types/domain';
 
@@ -179,13 +179,25 @@ export default function ControlDonacionesPage() {
       ),
     },
     {
+      key: 'modalidad',
+      header: 'Modalidad',
+      render: (d) => {
+        const cfg = d.modalidad ? (MODALIDAD_DONACION[d.modalidad] ?? FALLBACK_BADGE) : undefined;
+        return cfg ? <Badge tone={cfg.tone} label={cfg.label} /> : <Text variant="body-sm" color="ink-3">—</Text>;
+      },
+    },
+    {
       key: 'estado',
       header: 'Estado',
       render: (d) => {
         const cfg = ESTADO_DONACION[d.estado as EstadoDonacion] ?? FALLBACK_BADGE;
+        // Only EN_FONDO/ASIGNADA carry fase-specific copy not already covered by `estado`
+        // (both still report `estado: OFRECIDA`) — any other fase would just repeat the estado badge.
+        const faseCfg = d.fase ? FASE_DONACION[d.fase] : undefined;
         return (
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
             <Badge tone={cfg.tone} label={cfg.label} />
+            {faseCfg && <Badge tone={faseCfg.tone} label={faseCfg.label} />}
             {d.overrideEn && <Badge tone="danger" label="Forzada" />}
           </div>
         );
