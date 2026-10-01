@@ -30,6 +30,33 @@ export const EstadoDonacion = {
 } as const;
 export type EstadoDonacion = typeof EstadoDonacion[keyof typeof EstadoDonacion];
 
+/** Mirrors MS `ModalidadDonacion` (`specs/donacion-fondo-comun`). Set at creation, immutable. */
+export const ModalidadDonacion = {
+  DIRECTA: 'DIRECTA',
+  FONDO_COMUN: 'FONDO_COMUN',
+} as const;
+export type ModalidadDonacion = typeof ModalidadDonacion[keyof typeof ModalidadDonacion];
+
+/**
+ * Mirrors MS `Donacion.fase` (Slice 5). `EN_FONDO` is a `FONDO_COMUN` donación waiting for a
+ * ronda (no `Asignacion` yet); `ASIGNADA` and later phases track the current/last asignación.
+ */
+export const FaseDonacion = {
+  EN_FONDO: 'EN_FONDO',
+  ASIGNADA: 'ASIGNADA',
+  EN_CAMINO: 'EN_CAMINO',
+  ENTREGADA: 'ENTREGADA',
+} as const;
+export type FaseDonacion = typeof FaseDonacion[keyof typeof FaseDonacion];
+
+/** Categorías de ítems aceptadas para una donación `FONDO_COMUN` (`CrearDonacionDto`, BFF/MS). */
+export const CategoriaDonacion = {
+  NO_PERECEDERO: 'NO_PERECEDERO',
+  REFRIGERADO: 'REFRIGERADO',
+  CONGELADO: 'CONGELADO',
+} as const;
+export type CategoriaDonacion = typeof CategoriaDonacion[keyof typeof CategoriaDonacion];
+
 // --- Info pública (aceptaDonaciones, sitioWebUrl, donacionDirectaUrl) ---
 // Live values are always present on any authenticated response. Pending
 // values are populated only while a referente-submitted change awaits
@@ -86,19 +113,35 @@ export interface Donacion {
   observaciones?: string;
   donanteName?: string;
   donanteId?: number;
-  necesidadId: number;
-  organizacionId?: number;
+  /** Null for a `FONDO_COMUN` donación — it has no necesidad until the solver assigns it. */
+  necesidadId: number | null;
+  organizacionId?: number | null;
   /** MS `DonacionResponse.organizacionNombre` — the counterpart's name for a donante viewer
    * (slice 3c's confirmation screen header). */
   organizacionNombre?: string;
   confirmadaDonanteEn?: string;
   confirmadaReferenteEn?: string;
+  /** Set at creation, immutable (`specs/donacion-fondo-comun`). Absent on pre-5e responses. */
+  modalidad?: ModalidadDonacion;
+  fase?: FaseDonacion;
 }
 
-export interface CrearDonacionInput {
+/** `necesidadId` required, `DIRECTA` is implicit when `modalidad` is omitted (MS coalescing). */
+export interface CrearDonacionDirectaInput {
   necesidadId: number;
   observaciones?: string;
 }
+
+/** `FONDO_COMUN`: no `necesidadId` — categoria + pickup coordinates are required instead. */
+export interface CrearDonacionFondoComunInput {
+  modalidad: typeof ModalidadDonacion.FONDO_COMUN;
+  categoria: CategoriaDonacion;
+  latitud: number;
+  longitud: number;
+  observaciones?: string;
+}
+
+export type CrearDonacionInput = CrearDonacionDirectaInput | CrearDonacionFondoComunInput;
 
 export interface CrearNecesidadInput {
   descripcion: string;
