@@ -68,7 +68,8 @@ class DonacionControllerTest {
                 null,
                 "DIRECTA",
                 null,
-                "OFRECIDA"
+                "OFRECIDA",
+                List.of()
         );
     }
 
