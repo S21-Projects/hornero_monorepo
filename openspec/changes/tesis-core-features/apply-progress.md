@@ -1859,3 +1859,112 @@ exactly, no scope creep). Per the tasks file's size policy, split into 3 natural
 **5/5 tasks groups (5d.1–5d.7) complete.** `openspec/changes/tesis-core-features/tasks.md` slice 5d
 checkboxes updated to `[x]`. Ready for the next slice (5e — Nueva donación screen, admin) or archive
 once the user has committed this slice's 3 seams.
+
+## Slice 5e — Nueva donación screen (admin) complete (2026-10-01)
+
+Strict TDD throughout, RED observed failing before every GREEN. Scope: ONLY slice 5e — admin SPA
+"Nueva donación" screen (`/donar`, DONANTE role). BFF contract read first
+(`crear-donacion.dto.ts`): `modalidad` DIRECTA|FONDO_COMUN; FONDO_COMUN requires
+categoria+latitud/longitud and forbids necesidadId; DIRECTA requires necesidadId (unchanged from
+5d/5b).
+
+### Per-task notes
+
+- **5e.1/5e.2 (RED)**: `nueva-donacion.test.tsx` and `CriteriosAsignacionPanel.test.tsx` both
+  failed with "Failed to resolve import" before their components existed — observed and recorded
+  before any GREEN work.
+- **5e.3 (GREEN)**: `CriteriosAsignacionPanel.tsx` — static "¿Cómo se elige el destino?" card
+  listing the 4 criteria (déficit de cobertura, urgencia, proximidad, tiempo de espera) with
+  one-line explanations each, plus a closing note that nivel de acreditación also gates which
+  categories an org can receive. No organizacion-identifying data anywhere (asserted by test).
+  5th criterion (cumplimiento) intentionally NOT added — arrives cosmetically in slice 6b per
+  tasks.md.
+- **5e.4 (GREEN)**: `nueva-donacion.tsx`.
+  - Breadcrumb "Mis donaciones / Nueva donación" (`Link` to `/mis-donaciones`), title "¿Cómo
+    querés donar?".
+  - Email-verified notice: reads `useAuthStore().user.emailVerificado`, shown only when false
+    (mirrors `necesidad-detalle.tsx`'s existing `EMAIL_NO_VERIFICADO` messaging pattern, but
+    proactive here rather than reactive to a 403).
+  - Two modalidad cards in a `role="radiogroup"`: each is a native `<input type="radio" name="modalidad">`
+    inside a full-card `<label>` — gives correct `role="radio"`/`aria-checked` semantics and
+    keyboard support for free, while the visible content is the existing `Card`/`Text` primitives
+    styled as a selectable card (≥44px target, `boxShadow` ring when checked).
+  - DIRECTA branch: Cancelar/Continuar only — **no necesidad picker embedded** (decision 14).
+    Continuar calls `navigate('/explorar')`; `necesidad-detalle.tsx` is untouched and keeps
+    creating the direct donación inline, exactly as before this feature.
+  - FONDO_COMUN branch: categoria `<select>` (required, the 3 MS/BFF categoria values),
+    `OrgLocationPickerLazy` reused verbatim from the org-registration flow (same props shape:
+    `center`/`markerPosition`/`userPosition`/`recenterSignal`/`onPick`, backed by the existing
+    `useGeolocation` hook) plus a "usar mi ubicación actual" button, observaciones textarea
+    (matches `necesidad-detalle.tsx`'s inline textarea styling), friendly error text on
+    `crear.isError`, and `CriteriosAsignacionPanel` as the side panel. Submit ("Ofrecer al fondo
+    común") stays disabled until both categoria and coords are set. On success, navigates to
+    `/mis-donaciones/:id?nueva=1` — this is the `donacion-detalle` route from slice 5f, not yet
+    created; intentional forward reference matching design.md's documented `?nueva=1` success
+    banner, verified safe by adding a stub route in the test router (no unhandled rejection).
+- **5e.5 (GREEN)**: `useCrearDonacion.ts` — no functional change needed; `CrearDonacionInput` was
+  already the mutation's generic input type, and it's now a discriminated union (see 5e.6), so the
+  hook accepts both shapes unchanged. Added a clarifying comment only.
+- **5e.6 (GREEN)**: `types/domain.ts` — added `ModalidadDonacion`, `FaseDonacion`,
+  `CategoriaDonacion` const-object enums (project convention: no TS `enum`, `erasableSyntaxOnly`
+  is on). `Donacion.necesidadId`/`organizacionId` are now nullable, with new optional
+  `modalidad`/`fase` fields. `CrearDonacionInput` became a discriminated union
+  (`CrearDonacionDirectaInput` | `CrearDonacionFondoComunInput`); confirmed
+  `necesidad-detalle.tsx`'s existing `mutation.mutate({ necesidadId, observaciones })` call still
+  type-checks unchanged (its literal object structurally matches the DIRECTA branch — no edit
+  needed there, consistent with decision 14).
+- **5e.7 (GREEN)**: registered `/donar` under the existing DONANTE `ProtectedRoute` block in
+  `router.tsx` (same gate as `/mis-donaciones`/`/explorar`); added a "Donar" entry to
+  `AppShell.tsx`'s DONANTE `NAV_LINKS` (between Explorar and Mis Donaciones).
+
+### Testing approach
+
+- `OrgLocationPickerLazy` mocked with a deterministic `onPick` stub, same pattern as
+  `register.test.tsx` (Leaflet needs real DOM measurement APIs jsdom doesn't provide).
+- Router/navigation assertions use `createMemoryRouter` + `RouterProvider` (same pattern as
+  `verify-email.test.tsx`/`register.test.tsx`), not a bare `MemoryRouter`, so `navigate()` calls
+  are observable via `router.state.location.pathname`.
+- `useCrearDonacion` mocked at the module boundary (same pattern as `mis-donaciones.test.tsx`
+  mocking its data hooks) — no `QueryClientProvider` needed since the hook itself is a mock.
+
+### Files Changed (slice 5e)
+
+| File | Action | Lines (authored, incl. tests) |
+|---|---|---|
+| `ts_hornero_admin/src/types/domain.ts` | Modified | +49/-3 |
+| `ts_hornero_admin/src/lib/hooks/useCrearDonacion.ts` | Modified | +2 |
+| `ts_hornero_admin/src/components/donacion/CriteriosAsignacionPanel.tsx` | Created | 55 |
+| `ts_hornero_admin/src/components/donacion/CriteriosAsignacionPanel.test.tsx` | Created | 26 |
+| `ts_hornero_admin/src/routes/nueva-donacion.tsx` | Created | 260 |
+| `ts_hornero_admin/src/routes/nueva-donacion.test.tsx` | Created | 112 |
+| `ts_hornero_admin/src/app/router.tsx` | Modified | +2 |
+| `ts_hornero_admin/src/app/AppShell.tsx` | Modified | +1 |
+
+**Total ≈ 504 authored lines** — over the slice's 300-400 forecast (full RED+GREEN suites for both
+the screen and the panel, plus the discriminated-union type additions, account for the overrun;
+file list matches design.md's 5e table + 5e.7 nav wiring, no scope creep). Per the tasks file's
+size policy, split into 2 natural-seam commits (see `tasks.md`'s "Size note" under slice 5e)
+instead of one. Per the HARD no-mutating-git-commands instruction for this batch, commits were
+**not** executed by this agent — the "USER COMMIT POINT" entries in tasks.md are left for the user
+to run, same as slice 5d's precedent.
+
+### TDD Cycle Evidence (slice 5e)
+
+| Task | RED | GREEN | REFACTOR |
+|---|---|---|---|
+| 5e.2/5e.3 | `CriteriosAsignacionPanel.test.tsx`: import resolution failure (module didn't exist) | 2/2 pass | N/A — single static presentational component, no duplication to extract |
+| 5e.1/5e.4 | `nueva-donacion.test.tsx`: import resolution failure (module didn't exist) | 4/4 pass | N/A — form/map/select markup kept inline, matches `necesidad-detalle.tsx`'s existing inline-textarea convention rather than introducing a new shared primitive for a single usage |
+
+### Work Unit Evidence (slice 5e)
+
+| Evidence | Value |
+|---|---|
+| Focused test command and exact result | `npx vitest run nueva-donacion CriteriosAsignacion` → 2 files, 6/6 tests pass |
+| Runtime harness command/scenario and exact result | `npm run build` (`tsc -b && vite build`) → clean, no type errors; full `npx vitest run` → 61 suites / 297 tests pass (no regressions in the rest of the SPA) |
+| Rollback boundary | Seam 1 (`types/domain.ts`, `useCrearDonacion.ts`, `CriteriosAsignacionPanel.*`) and seam 2 (`nueva-donacion.*`, `router.tsx`, `AppShell.tsx`) can each be reverted independently without touching 5d (BFF) or earlier slices; `necesidad-detalle.tsx`'s DIRECTA flow is untouched end-to-end |
+
+### Status
+
+**7/7 tasks (5e.1–5e.7) complete.** `openspec/changes/tesis-core-features/tasks.md` slice 5e
+checkboxes updated to `[x]`. Ready for the next slice (5f — progress/detail/admin ronda) or
+archive once the user has committed this slice's 2 seams.

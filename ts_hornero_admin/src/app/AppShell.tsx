@@ -36,6 +36,7 @@ const NAV_LINKS: Record<UserRole, NavItem[]> = {
   ],
   DONANTE: [
     { to: '/explorar', label: 'Explorar', icon: <SearchNormal1 size={ICON_SIZE} /> },
+    { to: '/donar', label: 'Donar', icon: <Gift size={ICON_SIZE} /> },
     { to: '/mis-donaciones', label: 'Mis Donaciones', icon: <Gift size={ICON_SIZE} /> },
   ],
 };

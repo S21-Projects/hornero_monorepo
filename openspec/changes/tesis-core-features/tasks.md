@@ -860,31 +860,43 @@ of one, same scope, same branch:
 
 Depends on: 5d. Spec: `donacion-fondo-comun`.
 
-- [ ] 5e.1 RED — `ts_hornero_admin/src/routes/nueva-donacion.test.tsx`: choosing `DIRECTA`
+- [x] 5e.1 RED — `ts_hornero_admin/src/routes/nueva-donacion.test.tsx`: choosing `DIRECTA`
       navigates to /explorar without embedding a picker (decision 14); choosing `FONDO_COMUN`
       reveals the required categoria selector and map control before submit; submitting
       `FONDO_COMUN` sends the correct payload shape.
-- [ ] 5e.2 RED — `ts_hornero_admin/src/components/donacion/CriteriosAsignacionPanel.test.tsx`:
+- [x] 5e.2 RED — `ts_hornero_admin/src/components/donacion/CriteriosAsignacionPanel.test.tsx`:
       renders a static explainer of the 4 (visually; 5th criterion arrives cosmetically in 6b)
       scoring criteria without exposing organizacion-identifying data.
-- [ ] 5e.3 GREEN — Create `ts_hornero_admin/src/components/donacion/CriteriosAsignacionPanel.tsx`.
+- [x] 5e.3 GREEN — Create `ts_hornero_admin/src/components/donacion/CriteriosAsignacionPanel.tsx`.
       Satisfies 5e.2.
-- [ ] 5e.4 GREEN — Create `ts_hornero_admin/src/routes/nueva-donacion.tsx` (/donar, DONANTE):
+- [x] 5e.4 GREEN — Create `ts_hornero_admin/src/routes/nueva-donacion.tsx` (/donar, DONANTE):
       modalidad choice; `FONDO_COMUN` branch with categoria (required) + map pin (reuse
       `OrgLocationPickerLazy`) + observaciones + the criteria panel; `DIRECTA` branch routes to
       /explorar per decision 14 (`necesidad-detalle.tsx` keeps its existing inline-create flow,
       unchanged). Satisfies 5e.1.
-- [ ] 5e.5 GREEN — Modify `ts_hornero_admin/src/lib/hooks/useCrearDonacion.ts`: new payload union
+- [x] 5e.5 GREEN — Modify `ts_hornero_admin/src/lib/hooks/useCrearDonacion.ts`: new payload union
       (`DIRECTA` vs `FONDO_COMUN`).
-- [ ] 5e.6 GREEN — Modify `ts_hornero_admin/src/types/domain.ts`: `ModalidadDonacion`,
+- [x] 5e.6 GREEN — Modify `ts_hornero_admin/src/types/domain.ts`: `ModalidadDonacion`,
       `FaseDonacion`, nullable `necesidadId`, `organizacionId`.
-- [ ] 5e.7 GREEN — `ts_hornero_admin/src/app/router.tsx`, `ts_hornero_admin/src/app/AppShell.tsx`:
+- [x] 5e.7 GREEN — `ts_hornero_admin/src/app/router.tsx`, `ts_hornero_admin/src/app/AppShell.tsx`:
       register /donar for DONANTE + nav entry (if not already present via the existing donation
       entry point).
 
 **Verification (slice 5e):** `cd ts_hornero_admin && npm test -- nueva-donacion CriteriosAsignacion && npm run build`
 
-**USER COMMIT POINT**: `feat(admin): add nueva donacion screen with fondo comun modalidad`
+**Size note**: actual authored diff (~504 lines incl. tests) exceeds the slice's 300-400 forecast —
+driven by the full RED+GREEN suite for both the screen and the panel plus the discriminated-union
+type additions (`ModalidadDonacion`, `FaseDonacion`, `CategoriaDonacion`, `CrearDonacionInput`
+union), not scope creep (file list matches design.md's 5e table exactly, plus `router.tsx`/
+`AppShell.tsx` nav wiring per 5e.7). Per the tasks file's size policy, it splits into 2
+natural-seam commits instead of one, same scope, same branch:
+
+**USER COMMIT POINT (seam 1 — shared types + criteria panel)**: `feat(admin): add fondo comun donation types and criteria panel`
+(`ts_hornero_admin/src/types/domain.ts`, `src/lib/hooks/useCrearDonacion.ts`,
+`src/components/donacion/CriteriosAsignacionPanel.tsx` + test)
+
+**USER COMMIT POINT (seam 2 — screen + nav)**: `feat(admin): add nueva donacion screen with fondo comun modalidad`
+(`ts_hornero_admin/src/routes/nueva-donacion.tsx` + test, `src/app/router.tsx`, `src/app/AppShell.tsx`)
 
 ## Slice 5f — Progress, detail, admin ronda (admin)
 
