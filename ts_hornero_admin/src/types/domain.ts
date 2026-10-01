@@ -162,6 +162,48 @@ export interface AsignacionHistorial {
   codigoRadio: string;
   creadaEn: string;
   resueltaEn: string | null;
+  /**
+   * Weights the ronda actually applied (task 5f.15), snapshotted from `asignacion.getRonda()`.
+   * Null only for rows from before AD-9's snapshot existed — `DesgloseScore` falls back to the
+   * pre-6a hardcoded defaults in that case.
+   */
+  pesoDeficit?: number | null;
+  pesoUrgencia?: number | null;
+  pesoProximidad?: number | null;
+  pesoEspera?: number | null;
+  pesoCumplimiento?: number | null;
+}
+
+/**
+ * Mirrors MS `RondaResponse` (AD-9, spec `ronda-asignacion`): one triggered ronda, including a
+ * `FALLIDA` one (worker error/timeout — `error` carries the reason, every counter stays 0).
+ * `pesoCumplimiento` is null until slice 6b/6a populate the fifth criterion end to end.
+ */
+export interface RondaResponse {
+  id: number;
+  ejecutadaEn: string;
+  finalizadaEn: string | null;
+  ejecutadaPor: number;
+  estado: 'COMPLETADA' | 'FALLIDA';
+  error: string | null;
+  versionContrato: number;
+  donacionesConsideradas: number;
+  candidatosConsiderados: number;
+  asignadas: number;
+  sinAsignar: number;
+  descartadas: number;
+  scoreTotal: number | null;
+  pesoDeficit: number | null;
+  pesoUrgencia: number | null;
+  pesoProximidad: number | null;
+  pesoEspera: number | null;
+  pesoCumplimiento: number | null;
+}
+
+/** Mirrors MS `RondaFondoResponse` (`GET /api/rondas/fondo`): pool size before triggering a ronda. */
+export interface RondaFondoResponse {
+  pendientes: number;
+  masAntiguaDesde: string | null;
 }
 
 /** `necesidadId` required, `DIRECTA` is implicit when `modalidad` is omitted (MS coalescing). */

@@ -3,16 +3,18 @@ import { Text } from '../ui/Typography';
 import type { AsignacionHistorial } from '../../types/domain';
 
 /**
- * Default normalized weights the worker applies pre-6a (`go_algorithms_worker/internal/assign/
- * scoring.go` `PesosDefault`) — used here only to render each criterion's contribution
- * (`term × weight`) per task 5f.2, since `AsignacionResponse` carries raw terms, not the ronda's
- * applied weights. Slice 6b adds the 5th (`cumplimiento`) weight once the MS starts sending it.
+ * Default normalized weights the worker applied pre-6a (`go_algorithms_worker/internal/assign/
+ * scoring.go` `PesosDefault`) — fallback only for rows whose ronda never recorded a weight
+ * snapshot (pre-AD-9 data, task 5f.15). Every other row uses the weights the ronda actually
+ * applied (`AsignacionHistorial.peso*`), so "term × weight" no longer drifts once 6a renormalizes
+ * the weights or a ronda uses overrides.
  */
 const PESO_DEFAULT = {
   deficit: 0.35,
   urgencia: 0.3,
   proximidad: 0.2,
   espera: 0.15,
+  cumplimiento: 0.15,
 } as const;
 
 interface Criterio {
@@ -57,10 +59,10 @@ interface DesgloseScoreProps {
  */
 export function DesgloseScore({ asignacion: a }: DesgloseScoreProps) {
   const criterios: Criterio[] = [
-    { key: 'deficit', titulo: 'Déficit de cobertura', valor: a.terminoDeficit, peso: PESO_DEFAULT.deficit },
-    { key: 'urgencia', titulo: 'Urgencia', valor: a.terminoUrgencia, peso: PESO_DEFAULT.urgencia },
-    { key: 'proximidad', titulo: 'Proximidad', valor: a.terminoProximidad, peso: PESO_DEFAULT.proximidad },
-    { key: 'espera', titulo: 'Tiempo de espera', valor: a.terminoEspera, peso: PESO_DEFAULT.espera },
+    { key: 'deficit', titulo: 'Déficit de cobertura', valor: a.terminoDeficit, peso: a.pesoDeficit ?? PESO_DEFAULT.deficit },
+    { key: 'urgencia', titulo: 'Urgencia', valor: a.terminoUrgencia, peso: a.pesoUrgencia ?? PESO_DEFAULT.urgencia },
+    { key: 'proximidad', titulo: 'Proximidad', valor: a.terminoProximidad, peso: a.pesoProximidad ?? PESO_DEFAULT.proximidad },
+    { key: 'espera', titulo: 'Tiempo de espera', valor: a.terminoEspera, peso: a.pesoEspera ?? PESO_DEFAULT.espera },
   ];
 
   if (a.terminoCumplimiento != null) {
@@ -68,7 +70,7 @@ export function DesgloseScore({ asignacion: a }: DesgloseScoreProps) {
       key: 'cumplimiento',
       titulo: 'Cumplimiento histórico',
       valor: a.terminoCumplimiento,
-      peso: 0.15,
+      peso: a.pesoCumplimiento ?? PESO_DEFAULT.cumplimiento,
     });
   }
 
