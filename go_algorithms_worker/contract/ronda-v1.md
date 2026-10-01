@@ -22,7 +22,8 @@ copies change together, in the same commit, whenever this contract changes.
       "longitud": -64.18,
       "categoria": "NO_PERECEDERO",
       "diasEnFondo": 12,
-      "organizacionesExcluidas": [5]
+      "organizacionesExcluidas": [5],
+      "articuloIds": [101, 102]
     }
   ],
   "candidatos": [
@@ -37,6 +38,7 @@ copies change together, in the same commit, whenever this contract changes.
       "diasDesdeUltimaDonacion": 14,
       "categoriasAceptadas": ["NO_PERECEDERO"],
       "categoriasPermitidas": ["NO_PERECEDERO"],
+      "articuloIds": [102, 103],
       "cumplimiento": { "entregadas": 8, "fallidas": 1 }
     }
   ],
@@ -59,6 +61,13 @@ copies change together, in the same commit, whenever this contract changes.
   candidate in the ronda that has history, or `0.5` if nobody does, then smooths each candidate's
   own rate toward it with `m` pseudo-observations: `tasa = (entregadas + m·p0) / (entregadas +
   fallidas + m)`.
+- `donaciones[].articuloIds`/`candidatos[].articuloIds` are additive (feature catalogo-articulos,
+  work unit C): the catalog articulo ids a donación offers / a necesidad requested. When **both**
+  sides declare a non-empty set, the pair is only feasible if the sets intersect — a hard filter,
+  alongside (never instead of) the existing `categoriasAceptadas`/`categoriasPermitidas` filter.
+  When either side is absent/empty (a producer that has not been updated yet), the filter is a
+  no-op, same "empty means accepts anything" convention as every other optional set field here —
+  this keeps the contract backward compatible mid-rollout.
 - `pesos`/`parametros` are optional overrides of `assign.PesosPorDefecto` /
   `assign.ParametrosPorDefecto`. Every field inside `parametros` is itself optional — only the
   ones present replace the default. `pesos.cumplimiento` (slice 6a) weights the compliance term;

@@ -54,6 +54,11 @@ type DonacionV1 struct {
 	Categoria               string  `json:"categoria"`
 	DiasEnFondo             int     `json:"diasEnFondo"`
 	OrganizacionesExcluidas []int64 `json:"organizacionesExcluidas,omitempty"`
+
+	// ArticuloIds is the set of catalog articulos this donation offers (feature
+	// catalogo-articulos, work unit C). Additive/optional, same AD-14 convention as every other
+	// field here.
+	ArticuloIds []int64 `json:"articuloIds,omitempty"`
 }
 
 // CandidatoV1 is one open candidate necesidad competing for a donation.
@@ -72,6 +77,11 @@ type CandidatoV1 struct {
 	DiasDesdeUltimaDonacion int      `json:"diasDesdeUltimaDonacion"`
 	CategoriasAceptadas     []string `json:"categoriasAceptadas,omitempty"`
 	CategoriasPermitidas    []string `json:"categoriasPermitidas,omitempty"`
+
+	// ArticuloIds is the set of catalog articulos this necesidad requested (feature
+	// catalogo-articulos, work unit C). Additive/optional, same AD-14 convention as every other
+	// field here.
+	ArticuloIds []int64 `json:"articuloIds,omitempty"`
 
 	// Cumplimiento is the candidate organizacion's raw resolved-donation counts (AD-11, 6b). nil
 	// means the producer sent none — either it predates 6b or the organizacion has no history —
@@ -151,6 +161,7 @@ func (e EntradaRondaV1) ADonaciones() []assign.Donacion {
 			Categoria:               d.Categoria,
 			DiasEnFondo:             d.DiasEnFondo,
 			OrganizacionesExcluidas: d.OrganizacionesExcluidas,
+			ArticuloIds:             d.ArticuloIds,
 		}
 	}
 	return out
@@ -202,6 +213,7 @@ func (e EntradaRondaV1) ACandidatos(resolvedor *geo.Resolvedor, pseudoObs float6
 			DiasDesdeUltimaDonacion: c.DiasDesdeUltimaDonacion,
 			CategoriasAceptadas:     c.CategoriasAceptadas,
 			CategoriasPermitidas:    c.CategoriasPermitidas,
+			ArticuloIds:             c.ArticuloIds,
 			TasaCumplimiento:        assign.TasaCumplimiento(conteos[i], p0, pseudoObs),
 		}
 		meta[c.NecesidadID] = CandidatoResuelto{Fuente: fuente, CodigoRadio: c.CodigoRadio}

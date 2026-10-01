@@ -140,6 +140,38 @@ func TestADonacionesMapeaCampos(t *testing.T) {
 	}
 }
 
+// TestADonacionesMapeaArticuloIds: feature catalogo-articulos, work unit C — the additive
+// articuloIds field round-trips through ADonaciones exactly like OrganizacionesExcluidas does.
+func TestADonacionesMapeaArticuloIds(t *testing.T) {
+	e := entradaValida()
+	e.Donaciones[0].ArticuloIds = []int64{7, 8}
+
+	out := e.ADonaciones()
+	if len(out) != 1 || len(out[0].ArticuloIds) != 2 || out[0].ArticuloIds[0] != 7 || out[0].ArticuloIds[1] != 8 {
+		t.Fatalf("mapped donacion articuloIds = %+v, want [7 8]", out[0].ArticuloIds)
+	}
+}
+
+// TestADonacionesArticuloIdsAusenteMapeaNil: an absent articuloIds (mid-rollout producer) must
+// not fabricate an empty-but-non-nil slice that would behave differently from "not provided".
+func TestADonacionesArticuloIdsAusenteMapeaNil(t *testing.T) {
+	out := entradaValida().ADonaciones()
+	if len(out[0].ArticuloIds) != 0 {
+		t.Fatalf("articuloIds = %+v, want empty", out[0].ArticuloIds)
+	}
+}
+
+// TestACandidatosMapeaArticuloIds: same round-trip, on the candidato side.
+func TestACandidatosMapeaArticuloIds(t *testing.T) {
+	e := entradaValida()
+	e.Candidatos[0].ArticuloIds = []int64{7, 9}
+
+	out, _ := e.ACandidatos(resolvedorVacio(), assign.PseudoObsPorDefecto)
+	if len(out) != 1 || len(out[0].ArticuloIds) != 2 || out[0].ArticuloIds[0] != 7 || out[0].ArticuloIds[1] != 9 {
+		t.Fatalf("mapped candidato articuloIds = %+v, want [7 9]", out[0].ArticuloIds)
+	}
+}
+
 // TestDecodificaCumplimientoYParametrosNuevos: 6a.3 — the additive wire fields decode correctly
 // and absent ones default to nil/zero, never erroring (AD-14's additive-only contract).
 func TestDecodificaCumplimientoYParametrosNuevos(t *testing.T) {

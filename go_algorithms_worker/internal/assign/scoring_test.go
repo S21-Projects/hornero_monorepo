@@ -194,6 +194,67 @@ func TestScoreConDesglosePonderaCumplimiento(t *testing.T) {
 	}
 }
 
+// TestAceptaArticulos: feature catalogo-articulos, work unit C — the articulo-level hard filter
+// sits alongside (never instead of) the existing categoria filter. "Empty means accepts
+// anything" on either side keeps a mid-rollout producer (one side not updated yet) from suddenly
+// rejecting every pair.
+func TestAceptaArticulos(t *testing.T) {
+	donacionBase := Donacion{ID: 1, Latitud: latCentro, Longitud: lngCentro, Categoria: ""}
+
+	tests := []struct {
+		name               string
+		donacionArticulos  []int64
+		candidatoArticulos []int64
+		wantOk             bool
+	}{
+		{
+			name:               "both empty is a no-op, unchanged pre-feature behaviour",
+			donacionArticulos:  nil,
+			candidatoArticulos: nil,
+			wantOk:             true,
+		},
+		{
+			name:               "donacion declares articulos but candidato has not been updated yet (mid-rollout)",
+			donacionArticulos:  []int64{10, 20},
+			candidatoArticulos: nil,
+			wantOk:             true,
+		},
+		{
+			name:               "candidato declares articulos but donacion has not been updated yet (mid-rollout)",
+			donacionArticulos:  nil,
+			candidatoArticulos: []int64{10, 20},
+			wantOk:             true,
+		},
+		{
+			name:               "disjoint sets are infeasible",
+			donacionArticulos:  []int64{10},
+			candidatoArticulos: []int64{20, 30},
+			wantOk:             false,
+		},
+		{
+			name:               "overlapping sets are feasible",
+			donacionArticulos:  []int64{10, 20},
+			candidatoArticulos: []int64{20, 30},
+			wantOk:             true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			d := donacionBase
+			d.ArticuloIds = tt.donacionArticulos
+			c := candidatoConCategorias(nil, nil)
+			c.ArticuloIds = tt.candidatoArticulos
+
+			_, ok := Score(d, c, PesosPorDefecto, ParametrosPorDefecto)
+
+			if ok != tt.wantOk {
+				t.Fatalf("Score() ok = %v, want %v", ok, tt.wantOk)
+			}
+		})
+	}
+}
+
 func TestScoreConDesgloseParInfeasibleDevuelveFalse(t *testing.T) {
 	d := Donacion{ID: 1, Latitud: latCentro, Longitud: lngCentro, Categoria: "ROPA"}
 	c := candidatoConCategorias([]string{"NO_PERECEDERO"}, nil)

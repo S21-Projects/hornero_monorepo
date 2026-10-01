@@ -26,6 +26,12 @@ type Donacion struct {
 	// rejected (devolución al fondo, AD-3) this exact donation. The solver
 	// must never re-propose it to them, regardless of score.
 	OrganizacionesExcluidas []int64 `json:"organizacionesExcluidas,omitempty"`
+
+	// ArticuloIds is the set of catalog articulos this donation actually offers (feature
+	// catalogo-articulos, work unit C). Additive/optional: empty means "unknown/not yet
+	// provided", matching the CategoriasAceptadas "empty means anything" convention so a
+	// mid-rollout producer on only one side of the filter never suddenly rejects every pair.
+	ArticuloIds []int64 `json:"articuloIds,omitempty"`
 }
 
 // Candidato is one open necesidad competing for a donation.
@@ -85,6 +91,11 @@ type Candidato struct {
 	// layer, which is what keeps every pre-6a test unaffected: the weighted term it adds is
 	// Cumplimiento weight * 0 = 0.
 	TasaCumplimiento float64 `json:"-"`
+
+	// ArticuloIds is the set of catalog articulos this necesidad actually requested (feature
+	// catalogo-articulos, work unit C). Additive/optional, same "empty means anything"
+	// convention as ArticuloIds on Donacion — see acceptaArticulos.
+	ArticuloIds []int64 `json:"articuloIds,omitempty"`
 }
 
 // Pesos weights the five scoring terms. They need not sum to 1 — Normalizados() divides by the
@@ -212,6 +223,27 @@ func (c Candidato) aceptaSegun(conjunto []string, categoria string) bool {
 	return false
 }
 
+// aceptaArticulos is the articulo-level hard filter (feature catalogo-articulos, work unit C):
+// when both sides declare articulo ids, it requires a non-empty intersection. It mirrors
+// aceptaSegun's "empty means accepts anything" shape so a producer that has not been updated yet
+// on either side of the filter does not suddenly reject every pair. It is a separate, additional
+// check alongside — never a replacement for — the existing categoria filter in acepta.
+func (c Candidato) aceptaArticulos(articuloIds []int64) bool {
+	if len(c.ArticuloIds) == 0 || len(articuloIds) == 0 {
+		return true
+	}
+	solicitados := make(map[int64]bool, len(c.ArticuloIds))
+	for _, id := range c.ArticuloIds {
+		solicitados[id] = true
+	}
+	for _, id := range articuloIds {
+		if solicitados[id] {
+			return true
+		}
+	}
+	return false
+}
+
 // Score rates a single donation-candidate pair in [0, 1], higher being better.
 // It returns false when the pair is infeasible and must not be matched.
 //
@@ -231,6 +263,9 @@ func ScoreConDesglose(d Donacion, c Candidato, w Pesos, p Parametros) (Desglose,
 		return Desglose{}, 0, false
 	}
 	if !c.acepta(d.Categoria) {
+		return Desglose{}, 0, false
+	}
+	if !c.aceptaArticulos(d.ArticuloIds) {
 		return Desglose{}, 0, false
 	}
 
