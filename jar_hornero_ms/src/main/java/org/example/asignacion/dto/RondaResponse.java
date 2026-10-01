@@ -8,6 +8,9 @@ public record RondaResponse(
         Instant ejecutadaEn,
         Instant finalizadaEn,
         Long ejecutadaPor,
+        /** Resolved from {@code usuarios} by {@code ejecutadaPor} (T6); {@code null} when the
+         * executor account no longer exists — the admin UI falls back to "Admin #id" for that case. */
+        String ejecutadaPorNombre,
         String estado,
         String error,
         int versionContrato,

@@ -49,7 +49,7 @@ class RondaControllerTest {
     }
 
     private RondaResponse sampleRonda() {
-        return new RondaResponse(1L, Instant.now(), Instant.now(), 2L, "COMPLETADA", null,
+        return new RondaResponse(1L, Instant.now(), Instant.now(), 2L, "Ada Admin", "COMPLETADA", null,
                 1, 0, 0, 0, 0, 0, 0.0, null, null, null, null, null);
     }
 

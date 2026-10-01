@@ -1,6 +1,7 @@
 package org.example.asignacion;
 
 import org.example.acreditacion.AcreditacionService;
+import org.example.asignacion.dto.RondaResponse;
 import org.example.asignacion.worker.AsignadorClient;
 import org.example.asignacion.worker.AsignadorNoDisponibleException;
 import org.example.asignacion.worker.AsignadorRespuestaInvalidaException;
@@ -27,8 +28,10 @@ import org.example.domain.Organizacion;
 import org.example.domain.PrioridadNecesidad;
 import org.example.domain.Ronda;
 import org.example.domain.RondaRepository;
+import org.example.user.Administrador;
 import org.example.user.Donante;
 import org.example.user.Referente;
+import org.example.user.UsuarioRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -91,6 +94,9 @@ class RondaServiceTest {
     private AsignadorClient asignadorClient;
 
     @Mock
+    private UsuarioRepository usuarioRepository;
+
+    @Mock
     private PlatformTransactionManager transactionManager;
 
     @Mock
@@ -105,11 +111,13 @@ class RondaServiceTest {
         entradaRondaFactory = new EntradaRondaFactory(acreditacionService, cumplimientoCalculator);
         lenient().when(cumplimientoCalculator.calcular()).thenReturn(java.util.Map.of());
         rondaService = new RondaService(donacionRepository, necesidadRepository, asignacionRepository,
-                rondaRepository, entradaRondaFactory, asignadorClient, clock, transactionManager);
+                rondaRepository, entradaRondaFactory, asignadorClient, usuarioRepository, clock, transactionManager);
 
-        // Runs the transactional callback synchronously against the mocked collaborators.
-        when(transactionManager.getTransaction(any(TransactionDefinition.class))).thenReturn(transactionStatus);
-        when(rondaRepository.save(any(Ronda.class))).thenAnswer(inv -> inv.getArgument(0));
+        // Runs the transactional callback synchronously against the mocked collaborators. `lenient`
+        // because the toResponse-only tests (T6) exercise `rondaService` without ever calling
+        // `ejecutar`, so these two stubs go unused there.
+        lenient().when(transactionManager.getTransaction(any(TransactionDefinition.class))).thenReturn(transactionStatus);
+        lenient().when(rondaRepository.save(any(Ronda.class))).thenAnswer(inv -> inv.getArgument(0));
     }
 
     private Organizacion organizacion(Long id, NivelAcreditacion nivel, boolean conReferente, boolean conCoordenadas) {
@@ -464,6 +472,33 @@ class RondaServiceTest {
         assertThat(asignacion.getTerminoDeficit()).isEqualTo(0.33);
         assertThat(asignacion.getTerminoCumplimiento()).isEqualTo(0.8888888888888889);
         assertThat(asignacion.getDeficitFuente()).isEqualTo("NEUTRAL");
+    }
+
+    // --- T6: toResponse resolves the executor's name ---
+
+    @Test
+    void toResponseResolvesEjecutadaPorNombreFromUsuarioRepository() {
+        Ronda ronda = new Ronda();
+        ronda.setEjecutadaPor(ADMIN_ID);
+        ronda.setEstado(EstadoRonda.COMPLETADA);
+        when(usuarioRepository.findById(ADMIN_ID))
+                .thenReturn(java.util.Optional.of(new Administrador(ADMIN_ID, "Ada Admin", "ada@test.com", "x", true)));
+
+        RondaResponse response = rondaService.toResponse(ronda);
+
+        assertThat(response.ejecutadaPorNombre()).isEqualTo("Ada Admin");
+    }
+
+    @Test
+    void toResponseIsNullSafeWhenExecutorUserNoLongerExists() {
+        Ronda ronda = new Ronda();
+        ronda.setEjecutadaPor(999L);
+        ronda.setEstado(EstadoRonda.COMPLETADA);
+        when(usuarioRepository.findById(999L)).thenReturn(java.util.Optional.empty());
+
+        RondaResponse response = rondaService.toResponse(ronda);
+
+        assertThat(response.ejecutadaPorNombre()).isNull();
     }
 
     private SalidaRondaV1 salidaVacia() {
