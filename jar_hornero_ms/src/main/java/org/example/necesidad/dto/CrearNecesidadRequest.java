@@ -1,15 +1,16 @@
 package org.example.necesidad.dto;
 
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-import org.example.domain.CategoriaAlimento;
 import org.example.domain.PrioridadNecesidad;
 
 import java.time.LocalDate;
+import java.util.List;
 
 @Getter
 @Setter
@@ -28,7 +29,8 @@ public class CrearNecesidadRequest {
     @NotNull(message = "La organización es obligatoria")
     private Long organizacionId;
 
-    // Additive/nullable: null == unclassified, unaffected by the level cap
-    // (`specs/organizacion-acreditacion/spec.md` "Level-Driven Food Category Caps").
-    private CategoriaAlimento categoria;
+    // Feature catalogo-articulos, decision 6: categoria is derived from the selected articulos,
+    // never hand-picked anymore — at least one articulo is required.
+    @NotEmpty(message = "Se requiere al menos un articulo")
+    private List<Long> articuloIds;
 }

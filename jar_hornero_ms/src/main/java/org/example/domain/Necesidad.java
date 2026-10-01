@@ -46,4 +46,10 @@ public class Necesidad {
 
     @OneToMany(mappedBy = "necesidad", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Donacion> donaciones = new ArrayList<>();
+
+    // Feature catalogo-articulos, decision 6: the org selects requested articulos (no quantities,
+    // unlike Donacion.lineas); categoria is derived from them. Additive table
+    // (`necesidad_articulos`), nothing existing is dropped or renamed.
+    @OneToMany(mappedBy = "necesidad", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<NecesidadArticulo> articulos = new ArrayList<>();
 }

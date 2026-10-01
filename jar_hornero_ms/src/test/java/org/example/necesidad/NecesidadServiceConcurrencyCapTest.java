@@ -2,6 +2,9 @@ package org.example.necesidad;
 
 import org.example.auth.VerificacionService;
 import org.example.config.AcreditacionProperties;
+import org.example.domain.Articulo;
+import org.example.domain.ArticuloRepository;
+import org.example.domain.CategoriaAlimento;
 import org.example.domain.EstadoNecesidad;
 import org.example.domain.EstadoOrganizacion;
 import org.example.domain.Necesidad;
@@ -10,6 +13,7 @@ import org.example.domain.NivelAcreditacion;
 import org.example.domain.Organizacion;
 import org.example.domain.OrganizacionRepository;
 import org.example.domain.PrioridadNecesidad;
+import org.example.domain.UnidadArticulo;
 import org.example.necesidad.dto.CrearNecesidadRequest;
 import org.example.user.Referente;
 import org.junit.jupiter.api.BeforeEach;
@@ -21,8 +25,11 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+
+import static org.mockito.Mockito.lenient;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -50,6 +57,9 @@ class NecesidadServiceConcurrencyCapTest {
     @Mock
     private AcreditacionProperties acreditacionProperties;
 
+    @Mock
+    private ArticuloRepository articuloRepository;
+
     @InjectMocks
     private NecesidadService necesidadService;
 
@@ -58,6 +68,16 @@ class NecesidadServiceConcurrencyCapTest {
     @BeforeEach
     void setUp() {
         referente = new Referente(1L, "Ref Test", "ref@test.com", "encoded", true);
+
+        // Feature catalogo-articulos, decision 6: crear() now always resolves articuloIds — a
+        // single active NO_PERECEDERO articulo (fits every nivel tested here) is enough.
+        Articulo articulo = new Articulo();
+        articulo.setId(1L);
+        articulo.setNombre("Arroz");
+        articulo.setCategoria(CategoriaAlimento.NO_PERECEDERO);
+        articulo.setUnidad(UnidadArticulo.KG);
+        articulo.setActivo(true);
+        lenient().when(articuloRepository.findById(1L)).thenReturn(Optional.of(articulo));
     }
 
     private Organizacion organizacionAt(NivelAcreditacion nivel) {
@@ -71,7 +91,7 @@ class NecesidadServiceConcurrencyCapTest {
     }
 
     private CrearNecesidadRequest sampleRequest() {
-        return new CrearNecesidadRequest("Descripcion", PrioridadNecesidad.MEDIA, LocalDate.now().plusDays(10), 1L, null);
+        return new CrearNecesidadRequest("Descripcion", PrioridadNecesidad.MEDIA, LocalDate.now().plusDays(10), 1L, List.of(1L));
     }
 
     @Test

@@ -3,6 +3,7 @@ package org.example.necesidad;
 import org.example.domain.CategoriaAlimento;
 
 import java.time.LocalDate;
+import java.util.List;
 
 public record NecesidadResponse(
         Long id,
@@ -12,7 +13,9 @@ public record NecesidadResponse(
         LocalDate fechaPublicacion,
         LocalDate fechaVencimiento,
         Long organizacionId,
-        // Additive/nullable: null == unclassified (`specs/organizacion-acreditacion/spec.md`
-        // "Level-Driven Food Category Caps").
-        CategoriaAlimento categoria
+        // Additive/nullable: null == unclassified, only for necesidades predating this feature
+        // (`specs/organizacion-acreditacion/spec.md` "Level-Driven Food Category Caps"). Every new
+        // necesidad derives it from `articulos` (feature catalogo-articulos, decision 6).
+        CategoriaAlimento categoria,
+        List<NecesidadArticuloResponse> articulos
 ) {}

@@ -117,6 +117,19 @@ class DonacionServiceTest {
         return List.of(linea(1L, "2"));
     }
 
+    /**
+     * Attaches a {@link org.example.domain.NecesidadArticulo} selection to {@code necesidad}
+     * (closes the C5 gap: a DIRECTA donación must offer at least one articulo the necesidad
+     * actually requested). Independent {@link Articulo} instance — only its id matters for the
+     * compatibility check.
+     */
+    private void conArticuloSolicitado(Necesidad necesidad, Long articuloId, CategoriaAlimento categoria) {
+        org.example.domain.NecesidadArticulo na = new org.example.domain.NecesidadArticulo();
+        na.setArticulo(articuloActivo(articuloId, categoria));
+        na.setNecesidad(necesidad);
+        necesidad.getArticulos().add(na);
+    }
+
     private Donacion donacionFor(Long id, Organizacion org) {
         Necesidad necesidad = new Necesidad();
         necesidad.setId(100L + id);
@@ -191,6 +204,7 @@ class DonacionServiceTest {
         Necesidad necesidad = new Necesidad();
         necesidad.setId(100L);
         necesidad.setOrganizacion(miOrganizacion);
+        conArticuloSolicitado(necesidad, 1L, CategoriaAlimento.NO_PERECEDERO);
 
         CreateDonacionRequest dto = new CreateDonacionRequest();
         dto.setNecesidadId(100L);
@@ -614,6 +628,7 @@ class DonacionServiceTest {
         Necesidad necesidad = new Necesidad();
         necesidad.setId(100L);
         necesidad.setOrganizacion(miOrganizacion);
+        conArticuloSolicitado(necesidad, 1L, CategoriaAlimento.NO_PERECEDERO);
 
         CreateDonacionRequest dto = new CreateDonacionRequest();
         dto.setModalidad(ModalidadDonacion.DIRECTA);
@@ -635,6 +650,7 @@ class DonacionServiceTest {
         Necesidad necesidad = new Necesidad();
         necesidad.setId(100L);
         necesidad.setOrganizacion(miOrganizacion);
+        conArticuloSolicitado(necesidad, 1L, CategoriaAlimento.NO_PERECEDERO);
 
         CreateDonacionRequest dto = new CreateDonacionRequest();
         dto.setNecesidadId(100L);
@@ -801,6 +817,7 @@ class DonacionServiceTest {
         Necesidad necesidad = new Necesidad();
         necesidad.setId(100L);
         necesidad.setOrganizacion(miOrganizacion);
+        conArticuloSolicitado(necesidad, 1L, CategoriaAlimento.NO_PERECEDERO);
         CreateDonacionRequest directa = new CreateDonacionRequest();
         directa.setModalidad(ModalidadDonacion.DIRECTA);
         directa.setNecesidadId(100L);
@@ -810,6 +827,57 @@ class DonacionServiceTest {
         when(donacionRepository.save(any(Donacion.class))).thenAnswer(inv -> inv.getArgument(0));
 
         DonacionResponse response = donacionService.crear(directa, 2L);
+        assertThat(response.modalidad()).isEqualTo("DIRECTA");
+    }
+
+    // ─── crear — DIRECTA articulo compatibility (closes the C5 gap) ───────────────────────────
+
+    @Test
+    void crear_directaArticuloNoSolicitadoPorLaNecesidad_throwsBadRequest() {
+        Necesidad necesidad = new Necesidad();
+        necesidad.setId(100L);
+        necesidad.setOrganizacion(miOrganizacion);
+        // The necesidad only requests articulo 2 (CONGELADO); the donación offers articulo 1.
+        conArticuloSolicitado(necesidad, 2L, CategoriaAlimento.CONGELADO);
+
+        CreateDonacionRequest dto = new CreateDonacionRequest();
+        dto.setModalidad(ModalidadDonacion.DIRECTA);
+        dto.setNecesidadId(100L);
+        dto.setLineas(unaLineaNoPerecedero());
+
+        when(necesidadRepository.findById(100L)).thenReturn(Optional.of(necesidad));
+        when(usuarioRepository.findById(2L)).thenReturn(Optional.of(donante));
+
+        assertThatThrownBy(() -> donacionService.crear(dto, 2L))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("400")
+                .hasMessageContaining("ARTICULO_INCOMPATIBLE");
+
+        verifyNoInteractions(donacionRepository);
+    }
+
+    @Test
+    void crear_directaArticuloCompartidoEntreVariasLineas_succeeds() {
+        Necesidad necesidad = new Necesidad();
+        necesidad.setId(100L);
+        necesidad.setOrganizacion(miOrganizacion);
+        conArticuloSolicitado(necesidad, 2L, CategoriaAlimento.CONGELADO);
+
+        CreateDonacionRequest dto = new CreateDonacionRequest();
+        dto.setModalidad(ModalidadDonacion.DIRECTA);
+        dto.setNecesidadId(100L);
+        // Offers articulo 1 (not requested) AND articulo 2 (requested) — one shared articulo is
+        // enough.
+        when(articuloRepository.findById(1L)).thenReturn(Optional.of(articuloActivo(1L, CategoriaAlimento.NO_PERECEDERO)));
+        when(articuloRepository.findById(2L)).thenReturn(Optional.of(articuloActivo(2L, CategoriaAlimento.CONGELADO)));
+        dto.setLineas(List.of(linea(1L, "1"), linea(2L, "1")));
+
+        when(necesidadRepository.findById(100L)).thenReturn(Optional.of(necesidad));
+        when(usuarioRepository.findById(2L)).thenReturn(Optional.of(donante));
+        when(donacionRepository.save(any(Donacion.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        DonacionResponse response = donacionService.crear(dto, 2L);
+
         assertThat(response.modalidad()).isEqualTo("DIRECTA");
     }
 
