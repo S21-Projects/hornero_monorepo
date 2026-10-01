@@ -213,27 +213,35 @@ worker, then ronda wiring, then BFF, then admin UI, then seeds/reset, then docs.
   - Route: delegated direct (DTO + service + 2 response records + their tests = 5+ files).
   - Est. ~400 lines.
 
-- **C6** — Add `NecesidadArticulo` child entity (`articulo: Articulo`, no quantity, owned
-  `@ManyToOne` back to `Necesidad`), update `CrearNecesidadRequest`/`ActualizarNecesidadRequest`/
-  `NecesidadService` to accept a `List<Long> articuloIds` and derive `Necesidad.categoria` from
-  the selected articulos' categorias (decision 6, same `masExigente` helper as C4). Keep the
-  direct `categoria` DTO field removed in favor of derivation (breaking the current
-  "org hand-picks categoria" input path — intentional per decision 6).
-  - Files: `jar_hornero_ms/src/main/java/org/example/domain/NecesidadArticulo.java` (new),
-    `Necesidad.java` (add `List<NecesidadArticulo>`), `CrearNecesidadRequest.java`,
-    `ActualizarNecesidadRequest.java`, `NecesidadService.java`, `NecesidadResponse.java`.
-  - Tests first: extend `NecesidadServiceCategoriaCapTest.java` + add
-    `NecesidadServiceTest` cases (crear derives categoria from articulos; crear with zero
-    articulos is rejected — a necesidad MUST have at least one articulo now, since one with none
-    would be excluded from rondas anyway per decision 2; update rejects an inactive articulo).
-  - Verify: `mvn test -Dtest=NecesidadServiceTest,NecesidadServiceCategoriaCapTest`
-  - Route: delegated direct (6 files, cascades through accreditation-level-cap logic that already
-    depends on `categoria` — must not regress `AcreditacionServiceCategoriasPermitidasTest`).
-  - Est. ~400 lines.
+- [x] **C6** — DONE 2026-10-01: `NecesidadServiceTest` (20/20, +6 new), `NecesidadServiceCategoriaCapTest`
+  (5/5, rewritten to derive from articulos), `NecesidadServiceConcurrencyCapTest` (5/5),
+  `NecesidadControllerTest` (4/4), `DonacionServiceTest` (61/61, +2 new DIRECTA-compatibility
+  tests) GREEN; full MS suite 476/476. Added `NecesidadArticulo` child entity, derived
+  `Necesidad.categoria` via `CategoriaAlimento.masExigente`, closed the C5 DIRECTA-compatibility
+  gap in `DonacionService.crear` (rejects with `ARTICULO_INCOMPATIBLE` when no offered línea
+  matches a requested articulo). `CrearNecesidadRequest.articuloIds` requires `@NotEmpty`;
+  `ActualizarNecesidadRequest.articuloIds` null = unchanged, non-null must be non-empty.
+  `NecesidadResponse` gained a new `articulos` (id/nombre/unidad/categoria) last component, via
+  new `NecesidadArticuloResponse` record. `AcreditacionServiceCategoriasPermitidasTest` unaffected
+  (doesn't touch `CrearNecesidadRequest`). Files touched: `domain/NecesidadArticulo.java` (new),
+  `necesidad/NecesidadArticuloResponse.java` (new), `domain/Necesidad.java`,
+  `necesidad/dto/CrearNecesidadRequest.java`, `necesidad/dto/ActualizarNecesidadRequest.java`,
+  `necesidad/NecesidadService.java`, `necesidad/NecesidadResponse.java`,
+  `donacion/DonacionService.java` (DIRECTA gap), plus the 5 test files listed above. ~428 changed
+  lines. Route taken: delegated direct, done inline in this single-worker pass (no sub-delegation
+  — scope was already fully understood from C1-C5's established pattern).
 
 ### Work unit C — Worker: articulo-level hard filter
 
-- **C7** — Add `ArticuloIds []int64` (or similar) to `DonacionV1`/`CandidatoV1` wire structs
+- [x] **C7** — DONE 2026-10-01: `TestAceptaArticulos` (5/5 table cases) RED→GREEN in
+  `scoring_test.go`, `TestADonacionesMapeaArticuloIds`/`TestADonacionesArticuloIdsAusenteMapeaNil`/
+  `TestACandidatosMapeaArticuloIds` RED→GREEN in `ronda_v1_test.go`. Full worker suite green
+  (`go test ./...`, `go vet ./...`, `gofmt -l .` clean). Golden fixture
+  `testdata/ronda-v1/request.json` updated with overlapping `articuloIds` on both sides (response
+  unchanged — proves additive, score-neutral when sets overlap); `contract/ronda-v1.md` documents
+  the filter. ~155 changed lines across `scoring.go`, `scoring_test.go`, `ronda_v1.go`,
+  `ronda_v1_test.go`, `request.json`, `ronda-v1.md`. Route: done inline in this single-worker pass.
+  Add `ArticuloIds []int64` (or similar) to `DonacionV1`/`CandidatoV1` wire structs
   (additive, `omitempty`), map onto `assign.Donacion`/`assign.Candidato` (new
   `ArticuloIds`/`ArticulosSolicitados` fields), and add a hard filter in `scoring.go`'s
   `ScoreConDesglose`/`acepta`: when both sides declare articulo ids, require a non-empty
@@ -254,7 +262,15 @@ worker, then ronda wiring, then BFF, then admin UI, then seeds/reset, then docs.
 
 ### Work unit D — MS: ronda input wiring + candidate exclusion
 
-- **C8** — `EntradaRondaFactory` sends each donación's/candidato's articulo ids (from
+- [x] **C8** — DONE 2026-10-01: `EntradaRondaFactoryTest` (7/7, +2 new) and `RondaServiceTest`
+  (15/15, +1 new `excludesNecesidadesSinArticulos`) RED→GREEN. `HttpAsignadorClientTest` (9/9)
+  re-verified against the copied golden fixtures (`src/test/resources/contract/{request,
+  response}.json`, copied verbatim from the worker's `testdata/ronda-v1/`). Full MS suite
+  476/476. `RondaService.esCandidataElegible` now short-circuits on an empty `articulos` list
+  before any other check. ~111 changed lines across `EntradaRondaFactory.java`,
+  `RondaService.java`, `DonacionEntradaV1.java`, `CandidatoEntradaV1.java`,
+  `EntradaRondaFactoryTest.java`, `RondaServiceTest.java`, `contract/request.json`. Route: done
+  inline in this single-worker pass. `EntradaRondaFactory` sends each donación's/candidato's articulo ids (from
   `DonacionLinea`/`NecesidadArticulo`) in the `DonacionEntradaV1`/`CandidatoEntradaV1` worker DTOs
   (add the field there too, mirroring C7). `RondaService.esCandidataElegible` gains: a necesidad
   with zero `NecesidadArticulo`s is never eligible (decision 2 — "necesidades without articulos
@@ -482,6 +498,17 @@ worker, then ronda wiring, then BFF, then admin UI, then seeds/reset, then docs.
 - Next step: confirm with user whether to proceed task-by-task starting at C1, and resolve the
   C9/C13 file-location ambiguities (necesidad create/edit form location; scripts/seed.ts
   scope decision) at the start of their respective work units rather than guessing now.
+- 2026-10-01: Work units B's deferred C6, plus C (worker articulo filter) and D (MS ronda wiring)
+  implemented under strict TDD, in dependency order, no `git` mutation performed by this worker.
+  Full suites: MS 476/476, worker `go test ./... && go vet ./... && gofmt -l .` all clean. ~694
+  changed lines total (C6 ~428, C7 ~155, C8 ~111 — see each task's evidence note above). Closed
+  the C5-flagged DIRECTA articulo-compatibility gap as part of C6 (new `ARTICULO_INCOMPATIBLE`
+  400 in `DonacionService.crear`). DataInitializer's seeded necesidades still have zero articulos
+  (C14, work unit I, untouched by design) — per decision 2 they are now correctly excluded from
+  rondas by `RondaService.esCandidataElegible`, consistent with decision 1 ("current data is not
+  real"); the local DB reset (C16) is still the user's own action, not yet run. Not yet done:
+  work units E-J (BFF, admin SPA, seeds, docs) — API/DTO shape notes for those left in this
+  session's final report.
 
 **Estimated total: ~18 tasks, 10 work units, ~3,480 changed lines** (sum of per-task estimates;
 heuristic only, not a hard cap — several units will need the chosen delivery/chain strategy

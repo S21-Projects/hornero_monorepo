@@ -30,4 +30,8 @@ public class CandidatoEntradaV1 {
     private List<String> categoriasAceptadas;
     private List<String> categoriasPermitidas;
     private CumplimientoV1 cumplimiento; // null until slice 6b
+
+    // Feature catalogo-articulos, work unit D: catalog articulo ids this necesidad selected,
+    // mirroring the worker contract's additive `articuloIds` field.
+    private List<Long> articuloIds;
 }

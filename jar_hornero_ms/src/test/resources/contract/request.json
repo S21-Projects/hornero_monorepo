@@ -7,7 +7,8 @@
       "longitud": -64.18,
       "categoria": "NO_PERECEDERO",
       "diasEnFondo": 12,
-      "organizacionesExcluidas": [5]
+      "organizacionesExcluidas": [5],
+      "articuloIds": [101, 102]
     }
   ],
   "candidatos": [
@@ -20,6 +21,7 @@
       "diasDesdeUltimaDonacion": 14,
       "categoriasAceptadas": ["NO_PERECEDERO"],
       "categoriasPermitidas": ["NO_PERECEDERO"],
+      "articuloIds": [102, 103],
       "cumplimiento": { "entregadas": 8, "fallidas": 1 }
     }
   ],
