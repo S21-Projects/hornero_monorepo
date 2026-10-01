@@ -98,6 +98,12 @@ Created 2026-09-20.
   a neutral prior for organizations with no history and a renormalization of the current
   weights (0.35 deficit / 0.30 urgencia / 0.20 proximidad / 0.15 espera).
 
+**Resolved (2026-10-01):** both follow-ons were absorbed into the SDD change
+`tesis-core-features` instead of separate changes. `entrega-qr-ttl` shipped as slices 3a–3c
+(spec `donacion-entrega-codigo`); `scoring-historial-cumplimiento` shipped as slices 6a–6b
+(spec `asignacion-historial-cumplimiento`, design AD-11), with renormalized weights
+0.30 deficit / 0.25 urgencia / 0.17 proximidad / 0.13 espera / 0.15 cumplimiento.
+
 - T6 done: section 5 appended to `docs/tesis/documento.md` (749 lines total) — 15 RF,
   15 RNF (spread across security 3, Pi performance 3, availability 2, usability 3,
   maintainability 2, traceability 2), all 13 use cases with the standard template, plus

@@ -161,14 +161,25 @@ Dentro de los límites enunciados, el prototipo cubre los siguientes procesos.
   donación al **fondo común**, en la que el sistema decide el destino.
 - Ciclo de estados de la donación con confirmación mutua de entrega entre donante y
   referente, y posibilidad de intervención administrativa fundada.
-- Validación de la entrega mediante un identificador único y un código QR de un solo uso
-  con vencimiento automático, confirmado por ambas partes.
-- Asignación por rondas de las donaciones del fondo común, con registro del puntaje
-  desglosado y del costo de oportunidad de cada asignación. Una donación asignada
-  permanece asignada: el prototipo no la devuelve al fondo común.
-- Incorporación del historial de cumplimiento de la organización como término del puntaje,
-  con valor neutro para las organizaciones sin historial previo, de modo que una
+- Validación de la entrega mediante un identificador único y un código de un solo uso con
+  vencimiento automático, presentado como código QR con ingreso manual como alternativa,
+  confirmado por ambas partes.
+- Asignación por rondas de las donaciones del fondo común, disparadas manualmente por un
+  administrador, con registro del puntaje desglosado y del costo de oportunidad de cada
+  asignación. El donante marca un punto de retiro (coordenadas) y una categoría de alimento
+  obligatoria al ofrecer una donación al fondo común, datos que el motor usa para la
+  proximidad y el filtro duro de categoría.
+- Si la organización rechaza una donación ya asignada, ésta vuelve al fondo común para una
+  ronda posterior, excluyendo a esa organización como candidata en las rondas siguientes para
+  esa misma donación.
+- Incorporación del historial de cumplimiento de la organización como término del puntaje —tasa
+  de entregadas sobre entregadas más rechazadas, sin contar las canceladas—, con valor neutro
+  (el promedio de la ronda) para las organizaciones sin historial previo, de modo que una
   organización recién acreditada no quede penalizada por ser nueva.
+- **Limitación conocida:** el término de déficit de cobertura territorial depende de un
+  dataset poblacional (INDEC) que aún no se incorporó al despliegue; mientras no se monte, todo
+  candidato resuelve ese término a un valor neutro constante, por lo que el déficit no distorsiona
+  todavía el orden de la ronda (ver 8.4).
 
 ### 4.5 Información pública
 
@@ -190,10 +201,12 @@ Dentro de los límites enunciados, el prototipo cubre los siguientes procesos.
 - Integración automática con sistemas del Banco de Alimentos u organismos públicos: el
   legajo se exporta, no se transmite.
 - Verificación automática de hechos de inspección física.
-- Reasignación automática de donaciones no retiradas. El alcance del motor es la
-  asignación de los recursos donados al fondo común; qué hacer con una donación que
-  vuelve —porque nadie la retiró o porque la organización la rechazó— queda planteado como
-  problema abierto y se discute en las conclusiones, no se implementa en el prototipo.
+- Reasignación automática de una donación **ya entregada**, o de una donación **retirada por
+  el donante** antes de cualquier decisión de la organización. El prototipo sí reasigna
+  automáticamente en la siguiente ronda una donación del fondo común que una organización
+  rechaza —excluyendo a esa organización como candidata en las rondas siguientes para esa misma
+  donación—, pero no hay un mecanismo de "devolución" posterior a `ENTREGADA`, ni una ronda
+  automática o programada: toda ronda la dispara un administrador.
 - Cobertura geográfica fuera de Córdoba Capital y su radio inmediato.
 
 ---
@@ -207,18 +220,23 @@ casos de uso y diagramas de secuencia. Las fuentes primarias son las especificac
 `docs/tesis/diagramas/casos-uso/general.puml` y el código fuente de `jar_hornero_ms`,
 `ts_hornero_bff`, `ts_hornero_admin` y `go_algorithms_worker`.
 
-Dos mecanismos descriptos en la sección 1.3 y en el alcance 4.4 —la donación al fondo común
-con su ronda de asignación, y la validación de entrega con código QR de un solo uso— están
-comprometidos como parte del alcance del prototipo pero, a la fecha de este documento, no
-tienen persistencia ni endpoints implementados en `jar_hornero_ms`: el motor de asignación
-existe como herramienta de línea de comandos por lotes (`go_algorithms_worker/main.go`,
-comando `assign`) con su contrato de entrada y salida ya definido, pero sin un punto de
-integración con el microservicio; y el código de entrega de un solo uso no tiene tabla ni
-controlador propios, aunque el patrón de código con hash, vencimiento y un solo uso ya existe
-implementado para la verificación de correo electrónico (`OtpService`). Los requerimientos y
-los diagramas de secuencia de esta sección describen el mecanismo tal como está comprometido
-en el documento y modelado sobre esos precedentes ya construidos; esta salvedad se repite en
-los encabezados de los archivos `.puml` correspondientes.
+Dos mecanismos descriptos en la sección 1.3 y en el alcance 4.4 —la donación al fondo común con
+su ronda de asignación, y la validación de entrega con código de un solo uso— están
+implementados de punta a punta en el código a la fecha de este documento. El motor de
+asignación corre como un servicio HTTP interno (`go_algorithms_worker`, contenedor `worker` del
+`docker-compose.yml`, sin puerto expuesto al host), al que el microservicio de dominio llama
+mediante `HttpAsignadorClient` cada vez que un administrador dispara una ronda manualmente desde
+el panel (`POST /api/rondas`, `RondaController`/`RondaService`); no hay disparo automático ni
+proceso programado. El código de entrega de un solo uso tiene su propia tabla
+(`codigos_entrega`) y su propio controlador (`EntregaController`/`EntregaService`), modelados
+explícitamente sobre el patrón ya existente de `OtpService` para la verificación de correo:
+código de 6 dígitos, hash BCrypt, vencimiento de 10 minutos y regeneración que invalida de
+inmediato el código anterior. Se presenta como código QR en la interfaz, con el ingreso manual
+del código como alternativa para cuando escanear no es viable; ambas partes —donante y
+referente— deben confirmar antes de que la donación pase a `ENTREGADA`. El botón de
+confirmación unilateral que existía antes de este código (`confirmar-entrega`) fue retirado del
+código y de la interfaz: la ruta ahora responde 404, y la confirmación de entrega pasa
+exclusivamente por el mecanismo de código de un solo uso.
 
 ### 5.1 Requerimientos funcionales
 
@@ -295,16 +313,18 @@ especificación citado entre paréntesis.
   nivel de acreditación vigente (CU-03; `organizacion-acreditacion`).
 - **RF-14.** El sistema debe admitir dos modalidades de donación —directa, donde el donante
   elige la necesidad, y al fondo común, donde una ronda de asignación decide el destino—. La
-  ronda de asignación al fondo común debe resolver el reparto mediante el algoritmo húngaro,
-  ponderando déficit de cobertura territorial, urgencia, proximidad e historial de espera de
-  la organización, filtrando de forma dura las categorías no habilitadas por el nivel de
-  acreditación, y debe registrar el puntaje desglosado y el costo de oportunidad de cada
-  asignación resuelta (CU-05, CU-11; `design.md` AD-10, `go_algorithms_worker/internal/assign`).
+  ronda, disparada manualmente por un administrador, debe resolver el reparto mediante el
+  algoritmo húngaro, ponderando déficit de cobertura territorial, urgencia, proximidad,
+  historial de espera de la organización e historial de cumplimiento, filtrando de forma dura
+  las categorías no habilitadas por el nivel de acreditación, y debe registrar el puntaje
+  desglosado y el costo de oportunidad de cada asignación resuelta (CU-05, CU-11; `design.md`
+  AD-1, AD-2, AD-11; `go_algorithms_worker/internal/assign`).
 - **RF-15.** El sistema debe validar la entrega de una donación mediante un identificador
-  único y un código de un solo uso con vencimiento automático, presentado como código QR, y
-  debe exigir la confirmación de ambas partes —donante y referente— antes de considerar la
-  donación entregada, admitiendo intervención administrativa fundada como excepción (CU-13;
-  sección 1.3 y 4.4 de este documento; `DonacionService.confirmarEntrega`).
+  único y un código de un solo uso con vencimiento automático, presentado como código QR con
+  ingreso manual como alternativa, y debe exigir la confirmación de ambas partes —donante y
+  referente— antes de considerar la donación entregada, admitiendo intervención administrativa
+  fundada como excepción (CU-13; sección 1.3 y 4.4 de este documento;
+  `EntregaService.verificar`).
 
 ### 5.2 Requerimientos no funcionales
 
@@ -335,9 +355,12 @@ especificación citado entre paréntesis.
   PDF en el servidor (por ejemplo un navegador sin interfaz); debe apoyarse en la función de
   impresión a PDF del navegador del cliente, para evitar un proceso adicional de cientos de
   megabytes de memoria en un dispositivo con RAM limitada (`design.md` AD-11).
-- **RNF-06.** El motor de asignación de donaciones al fondo común debe ejecutarse como un
-  proceso por lotes independiente, no como un servicio residente, para no sumar un proceso
-  permanente a la carga del dispositivo de despliegue.
+- **RNF-06.** El motor de asignación de donaciones al fondo común debe correr como un proceso
+  liviano y aislado del microservicio de dominio, de modo que su carga sobre el dispositivo de
+  despliegue sea marginal. El prototipo construido lo mantiene como un proceso residente —no por
+  lotes— precisamente para cargar una sola vez el dataset poblacional al iniciar y no en cada
+  ronda; en la Raspberry Pi 5 esto cuesta un binario Go estático ocioso de un solo dígito de
+  megabytes de RAM, despreciable frente a la JVM y PostgreSQL (`design.md` AD-1).
 
 **Disponibilidad**
 
@@ -500,8 +523,10 @@ El mismo conjunto se presenta desglosado por actor en `docs/tesis/diagramas/caso
   3. El sistema verifica que el correo del donante esté verificado.
   4. El sistema crea la donación en estado `OFRECIDA`.
 - **Flujos alternativos:**
-  - 1a. Modalidad al fondo común (extiende CU-11): el donante no elige necesidad; la donación
-    queda a la espera de la próxima ronda de asignación del motor por lotes.
+  - 1a. Modalidad al fondo común (extiende CU-11): el donante no elige necesidad, sino un punto
+    de retiro (coordenadas) y una categoría de alimento, ambos obligatorios para esta modalidad;
+    la donación queda a la espera de que un administrador dispare la próxima ronda de
+    asignación.
 - **Excepciones:**
   - El correo del donante no está verificado: el sistema rechaza la creación de la donación
     (véase CU-12).
@@ -632,28 +657,39 @@ El mismo conjunto se presenta desglosado por actor en `docs/tesis/diagramas/caso
 
 **CU-11 — Asignar donaciones del fondo común**
 
-- **Actores:** Motor de asignación (proceso por lotes).
-- **Precondición:** existen donaciones en estado `OFRECIDA` destinadas al fondo común y al
-  menos una necesidad abierta candidata.
+- **Actores:** Administrador (dispara la ronda), motor de asignación (worker HTTP interno,
+  resuelve el reparto).
+- **Precondición:** existen donaciones en estado `OFRECIDA` destinadas al fondo común, con su
+  punto de retiro y categoría marcados por el donante, y al menos una necesidad abierta
+  candidata.
 - **Poscondición:** cada donación asignable queda vinculada a una necesidad, con su puntaje
-  desglosado y su costo de oportunidad registrados; las donaciones sin candidato factible
-  quedan señaladas como no asignadas en la ronda.
+  desglosado y su costo de oportunidad registrados en una fila de `Asignacion`; las donaciones
+  sin candidato factible quedan señaladas como no asignadas en la ronda. La ronda misma queda
+  persistida siempre, incluso si falla.
 - **Flujo principal:**
-  1. El proceso reúne las donaciones ofrecidas al fondo común y las necesidades candidatas
-     abiertas de organizaciones acreditadas.
-  2. El proceso calcula, para cada par donación-necesidad factible, un puntaje ponderado de
-     déficit de cobertura, urgencia, proximidad e historial de espera.
-  3. El proceso filtra de forma dura los pares cuya categoría de alimento no esté habilitada
+  1. Un administrador dispara la ronda desde el panel (`POST /api/rondas`); no hay disparo
+     automático ni programado.
+  2. El microservicio reúne las donaciones ofrecidas al fondo común y las necesidades candidatas
+     abiertas de organizaciones acreditadas, y llama al worker por HTTP con ese lote.
+  3. El worker calcula, para cada par donación-necesidad factible, un puntaje ponderado de
+     déficit de cobertura, urgencia, proximidad, historial de espera e historial de
+     cumplimiento de la organización.
+  4. El worker filtra de forma dura los pares cuya categoría de alimento no esté habilitada
      por el nivel de acreditación de la organización o no coincida con lo solicitado por la
      necesidad.
-  4. El proceso resuelve la asignación óptima de la ronda mediante el algoritmo húngaro,
-     maximizando el puntaje total.
-  5. El sistema registra cada asignación resuelta con su puntaje y su costo de oportunidad.
+  5. El worker resuelve la asignación óptima de la ronda mediante el algoritmo húngaro,
+     maximizando el puntaje total, y devuelve el resultado al microservicio.
+  6. El microservicio registra la ronda y cada asignación resuelta, con su puntaje y su costo
+     de oportunidad.
 - **Flujos alternativos:**
-  - Ninguno: el proceso corre de punta a punta sin intervención humana durante la ronda.
+  - El worker no responde o responde con un error: la ronda se persiste como `FALLIDA`, sin
+    modificar ninguna donación.
 - **Excepciones:**
   - Una donación no tiene ningún candidato factible en la ronda: queda señalada como no
     asignada y permanece disponible para una ronda posterior.
+  - La organización rechaza una donación ya asignada: la donación vuelve al fondo común,
+    excluyendo a esa organización como candidata en las rondas siguientes para esa misma
+    donación.
   - Una donación directa (con necesidad ya elegida por el donante) nunca llega a este proceso:
     no se reasigna.
 
@@ -692,17 +728,18 @@ El mismo conjunto se presenta desglosado por actor en `docs/tesis/diagramas/caso
   confirmaron la entrega; en caso contrario permanece en `PENDIENTE_CONFIRMACION` a la espera
   de la segunda confirmación.
 - **Flujo principal:**
-  1. Al encontrarse para la entrega, una de las partes solicita el código de entrega de un
-     solo uso, con vencimiento, presentado como código QR.
-  2. La otra parte escanea o ingresa el código.
+  1. Al encontrarse para la entrega, una de las partes genera el código de entrega —6 dígitos,
+     hash BCrypt, vencimiento de 10 minutos—, presentado como código QR en pantalla.
+  2. La otra parte escanea el QR o ingresa el código manualmente, como alternativa cuando
+     escanear no es viable.
   3. El sistema valida que el código sea correcto y no haya vencido, y lo marca como usado.
   4. El sistema registra la confirmación de la parte que validó el código.
   5. Cuando ambas partes confirmaron, el sistema marca la donación como `ENTREGADA` y fija la
      fecha de entrega.
 - **Flujos alternativos:**
   - 5a. Sólo una parte confirmó hasta el momento: el sistema deja la donación en
-    `PENDIENTE_CONFIRMACION`, a la espera de que la otra parte confirme por el mismo mecanismo
-    o directamente desde su panel.
+    `PENDIENTE_CONFIRMACION`, a la espera de que la otra parte genere y comparta su propio
+    código por el mismo mecanismo. Regenerar un código invalida de inmediato el anterior.
   - Intervención administrativa: un administrador puede forzar el estado de una donación no
     terminal con un motivo obligatorio, sin fabricar una confirmación de parte que no ocurrió.
 - **Excepciones:**
@@ -732,24 +769,27 @@ rechaza si algún requisito exigido está pendiente o vencido.
 **Secuencia 2 — Donación al fondo común y ronda de asignación** (`secuencia/donacion-fondo-comun.puml`)
 
 Cubre CU-05 (modalidad fondo común) y CU-11. Muestra al donante ofreciendo la donación, al
-motor de asignación calculando el puntaje y resolviendo la ronda con el algoritmo húngaro, y
-al microservicio registrando cada asignación con su puntaje desglosado y su costo de
-oportunidad. El transporte entre el microservicio y el motor, y la persistencia de una donación dirigida al
-fondo común, no están implementados en el código: el diagrama representa el contrato ya
-definido en `go_algorithms_worker` (comando `assign`, tipos `Donacion`, `Candidato`,
-`Resultado`) integrado del modo que el diseño (`design.md`, AD-10) da por supuesto.
+administrador disparando la ronda, al microservicio llamando por HTTP al worker interno
+(`go_algorithms_worker`, contenedor `worker`, sin puerto expuesto) para calcular el puntaje y
+resolver la ronda con el algoritmo húngaro, y al microservicio persistiendo la `Ronda` y cada
+`Asignacion` con su puntaje desglosado y su costo de oportunidad. El transporte HTTP entre el
+microservicio y el worker, y la persistencia de la ronda y de las asignaciones, están
+implementados (`HttpAsignadorClient`, `RondaService`, `RondaController`); la única limitación
+vigente es que, sin el CSV poblacional del INDEC montado, el término de déficit resuelve a un
+valor neutro constante (ver 8.4).
 
 ![Donación al fondo común y ronda de asignación](diagramas/secuencia/donacion-fondo-comun.png)
 
-**Secuencia 3 — Entrega validada con código QR de un solo uso** (`secuencia/entrega-qr.puml`)
+**Secuencia 3 — Entrega validada con código de un solo uso** (`secuencia/entrega-qr.puml`)
 
-Cubre CU-13. Muestra la generación del código de entrega, su validación por la contraparte, y
-la confirmación mutua que cierra la donación, reflejando la máquina de estados ya implementada
-en `DonacionService.confirmarEntrega` (estados `ACEPTADA` / `EN_CAMINO` /
-`PENDIENTE_CONFIRMACION` / `ENTREGADA`). El mecanismo de código con hash, vencimiento y un solo
-uso se modela sobre el patrón ya implementado en `OtpService` para la verificación de correo
-electrónico; la tabla y el controlador específicos del código de entrega no existen aún en el
-código.
+Cubre CU-13. Muestra la generación del código de entrega, su presentación como código QR, su
+validación por la contraparte y la confirmación mutua que cierra la donación, reflejando la
+máquina de estados implementada en `EntregaService.verificar` (estados `ACEPTADA` / `EN_CAMINO`
+/ `PENDIENTE_CONFIRMACION` / `ENTREGADA`). El mecanismo de código con hash BCrypt, vencimiento
+de 10 minutos y un solo uso se modela sobre el patrón ya implementado en `OtpService` para la
+verificación de correo electrónico, con su propia tabla (`codigos_entrega`) y su propio
+controlador (`EntregaController`). El botón de confirmación unilateral anterior
+(`confirmar-entrega`) fue retirado: la ruta responde 404 y no participa de este flujo.
 
 ![Entrega validada con código QR de un solo uso](diagramas/secuencia/entrega-qr.png)
 
@@ -769,11 +809,14 @@ directamente de las entidades JPA en `jar_hornero_ms/src/main/java/org/example/`
 de verdad que se usó para verificar cada columna de esta sección contra el código, no sólo contra
 el diagrama.
 
-Las siete tablas cubiertas están implementadas como entidades JPA. Cinco pertenecen al núcleo
+Las diez tablas cubiertas están implementadas como entidades JPA. Cinco pertenecen al núcleo
 original de la plataforma (`usuarios`, `organizaciones`, `necesidades`, `donaciones`,
-`codigos_verificacion`); las dos restantes —`organizacion_evidencia` y `organizacion_evento`—, junto
-con las columnas `organizaciones.nivel` y `necesidades.categoria`, se incorporaron con la
-acreditación progresiva (`openspec/changes/archive/2026-09-21-acreditacion-progresiva/`).
+`codigos_verificacion`); dos se incorporaron con la acreditación progresiva —`organizacion_evidencia`
+y `organizacion_evento`, junto con las columnas `organizaciones.nivel` y `necesidades.categoria`
+(`openspec/changes/archive/2026-09-21-acreditacion-progresiva/`)—; y las tres restantes —`rondas`,
+`asignaciones` y `codigos_entrega`—, junto con las columnas `donaciones.modalidad`,
+`donaciones.categoria`, `donaciones.latitud` y `donaciones.longitud`, se incorporaron con esta
+tesis de ingeniería (`openspec/changes/tesis-core-features/`).
 
 ### 6.1 Diccionario de datos
 
@@ -906,22 +949,80 @@ hasta la entrega confirmada por ambas partes.
 |---|---|---|---|---|
 | `id` | `BIGINT` | No | PK | Identificador de la donación. |
 | `donante_id` | `BIGINT` | No | FK → `usuarios.id` | Donante que ofrece la donación. |
-| `necesidad_id` | `BIGINT` | No | FK → `necesidades.id` | Necesidad a la que se destina. En la modalidad de fondo común, esta columna es la que fija el destino recién resuelto en la ronda de asignación, según el diseño descripto en la sección 5.4 — mecanismo aún sin persistencia propia para el estado previo a la ronda, tal como se aclara en esa sección. |
+| `necesidad_id` | `BIGINT` | Sí | FK → `necesidades.id` | Necesidad a la que se destina. Nulo en una donación al fondo común que todavía no fue asignada por una ronda (el script `scripts/sql/V001__donaciones_necesidad_id_nullable.sql` relaja la restricción `NOT NULL` original; `EsquemaVerificador` comprueba al arrancar que el script corrió). |
+| `modalidad` | `VARCHAR` (enum `ModalidadDonacion`) | Sí | — | `DIRECTA` o `FONDO_COMUN`. Columna aditiva: un valor nulo (donaciones previas a esta tesis) se lee como `DIRECTA` por convención (coalescencia D4, `Donacion.getModalidadEfectiva()`). |
+| `categoria` | `VARCHAR` (enum `CategoriaAlimento`) | Sí | — | Obligatoria en la modalidad fondo común: la categoría que el motor de asignación usa para el filtro duro contra la necesidad y el nivel de la organización candidata. |
+| `latitud` / `longitud` | `DOUBLE` | Sí | — | Punto de retiro que el donante marca al ofrecer una donación al fondo común; alimenta el término de proximidad del motor de asignación. |
 | `fecha_oferta` | `DATE` | Sí | — | Fecha en la que el donante ofreció la donación. |
 | `fecha_entrega` | `DATE` | Sí | — | Fecha en la que la entrega quedó confirmada por ambas partes. |
 | `estado` | `VARCHAR` (enum `EstadoDonacion`) | No | — | Ciclo de vida de la donación (ver enumeraciones, 6.2). |
 | `observaciones` | `VARCHAR(1000)` | Sí | — | Texto libre asociado a la donación. |
-| `confirmada_donante_en` | `TIMESTAMP` | Sí | — | Momento en el que el donante confirmó la entrega. Nulo mientras no confirmó. |
-| `confirmada_referente_en` | `TIMESTAMP` | Sí | — | Momento en el que el referente confirmó la entrega. Nulo mientras no confirmó. La donación pasa a `ENTREGADA` recién cuando ambas columnas están completas. |
+| `confirmada_donante_en` | `TIMESTAMP` | Sí | — | Momento en el que el donante confirmó la entrega mediante el código de un solo uso. Nulo mientras no confirmó. |
+| `confirmada_referente_en` | `TIMESTAMP` | Sí | — | Momento en el que el referente confirmó la entrega mediante el código de un solo uso. Nulo mientras no confirmó. La donación pasa a `ENTREGADA` recién cuando ambas columnas están completas. |
 | `override_motivo` | `VARCHAR(500)` | Sí | — | Motivo obligatorio de una intervención administrativa que fuerza el estado de la donación. |
 | `override_admin_id` | `BIGINT` | Sí | id suelto, sin FK | Administrador que ejecutó el override, sin FK por consistencia con el resto de los identificadores de actor de este documento. |
 | `override_en` | `TIMESTAMP` | Sí | — | Momento del override. |
+
+#### `rondas`
+
+Una ejecución de la asignación por rondas del fondo común (CU-11, AD-9). Se persiste siempre,
+exitosa o fallida, para que el motivo de cada corrida quede auditable aunque el worker no haya
+devuelto nada asignable.
+
+| Columna | Tipo | Nulo | Clave | Significado en el dominio |
+|---|---|---|---|---|
+| `id` | `BIGINT` | No | PK | Identificador de la ronda. |
+| `ejecutada_en` / `finalizada_en` | `TIMESTAMP` | No / Sí | — | Inicio y fin de la corrida. |
+| `ejecutada_por` | `BIGINT` | No | id suelto, sin FK | Administrador que disparó la ronda manualmente. |
+| `estado` | `VARCHAR` (enum `EstadoRonda`) | No | — | `COMPLETADA` o `FALLIDA`. |
+| `error` | `VARCHAR(1000)` | Sí | — | Detalle del error cuando el worker no respondió o devolvió una respuesta inválida. |
+| `version_contrato` | `INTEGER` | No | — | Versión del contrato HTTP con el worker (AD-14), para que un cambio de contrato futuro quede trazado por ronda. |
+| `donaciones_consideradas` / `candidatos_considerados` / `asignadas` / `sin_asignar` / `descartadas` | `INTEGER` | No | — | Conteos resumen de la corrida. |
+| `score_total` | `DOUBLE` | No | — | Suma de los puntajes de las asignaciones resueltas en la ronda. |
+| `peso_deficit` / `peso_urgencia` / `peso_proximidad` / `peso_espera` / `peso_cumplimiento` | `DOUBLE` | No | — | Pesos normalizados efectivamente usados por el worker en esta ronda (AD-11; valores por defecto 0.30 / 0.25 / 0.17 / 0.13 / 0.15). |
+
+#### `asignaciones`
+
+El registro de auditoría de sólo agregado de cada emparejamiento donación-necesidad que una
+ronda resuelve (AD-3). La columna `donaciones.necesidad_id` sigue siendo la única fuente de
+verdad sobre a quién pertenece hoy una donación; esta tabla nunca sobrescribe una fila anterior
+de la misma donación — una reasignación tras una devolución inserta una fila nueva y la anterior
+queda como historia consultable.
+
+| Columna | Tipo | Nulo | Clave | Significado en el dominio |
+|---|---|---|---|---|
+| `id` | `BIGINT` | No | PK | Identificador de la asignación. |
+| `ronda_id` | `BIGINT` | No | FK → `rondas.id` | Ronda que produjo esta asignación. |
+| `donacion_id` | `BIGINT` | No | FK → `donaciones.id` | Donación asignada. |
+| `necesidad_id` | `BIGINT` | No | FK → `necesidades.id` | Necesidad a la que se asignó. |
+| `organizacion_id` | `BIGINT` | No | FK → `organizaciones.id` | Organización receptora, desnormalizada desde la necesidad para no exigir un join en las consultas de auditoría e historial. |
+| `estado` | `VARCHAR` (enum `EstadoAsignacion`) | No | — | `PROPUESTA` (recién resuelta por la ronda), `ACEPTADA` / `RECHAZADA` (decisión del referente) / `CANCELADA` (override administrativo). |
+| `creada_en` / `resuelta_en` | `TIMESTAMP` | No / Sí | — | Momento de la propuesta y, si corresponde, de su resolución posterior. |
+| `score` / `costo_oportunidad` / `distancia_km` | `DOUBLE` | No | — | Puntaje final, costo de oportunidad de dejarla sin asignar y distancia al punto de retiro. |
+| `termino_deficit` / `termino_urgencia` / `termino_proximidad` / `termino_espera` / `termino_cumplimiento` | `DOUBLE` | No | — | Desglose normalizado `[0,1]` de cada término del puntaje, antes de aplicar los pesos de la ronda. |
+
+#### `codigos_entrega`
+
+Un código de un solo uso para validar la entrega de una donación (CU-13, AD-6), modelado
+explícitamente sobre el patrón ya existente de `codigos_verificacion` para la verificación de
+correo electrónico.
+
+| Columna | Tipo | Nulo | Clave | Significado en el dominio |
+|---|---|---|---|---|
+| `id` | `BIGINT` | No | PK | Identificador de la emisión del código. |
+| `donacion_id` | `BIGINT` | No | FK → `donaciones.id` | Donación que el código valida. |
+| `emisor_id` / `emisor_parte` | `BIGINT` / `VARCHAR` | No | — | Quién generó el código y en qué rol (donante o referente) dentro de la donación. |
+| `codigo_hash` | `VARCHAR` | No | — | Hash BCrypt del código de 6 dígitos; el valor en texto plano nunca se persiste. |
+| `expira_en` | `TIMESTAMP` | No | — | Vencimiento a los 10 minutos de la emisión. |
+| `intentos` | `INTEGER` | No | — | Contador de intentos fallidos. |
+| `usado` | `BOOLEAN` | No | — | Marca si el código ya fue consumido por la contraparte. |
+| `creado_en` | `TIMESTAMP` | No | — | Momento de emisión. Generar un código nuevo invalida de inmediato el anterior para la misma donación y parte. |
 
 #### `codigos_verificacion`
 
 Un código de un solo uso emitido para verificar la titularidad de un correo electrónico (CU-12). El
 patrón de esta tabla —hash del código, vencimiento, contador de intentos, marca de uso— es el mismo
-que la sección 5 identifica como precedente para el futuro código de entrega de donaciones (CU-13).
+que `codigos_entrega` reutiliza para la validación de entrega de donaciones (CU-13).
 
 | Columna | Tipo | Nulo | Clave | Significado en el dominio |
 |---|---|---|---|---|
@@ -984,9 +1085,18 @@ que la sección 5 identifica como precedente para el futuro código de entrega d
 - **`EstadoDonacion`** — `OFRECIDA` (creada por el donante, aún sin decisión de la organización),
   `ACEPTADA` (la organización aceptó recibirla), `RECHAZADA` (la organización la rechazó),
   `EN_CAMINO` (en tránsito hacia la entrega), `PENDIENTE_CONFIRMACION` (una de las dos partes
-  confirmó la entrega y falta la otra), `ENTREGADA` (ambas partes confirmaron; estado terminal),
-  `CANCELADA` (interrumpida antes de la entrega, incluyendo por intervención administrativa
-  fundada).
+  confirmó la entrega mediante el código de un solo uso y falta la otra), `ENTREGADA` (ambas
+  partes confirmaron; estado terminal), `CANCELADA` (interrumpida antes de la entrega, incluyendo
+  por intervención administrativa fundada).
+- **`ModalidadDonacion`** — `DIRECTA` (el donante elige la necesidad) o `FONDO_COMUN` (una ronda
+  de asignación decide el destino). Un `modalidad` nulo en una fila existente se lee como
+  `DIRECTA` por convención, no como un tercer valor.
+- **`EstadoRonda`** — `COMPLETADA` o `FALLIDA`: toda ronda disparada se persiste, incluso si el
+  worker no responde o devuelve una respuesta inválida.
+- **`EstadoAsignacion`** — `PROPUESTA` (recién resuelta por la ronda), `ACEPTADA` o `RECHAZADA`
+  (decisión del referente sobre una asignación propuesta) y `CANCELADA` (override
+  administrativo). Una `RECHAZADA` libera la donación de vuelta al fondo común y excluye a esa
+  organización de las rondas siguientes para esa misma donación.
 
 ### 6.3 Decisiones de modelado que conviene explicar
 
@@ -1236,10 +1346,24 @@ imágenes de las organizaciones, pero se leen por una ruta autenticada del BFF q
 pide el archivo sea el referente de la organización o un administrador. La ruta pública de imágenes
 rechaza cualquier clave de evidencia, de modo que ese material no queda expuesto.
 
-El único componente nuevo es el microservicio de asignaciones, que resuelve las rondas del fondo
-común (sección 5.4). Existe como proceso por lotes con su contrato de entrada y salida definido,
-pero todavía no está integrado con el backend: por eso el diagrama lo muestra con una dependencia
-punteada.
+El único componente nuevo es el worker de asignaciones, que resuelve las rondas del fondo común
+(sección 5.4). Corre como un servicio HTTP interno del `docker-compose.yml` (`worker`, imagen de
+`go_algorithms_worker`), sin puerto expuesto al host: el microservicio de dominio lo llama por
+HTTP cada vez que un administrador dispara una ronda, no como un proceso por lotes aislado ni con
+un job programado. El CLI original (`algorithms assign --input`) se conserva, llama al mismo
+código de resolución, y queda disponible para depurar una ronda fuera del flujo HTTP.
+
+**Limitación operativa vigente (no una limitación de diseño):** el término de déficit de
+cobertura territorial del motor de asignación depende de un dataset poblacional por radio censal
+(INDEC) que todavía no se descargó ni se montó en el despliegue como `POBLACION_CSV`. Mientras
+falte, el worker resuelve ese término a un valor neutro constante para todo candidato, de modo
+que el déficit no distorsiona el orden de la ronda — es una precondición operativa de despliegue,
+no un código pendiente de escribir. Dos precondiciones más quedan igualmente abiertas antes de
+desplegar esta tesis en la Raspberry Pi de producción: verificar que la restricción
+`donaciones_estado_check` ya admite `PENDIENTE_CONFIRMACION`, y correr el script
+`scripts/sql/V001__donaciones_necesidad_id_nullable.sql` que relaja `necesidad_id` a nulable
+(ambas documentadas en `docs/db-changes.md` y en `design.md`, sección *Operational
+Preconditions*).
 
 El resto de las divergencias de la sección 8.3 —el segundo BFF, Redis, la réplica de PostgreSQL,
 AWS Cognito, Google Maps— no forman parte del alcance de esta tesis de ingeniería en ningún nivel,

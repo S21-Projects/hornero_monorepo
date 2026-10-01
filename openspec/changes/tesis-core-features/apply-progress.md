@@ -2606,3 +2606,117 @@ proposed only, pending the user's explicit go-ahead.
 `tasks.md`'s own manual verification step for slice 6b — "verify the 5th criterion appears in a
 ronda breakdown on `make up-local`" — was not performed; it requires a live stack (worker + MS +
 admin all running together) and is this slice's equivalent of a USER ACTION item.
+
+## Completed Tasks (Slice 7 — Thesis documentation updates, docs only, 2026-10-01)
+
+Docs-only batch, no source/behavior change. Allowed edit roots: `docs/tesis`,
+`openspec/changes/tesis-core-features`.
+
+- [x] 7.1 — Rewrote the section-5 intro paragraph (`documento.md`) that claimed the fondo-común
+      ronda and the delivery-code mechanism "no tienen persistencia ni endpoints implementados".
+      Replaced with the shipped flow: worker HTTP transport (`HttpAsignadorClient`), manual
+      ADMINISTRADOR trigger (`RondaController`/`RondaService`), `Asignacion`/`Ronda` persistence.
+      Also updated: section 4.4 bullets, RF-14/RF-15, CU-05, CU-11, CU-13, the two sequence-diagram
+      descriptions, and the out-of-scope bullet in 4.7 that wrongly said rejection handling was an
+      open problem (it is implemented: rejection returns the donation to the pool, excluding that
+      organización from future rounds for that same donación).
+- [x] 7.2 — Same paragraph plus CU-13 and secuencia 3's description: delivery code now described
+      as implemented (`codigos_entrega` table, `EntregaController`/`EntregaService`), QR with
+      manual-entry fallback, mutual confirmation, and the retired `confirmar-entrega` route (404)
+      called out explicitly.
+- [x] 7.3 — Added `Ronda`, `Asignacion`, `CodigoEntrega` to `estructura/der.puml` and
+      `estructura/clases.puml`, plus `ModalidadDonacion`/`EstadoRonda`/`EstadoAsignacion` enums and
+      `Donacion.modalidad/categoria/latitud/longitud`. Verified every attribute/nullability against
+      the actual JPA entities (`domain/Donacion.java`, `domain/Asignacion.java`, `domain/Ronda.java`,
+      `donacion/entrega/CodigoEntrega.java`, `domain/EstadoAsignacion.java`, `domain/EstadoRonda.java`,
+      `domain/ModalidadDonacion.java`) rather than assumed. `FaseDonacion` deliberately excluded —
+      it is a derived, non-persisted helper (AD-4), not a structural/persistence class.
+- [x] 7.4 — Added the INDEC/`POBLACION_CSV` NEUTRAL-deficit limitation as an explicit bullet in
+      4.4, in secuencia 2's description, and as its own paragraph in 8.4 ("Limitación operativa
+      vigente"), framed as an operational precondition, not a design gap.
+- [x] 7.5 — Updated `arquitectura/mvp.puml` (solid `backend --> asignaciones : HTTP` instead of a
+      dotted "pendiente de integración" line), `despliegue/general.puml` and `despliegue/raspberry.puml`
+      (added the `worker` container/service, `ms --> worker : HTTP interno`, no host port), and
+      both sequence diagrams (`donacion-fondo-comun.puml`: admin trigger + HTTP call to the worker,
+      5th scoring term named; `entrega-qr.puml`: manual-entry alternative to scanning).
+- [x] 7.6 — Updated 4.7 (see 7.1) and added the "Limitación operativa vigente" paragraph in 8.4
+      that keeps the three still-open operational preconditions (INDEC CSV, the Pi
+      `donaciones_estado_check` pre-flight, the `V001` nullable-FK script) explicit as deployment
+      prerequisites rather than code gaps, per `design.md`'s own "Operational Preconditions"
+      section.
+- [ ] 7.7 — **Not done, outside allowed edit roots.** `odd/tasks/tesis-documento-der.md` is not
+      under `docs/tesis` or `openspec/changes/tesis-core-features`; per the SDD apply-skill edit-root
+      guard, this batch did not touch it. It still needs the compliance-history item marked
+      resolved (points at `asignacion-historial-cumplimiento`/AD-11) in a batch with edit authority
+      over `odd/tasks/`.
+- Additional, not in the numbered list but implied by the same facts: fixed `RNF-06` (wrongly
+  said the worker must run "no como un servicio residente"; AD-1 explicitly chose a resident
+  process to load the population dataset once) and the "Fuera del alcance" bullet about
+  reassignment (see 7.1).
+- `docs/tesis/handoff.md`: added a dated "§0. Estado actual" addendum at the top (the rest of the
+  file is a historical session log and was not rewritten) summarizing both pillars' real status
+  and pointing at `apply-progress.md`/`design.md` for detail. `docs/tesis/continuar.md` (a second,
+  later handoff file) was left untouched — out of this slice's named scope and already superseded
+  in substance by the new `documento.md` content.
+
+### Facts verified against code before writing (not assumed)
+
+- `EntregaService`/`CodigoEntrega`: 6-digit code, BCrypt hash, 10-minute TTL (`EntregaService`'s
+  `ttlMinutes` + `clock.instant().plus(..., MINUTES)`), regenerate invalidates immediately.
+- `RondaController`: `@PreAuthorize("hasRole('ADMINISTRADOR')")` on every route, no scheduler —
+  confirmed by its own class javadoc ("there is no scheduler and no per-donation automatic
+  trigger").
+- `HttpAsignadorClient` + `docker-compose.yml`'s `worker` service: internal-only, `WORKER_URL:
+  "http://worker:8090"`, no host port published.
+- `go_algorithms_worker/internal/assign/scoring.go`: default weights déficit 0.30 / urgencia 0.25
+  / proximidad 0.17 / espera 0.13 / cumplimiento 0.15.
+- `go_algorithms_worker/internal/geo/deficit.go`: `FuenteNeutral` is the fallback without the
+  population CSV.
+- `CumplimientoCalculator`: rate = `ENTREGADA` / (`ENTREGADA` + `RECHAZADA`), `CANCELADA` excluded.
+- `RondaService.leer()`: pool = `findByModalidadAndEstadoAndNecesidadIsNull(FONDO_COMUN,
+  OFRECIDA)`; `organizacionesExcluidasPorDonacion` built from
+  `asignacionRepository.findOrganizacionIdsByDonacionIdAndEstado(..., RECHAZADA)` — confirms
+  rejection returns the donación to the pool and excludes that org from later rounds for it.
+- `Donacion.java`: `necesidad` FK is now `nullable = true` (comment cites
+  `scripts/sql/V001__donaciones_necesidad_id_nullable.sql`); `modalidad`/`categoria`/`latitud`/
+  `longitud` columns confirmed by direct read.
+
+### Verification (slice 7)
+
+Docs-only; no test suite applies. Every touched `.puml` was re-rendered with `plantuml -tpng`
+(`arquitectura/mvp.puml`, `despliegue/general.puml`, `despliegue/raspberry.puml`,
+`estructura/der.puml`, `estructura/clases.puml`, `secuencia/donacion-fondo-comun.puml`,
+`secuencia/entrega-qr.puml`) — no PlantUML errors — and each resulting `.png` was read back and
+visually inspected for legibility. All are readable; the class diagram (`clases.png`) renders
+close to a 1:1 aspect ratio rather than strictly portrait, given the number of packages now
+needed (Usuarios, Organización y acreditación, Necesidades y donaciones, Entrega, Asignación,
+Verificación, Enumeraciones) — flagged as a minor deviation from the "portrait-friendly" layout
+preference, not re-attempted further given the risk of introducing new overlaps for a cosmetic
+gain.
+
+### Deviations from Design / tasks.md
+
+- 7.3's task wording named a `FaseDonacion` enum; it does not exist as a persisted/structural
+  enum (`FaseDonacion.de(Donacion)` is a static derivation over `EstadoDonacion`, AD-4) so it was
+  intentionally left out of the structural diagrams — see the note under 7.3 above.
+- 7.7 is blocked by the batch's allowed edit roots, not by any missing information — see above.
+
+### Review Workload / Size (slice 7)
+
+Docs-only change (`documento.md`, `handoff.md`, 7 `.puml` files + their regenerated `.png`
+renders, `tasks.md`, `apply-progress.md`). No source code touched. Per the tasks.md forecast
+("~50-100, docs only, no source"), this slice is exempt from the source-code review budget; the
+diagrams were kept to small, additive, per-file edits.
+
+**USER COMMIT POINT (slice 7)**: `docs(tesis): update thesis document and diagrams for delivered features`
+
+Per the HARD no-mutating-git-commands instruction, no commit was executed by this agent.
+
+## Status
+
+Slices 1 through 6b: fully complete (see each slice's own section above). **Slice 7: 6/7 numbered
+tasks complete (7.1-7.6); 7.7 blocked by allowed edit roots (`odd/tasks/tesis-documento-der.md` is
+outside `docs/tesis` and `openspec/changes/tesis-core-features`).** This is the last slice named
+in `tasks.md`: once 7.7 is resolved in a batch with edit authority over `odd/tasks/`, every task
+in the change is complete and the change is ready for `sdd-archive` (verification remains
+optional).

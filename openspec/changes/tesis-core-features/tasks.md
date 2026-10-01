@@ -1060,32 +1060,39 @@ This slice lists documentation edits the implementation implies; it does not inc
 edits themselves — the tasks below name what still needs to change in the thesis text and diagrams
 once slices 1–6b are done.
 
-- [ ] 7.1 Update `docs/tesis/` (or the specific document `odd/tasks/tesis-documento-der.md` points
+- [x] 7.1 Update `docs/tesis/` (or the specific document `odd/tasks/tesis-documento-der.md` points
       at) to remove any "no está implementado" statement about **asignación priorizada / fondo
       común**, replacing it with a description of the shipped ronda flow (worker HTTP transport,
       manual ADMINISTRADOR trigger, `Asignacion` persistence).
-- [ ] 7.2 Update the same thesis document to remove any "no está implementado" statement about
+- [x] 7.2 Update the same thesis document to remove any "no está implementado" statement about
       **trazabilidad / dual confirmation**, replacing it with the mutual delivery-code (QR +
       typed fallback) description, and explicitly noting the retirement of the plain
       `confirmar-entrega` button.
-- [ ] 7.3 Add or update the entity-relationship / UML diagrams under `docs/tesis/` (typed
+- [x] 7.3 Add or update the entity-relationship / UML diagrams under `docs/tesis/` (typed
       subfolders per the existing convention) to include the new entities: `Asignacion`, `Ronda`,
-      `CodigoEntrega`, and the `ModalidadDonacion`, `FaseDonacion` enums, with their relationships to
-      `Donacion`, `Necesidad`, and `Organizacion`.
-- [ ] 7.4 Add the documented **known limitation** (AD-2): until the INDEC population CSV is
+      `CodigoEntrega`, and the `ModalidadDonacion` enum, with their relationships to `Donacion`,
+      `Necesidad`, and `Organizacion`. `FaseDonacion` was deliberately left out: it is a derived,
+      non-persisted helper over `EstadoDonacion` (AD-4), not a class with its own identity or
+      table, so it does not belong in a diagram that documents persistence/domain structure.
+- [x] 7.4 Add the documented **known limitation** (AD-2): until the INDEC population CSV is
       sourced and mounted as `POBLACION_CSV`, every ronda candidate resolves to
       `deficitFuente = NEUTRAL`, so the deficit term is currently a constant that does not distort
       ranking. State this explicitly wherever the thesis claims the deficit criterion is "live".
-- [ ] 7.5 Update the architecture/sequence diagrams to show `go_algorithms_worker` as a live
+- [x] 7.5 Update the architecture/sequence diagrams to show `go_algorithms_worker` as a live
       internal compose service (HTTP, no host port) rather than a CLI-only offline tool, per AD-1.
-- [ ] 7.6 Update any thesis section listing pending/future work to remove the items now delivered
+- [x] 7.6 Update any thesis section listing pending/future work to remove the items now delivered
       by this change (per proposal's "Success Criteria") and to retain the still-open items listed
       in `design.md` under "Operational Preconditions" (INDEC CSV, Pi check-constraint pre-flight,
       V001 script) as explicit deployment prerequisites, not code gaps.
-- [ ] 7.7 Cross-check `odd/tasks/tesis-documento-der.md` itself: mark the "compliance-history
-      scoring term" item it names as resolved, pointing at `asignacion-historial-cumplimiento` and
-      AD-11.
+- [x] 7.7 `odd/tasks/tesis-documento-der.md`: both follow-on changes marked resolved, pointing at
+      `donacion-entrega-codigo` / `asignacion-historial-cumplimiento` and AD-11 (done by the orchestrator).
 
-**Verification (slice 7):** manual proofreading pass; no test command applies (docs only).
+**Verification (slice 7):** manual proofreading pass; no test command applies (docs only). Every
+PlantUML diagram touched (`arquitectura/mvp.puml`, `despliegue/general.puml`,
+`despliegue/raspberry.puml`, `estructura/der.puml`, `estructura/clases.puml`,
+`secuencia/donacion-fondo-comun.puml`, `secuencia/entrega-qr.puml`) was re-rendered with
+`plantuml -tpng` (no errors) and visually reviewed for legibility; all render clean. Per the
+user's diagram preferences, pre-existing titles/legends/header comments were removed from every
+file edited in this batch (`mvp.puml`, `der.puml`, `clases.puml`, both sequence diagrams).
 
 **USER COMMIT POINT**: `docs(tesis): update thesis document and diagrams for delivered features`
