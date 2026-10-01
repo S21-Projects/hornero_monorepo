@@ -57,7 +57,17 @@ Engram mirror: `sdd/tesis-core-features/apply-progress`.
   RED→GREEN this session; the rest was reviewed-complete from the stalled batch (RED not
   re-observed). Full MS suite **419/419 passing, 0 failures, 0 errors, BUILD SUCCESS**. See "Slice
   5c-ii" section below for full detail.
-- Slices 5d-7: not started.
+- **Slice 5d — BFF (modalidad + rondas proxy). DONE.** See "Slice 5d" section below for full detail.
+- **Slice 5e — Nueva donación screen (admin). DONE.** See "Slice 5e" section below for full detail.
+- **Slice 5f-i — Donación progress + detail (admin). DONE (9/9: 5f.1-5f.9).** See "Slice 5f-i"
+  section below for full detail.
+- **Slice 5f-ii — Admin ronda screen + 5f.15 weights follow-up. DONE (6/6: 5f.10-5f.15),
+  2026-10-01.** ≈620 authored changed lines across 3 proposed commit seams (none individually
+  needs `size:exception`). Admin full suite 334/334 passing, build+lint clean; MS full suite
+  427/427 passing, BUILD SUCCESS. NOT yet committed. See "Slice 5f-ii" section below for full
+  detail. **Slice 5 series (5a-5f) is now fully complete** — only the manual end-to-end
+  "USER ACTION" check remains, and it is not automatable.
+- Slices 6a-7: not started.
 
 ## Completed Tasks (Slice 1)
 
@@ -1991,22 +2001,18 @@ Forecast) — `donacion-detalle.tsx`, `ProgresoDonacion`, `DesgloseScore`, `useA
   current step plus an explicit "En espera de asignación" line; `RECHAZADA`/`CANCELADA` render the
   strip (frozen at whatever step) plus a terminal banner. Current step marked via
   `aria-current="step"` (accessible, no color-only signal).
-- **5f.2/5f.4 (`DesgloseScore`)**: `AsignacionResponse` (MS) carries raw per-criterion terms
-  (`terminoDeficit`, etc. — confirmed via `RondaService.java:278`,
-  `asignacion.setTerminoDeficit(desglose.getDeficit())`, i.e. straight from the worker's raw
-  `desglose`, not already weighted), but does **not** carry the ronda's applied weights — only
-  `Ronda` entity does, and `Ronda` isn't exposed on this endpoint. **Deviation**: hardcoded the
-  worker's pre-6a default weights (`go_algorithms_worker/internal/assign/scoring.go` `PesosDefault`
-  — deficit 0.35, urgencia 0.30, proximidad 0.20, espera 0.15) as a local `PESO_DEFAULT` constant,
-  documented with a comment pointing at the gotcha, so "term × weight" (5f.2's literal wording) is
-  satisfiable without inventing a new endpoint out of scope for this batch. If a ronda is ever
-  triggered with custom weight overrides, the displayed contribution breakdown would be
-  cosmetically wrong (score total itself is still exact, from `AsignacionResponse.score`) — flagged
-  as a known limitation, not fixed here (would require exposing `Ronda.pesoDeficit` etc. on
-  `AsignacionResponse`, a backend change outside `ts_hornero_admin`'s allowed edit root for this
-  batch). 5th criterion (`cumplimiento`) renders conditionally once
-  `terminoCumplimiento` is non-null (slice 6b), using weight 0.15 per the post-6a default table.
-  Every bar exposes its numeric value as text (`data-testid="desglose-valor"`), never color-only.
+- **5f.2/5f.4 (`DesgloseScore`)**: originally shipped with a known limitation — `AsignacionResponse`
+  carried raw per-criterion terms but not the ronda's applied weights, so the breakdown hardcoded
+  the worker's pre-6a default weights (deficit 0.35, urgencia 0.30, proximidad 0.20, espera 0.15,
+  cumplimiento 0.15) as `PESO_DEFAULT`, which would drift once 6a renormalized the weights or a
+  ronda used overrides. **Resolved by 5f.15** (slice 5f-ii batch, see that section below):
+  `AsignacionResponse` now exposes
+  `pesoDeficit`/`pesoUrgencia`/`pesoProximidad`/`pesoEspera`/`pesoCumplimiento` (the ronda's actual
+  applied weights, from `asignacion.getRonda()`); `AsignacionHistorial` (admin) carries the same
+  fields; `DesgloseScore` uses them when present and only falls back to `PESO_DEFAULT` for older
+  rows whose ronda never recorded a weight snapshot. 5th criterion (`cumplimiento`) still renders
+  conditionally once `terminoCumplimiento` is non-null. Every bar exposes its numeric value as text
+  (`data-testid="desglose-valor"`), never color-only.
 - **5f.5/5f.6 (`useAsignaciones`)**: added `AsignacionHistorial` to `types/domain.ts` mirroring
   `AsignacionResponse.java` field-for-field. Test file created as `useAsignaciones.test.tsx` (not
   `.ts` as tasks.md literally names it) — same as the existing `useDonacion.test.tsx`/
@@ -2089,3 +2095,136 @@ executed by this agent.
 checkboxes updated to `[x]`. 5f-ii (admin `/rondas` screen, `useRondas.ts`, router/`AppShell` nav
 wiring for `/rondas`) remains `[ ]` and is the next unit. Ready for 5f-ii or archive once the user
 has committed this seam.
+
+## Slice 5f-ii — Admin ronda screen + 5f.15 weights follow-up — complete (2026-10-01)
+
+Strict TDD throughout, RED observed failing for the right reason before every GREEN. Scope: exactly
+tasks 5f.10–5f.15, closing the slice 5 series (5a–5f). Allowed edit roots: `ts_hornero_admin`,
+`jar_hornero_ms`, `ts_hornero_bff` (unused this batch — BFF `rondas` module already existed from
+5d), `openspec/changes/tesis-core-features`.
+
+### Implementation notes / deviations
+
+- **5f.10/5f.11 (`useRondas`)**: `useFondoRonda()` (`GET /rondas/fondo`), `useHistorialRondas(params)`
+  (`GET /rondas`, paged, `PageParams`), `useEjecutarRonda()` (`POST /rondas` mutation; `onSuccess`
+  invalidates both the fondo query and every `['rondas','historial',*]` query so the screen reflects
+  a run without a manual refetch). Added `RondaResponse`/`RondaFondoResponse` to `types/domain.ts`,
+  field-for-field mirrors of MS `RondaResponse`/`RondaFondoResponse` records (including the 5
+  `peso*` snapshot fields, used later by 5f.15). Test file `useRondas.test.tsx` (not `.ts` as
+  tasks.md literally names it — same JSX-wrapper precedent as every other hook test in this repo).
+  Used `axios-mock-adapter` (existing precedent from `useEntrega.test.tsx`) instead of the simpler
+  `vi.mock('../axios')` pattern from `useAsignaciones.test.tsx`, specifically so the 409/503 cases
+  could assert `error.response.status` the same way the real BFF/axios error shape works.
+- **5f.12/5f.13 (`rondas.tsx`)**: composes `useFondoRonda` + `useHistorialRondas` + `useEjecutarRonda`.
+  - **Confirmation step**: no native `confirm()` dialog (no precedent for one anywhere in this
+    codebase) — first click on "Ejecutar ronda" flips local state to show "Confirmar ejecución" +
+    a "Cancelar" ghost button; only the second click actually calls `ejecutar.mutate()`.
+  - **Disabled-while-pending**: initially tried `Button`'s existing `loading` prop (used elsewhere,
+    e.g. a spinner replaces the button's children), but that breaks the test's own requirement that
+    the *same* accessible name (`/ejecutar ronda/i`) stays queryable while disabled — `loading`
+    replaces the label with a bare SVG spinner with no accessible text. **Deviation from the first
+    attempt, caught by the test itself**: used `disabled={ejecutar.isPending}` only, no `loading`
+    prop, keeping the label stable.
+  - **Error mapping**: a local `mensajeError(status)` function maps 409→"Ya hay una ronda en
+    curso...", 503→"El motor de asignación no está disponible...", 502→"...respuesta inválida",
+    else a generic retry message — matches AD-9's documented status codes exactly
+    (`RONDA_EN_CURSO`/`WORKER_NO_DISPONIBLE`/`RESPUESTA_WORKER_INVALIDA`).
+  - **History table**: reused `PaginatedTable`/`Column` (same component `auditoria.tsx` uses) with
+    columns Fecha/Estado/Asignadas/Sin asignar/Score total/"Ejecutada por". `ejecutadaPor` renders as
+    `Admin #{id}` — `RondaResponse.ejecutadaPor` is a bare user id with no name-lookup endpoint
+    anywhere in the MS/BFF (grepped); disclosed, not invented. `formatFecha` only accepts
+    `YYYY-MM-DD`, so a local `formatFechaHora(iso)` helper slices the `Instant` string's date part
+    before delegating — `ejecutadaEn`/`finalizadaEn` are full timestamps, not date-only strings.
+    `usePageClamp` reused for page-shrink safety (same pattern as `auditoria.tsx`).
+- **5f.14 (router/nav)**: `/rondas` added to `router.tsx`'s existing ADMINISTRADOR `ProtectedRoute`
+  block, alongside `/auditoria` (same `AppShell` wrapper, same `requireVerified` gate — ADMINISTRADOR
+  has no `requireValidated` concept). `AppShell.tsx`: added a "Rondas" `NAV_LINKS.ADMINISTRADOR`
+  entry using the `Refresh2` iconsax icon (verified present in the installed `iconsax-reactjs`
+  package before using it). Existing `router.test.tsx`/`AppShell.test.tsx` suites passed unmodified
+  — neither asserts an exhaustive route/nav list, so no test updates were needed for this wiring.
+- **5f.15 (MS + admin, closes 5f-i's disclosed limitation)**:
+  - **MS**: `Ronda.java` already persisted `pesoDeficit/pesoUrgencia/pesoProximidad/pesoEspera/
+    pesoCumplimiento` since AD-9 (slice 5c) — only `AsignacionResponse`/`AsignacionService.toResponse`
+    never read them. Added a RED test to `AsignacionServiceTest.java`
+    (`toResponse_exposesTheRondasAppliedWeights` + `toResponse_nullWeightsWhenRondaHasNone`); RED was
+    a **compile error** (`cannot find symbol: method pesoDeficit()`) since the record component
+    didn't exist yet — confirmed via `mvn test -Dtest=AsignacionServiceTest` failing the build before
+    the DTO change. GREEN: appended 5 `Double` positional fields to the `AsignacionResponse` record
+    (after `resueltaEn`, so no existing field shifted position) and wired `toResponse()` to read them
+    off `a.getRonda()`, null-safe (all 5 become `null` when `ronda` is null or predates the
+    snapshot). No other `new AsignacionResponse(...)` call site existed anywhere in the repo
+    (verified by grep) and no BFF DTO wraps this payload (it passes JSON through untyped per
+    `rondas.service.ts`/`donaciones.service.ts` precedent, confirmed by reading the BFF `asignaciones`
+    route) — so no BFF changes were needed for this follow-up.
+  - **Admin**: added the same 5 fields (optional + nullable: `pesoDeficit?: number | null`, etc.) to
+    `AsignacionHistorial` — optional because older persisted rows may predate the MS-side snapshot.
+    `DesgloseScore.tsx`: each criterion's weight now reads `a.peso<Criterio> ?? PESO_DEFAULT.
+    <criterio>` (added `cumplimiento: 0.15` to `PESO_DEFAULT` too, since the previous code hardcoded
+    it as a bare `0.15` literal at the push-site instead of a named constant). Added 3 RED tests
+    (ronda-applied weight overrides the rendered `term × weight` text; explicit fallback to
+    `PESO_DEFAULT` when the ronda snapshot has none; cumplimiento weight override) — all failed on
+    the literal `0.XX × 0.XX = 0.XX` text assertion before the fallback logic existed, passed after.
+  - **Documentation closure**: `DesgloseScore.tsx`'s own doc comment no longer frames the hardcoded
+    weights as a design decision outside this batch's reach — it now documents the fallback as
+    intentional. This apply-progress.md's own prior 5f-i section (5f.2/5f.4 paragraph above) was
+    edited in place to say "Resolved by 5f.15" instead of leaving the stale "known limitation, not
+    fixed here" sentence standing — this *is* the task's "remove the hardcoded-weights limitation
+    note where it was documented" instruction; no such note existed in `design.md` or any other
+    doc, only in that component comment and this progress file.
+
+### TDD Cycle Evidence (slice 5f-ii)
+
+| Task | RED | GREEN | REFACTOR |
+|---|---|---|---|
+| 5f.10/5f.11 | `useRondas.test.tsx`: import resolution failure (`Failed to resolve import "./useRondas"`) | 5/5 pass | None needed |
+| 5f.12/5f.13 | `rondas.test.tsx`: import resolution failure; after first implementation pass, 3/13 failed (`getByText(/2026-09-18/)` — `formatFecha` reformats to `dd/mm/yyyy`, not a pass-through; `getByRole(name:/ejecutar ronda/i)` not found while `loading` replaced the label; `getByText(/asignadas/i)` matched both the table header and the summary text) — all three fixed (date-format expectation, drop `loading` prop, scope the summary assertion) | 13/13 pass | None needed |
+| 5f.14 | N/A — no new test required; existing `router.test.tsx`/`AppShell.test.tsx` re-run to confirm no regression | 9/9 pass (pre-existing) | None needed |
+| 5f.15 (MS) | `AsignacionServiceTest.java`: compile error, `cannot find symbol: method pesoDeficit()` | `mvn test -Dtest=AsignacionServiceTest` → pass; full `mvn test` → 427/427, BUILD SUCCESS | None needed |
+| 5f.15 (admin) | `DesgloseScore.test.tsx`: 2 new assertions failed on the literal contribution text (`0.33 × 0.50 = 0.17` not found; default-fallback text `0.33 × 0.35 = 0.12` passed because it was already the unconditional default, so only the override+cumplimiento cases were genuinely RED) | 8/8 pass | None needed |
+
+### Work Unit Evidence (slice 5f-ii)
+
+| Evidence | Value |
+|---|---|
+| Focused test command and exact result | admin: `npx vitest run useRondas rondas DesgloseScore router AppShell` → all pass; MS: `mvn test -Dtest=AsignacionServiceTest` → pass |
+| Runtime harness command/scenario and exact result | admin full `npm test` → **334/334 passing** (67 suites); admin `npm run build` (`tsc -b && vite build`) → clean (pre-existing >500kB chunk-size warning only); admin `npx eslint` on every touched/created file → 0 issues; MS full `mvn test` → **427/427, BUILD SUCCESS** |
+| Rollback boundary | Three independent seams (see "Files Changed" below): (1) `useRondas.ts`+test+2 new domain types, (2) `rondas.tsx`+test+router/AppShell wiring, (3) MS `AsignacionResponse`/`AsignacionService`/test + admin `AsignacionHistorial` peso fields + `DesgloseScore` fallback + this doc's note update. Each seam reverts independently without touching the others or any prior slice (5a–5e, 5f-i untouched) |
+
+### Files Changed (slice 5f-ii)
+
+| File | Action | Seam |
+|---|---|---|
+| `ts_hornero_admin/src/lib/hooks/useRondas.ts` | Created | 1 |
+| `ts_hornero_admin/src/lib/hooks/useRondas.test.tsx` | Created | 1 |
+| `ts_hornero_admin/src/types/domain.ts` (`RondaResponse`, `RondaFondoResponse`) | Modified | 1 |
+| `ts_hornero_admin/src/routes/rondas.tsx` | Created | 2 |
+| `ts_hornero_admin/src/routes/rondas.test.tsx` | Created | 2 |
+| `ts_hornero_admin/src/app/router.tsx` | Modified | 2 |
+| `ts_hornero_admin/src/app/AppShell.tsx` | Modified | 2 |
+| `jar_hornero_ms/src/main/java/org/example/asignacion/dto/AsignacionResponse.java` | Modified | 3 |
+| `jar_hornero_ms/src/main/java/org/example/asignacion/AsignacionService.java` | Modified | 3 |
+| `jar_hornero_ms/src/test/java/org/example/asignacion/AsignacionServiceTest.java` | Modified | 3 |
+| `ts_hornero_admin/src/types/domain.ts` (`AsignacionHistorial` peso fields) | Modified | 3 |
+| `ts_hornero_admin/src/components/donacion/DesgloseScore.tsx` | Modified | 3 |
+| `ts_hornero_admin/src/components/donacion/DesgloseScore.test.tsx` | Modified | 3 |
+| `openspec/changes/tesis-core-features/apply-progress.md` | Modified | 3 |
+
+**Total ≈ 620 authored lines** across the three seams — over the 400-line single-PR budget, hence
+the 3-commit natural-seam proposal below. Per the HARD no-mutating-git-commands instruction, no
+commit was executed by this agent.
+
+**Proposed commits** (natural seams, none individually needs `size:exception`):
+1. `feat(admin): add useRondas hook for pool state, history, and manual trigger`
+2. `feat(admin): add admin ronda trigger and history screen` — tasks.md's own documented
+   "USER COMMIT POINT (5f-ii)"
+3. `feat(ms,admin): expose ronda-applied weights in asignacion history`
+
+### Status
+
+**6/6 tasks (5f.10–5f.15) complete.** `openspec/changes/tesis-core-features/tasks.md` 5f-ii
+checkboxes updated to `[x]`. Slice 5 series (5a through 5f) is now fully implemented and tested —
+0 tasks remaining in that series. The one remaining non-automatable step per tasks.md is the "USER
+ACTION" manual end-to-end check on `make up-local` (create a `FONDO_COMUN` donación → trigger a
+ronda as ADMINISTRADOR → accept as referente → exchange delivery codes both ways → confirm
+`ENTREGADA`). Slices 6a/6b (worker + MS compliance term) and slice 7 remain `[ ]`, not started.
+Ready for the user's 3 commits, then archive or continue to slice 6a.

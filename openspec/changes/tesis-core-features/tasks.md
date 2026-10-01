@@ -934,17 +934,17 @@ Depends on: 5d. Sub-split per the forecast: **5f-i** (donante-facing progress/de
 
 ### 5f-ii — Admin ronda screen
 
-- [ ] 5f.10 RED — `ts_hornero_admin/src/lib/hooks/useRondas.test.ts`: query for pool size/history,
+- [x] 5f.10 RED — `ts_hornero_admin/src/lib/hooks/useRondas.test.ts`: query for pool size/history,
       mutation to trigger a ronda, surfaces `409`, `503` distinctly.
-- [ ] 5f.11 GREEN — Create `ts_hornero_admin/src/lib/hooks/useRondas.ts`. Satisfies 5f.10.
-- [ ] 5f.12 RED — `ts_hornero_admin/src/routes/rondas.test.tsx`: shows pool size and history
+- [x] 5f.11 GREEN — Create `ts_hornero_admin/src/lib/hooks/useRondas.ts`. Satisfies 5f.10.
+- [x] 5f.12 RED — `ts_hornero_admin/src/routes/rondas.test.tsx`: shows pool size and history
       table; "Ejecutar ronda" disabled while a run is pending; `409`, `503` render distinct user
       messages.
-- [ ] 5f.13 GREEN — Create `ts_hornero_admin/src/routes/rondas.tsx` (/rondas, ADMINISTRADOR).
+- [x] 5f.13 GREEN — Create `ts_hornero_admin/src/routes/rondas.tsx` (/rondas, ADMINISTRADOR).
       Satisfies 5f.12.
-- [ ] 5f.14 GREEN — `ts_hornero_admin/src/app/router.tsx`, `ts_hornero_admin/src/app/AppShell.tsx`:
+- [x] 5f.14 GREEN — `ts_hornero_admin/src/app/router.tsx`, `ts_hornero_admin/src/app/AppShell.tsx`:
       register /rondas under the ADMINISTRADOR block + nav entry.
-- [ ] 5f.15 RED/GREEN (follow-up from 5f-i, orchestrator) — `jar_hornero_ms/.../asignacion/dto/AsignacionResponse.java`:
+- [x] 5f.15 RED/GREEN (follow-up from 5f-i, orchestrator) — `jar_hornero_ms/.../asignacion/dto/AsignacionResponse.java`:
       expose the weights the ronda actually applied (from `asignacion.getRonda()` pesos) and make
       `DesgloseScore` use them instead of the hardcoded pre-6a defaults; otherwise the "term × weight"
       display drifts as soon as 6a renormalizes the weights or a ronda uses overrides.
