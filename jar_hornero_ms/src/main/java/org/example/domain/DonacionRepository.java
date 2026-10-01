@@ -106,4 +106,14 @@ public interface DonacionRepository extends JpaRepository<Donacion, Long> {
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT d FROM Donacion d JOIN FETCH d.donante JOIN FETCH d.necesidad n JOIN FETCH n.organizacion WHERE d.id = :id")
     Optional<Donacion> findByIdForUpdate(@Param("id") Long id);
+
+    /**
+     * Compliance-history aggregate backing {@code CumplimientoCalculator} (AD-11, slice 6b): one
+     * grouped count per {@code (organizacion.id, estado)}, restricted to {@code ENTREGADA}/
+     * {@code RECHAZADA} only. A pool donación with {@code necesidad IS NULL} is excluded by the
+     * inner join; {@code CANCELADA} and non-terminal donaciones are excluded by the estado filter.
+     */
+    @Query("SELECT n.organizacion.id, d.estado, COUNT(d) FROM Donacion d JOIN d.necesidad n "
+            + "WHERE d.estado IN :estados GROUP BY n.organizacion.id, d.estado")
+    List<Object[]> contarPorOrganizacionYEstado(@Param("estados") Collection<EstadoDonacion> estados);
 }

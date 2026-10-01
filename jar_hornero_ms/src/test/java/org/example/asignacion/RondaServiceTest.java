@@ -85,6 +85,9 @@ class RondaServiceTest {
     private AcreditacionService acreditacionService;
 
     @Mock
+    private CumplimientoCalculator cumplimientoCalculator;
+
+    @Mock
     private AsignadorClient asignadorClient;
 
     @Mock
@@ -99,7 +102,8 @@ class RondaServiceTest {
     @BeforeEach
     void setUp() {
         Clock clock = Clock.fixed(NOW, ZoneOffset.UTC);
-        entradaRondaFactory = new EntradaRondaFactory(acreditacionService);
+        entradaRondaFactory = new EntradaRondaFactory(acreditacionService, cumplimientoCalculator);
+        lenient().when(cumplimientoCalculator.calcular()).thenReturn(java.util.Map.of());
         rondaService = new RondaService(donacionRepository, necesidadRepository, asignacionRepository,
                 rondaRepository, entradaRondaFactory, asignadorClient, clock, transactionManager);
 
@@ -418,7 +422,7 @@ class RondaServiceTest {
         when(acreditacionService.categoriasPermitidas(any())).thenReturn(Set.of(CategoriaAlimento.NO_PERECEDERO));
         when(donacionRepository.findByIdForUpdate(50L)).thenReturn(java.util.Optional.of(donacion));
 
-        DesgloseV1 desglose = new DesgloseV1(0.33, 0.6, 0.77, 0.16, null);
+        DesgloseV1 desglose = new DesgloseV1(0.33, 0.6, 0.77, 0.16, 0.8888888888888889);
         AsignacionSalidaV1 a = new AsignacionSalidaV1();
         a.setDonacionId(50L);
         a.setNecesidadId(200L);
@@ -458,6 +462,7 @@ class RondaServiceTest {
         assertThat(asignacion.getOrganizacion()).isEqualTo(org);
         assertThat(asignacion.getScore()).isEqualTo(0.71);
         assertThat(asignacion.getTerminoDeficit()).isEqualTo(0.33);
+        assertThat(asignacion.getTerminoCumplimiento()).isEqualTo(0.8888888888888889);
         assertThat(asignacion.getDeficitFuente()).isEqualTo("NEUTRAL");
     }
 
