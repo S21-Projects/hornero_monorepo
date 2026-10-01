@@ -67,4 +67,34 @@ describe('DesgloseScore', () => {
 
     expect(screen.getByText(/cumplimiento/i)).toBeInTheDocument();
   });
+
+  // Task 5f.15: once a ronda snapshot carries its applied weights, the breakdown must use them
+  // instead of the pre-6a hardcoded defaults, so "term × weight" stops drifting from 6a onward.
+  it('uses the ronda-applied weight when present, instead of the hardcoded default', () => {
+    render(
+      <DesgloseScore
+        asignacion={{ ...asignacion, pesoDeficit: 0.5, pesoUrgencia: 0.2, pesoProximidad: 0.2, pesoEspera: 0.1 }}
+      />,
+    );
+
+    // deficit: 0.33 × 0.5 = 0.17 (default would have been 0.33 × 0.35 = 0.12)
+    expect(screen.getByText(/0\.33 × 0\.50 = 0\.17/)).toBeInTheDocument();
+  });
+
+  it('falls back to the hardcoded default weights when the ronda snapshot has none (older rows)', () => {
+    render(<DesgloseScore asignacion={asignacion} />);
+
+    // deficit: 0.33 × 0.35 = 0.12 (pre-AD-9 default, unchanged behaviour)
+    expect(screen.getByText(/0\.33 × 0\.35 = 0\.12/)).toBeInTheDocument();
+  });
+
+  it('uses the ronda-applied cumplimiento weight when both it and the term are present', () => {
+    render(
+      <DesgloseScore
+        asignacion={{ ...asignacion, terminoCumplimiento: 0.8, pesoCumplimiento: 0.2 }}
+      />,
+    );
+
+    expect(screen.getByText(/0\.80 × 0\.20 = 0\.16/)).toBeInTheDocument();
+  });
 });
