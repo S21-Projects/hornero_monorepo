@@ -19,4 +19,8 @@ public class DonacionEntradaV1 {
     private String categoria;
     private int diasEnFondo;
     private List<Long> organizacionesExcluidas;
+
+    // Feature catalogo-articulos, work unit D: catalog articulo ids this donación's lineas
+    // offer, mirroring the worker contract's additive `articuloIds` field.
+    private List<Long> articuloIds;
 }

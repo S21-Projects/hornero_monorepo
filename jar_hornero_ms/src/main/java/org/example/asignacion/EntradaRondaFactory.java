@@ -56,6 +56,7 @@ public class EntradaRondaFactory {
         e.setCategoria(d.getCategoria() != null ? d.getCategoria().name() : null);
         e.setDiasEnFondo(d.getFechaOferta() != null ? (int) ChronoUnit.DAYS.between(d.getFechaOferta(), hoy) : 0);
         e.setOrganizacionesExcluidas(exclusionesPorDonacion.getOrDefault(d.getId(), List.of()));
+        e.setArticuloIds(d.getLineas().stream().map(linea -> linea.getArticulo().getId()).toList());
         return e;
     }
 
@@ -73,6 +74,7 @@ public class EntradaRondaFactory {
         c.setCategoriasAceptadas(n.getCategoria() != null ? List.of(n.getCategoria().name()) : List.of());
         c.setCategoriasPermitidas(acreditacionService.categoriasPermitidas(organizacion.getNivel())
                 .stream().map(CategoriaAlimento::name).toList());
+        c.setArticuloIds(n.getArticulos().stream().map(na -> na.getArticulo().getId()).toList());
         // null when the organización has no resolved (ENTREGADA/RECHAZADA) history yet — the
         // worker resolves that absence to the ronda's neutral prior (AD-11).
         c.setCumplimiento(cumplimientoPorOrganizacion.get(organizacion.getId()));

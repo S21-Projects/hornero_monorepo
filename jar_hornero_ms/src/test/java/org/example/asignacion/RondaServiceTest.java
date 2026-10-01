@@ -11,6 +11,7 @@ import org.example.asignacion.worker.dto.DesgloseV1;
 import org.example.asignacion.worker.dto.EntradaRondaV1;
 import org.example.asignacion.worker.dto.PesosV1;
 import org.example.asignacion.worker.dto.SalidaRondaV1;
+import org.example.domain.Articulo;
 import org.example.domain.Asignacion;
 import org.example.domain.AsignacionRepository;
 import org.example.domain.CategoriaAlimento;
@@ -22,6 +23,7 @@ import org.example.domain.EstadoNecesidad;
 import org.example.domain.EstadoRonda;
 import org.example.domain.ModalidadDonacion;
 import org.example.domain.Necesidad;
+import org.example.domain.NecesidadArticulo;
 import org.example.domain.NecesidadRepository;
 import org.example.domain.NivelAcreditacion;
 import org.example.domain.Organizacion;
@@ -142,7 +144,22 @@ class RondaServiceTest {
         n.setEstado(estado);
         n.setPrioridad(PrioridadNecesidad.MEDIA);
         n.setFechaVencimiento(vencimiento);
+        // Feature catalogo-articulos, decision 2: a necesidad with zero articulos is excluded
+        // from rondas — every other eligibility fixture in this file needs at least one so it
+        // keeps exercising the vencimiento/nivel/referente/coordenadas checks it was written for.
+        n.getArticulos().add(unArticuloSolicitado(n));
         return n;
+    }
+
+    private NecesidadArticulo unArticuloSolicitado(Necesidad n) {
+        Articulo articulo = new Articulo();
+        articulo.setId(1L);
+        articulo.setNombre("Arroz");
+        articulo.setCategoria(CategoriaAlimento.NO_PERECEDERO);
+        NecesidadArticulo na = new NecesidadArticulo();
+        na.setArticulo(articulo);
+        na.setNecesidad(n);
+        return na;
     }
 
     private Donacion donacionPool(Long id) {
@@ -177,6 +194,29 @@ class RondaServiceTest {
         Necesidad candidataN0 = necesidad(100L, n0, EstadoNecesidad.ABIERTA, null);
         Necesidad candidataN1 = necesidad(101L, n1, EstadoNecesidad.ABIERTA, null);
         when(necesidadRepository.findByEstadoInWithOrganizacion(any())).thenReturn(List.of(candidataN0, candidataN1));
+        when(donacionRepository.findUltimaFechaOfertaPorOrganizacion(anyLong(), any())).thenReturn(java.util.Optional.empty());
+        stubSinAsignaciones(List.of());
+        when(acreditacionService.categoriasPermitidas(NivelAcreditacion.N1)).thenReturn(Set.of());
+        when(asignadorClient.ejecutar(any())).thenReturn(salidaVacia());
+
+        Ronda ronda = rondaService.ejecutar(ADMIN_ID);
+
+        assertThat(ronda.getCandidatosConsiderados()).isEqualTo(1);
+        ArgumentCaptor<EntradaRondaV1> captor = ArgumentCaptor.forClass(EntradaRondaV1.class);
+        verify(asignadorClient).ejecutar(captor.capture());
+        assertThat(captor.getValue().getCandidatos()).extracting(CandidatoEntradaV1::getNecesidadId).containsExactly(101L);
+    }
+
+    // Feature catalogo-articulos, decision 2: a necesidad with zero articulos carries no
+    // matching signal for the worker's articulo-level hard filter and must never appear in
+    // candidatas, independent of every other eligibility check.
+    @Test
+    void excludesNecesidadesSinArticulos() {
+        Organizacion org = organizacion(10L, NivelAcreditacion.N1, true, true);
+        Necesidad sinArticulos = necesidad(100L, org, EstadoNecesidad.ABIERTA, null);
+        sinArticulos.getArticulos().clear();
+        Necesidad conArticulos = necesidad(101L, org, EstadoNecesidad.ABIERTA, null);
+        when(necesidadRepository.findByEstadoInWithOrganizacion(any())).thenReturn(List.of(sinArticulos, conArticulos));
         when(donacionRepository.findUltimaFechaOfertaPorOrganizacion(anyLong(), any())).thenReturn(java.util.Optional.empty());
         stubSinAsignaciones(List.of());
         when(acreditacionService.categoriasPermitidas(NivelAcreditacion.N1)).thenReturn(Set.of());

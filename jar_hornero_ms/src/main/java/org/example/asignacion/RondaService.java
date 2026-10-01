@@ -185,9 +185,14 @@ public class RondaService {
     /**
      * AD-9 eligibility: not past {@code fechaVencimiento}, organización above N0 (an empty
      * {@code categoriasPermitidas(N0)} is "uncapped" for the worker — must never reach it), with a
-     * referente and coordinates.
+     * referente and coordinates. Feature catalogo-articulos, decision 2: a necesidad with zero
+     * selected articulos is excluded from rondas — it carries no matching signal for the worker's
+     * articulo-level hard filter.
      */
     private boolean esCandidataElegible(Necesidad n, LocalDate hoy) {
+        if (n.getArticulos() == null || n.getArticulos().isEmpty()) {
+            return false;
+        }
         if (n.getFechaVencimiento() != null && n.getFechaVencimiento().isBefore(hoy)) {
             return false;
         }

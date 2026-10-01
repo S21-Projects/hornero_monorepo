@@ -3,10 +3,13 @@ package org.example.asignacion;
 import org.example.acreditacion.AcreditacionService;
 import org.example.asignacion.worker.dto.CumplimientoV1;
 import org.example.asignacion.worker.dto.EntradaRondaV1;
+import org.example.domain.Articulo;
 import org.example.domain.CategoriaAlimento;
 import org.example.domain.Donacion;
+import org.example.domain.DonacionLinea;
 import org.example.domain.EstadoNecesidad;
 import org.example.domain.Necesidad;
+import org.example.domain.NecesidadArticulo;
 import org.example.domain.NivelAcreditacion;
 import org.example.domain.Organizacion;
 import org.example.domain.PrioridadNecesidad;
@@ -42,7 +45,7 @@ class EntradaRondaFactoryTest {
     @BeforeEach
     void setUp() {
         entradaRondaFactory = new EntradaRondaFactory(acreditacionService, cumplimientoCalculator);
-        when(acreditacionService.categoriasPermitidas(any()))
+        org.mockito.Mockito.lenient().when(acreditacionService.categoriasPermitidas(any()))
                 .thenReturn(Set.of(CategoriaAlimento.NO_PERECEDERO));
     }
 
@@ -90,6 +93,51 @@ class EntradaRondaFactoryTest {
                 List.of(), List.of(necesidad), Map.of(), Map.of(), LocalDate.now());
 
         assertThat(entrada.getCandidatos().get(0).getCumplimiento()).isNull();
+    }
+
+    private Articulo articulo(long id) {
+        Articulo a = new Articulo();
+        a.setId(id);
+        a.setNombre("Arroz");
+        a.setCategoria(CategoriaAlimento.NO_PERECEDERO);
+        a.setActivo(true);
+        return a;
+    }
+
+    // ─── catalogo-articulos — work unit D: articulo ids on both sides of the entrada ───────────
+
+    @Test
+    void donacionConLineas_entradaLlevaArticuloIds() {
+        Donacion d = new Donacion();
+        d.setId(1L);
+        DonacionLinea linea = new DonacionLinea();
+        linea.setArticulo(articulo(10L));
+        linea.setDonacion(d);
+        d.setLineas(List.of(linea));
+        when(cumplimientoCalculator.calcular()).thenReturn(Map.of());
+
+        EntradaRondaV1 entrada = entradaRondaFactory.crear(
+                List.of(d), List.of(), Map.of(), Map.of(), LocalDate.now());
+
+        assertThat(entrada.getDonaciones()).hasSize(1);
+        assertThat(entrada.getDonaciones().get(0).getArticuloIds()).containsExactly(10L);
+    }
+
+    @Test
+    void candidatoConArticulos_entradaLlevaArticuloIds() {
+        Organizacion org = organizacion(8L);
+        Necesidad n = necesidad(40L, org);
+        NecesidadArticulo na = new NecesidadArticulo();
+        na.setArticulo(articulo(20L));
+        na.setNecesidad(n);
+        n.setArticulos(List.of(na));
+        when(cumplimientoCalculator.calcular()).thenReturn(Map.of());
+
+        EntradaRondaV1 entrada = entradaRondaFactory.crear(
+                List.of(), List.of(n), Map.of(), Map.of(), LocalDate.now());
+
+        assertThat(entrada.getCandidatos()).hasSize(1);
+        assertThat(entrada.getCandidatos().get(0).getArticuloIds()).containsExactly(20L);
     }
 
     @Test
