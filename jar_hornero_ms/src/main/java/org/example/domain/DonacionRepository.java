@@ -9,12 +9,29 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDate;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
 @Repository
 public interface DonacionRepository extends JpaRepository<Donacion, Long> {
+
+    /**
+     * Unassigned pool donations at ronda-trigger time (AD-9): {@code FONDO_COMUN}, still
+     * {@code OFRECIDA}, {@code necesidad IS NULL}.
+     */
+    List<Donacion> findByModalidadAndEstadoAndNecesidadIsNull(ModalidadDonacion modalidad, EstadoDonacion estado);
+
+    /**
+     * `diasDesdeUltimaDonacion` input (AD-9): latest {@code fechaOferta} of any donation — direct or
+     * pool, once assigned — to this organización's necesidades, excluding {@code CANCELADA}/
+     * {@code RECHAZADA}. Empty when the organización has no counted history.
+     */
+    @Query("SELECT MAX(d.fechaOferta) FROM Donacion d "
+            + "WHERE d.necesidad.organizacion.id = :organizacionId AND d.estado NOT IN :excluidos")
+    Optional<LocalDate> findUltimaFechaOfertaPorOrganizacion(@Param("organizacionId") Long organizacionId,
+                                                              @Param("excluidos") Collection<EstadoDonacion> excluidos);
 
     @Query("SELECT d FROM Donacion d JOIN FETCH d.donante JOIN FETCH d.necesidad n JOIN FETCH n.organizacion WHERE n.organizacion.id = :orgId")
     List<Donacion> findByOrganizacionId(@Param("orgId") Long orgId);
