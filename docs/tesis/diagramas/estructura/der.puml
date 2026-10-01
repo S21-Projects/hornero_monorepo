@@ -1,6 +1,4 @@
 @startuml
-' Hornero — Diagrama entidad-relación
-
 hide circle
 skinparam linetype ortho
 skinparam shadowing false
@@ -11,11 +9,6 @@ skinparam entity {
   BorderColor #444444
   FontColor #111111
 }
-
-legend top left
-  <b>Leyenda</b>
-  ● = columna obligatoria · (N) = columna que admite nulos
-endlegend
 
 entity "usuarios" as usuarios {
   * id : BIGINT <<PK>>
@@ -105,7 +98,11 @@ entity "donaciones" as donaciones {
   * id : BIGINT <<PK>>
   --
   * donante_id : BIGINT <<FK>>
-  * necesidad_id : BIGINT <<FK>>
+  necesidad_id : BIGINT <<FK>> (N)
+  modalidad : VARCHAR <<enum ModalidadDonacion>> (N)
+  categoria : VARCHAR <<enum CategoriaAlimento>> (N)
+  latitud : DOUBLE (N)
+  longitud : DOUBLE (N)
   fecha_oferta : DATE (N)
   fecha_entrega : DATE (N)
   * estado : VARCHAR <<enum EstadoDonacion>>
@@ -128,6 +125,61 @@ entity "codigos_verificacion" as otp {
   * creado_en : TIMESTAMP
 }
 
+entity "codigos_entrega" as codigoEntrega {
+  * id : BIGINT <<PK>>
+  --
+  * donacion_id : BIGINT <<FK>>
+  * emisor_id : BIGINT
+  * emisor_parte : VARCHAR
+  * codigo_hash : VARCHAR <<BCrypt>>
+  * expira_en : TIMESTAMP
+  * intentos : INTEGER
+  * usado : BOOLEAN
+  * creado_en : TIMESTAMP
+}
+
+entity "rondas" as rondas {
+  * id : BIGINT <<PK>>
+  --
+  * ejecutada_en : TIMESTAMP
+  finalizada_en : TIMESTAMP (N)
+  * ejecutada_por : BIGINT <<id suelto, sin FK>>
+  * estado : VARCHAR <<enum EstadoRonda>>
+  error : VARCHAR(1000) (N)
+  * version_contrato : INTEGER
+  * donaciones_consideradas : INTEGER
+  * candidatos_considerados : INTEGER
+  * asignadas : INTEGER
+  * sin_asignar : INTEGER
+  * descartadas : INTEGER
+  * score_total : DOUBLE
+  * peso_deficit : DOUBLE
+  * peso_urgencia : DOUBLE
+  * peso_proximidad : DOUBLE
+  * peso_espera : DOUBLE
+  * peso_cumplimiento : DOUBLE
+}
+
+entity "asignaciones" as asignaciones {
+  * id : BIGINT <<PK>>
+  --
+  * ronda_id : BIGINT <<FK>>
+  * donacion_id : BIGINT <<FK>>
+  * necesidad_id : BIGINT <<FK>>
+  * organizacion_id : BIGINT <<FK>>
+  * estado : VARCHAR <<enum EstadoAsignacion>>
+  * creada_en : TIMESTAMP
+  resuelta_en : TIMESTAMP (N)
+  * score : DOUBLE
+  * costo_oportunidad : DOUBLE
+  * distancia_km : DOUBLE
+  * termino_deficit : DOUBLE
+  * termino_urgencia : DOUBLE
+  * termino_proximidad : DOUBLE
+  * termino_espera : DOUBLE
+  * termino_cumplimiento : DOUBLE
+}
+
 usuarios ||--o{ organizaciones : "valida\n(administrador_id)"
 usuarios ||--o{ organizaciones : "es referente de\n(referente_id)"
 organizaciones ||--o{ necesidades : "publica"
@@ -135,5 +187,10 @@ necesidades ||--o{ donaciones : "recibe"
 usuarios ||--o{ donaciones : "ofrece\n(donante_id)"
 organizaciones ||--o{ evidencia : "presenta"
 organizaciones ||--o{ evento : "registra"
+donaciones ||--o{ codigoEntrega : "emite"
+rondas ||--o{ asignaciones : "resuelve"
+donaciones ||--o{ asignaciones : "es propuesta en"
+necesidades ||--o{ asignaciones : "recibe propuesta de"
+organizaciones ||--o{ asignaciones : "es candidata en"
 
 @enduml

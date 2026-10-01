@@ -1,6 +1,4 @@
 @startuml
-' Hornero — Diagrama de clases del modelo de dominio
-
 skinparam shadowing false
 skinparam linetype ortho
 skinparam defaultFontName Helvetica
@@ -109,6 +107,10 @@ package "Necesidades y donaciones" {
 
   class Donacion {
     - id : Long
+    - modalidad : ModalidadDonacion
+    - categoria : CategoriaAlimento
+    - latitud : Double
+    - longitud : Double
     - fechaOferta : LocalDate
     - fechaEntrega : LocalDate
     - estado : EstadoDonacion
@@ -118,6 +120,8 @@ package "Necesidades y donaciones" {
     - overrideMotivo : String
     - overrideAdminId : Long
     - overrideEn : Instant
+    --
+    + getModalidadEfectiva() : ModalidadDonacion
   }
 }
 
@@ -130,6 +134,57 @@ package "Verificación" {
     - intentos : int
     - usado : boolean
     - creadoEn : Instant
+  }
+}
+
+package "Entrega" {
+  class CodigoEntrega {
+    - id : Long
+    - emisorId : Long
+    - emisorParte : Parte
+    - codigoHash : String
+    - expiraEn : Instant
+    - intentos : int
+    - usado : boolean
+    - creadoEn : Instant
+  }
+}
+
+package "Asignación" {
+  class Ronda {
+    - id : Long
+    - ejecutadaEn : Instant
+    - finalizadaEn : Instant
+    - ejecutadaPor : Long
+    - estado : EstadoRonda
+    - error : String
+    - versionContrato : int
+    - donacionesConsideradas : int
+    - candidatosConsiderados : int
+    - asignadas : int
+    - sinAsignar : int
+    - descartadas : int
+    - scoreTotal : double
+    - pesoDeficit : double
+    - pesoUrgencia : double
+    - pesoProximidad : double
+    - pesoEspera : double
+    - pesoCumplimiento : double
+  }
+
+  class Asignacion {
+    - id : Long
+    - estado : EstadoAsignacion
+    - creadaEn : Instant
+    - resueltaEn : Instant
+    - score : double
+    - costoOportunidad : double
+    - distanciaKm : double
+    - terminoDeficit : double
+    - terminoUrgencia : double
+    - terminoProximidad : double
+    - terminoEspera : double
+    - terminoCumplimiento : double
   }
 }
 
@@ -216,16 +271,35 @@ package "Enumeraciones" {
     --
     + isTerminal() : boolean
   }
+  enum ModalidadDonacion {
+    DIRECTA
+    FONDO_COMUN
+  }
+  enum EstadoRonda {
+    COMPLETADA
+    FALLIDA
+  }
+  enum EstadoAsignacion {
+    PROPUESTA
+    ACEPTADA
+    RECHAZADA
+    CANCELADA
+  }
 }
 
 Organizacion "1" *-- "0..*" Necesidad : publica >
-Necesidad "1" *-- "0..*" Donacion : recibe >
+Necesidad "0..1" --> "0..*" Donacion : recibe >
 OrganizacionEvidencia "0..*" --> "1" Organizacion : corresponde a >
 OrganizacionEvento "0..*" --> "1" Organizacion : refiere a >
 Organizacion "0..*" --> "0..1" Administrador : validadoPor >
 Organizacion "0..*" --> "0..1" Referente : referente >
 Donacion "0..*" --> "1" Donante : donante >
 AcreditacionReplay ..> OrganizacionEvento : usa >
+Donacion "1" *-- "0..*" CodigoEntrega : emite >
+Ronda "1" *-- "0..*" Asignacion : resuelve >
+Asignacion "0..*" --> "1" Donacion : propone >
+Asignacion "0..*" --> "1" Necesidad : propone >
+Asignacion "0..*" --> "1" Organizacion : candidata >
 
 ' Enumerations are referenced by attribute types; arrange them in a compact grid
 NivelAcreditacion -[hidden]down- RequisitoAcreditacion
@@ -238,6 +312,9 @@ NivelAcreditacion -[hidden]right- EstadoOrganizacion
 EstadoOrganizacion -[hidden]right- EstadoEvidencia
 EstadoEvidencia -[hidden]right- EstadoNecesidad
 EstadoNecesidad -[hidden]right- EstadoDonacion
+EstadoDonacion -[hidden]right- ModalidadDonacion
+ModalidadDonacion -[hidden]down- EstadoRonda
+EstadoRonda -[hidden]down- EstadoAsignacion
 
 Donacion -[hidden]down- NivelAcreditacion
 

@@ -1,5 +1,4 @@
 @startuml
-' Hornero — Entrega validada con código QR de un solo uso (CU-13)
 !include _estilo.iuml
 
 actor "Donante" as Donante
@@ -23,7 +22,7 @@ deactivate Back
 
 == Validación de la entrega (CU-13) ==
 
-Referente -> Web : Escanea el QR del donante
+Referente -> Web : Escanea el QR del donante\n(o ingresa el código manualmente)
 Web -> BFF : Confirmar entrega con código
 BFF -> Back : Confirmar entrega con código
 activate Back

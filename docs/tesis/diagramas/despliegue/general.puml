@@ -33,6 +33,7 @@ node "Servidor de aplicaciones" as servidor {
     artifact "Front autenticado\nReact SPA" as admin
     artifact "BFF\nNestJS" as bff
     artifact "Microservicio\nSpring Boot" as ms
+    artifact "Worker de asignaciones\nGo (sin puerto expuesto)" as worker
     database "Base de datos\nPostgreSQL" as db
   }
 }
@@ -55,6 +56,7 @@ proxy --> bff : HTTP
 astro --> bff : HTTP
 bff --> ms : HTTP + JWT
 ms --> db : JDBC
+ms --> worker : HTTP interno
 
 bff -right-> bucket : S3
 astro --> mailer : HTTPS
