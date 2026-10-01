@@ -101,6 +101,9 @@ Antes de levantar la nueva imagen del MS con soporte para donaciones `FONDO_COMU
 para el detalle completo. Es seguro correrlo antes del deploy: el código viejo nunca escribe
 `NULL` en esa columna.
 
+Con el Makefile alcanza con `make migrate`: hace el backup en `backups/` y aplica, en orden,
+todos los `scripts/sql/V*.sql` (son idempotentes). A mano, lo equivalente es:
+
 ```bash
 docker compose exec -T postgres pg_dump -U "$DB_USERNAME" "$DB_NAME" | gzip > backup_$(date +%F).sql.gz
 docker compose exec -T postgres psql -U "$DB_USERNAME" -d "$DB_NAME" -v ON_ERROR_STOP=1 \
@@ -120,12 +123,24 @@ El túnel ya corre aparte como servicio systemd, así que el stack se levanta si
 profiles:
 
 ```bash
-git checkout feat/spa-scaffold-auth
+git checkout develop
 # crear el .env de A.3
 docker compose up --build -d
-docker compose ps                          # los 5 servicios healthy
+docker compose ps                          # postgres, ms, worker, bff, astro, admin healthy
 systemctl status cloudflared --no-pager    # el túnel, aparte del compose
 ```
+
+El servicio `worker` (motor de asignación en Go) no publica puertos: el MS lo llama por la red
+interna en `http://worker:8090` (`WORKER_URL`, ya definido en `docker-compose.yml`). Si el worker
+está caído, el MS arranca igual y solo `POST /api/rondas` responde 503. Para chequearlo:
+
+```bash
+docker compose exec -T worker wget -qO- http://localhost:8090/healthz   # ok
+```
+
+Opcional: con el CSV de población del INDEC, el déficit de cobertura deja de ser neutral. Montar el
+archivo en el servicio `worker` y apuntar `POBLACION_CSV` a esa ruta (ver el comentario del servicio
+en `docker-compose.yml`). Sin él, todas las organizaciones reciben déficit neutral.
 
 Verificar que los tres puertos publicados responden antes de probar por el dominio:
 
@@ -150,9 +165,8 @@ docker compose up --build          # = make up
 # BFF:    http://localhost:3001  (Swagger en /api/docs)
 ```
 
-> Ojo: `make start-local` y `make dev-*-local` NO cambiaron — siguen levantando el
-> Next.js viejo (`ts_hornero_app`), no Astro/Admin. Para probar el stack que vas a
-> deployar, usá `docker compose up` (o `make up`), no `make start-local`.
+> Con secretos de prueba y MinIO local en vez de R2: `make up-local` (usa `.env.local`).
+> Contra esa base, los scripts se aplican con `make migrate ENV_FILE=.env.local`.
 
 ### A.5 — Verificar
 
