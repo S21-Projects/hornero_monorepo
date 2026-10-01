@@ -1,6 +1,6 @@
 import { Outlet, Link, NavLink, useLocation } from 'react-router-dom';
 import { ErrorBoundary } from 'react-error-boundary';
-import { Grid1, Buildings2, Box, People, Profile2User, Gift, SearchNormal1, Setting2, ClipboardTick } from 'iconsax-reactjs';
+import { Grid1, Buildings2, Box, People, Profile2User, Gift, SearchNormal1, Setting2, ClipboardTick, Refresh2 } from 'iconsax-reactjs';
 import { useAuthStore } from '../store/auth.store';
 import type { UserRole } from '../store/auth.store';
 import { AppErrorFallback } from './AppErrorFallback';
@@ -27,6 +27,7 @@ const NAV_LINKS: Record<UserRole, NavItem[]> = {
     { to: '/referentes', label: 'Referentes', icon: <Profile2User size={ICON_SIZE} /> },
     { to: '/control-donaciones', label: 'Donaciones', icon: <Gift size={ICON_SIZE} /> },
     { to: '/auditoria', label: 'Auditoría', icon: <ClipboardTick size={ICON_SIZE} /> },
+    { to: '/rondas', label: 'Rondas', icon: <Refresh2 size={ICON_SIZE} /> },
   ],
   REFERENTE: [
     { to: '/dashboard', label: 'Dashboard', icon: <Grid1 size={ICON_SIZE} /> },
