@@ -1,4 +1,5 @@
 import {
+  ArrayNotEmpty,
   IsString,
   IsNotEmpty,
   IsEnum,
@@ -21,4 +22,10 @@ export class CrearNecesidadDto {
 
   @IsInt()
   organizacionId: number;
+
+  // Feature catalogo-articulos, decision 6: categoria is derived from the selected articulos,
+  // never hand-picked — at least one articulo is required. Mirrors `CrearNecesidadRequest` (MS).
+  @ArrayNotEmpty()
+  @IsInt({ each: true })
+  articuloIds: number[];
 }
