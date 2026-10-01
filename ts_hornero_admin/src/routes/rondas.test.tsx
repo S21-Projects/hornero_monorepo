@@ -27,6 +27,7 @@ const RONDA: RondaResponse = {
   ejecutadaEn: '2026-09-20T12:00:00Z',
   finalizadaEn: '2026-09-20T12:00:05Z',
   ejecutadaPor: 1,
+  ejecutadaPorNombre: 'Ada Admin',
   estado: 'COMPLETADA',
   error: null,
   versionContrato: 1,
@@ -174,6 +175,23 @@ describe('RondasPage — tasks 5f.12/5f.13 (admin ronda trigger and history)', (
     render(<RondasPage />, { wrapper: Wrapper });
 
     expect(screen.getByText(/motor de asignación no está disponible/i)).toBeInTheDocument();
+  });
+
+  it('shows the executor\'s name instead of "Admin #id" when ejecutadaPorNombre is present (T6)', () => {
+    render(<RondasPage />, { wrapper: Wrapper });
+
+    expect(screen.getByText('Ada Admin')).toBeInTheDocument();
+    expect(screen.queryByText('Admin #1')).not.toBeInTheDocument();
+  });
+
+  it('falls back to "Admin #id" when ejecutadaPorNombre is null (executor account no longer exists)', () => {
+    vi.mocked(useHistorialRondas).mockReturnValue(
+      historialPage({ content: [{ ...RONDA, ejecutadaPorNombre: null }] }) as ReturnType<typeof useHistorialRondas>,
+    );
+
+    render(<RondasPage />, { wrapper: Wrapper });
+
+    expect(screen.getByText('Admin #1')).toBeInTheDocument();
   });
 
   it('shows a friendly message for a 502 (respuesta inválida)', () => {
