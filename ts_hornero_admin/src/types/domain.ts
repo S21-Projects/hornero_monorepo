@@ -38,14 +38,23 @@ export const ModalidadDonacion = {
 export type ModalidadDonacion = typeof ModalidadDonacion[keyof typeof ModalidadDonacion];
 
 /**
- * Mirrors MS `Donacion.fase` (Slice 5). `EN_FONDO` is a `FONDO_COMUN` donación waiting for a
- * ronda (no `Asignacion` yet); `ASIGNADA` and later phases track the current/last asignación.
+ * Mirrors MS `Donacion.fase` (`org.example.donacion.FaseDonacion`, AD-4). `EN_FONDO` is a
+ * `FONDO_COMUN` donación waiting for a ronda (no `Asignacion` yet); `ASIGNADA` is a `FONDO_COMUN`
+ * donación the ronda already matched to a necesidad, still in `OFRECIDA`. `OFRECIDA` is the
+ * `DIRECTA` equivalent of the initial step. `ACEPTADA`/`EN_CAMINO`/`CONFIRMANDO`/`ENTREGADA` track
+ * the shared delivery pipeline for either modalidad once a necesidad is set; `RECHAZADA`/
+ * `CANCELADA` are terminal.
  */
 export const FaseDonacion = {
   EN_FONDO: 'EN_FONDO',
   ASIGNADA: 'ASIGNADA',
+  OFRECIDA: 'OFRECIDA',
+  ACEPTADA: 'ACEPTADA',
   EN_CAMINO: 'EN_CAMINO',
+  CONFIRMANDO: 'CONFIRMANDO',
   ENTREGADA: 'ENTREGADA',
+  RECHAZADA: 'RECHAZADA',
+  CANCELADA: 'CANCELADA',
 } as const;
 export type FaseDonacion = typeof FaseDonacion[keyof typeof FaseDonacion];
 
@@ -124,6 +133,35 @@ export interface Donacion {
   /** Set at creation, immutable (`specs/donacion-fondo-comun`). Absent on pre-5e responses. */
   modalidad?: ModalidadDonacion;
   fase?: FaseDonacion;
+}
+
+/**
+ * Mirrors MS `AsignacionResponse` (`GET /api/donaciones/{id}/asignaciones`, spec
+ * `ronda-asignacion`): one history row per ronda match for this donación, append-only — a
+ * devolución/reassignment adds a new row rather than overwriting the prior one.
+ */
+export interface AsignacionHistorial {
+  id: number;
+  rondaId: number;
+  /** ISO `YYYY-MM-DD` — the ronda's execution date. */
+  rondaFecha: string;
+  necesidadId: number;
+  organizacionId: number;
+  organizacionNombre: string;
+  estado: 'PROPUESTA' | 'ACEPTADA' | 'RECHAZADA' | 'CANCELADA';
+  score: number;
+  costoOportunidad: number;
+  distanciaKm: number;
+  terminoDeficit: number;
+  terminoUrgencia: number;
+  terminoProximidad: number;
+  terminoEspera: number;
+  /** Null until slice 6b's worker response carries the 5th criterion. */
+  terminoCumplimiento: number | null;
+  deficitFuente: string;
+  codigoRadio: string;
+  creadaEn: string;
+  resueltaEn: string | null;
 }
 
 /** `necesidadId` required, `DIRECTA` is implicit when `modalidad` is omitted (MS coalescing). */
