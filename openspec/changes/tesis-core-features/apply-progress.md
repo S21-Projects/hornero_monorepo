@@ -1733,3 +1733,129 @@ Files touched this batch:
 
 No production code changed (mutants were applied only transiently to the scratchpad-backed copies
 and reverted).
+
+## Slice 5d — BFF (modalidad + rondas) — 2026-10-01
+
+Read the committed MS contracts first (`CreateDonacionRequest`, `DonacionResponse`/
+`DonacionActivaResponse`, `RondaController`, `AsignacionController`, `asignacion/dto/*`) to mirror
+them exactly, per the orchestrator's scope instruction. Strict TDD throughout — every task's RED was
+observed failing before its GREEN.
+
+### Task 5d.1 — `CrearDonacionDto` cross-field validation (RED→GREEN)
+
+RED: wrote `crear-donacion.dto.spec.ts` (10 cases: DIRECTA default/explicit valid, DIRECTA missing
+necesidadId, DIRECTA carrying categoria/coords, FONDO_COMUN valid, FONDO_COMUN carrying necesidadId,
+FONDO_COMUN missing categoria, FONDO_COMUN missing coords, unknown modalidad) against the
+pre-existing 2-field DTO (`necesidadId`, `observaciones` only) — **7/10 failed** as expected.
+
+**Deviation from the task's own wording ("ValidateIf")**: empirically verified (disposable scratch
+spec, deleted after the check) that class-validator 0.15.1 does not let two independent
+`@ValidateIf(...)` guards compose on the same property — the first conditional's `false` result
+short-circuits every later decorator on that property regardless of its own condition, so a
+"required for DIRECTA" + "forbidden for FONDO_COMUN" pair on `necesidadId` silently validated
+nothing in either direction. Replaced with three reusable `@ValidatorConstraint` classes
+(`NecesidadIdCrossFieldConstraint`, `CategoriaCrossFieldConstraint`,
+`CoordenadaCrossFieldConstraint`), each reading `args.object.modalidad` (null/absent → `DIRECTA`,
+matching `CreateDonacionRequest`'s own coalescing) and enforcing both directions in one constraint.
+This reproduces `DonacionService.crear`'s exact cross-field rule (necesidadId required+forbidden,
+categoria required+forbidden, latitud/longitud required+forbidden) without the stacking bug.
+
+GREEN: rewrote `crear-donacion.dto.ts` with the three constraints — **10/10 pass**.
+
+### Task 5d.2 — `GET :id/asignaciones` route on `DonacionesController` (RED→GREEN, 2 independent RED observations)
+
+RED (controller): added `asignaciones` to the `DonacionesController` test's service mock + 2 new
+`describe('asignaciones', ...)` cases (forwards id+token, role-restricted to
+`DONANTE/REFERENTE/ADMINISTRADOR` matching the MS `AsignacionController`'s
+`@PreAuthorize("hasAnyRole('DONANTE','REFERENTE','ADMINISTRADOR')")`) — failed with
+`controller.asignaciones is not a function` and a `Reflect.getMetadata` `TypeError` (no route yet).
+
+GREEN: added the `@Roles(Role.DONANTE, Role.REFERENTE, Role.ADMINISTRADOR) @Get(':id/asignaciones')`
+route, delegating to a new `donacionesService.asignaciones(id, token)`.
+
+RED (service, independent observation): added the service spec case, then removed the just-added
+`DonacionesService.asignaciones` method and reran — **2/2 new cases failed**
+(`service.asignaciones is not a function`) — then restored the method and reran: GREEN.
+
+### Task 5d.3 — New `rondas` module (RED→GREEN)
+
+RED: wrote `rondas.controller.spec.ts` (ejecutar/listar/detalle/fondo — each forwards the Bearer
+token / query params and is role-restricted to `ADMINISTRADOR`, mirroring the MS `RondaController`)
+and `rondas.service.spec.ts` (POST `/api/rondas`, GET `/api/rondas`, GET `/api/rondas/{id}`, GET
+`/api/rondas/fondo`, all with a Bearer header; includes a case asserting the service rethrows a 409
+`RONDA_EN_CURSO` and a 503 `WORKER_NO_DISPONIBLE` MS error unchanged, matching AD-9's documented
+failure modes) — both suites failed with `Cannot find module './rondas.controller'` /
+`'./rondas.service'` (neither file existed yet).
+
+GREEN: created `rondas.service.ts` (4 proxy methods, reusing the existing `buildQuery` helper for
+`listar`'s page/size/sort) and `rondas.controller.ts` (4 routes). The `fondo` route (`GET
+/rondas/fondo`) is declared **before** `detalle` (`GET /rondas/:id`) in the controller so
+Express/Nest's route-matching order doesn't swallow `fondo` as an `:id` path parameter — the MS's
+Spring `RondaController` doesn't have this ordering constraint (Spring prefers literal matches
+regardless of declaration order), so this is a BFF-specific detail, not a contract mismatch.
+
+### Task 5d.4–5d.7 — GREEN confirmations
+
+5d.4 (DTO), 5d.5 (asignaciones route), 5d.6 (rondas module), 5d.7 (`RondasModule` registered in
+`app.module.ts`) are the GREEN steps above — all confirmed together by the full suite run below.
+
+### Work Unit Evidence
+
+| Evidence | Value |
+|---|---|
+| Focused test command | `cd ts_hornero_bff && npm test -- donaciones rondas` → 7 suites / 64 tests pass |
+| Full suite | `cd ts_hornero_bff && npx jest` → **22 suites / 158 tests pass** |
+| Build | `cd ts_hornero_bff && npm run build` → clean (`nest build`, no errors) |
+| Runtime harness | N/A — no screen wires these routes yet (slice 5e/5f); proxy correctness is fully covered by the service/controller unit tests above, matching the slice's own "no screen yet" scope note |
+| Rollback boundary | Revert this BFF-only commit set; no MS/admin files touched, no data written |
+
+### Lint
+
+`npx eslint <touched files> --fix` was run scoped to only the files this batch touched. Two
+prettier-fixable formatting issues were auto-fixed in `rondas.controller.ts` and
+`rondas.controller.spec.ts`. The remaining `@typescript-eslint/no-unsafe-*` errors on
+`axiosRef.get/post` destructuring are a pre-existing repo-wide pattern — confirmed identical on
+untouched files (`usuarios.service.ts`, `upload.controller.ts`, etc.) via `git stash`/`git stash pop`
+before and after this batch's changes; not a regression introduced here.
+
+**Correction**: a first `npm run lint` invocation ran the whole-repo glob with `--fix` and
+reformatted 12 unrelated files (auth, common, images, necesidades, organizaciones, usuarios, main.ts)
+purely as prettier whitespace/line-wrap changes — no logic changed. Per the orchestrator's "lint only
+touched files; revert unrelated eslint --fix changes" instruction, all 12 were reverted with
+`git checkout --`, leaving only the 6 intentionally-touched files modified.
+
+### Files Changed (slice 5d)
+
+| File | Action | Lines (authored, incl. tests) |
+|---|---|---|
+| `ts_hornero_bff/src/donaciones/dto/crear-donacion.dto.ts` | Modified | ~100 |
+| `ts_hornero_bff/src/donaciones/dto/crear-donacion.dto.spec.ts` | Created | ~104 |
+| `ts_hornero_bff/src/donaciones/donaciones.controller.ts` | Modified | +10 |
+| `ts_hornero_bff/src/donaciones/donaciones.controller.spec.ts` | Modified | +25 |
+| `ts_hornero_bff/src/donaciones/donaciones.service.ts` | Modified | +8 |
+| `ts_hornero_bff/src/donaciones/donaciones.service.spec.ts` | Modified | +25 |
+| `ts_hornero_bff/src/rondas/rondas.module.ts` | Created | 12 |
+| `ts_hornero_bff/src/rondas/rondas.controller.ts` | Created | 72 |
+| `ts_hornero_bff/src/rondas/rondas.controller.spec.ts` | Created | 113 |
+| `ts_hornero_bff/src/rondas/rondas.service.ts` | Created | 62 |
+| `ts_hornero_bff/src/rondas/rondas.service.spec.ts` | Created | 120 |
+| `ts_hornero_bff/src/app.module.ts` | Modified | +2 |
+
+**Total ≈ 656 authored lines** — over the slice's 250-350 forecast (strict-TDD full suites + the
+custom-constraint deviation above account for the overrun; file list matches design.md's 5d table
+exactly, no scope creep). Per the tasks file's size policy, split into 3 natural-seam commits (see
+`tasks.md`'s "Size note" under slice 5d) instead of one.
+
+### TDD Cycle Evidence (slice 5d)
+
+| Task | RED | GREEN | REFACTOR |
+|---|---|---|---|
+| 5d.1 | 7/10 dto spec cases failed (2-field DTO) | 10/10 pass (3-constraint DTO) | N/A — constraints are already minimal, one per cross-field rule |
+| 5d.2 | controller: `not a function` + metadata TypeError; service (independent re-check): 2/2 failed after removing the method | controller+service GREEN, 49→... all donaciones tests pass | N/A |
+| 5d.3 | both `rondas.*.spec.ts` suites: module not found | 4/4 controller tests + 9/9 service tests pass | N/A — thin proxies, no duplication with `donaciones`/`acreditacion` patterns |
+
+### Status
+
+**5/5 tasks groups (5d.1–5d.7) complete.** `openspec/changes/tesis-core-features/tasks.md` slice 5d
+checkboxes updated to `[x]`. Ready for the next slice (5e — Nueva donación screen, admin) or archive
+once the user has committed this slice's 3 seams.

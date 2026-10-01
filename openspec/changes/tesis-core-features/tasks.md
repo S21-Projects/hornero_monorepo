@@ -803,25 +803,58 @@ Depends on: 5a (worker contract), 5b (schema). Sub-split per the forecast: **5c-
 
 Depends on: 5c. Spec: `donacion-fondo-comun`, `ronda-asignacion`.
 
-- [ ] 5d.1 RED — `ts_hornero_bff/src/donaciones/dto/crear-donacion.dto.spec.ts` (or inline
+- [x] 5d.1 RED — `ts_hornero_bff/src/donaciones/dto/crear-donacion.dto.spec.ts` (or inline
       validation test): `modalidad`, optional `necesidadId`, `categoria`, `latitud`, `longitud`
       with `ValidateIf` matching the MS's cross-field rules.
-- [ ] 5d.2 RED — Assertions in `donaciones.controller.spec.ts`: `GET :id/asignaciones` requires
+      **Deviation**: implemented with per-field custom `@Validate(...)` constraint classes
+      (`NecesidadIdCrossFieldConstraint`, `CategoriaCrossFieldConstraint`,
+      `CoordenadaCrossFieldConstraint`) instead of stacked `@ValidateIf` decorators — empirically
+      verified (scratch spec, deleted) that class-validator 0.15.1 does not independently scope two
+      `@ValidateIf` conditions applied to the same property; the first conditional short-circuits
+      all later decorators on that property regardless of its own guard. The custom-constraint
+      approach reproduces the exact same required/forbidden cross-field semantics as
+      `CreateDonacionRequest`/`DonacionService.crear` (null modalidad reads as DIRECTA).
+      RED confirmed: 7/10 cases failed against the pre-existing 2-field DTO before the rewrite.
+- [x] 5d.2 RED — Assertions in `donaciones.controller.spec.ts`: `GET :id/asignaciones` requires
       `@Roles(DONANTE, REFERENTE, ADMINISTRADOR)`.
-- [ ] 5d.3 RED — `ts_hornero_bff/src/rondas/rondas.controller.spec.ts`,
+      RED confirmed: `controller.asignaciones is not a function` + `Reflect.getMetadata` TypeError
+      before the route existed.
+- [x] 5d.3 RED — `ts_hornero_bff/src/rondas/rondas.controller.spec.ts`,
       `rondas.service.spec.ts`: `POST /rondas`, `GET /rondas`, `GET /rondas/:id`, `GET
       /rondas/fondo`, all `@Roles(ADMINISTRADOR)`, forwarding the Bearer token.
-- [ ] 5d.4 GREEN — Modify `ts_hornero_bff/src/donaciones/dto/crear-donacion.dto.ts`. Satisfies
-      5d.1.
-- [ ] 5d.5 GREEN — Modify `ts_hornero_bff/src/donaciones/*`: add the `GET :id/asignaciones` route.
-      Satisfies 5d.2.
-- [ ] 5d.6 GREEN — Create `ts_hornero_bff/src/rondas/rondas.module.ts`, `rondas.controller.ts`,
-      `rondas.service.ts`. Satisfies 5d.3.
-- [ ] 5d.7 GREEN — `ts_hornero_bff/src/app.module.ts`: register `RondasModule`.
+      RED confirmed: `Cannot find module './rondas.controller'` / `'./rondas.service'` before
+      either file existed.
+- [x] 5d.4 GREEN — Modify `ts_hornero_bff/src/donaciones/dto/crear-donacion.dto.ts`. Satisfies
+      5d.1. 10/10 dto spec cases pass.
+- [x] 5d.5 GREEN — Modify `ts_hornero_bff/src/donaciones/*`: add the `GET :id/asignaciones` route.
+      Satisfies 5d.2. Service method's own RED→GREEN also independently verified (removed then
+      restored `DonacionesService.asignaciones`, confirmed 2/2 failing then passing).
+- [x] 5d.6 GREEN — Create `ts_hornero_bff/src/rondas/rondas.module.ts`, `rondas.controller.ts`,
+      `rondas.service.ts`. Satisfies 5d.3. `fondo` route declared before `:id` in the controller so
+      Express/Nest matches the literal path first (mirrors the MS's `RondaController` route set:
+      `POST /api/rondas`, `GET /api/rondas`, `GET /api/rondas/{id}`, `GET /api/rondas/fondo`).
+- [x] 5d.7 GREEN — `ts_hornero_bff/src/app.module.ts`: register `RondasModule`.
 
-**Verification (slice 5d):** `cd ts_hornero_bff && npm test -- donaciones rondas`
+**Verification (slice 5d):** `cd ts_hornero_bff && npm test -- donaciones rondas` — 7 suites /
+64 tests pass. Full `npm test` (whole BFF): 22 suites / 158 tests pass. `npm run build`: clean
+(`tsc -b && vite build` equivalent for Nest — `nest build`, no errors).
 
-**USER COMMIT POINT**: `feat(bff): expose fondo comun creation and ronda routes`
+**Size note**: actual authored diff (~656 lines incl. tests) exceeds the slice's 250-350 forecast —
+driven by the strict-TDD custom cross-field validator (deviation documented in 5d.1) and the full
+RED+GREEN test suites for the new `rondas` module, not scope creep (file list matches design.md's
+5d table exactly: `crear-donacion.dto.ts`, `donaciones.controller.ts`/`donaciones.service.ts`
+(`asignaciones` route only), `rondas.module.ts`/`rondas.controller.ts`/`rondas.service.ts`,
+`app.module.ts`). Per the tasks file's size policy, it splits into 3 natural-seam commits instead
+of one, same scope, same branch:
+
+**USER COMMIT POINT (seam 1 — DTO validation)**: `feat(bff): validate modalidad cross-field rules on donacion creation`
+(`ts_hornero_bff/src/donaciones/dto/crear-donacion.dto.ts`, `crear-donacion.dto.spec.ts`)
+
+**USER COMMIT POINT (seam 2 — asignaciones route)**: `feat(bff): proxy donation assignment history`
+(`ts_hornero_bff/src/donaciones/donaciones.controller.ts`, `donaciones.service.ts`, their specs)
+
+**USER COMMIT POINT (seam 3 — rondas module)**: `feat(bff): expose ronda trigger and history routes`
+(`ts_hornero_bff/src/rondas/*`, `ts_hornero_bff/src/app.module.ts`)
 
 ## Slice 5e — Nueva donación screen (admin)
 
