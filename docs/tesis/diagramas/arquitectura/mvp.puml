@@ -1,6 +1,4 @@
 @startuml
-title Arquitectura objetivo del MVP
-
 skinparam shadowing false
 skinparam defaultFontName Helvetica
 skinparam nodesep 25
@@ -33,7 +31,7 @@ node "Servidor de aplicaciones" as servidor {
   database "Base de datos" as db
 }
 
-node "Microservicio de asignaciones" as asignaciones
+node "Worker de asignaciones (interno, HTTP, sin puerto expuesto)" as asignaciones
 
 cloud "Servicios externos" as externos {
   artifact "Almacenamiento de objetos" as bucket
@@ -53,6 +51,6 @@ bff --> bucket
 backend --> correo
 sitio --> correo
 
-backend ..> asignaciones : pendiente de integración
+backend --> asignaciones : HTTP
 
 @enduml

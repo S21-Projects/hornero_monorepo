@@ -52,6 +52,9 @@ node "Raspberry Pi 5\n<<dispositivo>>\nRaspberry Pi OS 64-bit" as pi {
     node "Contenedor: ms" as cMs {
       artifact "Spring Boot\n:8081" as ms
     }
+    node "Contenedor: worker" as cWorker {
+      artifact "Go\nsin puerto expuesto" as worker
+    }
     node "Contenedor: postgres" as cPg {
       database "PostgreSQL 16\n:5432" as db
       artifact "hornero_pgdata\n<<volumen>>" as vol
@@ -69,6 +72,7 @@ cloudflared --> bff : HTTP
 astro --> bff : HTTP
 bff --> ms : HTTP + JWT
 ms --> db : JDBC
+ms --> worker : HTTP interno
 db --> vol : monta
 
 bff --> bucket : S3

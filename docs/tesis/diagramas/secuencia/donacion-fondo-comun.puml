@@ -1,17 +1,17 @@
 @startuml
-' Hornero — Donación al fondo común y ronda de asignación (CU-05, CU-11)
 !include _estilo.iuml
 
 actor "Donante" as Donante
+actor "Administrador" as Admin
 participant "Panel web" as Web
 participant "BFF" as BFF
 participant "Backend" as Back
 database "Base de datos" as DB
-participant "Microservicio\nde asignaciones" as Asig
+participant "Worker\n(HTTP interno)" as Worker
 
 == Oferta al fondo común (CU-05) ==
 
-Donante -> Web : Ofrece una donación al fondo común
+Donante -> Web : Ofrece una donación al fondo común,\ncon punto de retiro y categoría
 Web -> BFF : Registrar donación
 BFF -> Back : Registrar donación
 activate Back
@@ -22,22 +22,29 @@ deactivate Back
 
 == Ronda de asignación (CU-11) ==
 
+Admin -> Web : Dispara una ronda
+Web -> BFF : Ejecutar ronda
+BFF -> Back : Ejecutar ronda
+activate Back
 Back -> DB : Leer donaciones del fondo común sin asignar
 Back -> DB : Leer necesidades abiertas de\norganizaciones acreditadas
-Back -> Asig : Donaciones y necesidades candidatas
-activate Asig
-Asig -> Asig : Descartar pares no compatibles\npor categoría o nivel de acreditación
-Asig -> Asig : Puntuar cada par por déficit,\nurgencia, proximidad y espera
-Asig -> Asig : Resolver la asignación óptima\nde la ronda
-Asig --> Back : Asignaciones y donaciones sin asignar
-deactivate Asig
+Back -> Worker : Donaciones y necesidades candidatas (HTTP)
+activate Worker
+Worker -> Worker : Descartar pares no compatibles\npor categoría o nivel de acreditación
+Worker -> Worker : Puntuar cada par por déficit,\nurgencia, proximidad, espera y cumplimiento
+Worker -> Worker : Resolver la asignación óptima\nde la ronda (algoritmo húngaro)
+Worker --> Back : Asignaciones y donaciones sin asignar
+deactivate Worker
 
 group misma transacción
+  Back -> DB : Registrar la ronda
   loop por cada asignación
     Back -> DB : Asignar la donación a la necesidad
     Back -> DB : Registrar la asignación con su puntaje
   end
 end
+Back --> Web : Ronda completada
+deactivate Back
 
 Donante -> Web : Consulta sus donaciones
 Web -> BFF : Consultar donaciones
