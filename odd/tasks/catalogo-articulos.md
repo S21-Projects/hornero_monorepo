@@ -290,7 +290,12 @@ worker, then ronda wiring, then BFF, then admin UI, then seeds/reset, then docs.
 
 ### Work unit E — BFF: articulos module + donación/necesidad DTO passthrough
 
-- **C9** — New `articulos` BFF module (thin proxy to MS, mirrors existing module structure):
+- [x] **C9** — DONE 2026-10-01: `articulos.service.spec.ts` (8/8) + `articulos.controller.spec.ts`
+  (15/15) RED→GREEN for the new module; `crear-donacion.dto.spec.ts` (12/12, rewritten: dropped
+  `categoria` cross-field tests, added `lineas` required/nested-validation tests) RED→GREEN;
+  `crear-necesidad.dto.spec.ts` (4/4, new) + `actualizar-necesidad.dto.spec.ts` (4/4, new) RED→GREEN.
+  Full BFF suite 184/184 passing, `npm run build` (tsc -b + nest build) green. New `articulos` BFF
+  module (thin proxy to MS, mirrors existing module structure):
   `ArticulosController`/`ArticulosService`/DTOs, `GET /articulos` public (`@Public()`),
   `POST`/`PUT`/`PATCH` admin-only (`@Roles('ADMINISTRADOR')`). Update
   `donaciones`/`necesidades` BFF DTOs (`crear-donacion.dto.ts`, `crear-necesidad.dto.ts`,
@@ -509,6 +514,19 @@ worker, then ronda wiring, then BFF, then admin UI, then seeds/reset, then docs.
   real"); the local DB reset (C16) is still the user's own action, not yet run. Not yet done:
   work units E-J (BFF, admin SPA, seeds, docs) — API/DTO shape notes for those left in this
   session's final report.
+- 2026-10-01: Work unit E (C9, BFF) implemented under strict TDD, no `git` mutation performed by
+  this worker. New `articulos` module (`ts_hornero_bff/src/articulos/`: controller, service,
+  module, 2 DTOs, 2 spec files) registered in `app.module.ts`; `CrearDonacionDto` lost its
+  `categoria` cross-field constraint and gained a required `lineas: DonacionLineaDto[]`
+  (`@ArrayMinSize(1)`, `@ValidateNested({ each: true })`, new `donacion-linea.dto.ts`);
+  `CrearNecesidadDto` gained required `articuloIds: number[]` (`@ArrayNotEmpty`, `@IsInt({each:true})`);
+  `ActualizarNecesidadDto` gained optional `articuloIds?: number[]` (same validators, `@IsOptional`
+  wrapper — absent means unchanged, a provided list must be non-empty). No BFF error-passthrough
+  code needed: the existing global `AxiosExceptionFilter` already relays MS error envelopes
+  (status + body, e.g. `ARTICULO_INCOMPATIBLE`/`ARTICULO_INACTIVO`) unchanged. Full BFF suite
+  184/184, `npm run build` green. ~617 changed lines (94 diff + 523 new files across 10 files —
+  slightly over the ~500-line work-unit heuristic, not split further since it is one coherent
+  module + its 3 dependent DTO updates). Not yet done: work units F-J (admin SPA, seeds, docs).
 
 **Estimated total: ~18 tasks, 10 work units, ~3,480 changed lines** (sum of per-task estimates;
 heuristic only, not a hard cap — several units will need the chosen delivery/chain strategy
