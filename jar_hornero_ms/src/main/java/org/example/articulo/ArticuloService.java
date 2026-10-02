@@ -58,6 +58,19 @@ public class ArticuloService {
         return toResponse(articuloRepository.save(a));
     }
 
+    /**
+     * Orchestrator follow-up (feature catalogo-articulos): undoes a {@link #desactivar} —
+     * never a separate "undelete" path, since deactivation is soft. Makes the item selectable
+     * again for new donaciones/necesidades.
+     */
+    @Transactional
+    public ArticuloResponse reactivar(Long id) {
+        Articulo a = articuloRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Articulo not found"));
+        a.setActivo(true);
+        return toResponse(articuloRepository.save(a));
+    }
+
     private ArticuloResponse toResponse(Articulo a) {
         return new ArticuloResponse(
                 a.getId(),
