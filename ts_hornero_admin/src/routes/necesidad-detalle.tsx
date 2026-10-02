@@ -3,13 +3,16 @@ import { useParams, Link } from 'react-router-dom';
 import { useNecesidad } from '../lib/hooks/useNecesidad';
 import { useOrgNombre } from '../lib/hooks/useOrgNombre';
 import { useCrearDonacion } from '../lib/hooks/useCrearDonacion';
-import { PRIORIDAD, ESTADO_NECESIDAD, FALLBACK_BADGE } from '../lib/domain-ui';
+import { mapDonacionError } from '../lib/hooks/mapDonacionError';
+import { LineaArticuloEditor } from '../components/donacion/LineaArticuloEditor';
+import { PRIORIDAD, ESTADO_NECESIDAD, CATEGORIA_ALIMENTO, UNIDAD_ARTICULO, FALLBACK_BADGE } from '../lib/domain-ui';
 import { formatFecha } from '../lib/format';
 import { AsyncSection } from '../components/AsyncSection';
 import { Badge } from '../components/Badge';
 import { Card } from '../components/ui/Card';
 import { Text } from '../components/ui/Typography';
 import { Button } from '../components/ui/Button';
+import type { DonacionLineaInput } from '../types/domain';
 
 export default function NecesidadDetallePage() {
   const { id } = useParams<{ id: string }>();
@@ -20,6 +23,7 @@ export default function NecesidadDetallePage() {
   const mutation = useCrearDonacion();
 
   const [observaciones, setObservaciones] = useState('');
+  const [lineas, setLineas] = useState<DonacionLineaInput[]>([]);
 
   // Detect 404: axios throws with response.status 404
   const isNotFound =
@@ -30,10 +34,17 @@ export default function NecesidadDetallePage() {
     ?.response?.data?.message;
   const donacionEmailNoVerificado = donacionErrorReason === 'EMAIL_NO_VERIFICADO';
 
+  // Work unit G: restrict the línea picker to what this necesidad actually requests, so every
+  // submitted línea is guaranteed compatible — the MS still enforces ARTICULO_INCOMPATIBLE
+  // server-side for any stale/race case (decision 6). A pre-catalog necesidad with no articulos
+  // leaves the picker unrestricted rather than impossible to donate to.
+  const articulosPermitidosIds = necesidad?.articulos?.length ? necesidad.articulos.map((a) => a.id) : undefined;
+  const lineasValidas = lineas.length > 0 && lineas.every((l) => l.articuloId > 0 && l.cantidad > 0);
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!numId) return;
-    mutation.mutate({ necesidadId: numId, observaciones: observaciones || undefined });
+    if (!numId || !lineasValidas) return;
+    mutation.mutate({ necesidadId: numId, lineas, observaciones: observaciones || undefined });
   };
 
   return (
@@ -74,6 +85,23 @@ export default function NecesidadDetallePage() {
                   Vence: {formatFecha(necesidad.fechaVencimiento)}
                 </Text>
               )}
+
+              {necesidad.articulos && necesidad.articulos.length > 0 && (
+                <div style={{ marginTop: 12 }}>
+                  <Text variant="caption" color="ink-3" style={{ display: 'block', marginBottom: 6 }}>
+                    Artículos solicitados:
+                  </Text>
+                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                    {necesidad.articulos.map((a) => (
+                      <Badge
+                        key={a.id}
+                        tone={CATEGORIA_ALIMENTO[a.categoria]?.tone ?? 'neutral'}
+                        label={`${a.nombre} (${UNIDAD_ARTICULO[a.unidad]})`}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
             </Card>
 
             {/* Donation form — hidden when mutation succeeded */}
@@ -82,8 +110,17 @@ export default function NecesidadDetallePage() {
                 <Text variant="h3" style={{ marginBottom: 16 }}>Ofrecer donación</Text>
                 <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
                   <div>
+                    <Text variant="label" as="p" style={{ marginBottom: 6 }}>Artículos que ofrecés</Text>
+                    <LineaArticuloEditor
+                      lineas={lineas}
+                      onChange={setLineas}
+                      articulosPermitidosIds={articulosPermitidosIds}
+                    />
+                  </div>
+
+                  <div>
                     <Text variant="label" as="label" style={{ display: 'block', marginBottom: 6 }}>
-                      Observaciones (opcional)
+                      Notas (opcional)
                     </Text>
                     <textarea
                       value={observaciones}
@@ -116,7 +153,7 @@ export default function NecesidadDetallePage() {
                   )}
                   {mutation.isError && !donacionEmailNoVerificado && (
                     <Text variant="body-sm" color="urgent">
-                      No se pudo registrar la donación. Intentá de nuevo.
+                      {mapDonacionError(mutation.error)}
                     </Text>
                   )}
 
@@ -124,7 +161,7 @@ export default function NecesidadDetallePage() {
                     type="submit"
                     variant="primary"
                     loading={mutation.isPending}
-                    disabled={mutation.isPending}
+                    disabled={mutation.isPending || !lineasValidas}
                     size="sm"
                     style={{ alignSelf: 'flex-start' }}
                   >
