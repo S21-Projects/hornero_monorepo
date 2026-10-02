@@ -675,6 +675,85 @@ worker, then ronda wiring, then BFF, then admin UI, then seeds/reset, then docs.
   via `git stash` diff — this change adds no new lint rule violations, only more instances of the
   same pre-existing pattern) after one prettier auto-fix on a line-wrap in `articulos.controller.ts`.
   Not yet done: work unit J (C18, thesis doc touch-up).
+- 2026-10-01: Orchestrator e2e follow-up — two defects found running against a **fresh** local
+  Postgres, both fixed under strict TDD (RED with real repositories/transactions, then GREEN), no
+  `git` mutation performed by this worker. Full MS suite: 487/487 passing (476 + 4 new tests), 0
+  failures/errors.
+  - **DEFECT 1 — 500 on `POST /api/rondas`** (`LazyInitializationException` on
+    `Donacion.lineas`/`Necesidad.articulos`, thrown from `EntradaRondaFactory.donacionEntrada`
+    called by `RondaService.ejecutar`). Root cause confirmed: `RondaService.ejecutar` read the
+    pool/candidates inside a `TransactionTemplate` read phase (`leer()`) but built the worker
+    input (`EntradaRondaFactory.crear`, which walks those lazy collections) *after* that
+    transaction closed — `RondaServiceTest` never caught this because it mocks every repository
+    and never opens a real Hibernate session.
+    - RED: new `RondaServiceLazyLoadingIntegrationTest`
+      (`jar_hornero_ms/src/test/java/org/example/asignacion/RondaServiceLazyLoadingIntegrationTest.java`,
+      `@SpringBootTest` with real repositories/transaction manager and a `@MockBean
+      AsignadorClient`) persists a real `FONDO_COMUN` donación with a línea and a real
+      `ABIERTA` necesidad with a selected articulo, then calls `rondaService.ejecutar(...)` —
+      reproduced the exact reported stack trace (same line,
+      `EntradaRondaFactory.donacionEntrada(EntradaRondaFactory.java:59)`) before the fix.
+    - Fix (preferred option — build the entrada inside the read transaction, keeping the HTTP
+      call outside any transaction per AD-9): `RondaService.ejecutar`
+      (`jar_hornero_ms/src/main/java/org/example/asignacion/RondaService.java`) now wraps
+      `leer()` + `entradaRondaFactory.crear(...)` in one `transactionTemplate.execute(...)` call
+      (new private `LecturaConEntrada(Lectura, EntradaRondaV1)` record holds both), then calls
+      `asignadorClient.ejecutar(...)` with the already-built `EntradaRondaV1` outside the
+      transaction, unchanged from before. Also added `LEFT JOIN FETCH` + `DISTINCT` to
+      `DonacionRepository.findByModalidadAndEstadoAndNecesidadIsNull` (fetches `d.lineas`) and
+      `NecesidadRepository.findByEstadoInWithOrganizacion` (fetches `n.articulos`, alongside the
+      existing `organizacion`/`referente` fetch) to avoid an N+1 against `donacion_lineas`/
+      `necesidad_articulos` now that those collections are walked inside the transaction.
+    - Files: `jar_hornero_ms/src/main/java/org/example/asignacion/RondaService.java`,
+      `jar_hornero_ms/src/main/java/org/example/domain/DonacionRepository.java`,
+      `jar_hornero_ms/src/main/java/org/example/domain/NecesidadRepository.java` (main, ~20+10+7
+      changed lines); `jar_hornero_ms/src/test/java/org/example/asignacion/RondaServiceLazyLoadingIntegrationTest.java`
+      (new, 165 lines).
+    - Commit seam: one commit, e.g. `fix(ms): build ronda worker input inside the read
+      transaction` — all 4 files above.
+  - **DEFECT 2 — seed orgs stuck at N0 with miscategorized necesidades**. Root cause confirmed:
+    `AcreditacionBackfill` only promotes a row whose `nivel` column is literally `NULL`, but
+    `Organizacion.nivel` defaults to `N0` in Java (`private NivelAcreditacion nivel =
+    NivelAcreditacion.N0;`), so a freshly `DataInitializer`-seeded org is never `null` and the
+    backfill silently skips it — every seeded org was stuck at N0 forever (excluded from rondas
+    per `RondaService.esCandidataElegible`), while org1 (Merendero)'s seeded necesidad `n2`
+    requested `Yogur`/`Queso` (`REFRIGERADO`, N2-required) — a level no seeded org could ever
+    legitimately reach by N1.
+    - RED: new `DataInitializerNivelSeedTest`
+      (`jar_hornero_ms/src/test/java/org/example/config/DataInitializerNivelSeedTest.java`, 3
+      tests) asserted every seeded org with necesidades is `> N0`, every necesidad's categoria is
+      allowed by its org's nivel (`CategoriaAlimento.nivelMinimo`), and every promoted org has a
+      consistent `OrganizacionEvento` log (`MIGRACION_INICIAL`, `nivelAntes = N0`, last
+      `nivelDespues` matching the stored `nivel`) — all 3 failed against the unmodified seed
+      (`Org 'Comedor La Esperanza' has necesidades but is stuck at nivel N0`, etc.) before the fix.
+    - Fix: `DataInitializer.seedOrganizaciones()`
+      (`jar_hornero_ms/src/main/java/org/example/config/DataInitializer.java`) now raises each
+      seeded org's level through the same domain mechanism `AcreditacionBackfill` itself uses —
+      a new `sembrarNivelInicial(Organizacion, NivelAcreditacion)` helper sets `nivel` and appends
+      a `MIGRACION_INICIAL` `OrganizacionEvento` (`nivelAntes = N0`), mirroring
+      `AcreditacionBackfill.backfillUna`'s exact shape, so the append-only event log stays
+      consistent. Levels chosen to match each org's *actual* seeded necesidades (no solver/scoring
+      changes): Comedor La Esperanza → N2 (has `CONGELADO`/`REFRIGERADO` needs), Ropero
+      Comunitario Norte → N2 (same), Merendero Corazón Solidario → **N1** — which required
+      rewriting its one `REFRIGERADO` necesidad (`n2`: "Yogur y queso..." → "Harina y fideos...",
+      now `NO_PERECEDERO`-only like its other two needs) and the matching seeded donación
+      (`d2`: `Yogur` línea → `Harina` línea) so a N1 org's needs stay legitimately N1-compatible,
+      demonstrating the accreditation ladder for the demo.
+    - Files: `jar_hornero_ms/src/main/java/org/example/config/DataInitializer.java` (main, ~43
+      changed lines — level-raising helper + the Merendero necesidad/donación rewrite);
+      `jar_hornero_ms/src/test/java/org/example/config/DataInitializerNivelSeedTest.java` (new,
+      112 lines).
+    - Commit seam: one commit, e.g. `fix(ms): raise seeded orgs above N0 through a legitimate
+      acreditación event` — both files above.
+  - **Note for the orchestrator's e2e re-run**: the running local Postgres stack from the
+    previous code already holds seed data written under the *old*, broken `DataInitializer`
+    (orgs stuck at N0, old non-coherent necesidad). `DataInitializer`'s seeding is guarded by
+    `count() > 0` early-return, so neither fix will retroactively repair that already-seeded row
+    set — **a reseed (fresh DB, or manually fixing the 3 orgs' `nivel` + the Merendero
+    necesidad/donación) is needed before re-exercising `POST /api/rondas` end-to-end** against
+    that running stack. Both defects are proven fixed here only via the test suite (per the
+    task's instruction not to run destructive Docker commands); no live `docker compose` restart
+    or DB write was performed by this worker.
 
 **Estimated total: ~18 tasks, 10 work units, ~3,480 changed lines** (sum of per-task estimates;
 heuristic only, not a hard cap — several units will need the chosen delivery/chain strategy

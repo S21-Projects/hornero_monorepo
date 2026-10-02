@@ -19,9 +19,13 @@ import org.example.domain.TipoOrganizacion;
 import org.example.domain.Necesidad;
 import org.example.domain.NecesidadArticulo;
 import org.example.domain.NecesidadRepository;
+import org.example.domain.NivelAcreditacion;
 import org.example.domain.Organizacion;
+import org.example.domain.OrganizacionEvento;
+import org.example.domain.OrganizacionEventoRepository;
 import org.example.domain.OrganizacionRepository;
 import org.example.domain.PrioridadNecesidad;
+import org.example.domain.TipoEventoOrganizacion;
 import org.example.domain.UnidadArticulo;
 import org.example.user.Administrador;
 import org.example.user.Donante;
@@ -51,6 +55,7 @@ public class DataInitializer {
     private final NecesidadRepository necesidadRepository;
     private final DonacionRepository donacionRepository;
     private final ArticuloRepository articuloRepository;
+    private final OrganizacionEventoRepository organizacionEventoRepository;
 
     @PersistenceContext
     private EntityManager entityManager;
@@ -279,7 +284,35 @@ public class DataInitializer {
         org3.setValidadoPor(admin);
 
         organizacionRepository.saveAll(List.of(org1, org2, org3));
+
+        // Feature catalogo-articulos, DEFECT 2 fix: AcreditacionBackfill only promotes rows whose
+        // `nivel` column is literally NULL, but Organizacion.nivel defaults to N0 in Java, so a
+        // freshly seeded org is never null and the backfill silently leaves it at N0 forever — N0
+        // is excluded from rondas (RondaService.esCandidataElegible) and cannot request any
+        // CategoriaAlimento (nivelMinimo starts at N1). Raise each org's level through the same
+        // domain mechanism AcreditacionBackfill itself uses (a MIGRACION_INICIAL
+        // OrganizacionEvento), so the append-only event log stays consistent with the stored
+        // nivel. Levels mirror what each org's seeded necesidades actually request (see
+        // seedNecesidades): org1/org3 reach REFRIGERADO/CONGELADO items (N2 required); org2's
+        // needs are deliberately kept NO_PERECEDERO-only so N1 is sufficient, demonstrating the
+        // accreditation ladder for the demo.
+        sembrarNivelInicial(org1, NivelAcreditacion.N2);
+        sembrarNivelInicial(org2, NivelAcreditacion.N1);
+        sembrarNivelInicial(org3, NivelAcreditacion.N2);
         log.info("Seeded 3 organizations (one referente per org)");
+    }
+
+    /**
+     * Mirrors {@code AcreditacionBackfill.backfillUna}'s genesis-event pattern: every org starts
+     * at N0, so {@code nivelAntes} is always N0 here. Only called once, under
+     * {@code seedOrganizaciones}'s outer {@code count() > 0} idempotency guard.
+     */
+    private void sembrarNivelInicial(Organizacion organizacion, NivelAcreditacion nivel) {
+        organizacion.setNivel(nivel);
+        organizacionRepository.save(organizacion);
+        organizacionEventoRepository.save(OrganizacionEvento.de(
+                organizacion, TipoEventoOrganizacion.MIGRACION_INICIAL, null,
+                "Seed: nivel inicial para demo", NivelAcreditacion.N0, nivel));
     }
 
     /**
@@ -310,10 +343,12 @@ public class DataInitializer {
                 EstadoNecesidad.ABIERTA, LocalDate.now().minusDays(7), null, orgs.get(0),
                 "Carne", "Pollo");
 
-        // Org 1 — Merendero Corazón Solidario (3 needs)
-        Necesidad n2 = necesidad("Yogur y queso para la merienda de los chicos", PrioridadNecesidad.URGENTE,
+        // Org 1 — Merendero Corazón Solidario (3 needs). Deliberately NO_PERECEDERO-only across
+        // all three needs (unlike org0/org2) so N1 is a coherent accreditation level for this org
+        // (DEFECT 2 fix) — REFRIGERADO/CONGELADO items require N2 per CategoriaAlimento.nivelMinimo.
+        Necesidad n2 = necesidad("Harina y fideos para la merienda de los chicos", PrioridadNecesidad.URGENTE,
                 EstadoNecesidad.ABIERTA, LocalDate.now().minusDays(5), LocalDate.now().plusDays(10), orgs.get(1),
-                "Yogur", "Queso");
+                "Harina", "Fideos");
 
         Necesidad n2b = necesidad("Fideos y conservas para la merienda reforzada", PrioridadNecesidad.MEDIA,
                 EstadoNecesidad.EN_PROGRESO, LocalDate.now().minusDays(10), null, orgs.get(1),
@@ -407,7 +442,7 @@ public class DataInitializer {
 
         // Org 1 (necesidades 3, 4, 5)
         Donacion d2 = donacion(LocalDate.now().minusDays(3), null, EstadoDonacion.EN_CAMINO,
-                "Yogures individuales para la merienda", donante, necesidades.get(3), Map.of("Yogur", "12"));
+                "Harina para la merienda reforzada", donante, necesidades.get(3), Map.of("Harina", "12"));
 
         Donacion d2b = donacion(LocalDate.now().minusDays(7), LocalDate.now().minusDays(2), EstadoDonacion.ENTREGADA,
                 "Latas de conserva variadas", donante2, necesidades.get(4), Map.of("Conservas", "15"));
