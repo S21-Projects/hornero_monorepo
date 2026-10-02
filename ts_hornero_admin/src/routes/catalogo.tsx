@@ -13,6 +13,7 @@ import {
   useCrearArticulo,
   useDesactivarArticulo,
   useEditarArticulo,
+  useReactivarArticulo,
 } from '../lib/hooks/useArticulos';
 import { mapArticuloError } from '../lib/hooks/mapArticuloError';
 import { ACTIVO, CATEGORIA_ALIMENTO, FALLBACK_BADGE, UNIDAD_ARTICULO } from '../lib/domain-ui';
@@ -137,6 +138,7 @@ export default function CatalogoPage() {
   const crear = useCrearArticulo();
   const editar = useEditarArticulo();
   const desactivar = useDesactivarArticulo();
+  const reactivar = useReactivarArticulo();
 
   const articulos = data ?? [];
   const filtered = articulos.filter((a) => {
@@ -300,7 +302,19 @@ export default function CatalogoPage() {
                     </Button>
                   )}
                 </div>
-              ) : null
+              ) : (
+                <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    disabled={reactivar.isPending && reactivar.variables === a.id}
+                    onClick={() => reactivar.mutate(a.id)}
+                  >
+                    Reactivar
+                  </Button>
+                </div>
+              )
             }
           />
         </div>
