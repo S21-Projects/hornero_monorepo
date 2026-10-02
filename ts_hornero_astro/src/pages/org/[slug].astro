@@ -60,6 +60,15 @@ function mapPrioridad(prioridad: string): 'urgent' | 'medium' | 'normal' {
 
 const PRIORITY_LABEL = { urgent: 'Urgente', medium: 'Media', normal: 'Normal' } as const;
 
+// Plain lowercase unit labels (feature catalogo-articulos), mirrors admin SPA's
+// `UNIDAD_ARTICULO` in lib/domain-ui.ts.
+const UNIDAD_LABEL: Record<string, string> = {
+  KG: 'kg',
+  PAQUETE: 'paquete',
+  LITRO: 'litro',
+  UNIDAD: 'unidad',
+};
+
 const ESTADO_DONACION_LABELS: Record<string, string> = {
   OFRECIDA: 'Ofrecida',
   EN_CAMINO: 'En camino',
@@ -209,6 +218,13 @@ const ESTADO_DONACION_PILL: Record<string, 'warn' | 'open' | 'ok' | 'bad'> = {
                       <Pill variant={priority}>{PRIORITY_LABEL[priority]}</Pill>
                     </div>
                     <Text variant="label" as="p" color="ink-2" style={{ marginTop: 4 }}>{n.estado}</Text>
+                    {n.articulos && n.articulos.length > 0 && (
+                      <div class="flex flex-wrap gap-1.5" style={{ marginTop: 4 }}>
+                        {n.articulos.map((a) => (
+                          <Pill variant="ghost">{a.nombre} ({UNIDAD_LABEL[a.unidad] ?? a.unidad})</Pill>
+                        ))}
+                      </div>
+                    )}
                   </div>
                   {/* DonateButton removed — CTA deep-links to authenticated SPA */}
                   <a

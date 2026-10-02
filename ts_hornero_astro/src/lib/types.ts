@@ -25,6 +25,14 @@ export interface Org {
 
 // ─── Necesidad ─────────────────────────────────────────────────────────────────
 
+/** Mirrors MS `NecesidadResponse`'s `articulos` component (feature catalogo-articulos, decision 6). */
+export interface NecesidadArticulo {
+  id: number;
+  nombre: string;
+  unidad: 'KG' | 'PAQUETE' | 'LITRO' | 'UNIDAD';
+  categoria: 'NO_PERECEDERO' | 'REFRIGERADO' | 'CONGELADO';
+}
+
 export interface Necesidad {
   id: number;
   descripcion: string;
@@ -33,6 +41,9 @@ export interface Necesidad {
   fechaPublicacion: string;
   fechaVencimiento?: string;
   organizacionId: number;
+  /** Requested articulos (feature catalogo-articulos, decision 6). Absent on pre-catalog
+   * responses. */
+  articulos?: NecesidadArticulo[];
 }
 
 // ─── Donacion ──────────────────────────────────────────────────────────────────

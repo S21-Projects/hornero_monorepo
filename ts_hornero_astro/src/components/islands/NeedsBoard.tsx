@@ -19,6 +19,15 @@ const PRIORITY_LABEL: Record<NecesidadUIPriority, string> = {
 
 const URGENCY_OPTIONS = ['Todas', 'Urgente', 'Media', 'Normal'];
 
+// Plain lowercase unit labels (feature catalogo-articulos), mirrors admin SPA's
+// `UNIDAD_ARTICULO` in lib/domain-ui.ts.
+const UNIDAD_LABEL: Record<string, string> = {
+  KG: 'kg',
+  PAQUETE: 'paquete',
+  LITRO: 'litro',
+  UNIDAD: 'unidad',
+};
+
 const ESTADO_VARIANT: Record<string, 'ok' | 'warn' | 'ghost' | 'bad'> = {
   ABIERTA: 'ok',
   EN_PROGRESO: 'warn',
@@ -67,6 +76,15 @@ function NeedCard({ n, orgName }: NeedCardProps) {
           {orgName}
         </Text>
         <Text variant="h3" as="h3">{n.descripcion}</Text>
+        {n.articulos && n.articulos.length > 0 && (
+          <div className="flex flex-wrap gap-1.5" style={{ marginTop: 6 }}>
+            {n.articulos.map((a) => (
+              <Pill key={a.id} variant="ghost">
+                {a.nombre} ({UNIDAD_LABEL[a.unidad] ?? a.unidad})
+              </Pill>
+            ))}
+          </div>
+        )}
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 2 }}>
