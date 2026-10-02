@@ -50,3 +50,12 @@ export function useDesactivarArticulo() {
     onSuccess: () => invalidateArticulos(queryClient),
   });
 }
+
+/** `PATCH /articulos/:id/reactivar` — undoes a deactivation (ADMINISTRADOR only). */
+export function useReactivarArticulo() {
+  const queryClient = useQueryClient();
+  return useMutation<Articulo, Error, number>({
+    mutationFn: (id) => api.patch<Articulo>(`/articulos/${id}/reactivar`, {}).then((r) => r.data),
+    onSuccess: () => invalidateArticulos(queryClient),
+  });
+}

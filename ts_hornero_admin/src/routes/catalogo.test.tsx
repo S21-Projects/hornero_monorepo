@@ -7,6 +7,7 @@ import {
   useCrearArticulo,
   useEditarArticulo,
   useDesactivarArticulo,
+  useReactivarArticulo,
 } from '../lib/hooks/useArticulos';
 import type { Articulo } from '../types/domain';
 
@@ -15,6 +16,7 @@ vi.mock('../lib/hooks/useArticulos', () => ({
   useCrearArticulo: vi.fn(),
   useEditarArticulo: vi.fn(),
   useDesactivarArticulo: vi.fn(),
+  useReactivarArticulo: vi.fn(),
 }));
 
 const ARROZ: Articulo = { id: 1, nombre: 'Arroz', categoria: 'NO_PERECEDERO', unidad: 'KG', activo: true };
@@ -53,6 +55,7 @@ describe('CatalogoPage', () => {
     vi.mocked(useCrearArticulo).mockReturnValue(mockMutation() as ReturnType<typeof useCrearArticulo>);
     vi.mocked(useEditarArticulo).mockReturnValue(mockMutation() as ReturnType<typeof useEditarArticulo>);
     vi.mocked(useDesactivarArticulo).mockReturnValue(mockMutation() as ReturnType<typeof useDesactivarArticulo>);
+    vi.mocked(useReactivarArticulo).mockReturnValue(mockMutation() as ReturnType<typeof useReactivarArticulo>);
   });
 
   it('lists articulos with their categoría and unidad', () => {
@@ -145,7 +148,7 @@ describe('CatalogoPage', () => {
     expect((desactivar as { mutate: (...a: unknown[]) => void }).mutate).toHaveBeenCalledWith(1);
   });
 
-  it('does not show edit/deactivate actions for an inactive articulo', () => {
+  it('does not show edit/deactivate actions for an inactive articulo, offers Reactivar instead', () => {
     mockArticulos([{ ...ARROZ, activo: false }], {});
     renderPage();
 
@@ -153,5 +156,18 @@ describe('CatalogoPage', () => {
     expect(within(row).queryByRole('button', { name: 'Editar' })).not.toBeInTheDocument();
     expect(within(row).queryByRole('button', { name: 'Desactivar' })).not.toBeInTheDocument();
     expect(within(row).getByText('Inactivo')).toBeInTheDocument();
+    expect(within(row).getByRole('button', { name: 'Reactivar' })).toBeInTheDocument();
+  });
+
+  it('reactivates an inactive articulo', () => {
+    const reactivar = mockMutation();
+    vi.mocked(useReactivarArticulo).mockReturnValue(reactivar as ReturnType<typeof useReactivarArticulo>);
+    mockArticulos([{ ...ARROZ, activo: false }], {});
+    renderPage();
+
+    const row = screen.getByText('Arroz').closest('tr') as HTMLElement;
+    fireEvent.click(within(row).getByRole('button', { name: 'Reactivar' }));
+
+    expect((reactivar as { mutate: (...a: unknown[]) => void }).mutate).toHaveBeenCalledWith(1);
   });
 });

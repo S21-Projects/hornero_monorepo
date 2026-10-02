@@ -9,6 +9,7 @@ import {
   useCrearArticulo,
   useEditarArticulo,
   useDesactivarArticulo,
+  useReactivarArticulo,
 } from './useArticulos';
 
 const mock = new MockAdapter(api, { onNoMatch: 'throwException' });
@@ -96,5 +97,18 @@ describe('useDesactivarArticulo', () => {
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(result.current.data).toEqual(desactivado);
+  });
+});
+
+describe('useReactivarArticulo', () => {
+  it('PATCHes /articulos/:id/reactivar and invalidates the list', async () => {
+    const reactivado = { ...ARROZ, activo: true };
+    mock.onPatch('/articulos/1/reactivar').reply(200, reactivado);
+
+    const { result } = renderHook(() => useReactivarArticulo(), { wrapper: createWrapper() });
+    result.current.mutate(1);
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(result.current.data).toEqual(reactivado);
   });
 });
