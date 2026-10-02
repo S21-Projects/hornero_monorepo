@@ -8,7 +8,7 @@ import { ProgresoDonacion } from '../components/donacion/ProgresoDonacion';
 import { useAsignaciones } from '../lib/hooks/useAsignaciones';
 import { useDonacion } from '../lib/hooks/useDonacion';
 import { ESTADO_DONACION, FALLBACK_BADGE, MODALIDAD_DONACION } from '../lib/domain-ui';
-import { formatFecha } from '../lib/format';
+import { formatFecha, formatLineas } from '../lib/format';
 
 const CONFIRMABLE_ESTADOS = new Set(['ACEPTADA', 'EN_CAMINO', 'PENDIENTE_CONFIRMACION']);
 
@@ -72,6 +72,13 @@ export default function DonacionDetallePage() {
           <Card style={{ padding: '20px 24px' }}>
             <ProgresoDonacion fase={d?.fase ?? 'EN_FONDO'} />
           </Card>
+
+          {d?.lineas && d.lineas.length > 0 && (
+            <Card style={{ padding: '20px 24px' }}>
+              <Text variant="label" style={{ marginBottom: 4 }}>Artículos donados</Text>
+              <Text variant="body" as="p">{formatLineas(d.lineas)}</Text>
+            </Card>
+          )}
 
           <Card style={{ padding: '20px 24px' }}>
             <Text variant="label" style={{ marginBottom: 4 }}>Organización destino</Text>

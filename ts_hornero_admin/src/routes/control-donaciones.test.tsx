@@ -80,4 +80,26 @@ describe('ControlDonacionesPage — T5 (modalidad + fase)', () => {
     expect(screen.getByText('Directa')).toBeInTheDocument();
     expect(screen.queryByText('En espera de asignación')).not.toBeInTheDocument();
   });
+
+  it('shows the donación lines when present (feature catalogo-articulos)', () => {
+    vi.mocked(useDonacionesActivas).mockReturnValue(
+      donacionActivaPage([
+        {
+          id: 3,
+          estado: 'ACEPTADA',
+          necesidadId: 1,
+          modalidad: 'DIRECTA',
+          fase: 'ACEPTADA',
+          lineas: [
+            { articuloId: 1, nombre: 'Arroz', unidad: 'KG', cantidad: 5 },
+            { articuloId: 2, nombre: 'Fideos', unidad: 'PAQUETE', cantidad: 6 },
+          ],
+        } as DonacionActiva,
+      ]) as ReturnType<typeof useDonacionesActivas>,
+    );
+
+    render(<ControlDonacionesPage />, { wrapper: Wrapper });
+
+    expect(screen.getByText('5 kg Arroz, 6 paquetes Fideos')).toBeInTheDocument();
+  });
 });

@@ -12,7 +12,7 @@ import { useNecesidadesDeOrg } from '../lib/hooks/useNecesidadesDeOrg';
 import { useDonacionesDeMiOrg } from '../lib/hooks/useDonacionesDeMiOrg';
 import { useDecidirDonacion } from '../lib/hooks/useDecidirDonacion';
 import { necesidadesPorEstado, donacionesPorEstado } from '../lib/metricas';
-import { formatFecha } from '../lib/format';
+import { formatFecha, formatLineas } from '../lib/format';
 import { Badge } from '../components/Badge';
 import { MODALIDAD_DONACION } from '../lib/domain-ui';
 import { ModalidadDonacion } from '../types/domain';
@@ -47,6 +47,9 @@ function DonacionAccionableRow({ donacion }: DonacionAccionableRowProps) {
           {donacion.donanteName && <Text variant="body">{donacion.donanteName}</Text>}
           {donacion.fechaOferta && (
             <Text variant="caption" color="ink-3">Ofrecida: {formatFecha(donacion.fechaOferta)}</Text>
+          )}
+          {donacion.lineas && donacion.lineas.length > 0 && (
+            <Text variant="caption" color="ink-3">{formatLineas(donacion.lineas)}</Text>
           )}
           {donacion.observaciones && (
             <Text variant="caption" color="ink-3">{donacion.observaciones}</Text>
@@ -103,6 +106,9 @@ function DonacionEntregaRow({ donacion }: DonacionEntregaRowProps) {
           {donacion.donanteName && <Text variant="body">{donacion.donanteName}</Text>}
           {donacion.fechaOferta && (
             <Text variant="caption" color="ink-3">Ofrecida: {formatFecha(donacion.fechaOferta)}</Text>
+          )}
+          {donacion.lineas && donacion.lineas.length > 0 && (
+            <Text variant="caption" color="ink-3">{formatLineas(donacion.lineas)}</Text>
           )}
           {donacion.observaciones && (
             <Text variant="caption" color="ink-3">{donacion.observaciones}</Text>

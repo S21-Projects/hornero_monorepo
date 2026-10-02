@@ -101,6 +101,23 @@ describe('DonacionDetallePage', () => {
     expect(screen.getByText(/donaci[oó]n registrada/i)).toBeInTheDocument();
   });
 
+  it('shows the donación lines when present (feature catalogo-articulos)', () => {
+    mockDonacion({
+      modalidad: 'FONDO_COMUN',
+      fase: 'ASIGNADA',
+      organizacionNombre: 'Comedor Sol',
+      lineas: [
+        { articuloId: 1, nombre: 'Arroz', unidad: 'KG', cantidad: 5 },
+        { articuloId: 2, nombre: 'Fideos', unidad: 'PAQUETE', cantidad: 6 },
+      ],
+    });
+    mockAsignaciones([asignacion]);
+
+    renderPage();
+
+    expect(screen.getByText('5 kg Arroz, 6 paquetes Fideos')).toBeInTheDocument();
+  });
+
   it('does not show a success banner without the query param', () => {
     mockDonacion({ modalidad: 'FONDO_COMUN', fase: 'EN_FONDO', organizacionId: null, organizacionNombre: undefined });
     mockAsignaciones([]);

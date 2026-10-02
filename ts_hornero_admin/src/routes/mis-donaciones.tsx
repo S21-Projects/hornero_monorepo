@@ -4,7 +4,7 @@ import { useMisDonaciones } from '../lib/hooks/useMisDonaciones';
 import { usePageClamp } from '../lib/hooks/usePageClamp';
 import { useCancelarDonacion } from '../lib/hooks/useCancelarDonacion';
 import { ESTADO_DONACION, FALLBACK_BADGE, MODALIDAD_DONACION } from '../lib/domain-ui';
-import { formatFecha } from '../lib/format';
+import { formatFecha, formatLineas } from '../lib/format';
 import { AsyncSection } from '../components/AsyncSection';
 import { Badge } from '../components/Badge';
 import { Button } from '../components/ui/Button';
@@ -59,6 +59,11 @@ function DonacionRow({ donacion: d }: DonacionRowProps) {
       {d.fechaEntrega && (
         <Text variant="body-sm" color="ink-2" style={{ marginBottom: 2 }}>
           Entregada: {formatFecha(d.fechaEntrega)}
+        </Text>
+      )}
+      {d.lineas && d.lineas.length > 0 && (
+        <Text variant="body-sm" color="ink-2" style={{ marginBottom: 2, display: 'block' }}>
+          {formatLineas(d.lineas)}
         </Text>
       )}
       {d.observaciones && (
