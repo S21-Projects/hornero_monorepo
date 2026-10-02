@@ -25,7 +25,12 @@ public interface NecesidadRepository extends JpaRepository<Necesidad, Long> {
      * eligibility predicate (not past {@code fechaVencimiento}, organización with a referente,
      * organización with coordinates, organización above N0) is applied in Java by
      * {@code RondaService}, so it stays covered by plain unit tests instead of a JPQL fixture.
+     * {@code LEFT JOIN FETCH n.articulos} avoids an N+1 against {@code necesidad_articulos} when
+     * {@code EntradaRondaFactory} walks each candidate's articulo ids inside the same read
+     * transaction (feature catalogo-articulos); {@code DISTINCT} dedupes the parent row fan-out
+     * from that one-to-many fetch.
      */
-    @Query("SELECT n FROM Necesidad n JOIN FETCH n.organizacion o LEFT JOIN FETCH o.referente WHERE n.estado IN :estados")
+    @Query("SELECT DISTINCT n FROM Necesidad n JOIN FETCH n.organizacion o LEFT JOIN FETCH o.referente "
+            + "LEFT JOIN FETCH n.articulos WHERE n.estado IN :estados")
     List<Necesidad> findByEstadoInWithOrganizacion(@Param("estados") Collection<EstadoNecesidad> estados);
 }

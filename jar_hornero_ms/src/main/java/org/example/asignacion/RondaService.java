@@ -95,13 +95,22 @@ public class RondaService {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "RONDA_EN_CURSO");
         }
         try {
-            Lectura lectura = transactionTemplate.execute(status -> leer());
+            // Build the worker input (EntradaRondaV1) inside the same read transaction as `leer()`
+            // (AD-9): EntradaRondaFactory walks lazy collections (Donacion.lineas,
+            // Necesidad.articulos) that need an open Hibernate session. The HTTP call to the worker
+            // still happens outside any transaction, below, per AD-9's intent.
+            LecturaConEntrada lecturaConEntrada = transactionTemplate.execute(status -> {
+                Lectura l = leer();
+                EntradaRondaV1 e = entradaRondaFactory.crear(l.pool(), l.candidatas(),
+                        l.diasDesdeUltimaDonacionPorOrganizacion(), l.organizacionesExcluidasPorDonacion(),
+                        LocalDate.now(clock));
+                return new LecturaConEntrada(l, e);
+            });
+            Lectura lectura = lecturaConEntrada.lectura();
 
             SalidaRondaV1 salida;
             try {
-                salida = asignadorClient.ejecutar(entradaRondaFactory.crear(
-                        lectura.pool(), lectura.candidatas(), lectura.diasDesdeUltimaDonacionPorOrganizacion(),
-                        lectura.organizacionesExcluidasPorDonacion(), LocalDate.now(clock)));
+                salida = asignadorClient.ejecutar(lecturaConEntrada.entrada());
             } catch (AsignadorNoDisponibleException e) {
                 transactionTemplate.executeWithoutResult(status ->
                         persistirFallida(adminId, lectura, "WORKER_NO_DISPONIBLE"));
@@ -297,6 +306,9 @@ public class RondaService {
         asignacion.setDeficitFuente(a.getDeficitFuente());
         asignacion.setCodigoRadio(a.getCodigoRadio());
         return asignacion;
+    }
+
+    private record LecturaConEntrada(Lectura lectura, EntradaRondaV1 entrada) {
     }
 
     private record Lectura(List<Donacion> pool,

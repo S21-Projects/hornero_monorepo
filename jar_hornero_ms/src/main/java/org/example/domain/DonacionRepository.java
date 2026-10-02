@@ -19,9 +19,15 @@ public interface DonacionRepository extends JpaRepository<Donacion, Long> {
 
     /**
      * Unassigned pool donations at ronda-trigger time (AD-9): {@code FONDO_COMUN}, still
-     * {@code OFRECIDA}, {@code necesidad IS NULL}.
+     * {@code OFRECIDA}, {@code necesidad IS NULL}. {@code LEFT JOIN FETCH d.lineas} avoids an N+1
+     * against {@code donacion_lineas} when {@code EntradaRondaFactory} walks each donación's
+     * articulo ids inside the same read transaction (feature catalogo-articulos); {@code DISTINCT}
+     * dedupes the parent row fan-out from that one-to-many fetch.
      */
-    List<Donacion> findByModalidadAndEstadoAndNecesidadIsNull(ModalidadDonacion modalidad, EstadoDonacion estado);
+    @Query("SELECT DISTINCT d FROM Donacion d LEFT JOIN FETCH d.lineas "
+            + "WHERE d.modalidad = :modalidad AND d.estado = :estado AND d.necesidad IS NULL")
+    List<Donacion> findByModalidadAndEstadoAndNecesidadIsNull(@Param("modalidad") ModalidadDonacion modalidad,
+                                                                @Param("estado") EstadoDonacion estado);
 
     /**
      * `diasDesdeUltimaDonacion` input (AD-9): latest {@code fechaOferta} of any donation — direct or
