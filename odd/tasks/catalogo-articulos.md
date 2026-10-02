@@ -369,7 +369,9 @@ worker, then ronda wiring, then BFF, then admin UI, then seeds/reset, then docs.
 
 ### Work unit G — Admin SPA: donation form line-editor
 
-- **C11** — Replace/augment `nueva-donacion.tsx`'s single free-text flow with a repeatable
+- [x] **C11** — DONE 2026-10-01: already landed in the prior session (not this pass) — `nueva-donacion.tsx`/`LineaArticuloEditor`/`useCrearDonacion` committed before this resume began.
+
+- **C11 (original task text)** — Replace/augment `nueva-donacion.tsx`'s single free-text flow with a repeatable
   articulo-line editor (select articulo from `useArticulos`, enter `cantidad`, add/remove rows;
   `categoria` is now a read-only derived display, not a field the donante picks — remove the
   manual `categoria` `<select>` currently there for FONDO_COMUN). Update `useCrearDonacion` to
@@ -383,7 +385,21 @@ worker, then ronda wiring, then BFF, then admin UI, then seeds/reset, then docs.
     existing modalidad-branching logic — treat as a non-trivial rewrite, not mechanical).
   - Est. ~300 lines.
 
-- **C12** — Update `donacion-detalle.tsx` and `mis-donaciones.tsx` to render the donación's lines
+- [x] **C12** — DONE 2026-10-01: `necesidad-detalle.test.tsx` (5/5, RED→GREEN, DIRECTA flow
+  using `LineaArticuloEditor` restricted to the necesidad's requested articulos, friendly
+  `mapDonacionError` message on `ARTICULO_INCOMPATIBLE`); new `formatLineas` helper
+  (`lib/format.ts`, `lib/format.test.ts`, 4/4 RED→GREEN) renders a compact "5 kg Arroz, 6
+  paquetes Fideos" summary, wired into `mis-donaciones.tsx`, `donacion-detalle.tsx`,
+  `control-donaciones.tsx` (new "Artículos" column) and `dashboard.tsx`'s referente
+  accionable/entrega rows — each with a new RED→GREEN test case. Full admin suite 396/396,
+  `npm run build` green, `tsc -b` clean (the two pre-existing failures in `necesidad-detalle.tsx`
+  and `needs.tsx` are gone). Files: `routes/necesidad-detalle.tsx` (+header badge list of
+  requested articulos), `routes/necesidad-detalle.test.tsx`, `routes/mis-donaciones.tsx`,
+  `routes/mis-donaciones.test.tsx`, `routes/donacion-detalle.tsx`, `routes/donacion-detalle.test.tsx`,
+  `routes/control-donaciones.tsx`, `routes/control-donaciones.test.tsx`, `routes/dashboard.tsx`,
+  `routes/dashboard.test.tsx`, `lib/format.ts`, `lib/format.test.ts`.
+
+- **C12 (original task text)** — Update `donacion-detalle.tsx` and `mis-donaciones.tsx` to render the donación's lines
   (articulo nombre + cantidad + unidad) instead of/alongside free-text `observaciones`.
   - Files: `ts_hornero_admin/src/routes/donacion-detalle.tsx`,
     `ts_hornero_admin/src/routes/mis-donaciones.tsx`.
@@ -395,7 +411,24 @@ worker, then ronda wiring, then BFF, then admin UI, then seeds/reset, then docs.
 
 ### Work unit H — Admin SPA: necesidad create/edit articulo picker
 
-- **C13** — Add an articulo multi-select to the necesidad create/edit flow (find the
+- [x] **C13** — DONE 2026-10-01: new `ArticuloPicker` component (`components/necesidad/`,
+  `ArticuloPicker.test.tsx` 5/5 RED→GREEN) — checkbox multi-select grouped by categoría with a
+  derived-categoría badge (same `masExigente` rule as the donación línea editor) — wired into
+  `needs.tsx`'s `CreateForm`/`EditForm` (confirmed exact location: `needs.tsx` is both the
+  referente's necesidad list and its in-page create/edit flow, no separate route). Requires ≥1
+  articulo before submit (`needs.test.tsx`, 2/2 RED→GREEN: rejects empty selection with a field
+  error, submits `articuloIds`). Requested articulos now also shown: `needs.tsx`'s list rows,
+  `necesidad-detalle.tsx`'s header (badge list), and `explorar.tsx`'s donante-facing browse cards
+  (new `explorar.test.tsx`, 1/1 RED→GREEN). `useCrearNecesidad`/`useActualizarNecesidad` needed
+  no changes — their `CrearNecesidadInput`/`ActualizarNecesidadInput` types already carried
+  `articuloIds` from work unit E (C9). Files: `components/necesidad/ArticuloPicker.tsx` (new),
+  `components/necesidad/ArticuloPicker.test.tsx` (new), `routes/needs.tsx`, `routes/needs.test.tsx`
+  (new), `routes/necesidad-detalle.tsx`, `routes/explorar.tsx`, `routes/explorar.test.tsx` (new).
+  Astro: `ts_hornero_astro/src/lib/types.ts` gained `NecesidadArticulo`/`Necesidad.articulos`;
+  `components/islands/NeedsBoard.tsx` and `pages/org/[slug].astro` render requested articulos as
+  pills — verified via `npm run build` (green, no test runner in this service).
+
+- **C13 (original task text)** — Add an articulo multi-select to the necesidad create/edit flow (find the
   create/edit form — likely inline in `necesidad-detalle.tsx` or a dedicated route reachable from
   it; confirm exact file via `useCrearNecesidad`/`useActualizarNecesidad` call sites during this
   task), replacing the current free-text-only + no-categoria-input flow with: pick N articulos
@@ -563,6 +596,13 @@ worker, then ronda wiring, then BFF, then admin UI, then seeds/reset, then docs.
   184/184, `npm run build` green. ~617 changed lines (94 diff + 523 new files across 10 files —
   slightly over the ~500-line work-unit heuristic, not split further since it is one coherent
   module + its 3 dependent DTO updates). Not yet done: work units F-J (admin SPA, seeds, docs).
+- 2026-10-01: Work unit G's remaining scope (C12) and work unit H (C13) implemented under strict
+  TDD, no `git` mutation performed by this worker (resumed from an interrupted prior pass that
+  had left `necesidad-detalle.tsx` partially edited and `tsc -b` failing in two places — both
+  fixed as the first seam). Full admin suite 396/396, `npm run build` (tsc -b + vite build)
+  green, `eslint` clean on every touched file; `ts_hornero_astro`'s `npm run build` green (no
+  test runner there). See each task's evidence note above for the full file list. Not yet done:
+  work units I-J (seeds, docs).
 
 **Estimated total: ~18 tasks, 10 work units, ~3,480 changed lines** (sum of per-task estimates;
 heuristic only, not a hard cap — several units will need the chosen delivery/chain strategy
