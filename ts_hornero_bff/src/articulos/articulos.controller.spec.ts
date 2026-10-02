@@ -13,6 +13,7 @@ describe('ArticulosController', () => {
     crear: jest.Mock;
     actualizar: jest.Mock;
     desactivar: jest.Mock;
+    reactivar: jest.Mock;
   };
 
   const requestWithToken = (token?: string) =>
@@ -24,6 +25,7 @@ describe('ArticulosController', () => {
       crear: jest.fn(),
       actualizar: jest.fn(),
       desactivar: jest.fn(),
+      reactivar: jest.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -129,6 +131,25 @@ describe('ArticulosController', () => {
       );
 
       expect(service.desactivar).toHaveBeenCalledWith(1, 'token-123');
+      expect(result).toBe(articulo);
+    });
+  });
+
+  describe('reactivar', () => {
+    it('is restricted to ADMINISTRADOR', () => {
+      expect(rolesOf('reactivar')).toEqual([Role.ADMINISTRADOR]);
+    });
+
+    it('reads the access_token cookie and forwards id to the service', async () => {
+      const articulo = { id: 1, activo: true };
+      service.reactivar.mockResolvedValue(articulo);
+
+      const result = await controller.reactivar(
+        1,
+        requestWithToken('token-123'),
+      );
+
+      expect(service.reactivar).toHaveBeenCalledWith(1, 'token-123');
       expect(result).toBe(articulo);
     });
   });

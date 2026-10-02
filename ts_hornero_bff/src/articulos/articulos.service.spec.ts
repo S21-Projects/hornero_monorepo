@@ -115,4 +115,20 @@ describe('ArticulosService', () => {
       expect(result).toEqual(data);
     });
   });
+
+  describe('reactivar', () => {
+    it('forwards the Bearer header to the MS reactivate endpoint', async () => {
+      const data = { id: 1, activo: true };
+      httpService.axiosRef.patch.mockResolvedValue({ data });
+
+      const result = await service.reactivar(1, 'token-123');
+
+      expect(httpService.axiosRef.patch).toHaveBeenCalledWith(
+        'http://ms:8081/api/articulos/1/reactivar',
+        {},
+        { headers: { Authorization: 'Bearer token-123' } },
+      );
+      expect(result).toEqual(data);
+    });
+  });
 });

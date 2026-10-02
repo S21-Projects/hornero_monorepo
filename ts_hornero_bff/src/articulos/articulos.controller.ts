@@ -72,4 +72,14 @@ export class ArticulosController {
   desactivar(@Param('id', ParseIntPipe) id: number, @Req() req: Request) {
     return this.articulosService.desactivar(id, this.getToken(req));
   }
+
+  @Roles(Role.ADMINISTRADOR)
+  @Patch(':id/reactivar')
+  @ApiOperation({
+    summary:
+      'Reactivate a previously deactivated catalog item (ADMINISTRADOR only)',
+  })
+  reactivar(@Param('id', ParseIntPipe) id: number, @Req() req: Request) {
+    return this.articulosService.reactivar(id, this.getToken(req));
+  }
 }
