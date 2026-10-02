@@ -1,3 +1,6 @@
+import { UNIDAD_ARTICULO } from './domain-ui';
+import type { DonacionLinea } from '../types/domain';
+
 /**
  * Formats an ISO date string (YYYY-MM-DD) as DD/MM/YYYY (es-AR calendar format).
  *
@@ -23,4 +26,22 @@ export function formatFecha(iso?: string): string {
   const mm = String(date.getMonth() + 1).padStart(2, '0');
   const yyyy = String(date.getFullYear());
   return `${dd}/${mm}/${yyyy}`;
+}
+
+/**
+ * Compact one-line summary of a donación's articulo lines (feature catalogo-articulos, work
+ * unit G) — e.g. "5 kg Arroz, 6 paquetes Fideos". `KG`/`LITRO` stay invariant; `PAQUETE`/`UNIDAD`
+ * pluralize when `cantidad !== 1`. Returns "—" for an undefined/empty list (pre-catalog
+ * donación or one that genuinely carries no lines).
+ */
+export function formatLineas(lineas?: DonacionLinea[]): string {
+  if (!lineas || lineas.length === 0) return '—';
+  return lineas
+    .map((l) => {
+      const base = UNIDAD_ARTICULO[l.unidad] ?? l.unidad;
+      const invariable = l.unidad === 'KG' || l.unidad === 'LITRO';
+      const unidad = invariable || l.cantidad === 1 ? base : `${base}s`;
+      return `${l.cantidad} ${unidad} ${l.nombre}`;
+    })
+    .join(', ');
 }

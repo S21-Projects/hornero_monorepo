@@ -1,26 +1,34 @@
 import { describe, it, expect } from 'vitest';
-import { formatFecha } from './format';
+import { formatLineas } from './format';
+import type { DonacionLinea } from '../types/domain';
 
-describe('formatFecha', () => {
-  it('formats a mid-year date as DD/MM/YYYY', () => {
-    expect(formatFecha('2025-03-15')).toBe('15/03/2025');
+// Work unit G (feature catalogo-articulos): a compact one-line summary of a donación's
+// articulo lines, used by mis-donaciones/donacion-detalle/control-donaciones/dashboard.
+describe('formatLineas', () => {
+  it('returns — for an undefined or empty list', () => {
+    expect(formatLineas(undefined)).toBe('—');
+    expect(formatLineas([])).toBe('—');
   });
 
-  it('formats New Year date without UTC off-by-one', () => {
-    // new Date("2025-01-01") in UTC-3 would give 2024-12-31.
-    // formatFecha must parse as local calendar date.
-    expect(formatFecha('2025-01-01')).toBe('01/01/2025');
+  it('formats a single línea with its unit', () => {
+    const lineas: DonacionLinea[] = [
+      { articuloId: 1, nombre: 'Arroz', unidad: 'KG', cantidad: 5 },
+    ];
+    expect(formatLineas(lineas)).toBe('5 kg Arroz');
   });
 
-  it('returns "—" for undefined', () => {
-    expect(formatFecha(undefined)).toBe('—');
+  it('pluralizes paquete/unidad units and joins multiple lines with a comma', () => {
+    const lineas: DonacionLinea[] = [
+      { articuloId: 1, nombre: 'Arroz', unidad: 'KG', cantidad: 5 },
+      { articuloId: 2, nombre: 'Fideos', unidad: 'PAQUETE', cantidad: 6 },
+    ];
+    expect(formatLineas(lineas)).toBe('5 kg Arroz, 6 paquetes Fideos');
   });
 
-  it('returns "—" for empty string', () => {
-    expect(formatFecha('')).toBe('—');
-  });
-
-  it('pads single-digit day and month', () => {
-    expect(formatFecha('2024-06-05')).toBe('05/06/2024');
+  it('keeps a singular paquete when cantidad is 1', () => {
+    const lineas: DonacionLinea[] = [
+      { articuloId: 1, nombre: 'Fideos', unidad: 'PAQUETE', cantidad: 1 },
+    ];
+    expect(formatLineas(lineas)).toBe('1 paquete Fideos');
   });
 });
