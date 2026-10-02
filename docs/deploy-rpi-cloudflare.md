@@ -117,6 +117,60 @@ donaciones `DIRECTA` funcionan normalmente — el `EsquemaVerificador` interno d
 todavía `NOT NULL` y hace que crear una donación `FONDO_COMUN` responda `503 ESQUEMA_PENDIENTE`
 en vez de romper con un 500 de violación de constraint.
 
+### A.3-ter — Limpieza de datos pre-catálogo (feature catalogo-articulos)
+
+La feature `catalogo-articulos` agrega artículos (`Articulo`), líneas de donación
+(`DonacionLinea`) y artículos de necesidad (`NecesidadArticulo`) al dominio. Los datos que
+hoy viven en la DB de producción de la Pi son de prueba, no reales (decisión 1 del documento de
+la feature), y quedaron creados **antes** de este cambio: ninguna necesidad ni donación vieja
+tiene artículos/líneas asociados. Esta limpieza es **una acción manual del operador**, nunca
+ejecutada por el agente — el agente sólo documenta el procedimiento.
+
+**Esto borra toda la base** (usuarios, organizaciones, necesidades, donaciones — todo), así que
+sólo corresponde hacerla mientras la Pi no tenga datos reales de usuarios/organizaciones. Si en
+algún momento la Pi pasa a tener datos reales, esta opción deja de ser válida y hay que escribir
+un script de migración/backfill en su lugar (similar a `scripts/sql/`), no recrear el volumen.
+
+Pasos, a correr por SSH en la Pi, desde la carpeta del repo:
+
+1. **Backup primero, sin excepción.**
+   ```bash
+   make backup
+   ```
+   Deja un `.sql.gz` en `backups/` con timestamp — conservarlo hasta confirmar que el reseed
+   salió bien.
+
+2. **Confirmar el nombre exacto del volumen de Postgres** (depende del nombre del proyecto
+   compose, normalmente el nombre de la carpeta del repo en la Pi):
+   ```bash
+   docker volume ls | grep pgdata
+   ```
+   En este repo el volumen se declara como `hornero_pgdata` en `docker-compose.yml`, así que
+   Docker Compose lo nombra `<nombre-del-proyecto>_hornero_pgdata` (p. ej. `hornero_app_hornero_pgdata`
+   si la carpeta se llama `hornero_app`). Usar el nombre que devuelva el comando anterior, no
+   adivinarlo.
+
+3. **Bajar los contenedores y borrar el volumen** (paso destructivo — requiere confirmación
+   explícita del operador antes de correrlo; no automatizar):
+   ```bash
+   docker compose down
+   docker volume rm <nombre-exacto-del-volumen-del-paso-2>
+   ```
+
+4. **Levantar de nuevo** — Hibernate recrea el esquema (`ddl-auto=update`) y `DataInitializer`
+   reseedea desde cero, ya con artículos coherentes en cada necesidad/donación seedeada:
+   ```bash
+   docker compose up --build -d
+   ```
+
+5. **Verificar** que el reseed incluyó artículos (`GET /api/articulos`, `GET /api/necesidades`,
+   `GET /api/donaciones` deben traer artículos/líneas en cada registro), y que el sitio público
+   vuelve a mostrar datos.
+
+**Rollback**: si algo sale mal, restaurar el `.sql.gz` del paso 1 con `gunzip` + `psql` (mismo
+patrón que `scripts/sql/README.md`'s "Back up first" / restore manual) contra el volumen recién
+recreado, antes de levantar el MS.
+
 ### A.4 — Levantar (en la Pi)
 
 El túnel ya corre aparte como servicio systemd, así que el stack se levanta sin

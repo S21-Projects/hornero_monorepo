@@ -467,6 +467,7 @@ worker, then ronda wiring, then BFF, then admin UI, then seeds/reset, then docs.
     every necesidad/donación literal in the file — ~190 lines already there, touching most of
     it — treat as non-trivial, not mechanical).
   - Est. ~250 lines changed.
+  - **Done (2026-10-01)** — see Progress entry below for the full RED→GREEN/file-list evidence.
 
 - **C15** — `scripts/seed.ts`: it currently seeds only referentes + orgs (no necesidades/
   donaciones at all — confirmed by reading the full file). Decision says seeds "must produce
@@ -486,6 +487,8 @@ worker, then ronda wiring, then BFF, then admin UI, then seeds/reset, then docs.
   - Route: inline if outcome is (b) (doc note only), delegated if outcome is (a) (new fetch
     logic + id resolution, non-trivial).
   - Est. ~0-120 lines (depends on (a) vs (b)).
+  - **Done (2026-10-01)** — outcome (b): confirmed (again) that the script has no
+    necesidad/donación phase; added a scope-note comment only, no behavior change.
 
 - **C16** — **USER ACTION — local DB reset.** After C1-C15 land, the local Postgres volume holds
   pre-catalog data (necesidades/donaciones without lines, per decision 1 "not real, clean it").
@@ -500,6 +503,11 @@ worker, then ronda wiring, then BFF, then admin UI, then seeds/reset, then docs.
     `GET /articulos`) that every necesidad has articulos.
   - Route: inline (operational command, user-confirmed).
   - Est. 0 lines (unless a doc note is added, then ~10 lines, folded into C17).
+  - **Done (doc only, 2026-10-01)**: the exact command sequence is written in
+    `docs/deploy-rpi-cloudflare.md`'s new "A.3-ter — Limpieza de datos pre-catálogo" section (same
+    procedure applies locally: `make backup`, confirm volume name, `docker compose down`,
+    `docker volume rm <volume>`, `docker compose up --build -d`). **Not executed by this worker —
+    USER ACTION, pending explicit user confirmation.**
 
 - **C17** — **USER ACTION — Pi DB cleanup.** Per decision 1, production (Raspberry Pi) DB
   cleanup is explicitly the user's own action, never performed by the agent. Deliverable for this
@@ -516,6 +524,28 @@ worker, then ronda wiring, then BFF, then admin UI, then seeds/reset, then docs.
   - Route: inline (one doc file, mechanical once the backup command is copied from the existing
     convention).
   - Est. ~40 lines.
+  - **Done (doc only, 2026-10-01)**: written as `docs/deploy-rpi-cloudflare.md`'s "A.3-ter —
+    Limpieza de datos pre-catálogo" subsection (chosen over `docs/db-changes.md` — that file's
+    convention is schema `ALTER`s with a Before/After/Rollback template, not a full-DB
+    backup-and-recreate runbook; this is an operational step, which `deploy-rpi-cloudflare.md`
+    already hosts under "Parte A — Pasos manuales"). Gives `pg_dump`-based backup first
+    (`make backup`), the exact volume-name lookup (`docker volume ls | grep pgdata`, since the
+    actual Compose-prefixed name depends on the Pi's project directory name), then the
+    destructive `docker compose down` + `docker volume rm` + `docker compose up --build -d`
+    sequence, explicitly gated on "no real data yet" and never run by the agent.
+
+### Work unit K — Orchestrator follow-up: articulo reactivar (not in the original C1-C18 list)
+
+- **C19** — Decision 3 gave `ADMINISTRADOR` create/edit/deactivate on `articulo`, but no way back
+  from deactivated — added as a direct orchestrator follow-up, not from the original decisions.
+  `PATCH /api/articulos/{id}/reactivar` (MS, ADMINISTRADOR), BFF `PATCH articulos/:id/reactivar`
+  (`@Roles(ADMINISTRADOR)`), admin `catalogo.tsx` "Reactivar" button on inactive rows via a new
+  `useReactivarArticulo` hook.
+  - Files: `jar_hornero_ms/src/main/java/org/example/articulo/ArticuloController.java`,
+    `ArticuloService.java` + their tests; `ts_hornero_bff/src/articulos/articulos.controller.ts`,
+    `articulos.service.ts` + their specs; `ts_hornero_admin/src/lib/hooks/useArticulos.ts`,
+    `src/routes/catalogo.tsx` + their tests.
+  - **Done (2026-10-01)** — see Progress entry below for full RED→GREEN evidence per layer.
 
 ### Work unit J — Thesis doc touch-up
 
@@ -603,6 +633,48 @@ worker, then ronda wiring, then BFF, then admin UI, then seeds/reset, then docs.
   green, `eslint` clean on every touched file; `ts_hornero_astro`'s `npm run build` green (no
   test runner there). See each task's evidence note above for the full file list. Not yet done:
   work units I-J (seeds, docs).
+- 2026-10-01: Work unit I's code part (C14) implemented under strict TDD, no `git` mutation
+  performed by this worker. `DataInitializer.seedNecesidades()`/`seedDonaciones()` rewritten:
+  every seeded necesidad now carries 1-2 `NecesidadArticulo`s and a derived categoria (the old
+  non-food placeholders — "Útiles escolares", "Ropa de invierno", "Mesas y sillas", "Bolsas para
+  clasificar ropa", "Perchas y estantes", "Utensilios de cocina" — were rewritten to food
+  descriptions coherent with their org, since every `Necesidad.categoria` is a
+  `CategoriaAlimento` and the platform's necesidades are always food); every seeded donación now
+  carries 1-2 `DonacionLinea`s and a derived categoria, each sharing at least one articulo with
+  its target necesidad (mirrors the `DonacionService.crear` DIRECTA-compatibility rule even
+  though the seed bypasses the service layer). `DataInitializerArticuloSeedTest` gained two new
+  tests (`everySeededNecesidad_hasAtLeastOneArticulo_...`, `everySeededDonacion_hasAtLeastOneLinea_...`)
+  — RED confirmed (LazyInitializationException until `@Transactional` was added to the test
+  class, then a real assertion failure against the unmodified seed) before the `DataInitializer`
+  rewrite turned them GREEN. **C15 resolved as outcome (b)**: read the full `scripts/seed.ts` —
+  it seeds only referentes + orgs, no necesidad/donación phase before or after this feature — so
+  no code change was needed there; added a scope-note doc comment at the top of the file instead
+  of inventing a new phase. **C16/C17 (USER ACTION, local + Pi DB reset) were documented, never
+  executed**: a new "Limpieza de datos pre-catálogo" subsection (A.3-ter) was added to
+  `docs/deploy-rpi-cloudflare.md` giving the Pi operator the exact backup-then-recreate-volume
+  procedure (`make backup`, confirm the exact volume name via `docker volume ls`, `docker compose
+  down`, `docker volume rm <volume>`, `docker compose up --build -d`), explicitly gated on "no
+  real data yet" and requiring the operator's own confirmation before the destructive step; the
+  local reset (C16) is the same procedure against the dev stack and is likewise left to the user
+  to run, not executed by this worker. Full MS suite: 483/483 passing.
+- 2026-10-01: Orchestrator follow-up (articulo reactivar) implemented under strict TDD, no `git`
+  mutation performed by this worker. New `PATCH /api/articulos/{id}/reactivar`
+  (`ArticuloService.reactivar`/`ArticuloController.reactivar`, ADMINISTRADOR-only — reuses the
+  existing `/api/articulos/**` ADMINISTRADOR matcher in `SecurityConfig`, no security config
+  change needed); BFF `PATCH articulos/:id/reactivar` (`ArticulosService.reactivar`/
+  `ArticulosController.reactivar`, `@Roles(ADMINISTRADOR)`); admin `catalogo.tsx` now renders a
+  "Reactivar" button in place of the Editar/Desactivar pair for inactive rows, wired to the new
+  `useReactivarArticulo` hook in `useArticulos.ts`. RED confirmed at every layer (MS: compile
+  failure on the missing `reactivar` method, then a 404 on the new route before the controller
+  method existed; BFF: `TypeError: ... is not a function` on both controller and service specs;
+  admin: `useReactivarArticulo is not a function` / missing "Reactivar" button in the DOM) before
+  each GREEN implementation. Full suites: MS 483/483, BFF 187/187, admin 398/398; admin
+  `npm run build` (tsc -b + vite build) and BFF `nest build` both green; `eslint` clean on every
+  touched admin file; BFF's touched files show only pre-existing `@typescript-eslint/no-unsafe-*`
+  debt already present on every other method in the same two files before this change (confirmed
+  via `git stash` diff — this change adds no new lint rule violations, only more instances of the
+  same pre-existing pattern) after one prettier auto-fix on a line-wrap in `articulos.controller.ts`.
+  Not yet done: work unit J (C18, thesis doc touch-up).
 
 **Estimated total: ~18 tasks, 10 work units, ~3,480 changed lines** (sum of per-task estimates;
 heuristic only, not a hard cap — several units will need the chosen delivery/chain strategy
