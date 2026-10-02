@@ -100,6 +100,28 @@ class ArticuloServiceTest {
     }
 
     @Test
+    void reactivar_setsActivoTrue() {
+        Articulo existing = articulo(1L, "Arroz", false);
+        when(articuloRepository.findById(1L)).thenReturn(Optional.of(existing));
+        when(articuloRepository.save(any(Articulo.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        ArticuloResponse response = articuloService.reactivar(1L);
+
+        assertThat(response.activo()).isTrue();
+        assertThat(existing.isActivo()).isTrue();
+        verify(articuloRepository).save(existing);
+    }
+
+    @Test
+    void reactivar_unknownId_throwsNotFound() {
+        when(articuloRepository.findById(99L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> articuloService.reactivar(99L))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("404");
+    }
+
+    @Test
     void listar_sinIncluirInactivos_devuelveSoloActivos() {
         when(articuloRepository.findByActivoTrue())
                 .thenReturn(List.of(articulo(1L, "Arroz", true)));

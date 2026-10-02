@@ -62,4 +62,11 @@ public class ArticuloController {
     public ArticuloResponse desactivar(@PathVariable Long id) {
         return articuloService.desactivar(id);
     }
+
+    @Operation(summary = "Reactivate a previously deactivated catalog item")
+    @PatchMapping("/{id}/reactivar")
+    @PreAuthorize("hasRole('ADMINISTRADOR')")
+    public ArticuloResponse reactivar(@PathVariable Long id) {
+        return articuloService.reactivar(id);
+    }
 }

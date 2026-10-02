@@ -132,4 +132,24 @@ class ArticuloControllerSecurityTest {
                         .with(authentication(auth(1L, "ADMINISTRADOR"))))
                 .andExpect(status().isOk());
     }
+
+    @Test
+    void patchReactivar_anonymous_isForbidden() throws Exception {
+        mockMvc.perform(patch("/api/articulos/1/reactivar"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void patchReactivar_referente_isForbidden() throws Exception {
+        mockMvc.perform(patch("/api/articulos/1/reactivar")
+                        .with(authentication(auth(1L, "REFERENTE"))))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void patchReactivar_administrador_isOk() throws Exception {
+        mockMvc.perform(patch("/api/articulos/1/reactivar")
+                        .with(authentication(auth(1L, "ADMINISTRADOR"))))
+                .andExpect(status().isOk());
+    }
 }
