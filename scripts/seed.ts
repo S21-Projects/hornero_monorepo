@@ -6,6 +6,13 @@
  * Config via environment variables:
  *   BFF_URL      — default http://localhost:3001
  *   SEED_COUNT   — default 3 (max 5)
+ *
+ * Scope note (feature catalogo-articulos, C15): this script seeds only referentes + orgs — it has
+ * no necesidad/donación phase at all, before or after this feature. The articulo-coherent
+ * necesidad/donación seed (every necesidad with ≥1 articulo, every donación with ≥1 línea, both
+ * deriving their categoria) is `jar_hornero_ms`'s `DataInitializer` job, not this script's;
+ * running `make seed` against a stack whose MS already booted (and ran `DataInitializer`) just
+ * adds more orgs on top of that seed. Scope intentionally left unchanged here.
  */
 
 const BFF_URL = process.env.BFF_URL ?? 'http://localhost:3001';
