@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { useNecesidades } from '../lib/hooks/useNecesidades';
 import { useOrgNombre } from '../lib/hooks/useOrgNombre';
 import { usePageClamp } from '../lib/hooks/usePageClamp';
-import { PRIORIDAD, FALLBACK_BADGE } from '../lib/domain-ui';
+import { PRIORIDAD, CATEGORIA_ALIMENTO, UNIDAD_ARTICULO, FALLBACK_BADGE } from '../lib/domain-ui';
 import { formatFecha } from '../lib/format';
 import { AsyncSection } from '../components/AsyncSection';
 import { Badge } from '../components/Badge';
@@ -53,6 +53,17 @@ export default function ExplorarPage() {
                   <Text variant="caption" color="ink-3" style={{ marginBottom: 12 }}>
                     Vence: {formatFecha(n.fechaVencimiento)}
                   </Text>
+                )}
+                {n.articulos && n.articulos.length > 0 && (
+                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 12 }}>
+                    {n.articulos.map((a) => (
+                      <Badge
+                        key={a.id}
+                        tone={CATEGORIA_ALIMENTO[a.categoria]?.tone ?? 'neutral'}
+                        label={`${a.nombre} (${UNIDAD_ARTICULO[a.unidad]})`}
+                      />
+                    ))}
+                  </div>
                 )}
                 <div>
                   <Link

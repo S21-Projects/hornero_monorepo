@@ -10,6 +10,7 @@ import { useCrearNecesidad } from '../lib/hooks/useCrearNecesidad';
 import { useActualizarNecesidad } from '../lib/hooks/useActualizarNecesidad';
 import { useEliminarNecesidad } from '../lib/hooks/useEliminarNecesidad';
 import { mapNecesidadError } from '../lib/hooks/mapNecesidadError';
+import { ArticuloPicker } from '../components/necesidad/ArticuloPicker';
 import { usePageClamp } from '../lib/hooks/usePageClamp';
 import { PRIORIDAD, ESTADO_NECESIDAD, FALLBACK_BADGE } from '../lib/domain-ui';
 import { formatFecha } from '../lib/format';
@@ -31,6 +32,7 @@ function CreateForm({ orgId, onSuccess, onCancel }: CreateFormProps) {
   const [descripcion, setDescripcion] = useState('');
   const [prioridad, setPrioridad] = useState<PrioridadNecesidad | ''>('');
   const [fechaVencimiento, setFechaVencimiento] = useState('');
+  const [articuloIds, setArticuloIds] = useState<number[]>([]);
   const [fieldError, setFieldError] = useState('');
 
   const crearMutation = useCrearNecesidad(orgId);
@@ -45,12 +47,17 @@ function CreateForm({ orgId, onSuccess, onCancel }: CreateFormProps) {
       setFieldError('La prioridad es obligatoria.');
       return;
     }
+    if (articuloIds.length === 0) {
+      setFieldError('Elegí al menos un artículo.');
+      return;
+    }
     setFieldError('');
     try {
       await crearMutation.mutateAsync({
         descripcion: descripcion.trim(),
         prioridad,
         fechaVencimiento: fechaVencimiento || undefined,
+        articuloIds,
       });
       onSuccess();
     } catch (err) {
@@ -100,6 +107,11 @@ function CreateForm({ orgId, onSuccess, onCancel }: CreateFormProps) {
         />
       </label>
 
+      <div>
+        <Text variant="label" style={{ display: 'block', marginBottom: 4 }}>Artículos solicitados *</Text>
+        <ArticuloPicker selectedIds={articuloIds} onChange={setArticuloIds} />
+      </div>
+
       {fieldError && (
         <Text variant="body" color="urgent">{fieldError}</Text>
       )}
@@ -134,11 +146,20 @@ function EditForm({ need, orgId, onSuccess, onCancel }: EditFormProps) {
   const [prioridad, setPrioridad] = useState<PrioridadNecesidad>(need.prioridad);
   const [estado, setEstado] = useState<EstadoNecesidad>(need.estado);
   const [fechaVencimiento, setFechaVencimiento] = useState(need.fechaVencimiento ?? '');
+  const [articuloIds, setArticuloIds] = useState<number[]>(
+    need.articulos?.map((a) => a.id) ?? [],
+  );
+  const [fieldError, setFieldError] = useState('');
 
   const actualizarMutation = useActualizarNecesidad(orgId);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (articuloIds.length === 0) {
+      setFieldError('Elegí al menos un artículo.');
+      return;
+    }
+    setFieldError('');
     try {
       await actualizarMutation.mutateAsync({
         id: need.id,
@@ -146,6 +167,7 @@ function EditForm({ need, orgId, onSuccess, onCancel }: EditFormProps) {
         prioridad,
         estado,
         fechaVencimiento: fechaVencimiento || undefined,
+        articuloIds,
       });
       onSuccess();
     } catch (err) {
@@ -207,6 +229,14 @@ function EditForm({ need, orgId, onSuccess, onCancel }: EditFormProps) {
         />
       </label>
 
+      <div>
+        <Text variant="label" style={{ display: 'block', marginBottom: 4 }}>Artículos solicitados *</Text>
+        <ArticuloPicker selectedIds={articuloIds} onChange={setArticuloIds} />
+      </div>
+
+      {fieldError && (
+        <Text variant="body" color="urgent">{fieldError}</Text>
+      )}
       {mutationError && (
         <Text variant="body" color="urgent">{mutationError}</Text>
       )}
@@ -381,6 +411,11 @@ export default function NeedsPage() {
                       </Text>
                     )}
                   </div>
+                  {need.articulos && need.articulos.length > 0 && (
+                    <Text variant="caption" color="ink-3">
+                      Artículos: {need.articulos.map((a) => a.nombre).join(', ')}
+                    </Text>
+                  )}
                 </div>
 
                 <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
