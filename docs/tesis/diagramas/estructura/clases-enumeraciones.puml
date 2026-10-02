@@ -1,0 +1,134 @@
+@startuml
+skinparam shadowing false
+skinparam linetype ortho
+skinparam defaultFontName Helvetica
+skinparam defaultFontSize 12
+skinparam class {
+  BackgroundColor #FFFFFF
+  BorderColor #444444
+  ArrowColor #444444
+}
+hide empty members
+
+enum NivelAcreditacion {
+  N0 : REGISTRADA
+  N1 : IDENTIFICADA
+  N2 : OPERATIVA
+  N3 : ACREDITADA
+}
+enum RequisitoAcreditacion {
+  SERVICIO_REGULAR_GRATUITO
+  NO_DISCRIMINACION
+  SEDE_INSCRIPTA_INDIVIDUALMENTE
+  CONDICIONES_SANITARIAS_ADECUADAS
+  SIN_KIOSCO_MISMO_DOMICILIO
+  RADIO_50KM_BANCO_ALIMENTOS
+  PERSONERIA_JURIDICA_O_AVAL
+  ACEPTA_AUDITORIAS_SIN_AVISO
+  --
+  - nivelExigido : NivelAcreditacion
+}
+enum EstadoEvidencia {
+  PENDIENTE
+  APROBADA
+  OBSERVADA
+  REEMPLAZADA
+}
+enum TipoEvidencia {
+  DECLARACION
+  FOTO
+  DOCUMENTO
+}
+enum TipoEventoOrganizacion {
+  MIGRACION_INICIAL
+  ORGANIZACION_REGISTRADA
+  REGISTRO_RECHAZADO
+  EVIDENCIA_ADJUNTADA
+  EVIDENCIA_REEMPLAZADA
+  REQUISITO_APROBADO
+  REQUISITO_OBSERVADO
+  NIVEL_ELEVADO
+  NIVEL_REDUCIDO
+  REFERENTE_REASIGNADO
+}
+enum CategoriaAlimento {
+  NO_PERECEDERO
+  REFRIGERADO
+  CONGELADO
+  --
+  - nivelMinimo : NivelAcreditacion
+  --
+  + {static} masExigente(categorias : Collection<CategoriaAlimento>) : CategoriaAlimento
+}
+enum UnidadArticulo {
+  KG
+  PAQUETE
+  LITRO
+  UNIDAD
+}
+enum EstadoOrganizacion {
+  PENDIENTE
+  APROBADA
+  RECHAZADA
+}
+enum TipoOrganizacion {
+  COMEDOR
+  COPITA
+  ROPERO
+  MERENDERO
+  OTRO
+}
+enum EstadoNecesidad {
+  ABIERTA
+  EN_PROGRESO
+  CUMPLIDA
+  VENCIDA
+}
+enum PrioridadNecesidad {
+  URGENTE
+  MEDIA
+  NORMAL
+}
+enum EstadoDonacion {
+  OFRECIDA
+  ACEPTADA
+  RECHAZADA
+  EN_CAMINO
+  PENDIENTE_CONFIRMACION
+  ENTREGADA
+  CANCELADA
+  --
+  + isTerminal() : boolean
+}
+enum ModalidadDonacion {
+  DIRECTA
+  FONDO_COMUN
+}
+enum EstadoRonda {
+  COMPLETADA
+  FALLIDA
+}
+enum EstadoAsignacion {
+  PROPUESTA
+  ACEPTADA
+  RECHAZADA
+  CANCELADA
+}
+
+' Arrange the enums in a compact grid for an A4 portrait page
+NivelAcreditacion -[hidden]right- RequisitoAcreditacion
+RequisitoAcreditacion -[hidden]right- EstadoEvidencia
+EstadoEvidencia -[hidden]right- TipoEvidencia
+NivelAcreditacion -[hidden]down- TipoEventoOrganizacion
+TipoEventoOrganizacion -[hidden]right- CategoriaAlimento
+CategoriaAlimento -[hidden]right- UnidadArticulo
+UnidadArticulo -[hidden]right- EstadoOrganizacion
+TipoEventoOrganizacion -[hidden]down- TipoOrganizacion
+TipoOrganizacion -[hidden]right- EstadoNecesidad
+EstadoNecesidad -[hidden]right- PrioridadNecesidad
+PrioridadNecesidad -[hidden]right- EstadoDonacion
+TipoOrganizacion -[hidden]down- ModalidadDonacion
+ModalidadDonacion -[hidden]right- EstadoRonda
+EstadoRonda -[hidden]right- EstadoAsignacion
+
+@enduml
