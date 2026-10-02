@@ -105,6 +105,28 @@ export interface ArticuloInput {
   unidad: UnidadArticulo;
 }
 
+/** One line of a `CrearDonacionDto` body (work units E/G, decision 4): articulo id + cantidad. */
+export interface DonacionLineaInput {
+  articuloId: number;
+  cantidad: number;
+}
+
+/** Mirrors MS `DonacionResponse`/`DonacionActivaResponse`'s `lineas` component (work unit E). */
+export interface DonacionLinea {
+  articuloId: number;
+  nombre: string;
+  unidad: UnidadArticulo;
+  cantidad: number;
+}
+
+/** Mirrors MS `NecesidadResponse`'s `articulos` component (work unit E, decision 6). */
+export interface NecesidadArticulo {
+  id: number;
+  nombre: string;
+  unidad: UnidadArticulo;
+  categoria: CategoriaAlimento;
+}
+
 // --- Info pública (aceptaDonaciones, sitioWebUrl, donacionDirectaUrl) ---
 // Live values are always present on any authenticated response. Pending
 // values are populated only while a referente-submitted change awaits
@@ -151,6 +173,9 @@ export interface Necesidad {
   fechaPublicacion?: string;
   fechaVencimiento?: string;
   organizacionId: number;
+  /** Requested articulos (feature catalogo-articulos, decision 6); `categoria` is derived from
+   * these. Absent on pre-catalog responses. */
+  articulos?: NecesidadArticulo[];
 }
 
 export interface Donacion {
@@ -172,6 +197,9 @@ export interface Donacion {
   /** Set at creation, immutable (`specs/donacion-fondo-comun`). Absent on pre-5e responses. */
   modalidad?: ModalidadDonacion;
   fase?: FaseDonacion;
+  /** Lines of articulo+cantidad offered (feature catalogo-articulos, decision 4). Absent on
+   * pre-catalog responses. */
+  lineas?: DonacionLinea[];
 }
 
 /**
@@ -247,16 +275,21 @@ export interface RondaFondoResponse {
   masAntiguaDesde: string | null;
 }
 
-/** `necesidadId` required, `DIRECTA` is implicit when `modalidad` is omitted (MS coalescing). */
+/**
+ * `necesidadId` required, `DIRECTA` is implicit when `modalidad` is omitted (MS coalescing).
+ * `lineas` is required for both modalidades (feature catalogo-articulos, decision 4) — `categoria`
+ * is no longer client-supplied, it's always derived from `lineas` by the MS.
+ */
 export interface CrearDonacionDirectaInput {
   necesidadId: number;
+  lineas: DonacionLineaInput[];
   observaciones?: string;
 }
 
-/** `FONDO_COMUN`: no `necesidadId` — categoria + pickup coordinates are required instead. */
+/** `FONDO_COMUN`: no `necesidadId` — `lineas` + pickup coordinates are required instead. */
 export interface CrearDonacionFondoComunInput {
   modalidad: typeof ModalidadDonacion.FONDO_COMUN;
-  categoria: CategoriaDonacion;
+  lineas: DonacionLineaInput[];
   latitud: number;
   longitud: number;
   observaciones?: string;
@@ -264,10 +297,12 @@ export interface CrearDonacionFondoComunInput {
 
 export type CrearDonacionInput = CrearDonacionDirectaInput | CrearDonacionFondoComunInput;
 
+/** `articuloIds` required, ≥1 (feature catalogo-articulos, decision 6) — `categoria` is derived. */
 export interface CrearNecesidadInput {
   descripcion: string;
   prioridad: PrioridadNecesidad;
   fechaVencimiento?: string;
+  articuloIds: number[];
 }
 
 export interface ActualizarNecesidadInput {
@@ -275,6 +310,9 @@ export interface ActualizarNecesidadInput {
   prioridad?: PrioridadNecesidad;
   estado?: EstadoNecesidad;
   fechaVencimiento?: string;
+  /** Omitted/undefined leaves the current selection unchanged; when present it must be non-empty
+   * (a necesidad can never be left with zero articulos). */
+  articuloIds?: number[];
 }
 
 // ---------------------------------------------------------------------------
@@ -501,4 +539,5 @@ export interface DonacionActiva {
   overrideEn?: string;
   modalidad?: ModalidadDonacion;
   fase?: FaseDonacion;
+  lineas?: DonacionLinea[];
 }
