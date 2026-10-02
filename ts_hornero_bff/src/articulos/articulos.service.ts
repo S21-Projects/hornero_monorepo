@@ -55,4 +55,13 @@ export class ArticulosService {
     );
     return data;
   }
+
+  async reactivar(id: number, accessToken: string) {
+    const { data } = await this.httpService.axiosRef.patch(
+      `${this.msUrl}/api/articulos/${id}/reactivar`,
+      {},
+      { headers: this.authHeaders(accessToken) },
+    );
+    return data;
+  }
 }
