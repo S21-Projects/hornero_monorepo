@@ -10,7 +10,7 @@ import { useDonacionesActivas } from '../lib/hooks/useDonacionesActivas';
 import { useOverrideEstadoDonacion } from '../lib/hooks/useOverrideEstadoDonacion';
 import { usePageClamp } from '../lib/hooks/usePageClamp';
 import { ESTADO_DONACION, FALLBACK_BADGE, MODALIDAD_DONACION, FASE_DONACION } from '../lib/domain-ui';
-import { formatFecha } from '../lib/format';
+import { formatFecha, formatLineas } from '../lib/format';
 import type { DonacionActiva, EstadoDonacion } from '../types/domain';
 
 const PAGE_SIZE = 20;
@@ -213,6 +213,11 @@ export default function ControlDonacionesPage() {
       ),
     },
     { key: 'ofrecida', header: 'Ofrecida', render: (d) => <Text variant="body-sm" color="ink-3">{formatFecha(d.fechaOferta)}</Text> },
+    {
+      key: 'lineas',
+      header: 'Artículos',
+      render: (d) => <Text variant="body-sm" color="ink-3">{formatLineas(d.lineas)}</Text>,
+    },
   ];
 
   return (

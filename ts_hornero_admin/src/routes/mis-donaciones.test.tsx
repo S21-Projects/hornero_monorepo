@@ -84,6 +84,27 @@ describe('MisDonacionesPage — confirm-entrega retirement', () => {
     expect(link).toHaveAttribute('href', '/donaciones/1/entrega');
   });
 
+  it('shows the donación lines when present (feature catalogo-articulos)', () => {
+    vi.mocked(useMisDonaciones).mockReturnValue({
+      data: makePage([
+        {
+          ...donacionConfirmable,
+          lineas: [
+            { articuloId: 1, nombre: 'Arroz', unidad: 'KG', cantidad: 5 },
+            { articuloId: 2, nombre: 'Fideos', unidad: 'PAQUETE', cantidad: 6 },
+          ],
+        },
+      ]),
+      isLoading: false,
+      isError: false,
+      isFetching: false,
+    } as unknown as ReturnType<typeof useMisDonaciones>);
+
+    renderPage();
+
+    expect(screen.getByText('5 kg Arroz, 6 paquetes Fideos')).toBeInTheDocument();
+  });
+
   it('shows no confirm link once the donante already confirmed', () => {
     vi.mocked(useMisDonaciones).mockReturnValue({
       data: makePage([{ ...donacionConfirmable, confirmadaDonanteEn: '2026-09-30T10:00:00Z' }]),

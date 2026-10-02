@@ -155,4 +155,26 @@ describe('DashboardPage', () => {
     expect(screen.queryByText('Fondo común')).not.toBeInTheDocument();
     expect(screen.queryByText(/vuelve al fondo común/i)).not.toBeInTheDocument();
   });
+
+  // Work unit G (feature catalogo-articulos): a pending offer shows its articulo lines.
+  it('shows the donación lines on a pending offer when present', () => {
+    mockOrganizacion([organizacion]);
+    mockNecesidades(necesidades);
+    mockDonaciones([
+      {
+        id: 6,
+        estado: 'OFRECIDA',
+        necesidadId: 1,
+        organizacionId: 7,
+        lineas: [
+          { articuloId: 1, nombre: 'Arroz', unidad: 'KG', cantidad: 5 },
+          { articuloId: 2, nombre: 'Fideos', unidad: 'PAQUETE', cantidad: 6 },
+        ],
+      },
+    ]);
+
+    render(<MemoryRouter><DashboardPage /></MemoryRouter>);
+
+    expect(screen.getByText('5 kg Arroz, 6 paquetes Fideos')).toBeInTheDocument();
+  });
 });
