@@ -94,6 +94,16 @@ package "Organización y acreditación" {
   }
 }
 
+package "Catálogo de artículos" {
+  class Articulo {
+    - id : Long
+    - nombre : String
+    - categoria : CategoriaAlimento
+    - unidad : UnidadArticulo
+    - activo : boolean
+  }
+}
+
 package "Necesidades y donaciones" {
   class Necesidad {
     - id : Long
@@ -103,6 +113,10 @@ package "Necesidades y donaciones" {
     - fechaPublicacion : LocalDate
     - fechaVencimiento : LocalDate
     - categoria : CategoriaAlimento
+  }
+
+  class NecesidadArticulo {
+    - id : Long
   }
 
   class Donacion {
@@ -122,6 +136,11 @@ package "Necesidades y donaciones" {
     - overrideEn : Instant
     --
     + getModalidadEfectiva() : ModalidadDonacion
+  }
+
+  class DonacionLinea {
+    - id : Long
+    - cantidad : BigDecimal
   }
 }
 
@@ -188,105 +207,6 @@ package "Asignación" {
   }
 }
 
-package "Enumeraciones" {
-  enum NivelAcreditacion {
-    N0 : REGISTRADA
-    N1 : IDENTIFICADA
-    N2 : OPERATIVA
-    N3 : ACREDITADA
-  }
-  enum RequisitoAcreditacion {
-    SERVICIO_REGULAR_GRATUITO
-    NO_DISCRIMINACION
-    SEDE_INSCRIPTA_INDIVIDUALMENTE
-    CONDICIONES_SANITARIAS_ADECUADAS
-    SIN_KIOSCO_MISMO_DOMICILIO
-    RADIO_50KM_BANCO_ALIMENTOS
-    PERSONERIA_JURIDICA_O_AVAL
-    ACEPTA_AUDITORIAS_SIN_AVISO
-    --
-    - nivelExigido : NivelAcreditacion
-  }
-  enum EstadoEvidencia {
-    PENDIENTE
-    APROBADA
-    OBSERVADA
-    REEMPLAZADA
-  }
-  enum TipoEvidencia {
-    DECLARACION
-    FOTO
-    DOCUMENTO
-  }
-  enum TipoEventoOrganizacion {
-    MIGRACION_INICIAL
-    ORGANIZACION_REGISTRADA
-    REGISTRO_RECHAZADO
-    EVIDENCIA_ADJUNTADA
-    EVIDENCIA_REEMPLAZADA
-    REQUISITO_APROBADO
-    REQUISITO_OBSERVADO
-    NIVEL_ELEVADO
-    NIVEL_REDUCIDO
-    REFERENTE_REASIGNADO
-  }
-  enum CategoriaAlimento {
-    NO_PERECEDERO
-    REFRIGERADO
-    CONGELADO
-    --
-    - nivelMinimo : NivelAcreditacion
-  }
-  enum EstadoOrganizacion {
-    PENDIENTE
-    APROBADA
-    RECHAZADA
-  }
-  enum TipoOrganizacion {
-    COMEDOR
-    COPITA
-    ROPERO
-    MERENDERO
-    OTRO
-  }
-  enum EstadoNecesidad {
-    ABIERTA
-    EN_PROGRESO
-    CUMPLIDA
-    VENCIDA
-  }
-  enum PrioridadNecesidad {
-    URGENTE
-    MEDIA
-    NORMAL
-  }
-  enum EstadoDonacion {
-    OFRECIDA
-    ACEPTADA
-    RECHAZADA
-    EN_CAMINO
-    PENDIENTE_CONFIRMACION
-    ENTREGADA
-    CANCELADA
-    --
-    + isTerminal() : boolean
-  }
-  enum ModalidadDonacion {
-    DIRECTA
-    FONDO_COMUN
-  }
-  enum EstadoRonda {
-    COMPLETADA
-    FALLIDA
-  }
-  enum EstadoAsignacion {
-    PROPUESTA
-    ACEPTADA
-    RECHAZADA
-    CANCELADA
-  }
-}
-
 Organizacion "1" *-- "0..*" Necesidad : publica >
 Necesidad "0..1" --> "0..*" Donacion : recibe >
 OrganizacionEvidencia "0..*" --> "1" Organizacion : corresponde a >
@@ -300,22 +220,9 @@ Ronda "1" *-- "0..*" Asignacion : resuelve >
 Asignacion "0..*" --> "1" Donacion : propone >
 Asignacion "0..*" --> "1" Necesidad : propone >
 Asignacion "0..*" --> "1" Organizacion : candidata >
-
-' Enumerations are referenced by attribute types; arrange them in a compact grid
-NivelAcreditacion -[hidden]down- RequisitoAcreditacion
-EstadoOrganizacion -[hidden]down- TipoOrganizacion
-TipoOrganizacion -[hidden]down- TipoEvidencia
-EstadoEvidencia -[hidden]down- TipoEventoOrganizacion
-EstadoNecesidad -[hidden]down- PrioridadNecesidad
-PrioridadNecesidad -[hidden]down- CategoriaAlimento
-NivelAcreditacion -[hidden]right- EstadoOrganizacion
-EstadoOrganizacion -[hidden]right- EstadoEvidencia
-EstadoEvidencia -[hidden]right- EstadoNecesidad
-EstadoNecesidad -[hidden]right- EstadoDonacion
-EstadoDonacion -[hidden]right- ModalidadDonacion
-ModalidadDonacion -[hidden]down- EstadoRonda
-EstadoRonda -[hidden]down- EstadoAsignacion
-
-Donacion -[hidden]down- NivelAcreditacion
+Necesidad "1" *-- "1..*" NecesidadArticulo : solicita >
+NecesidadArticulo "0..*" --> "1" Articulo : refiere a >
+Donacion "1" *-- "1..*" DonacionLinea : contiene >
+DonacionLinea "0..*" --> "1" Articulo : refiere a >
 
 @enduml

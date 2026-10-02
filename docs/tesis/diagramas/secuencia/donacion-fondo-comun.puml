@@ -11,7 +11,7 @@ participant "Worker\n(HTTP interno)" as Worker
 
 == Oferta al fondo común (CU-05) ==
 
-Donante -> Web : Ofrece una donación al fondo común,\ncon punto de retiro y categoría
+Donante -> Web : Ofrece una donación al fondo común,\ncon punto de retiro y líneas de artículo+cantidad
 Web -> BFF : Registrar donación
 BFF -> Back : Registrar donación
 activate Back
@@ -30,7 +30,7 @@ Back -> DB : Leer donaciones del fondo común sin asignar
 Back -> DB : Leer necesidades abiertas de\norganizaciones acreditadas
 Back -> Worker : Donaciones y necesidades candidatas (HTTP)
 activate Worker
-Worker -> Worker : Descartar pares no compatibles\npor categoría o nivel de acreditación
+Worker -> Worker : Descartar pares no compatibles\npor categoría, nivel de acreditación\no artículos sin coincidencia
 Worker -> Worker : Puntuar cada par por déficit,\nurgencia, proximidad, espera y cumplimiento
 Worker -> Worker : Resolver la asignación óptima\nde la ronda (algoritmo húngaro)
 Worker --> Back : Asignaciones y donaciones sin asignar
