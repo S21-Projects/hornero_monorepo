@@ -151,14 +151,27 @@ Dentro de los límites enunciados, el prototipo cubre los siguientes procesos.
 ### 4.3 Publicación de necesidades
 
 - Publicación, edición y cierre de necesidades por parte del referente.
+- La necesidad no declara una categoría de alimento directamente: el referente selecciona uno
+  o más artículos de un catálogo administrado por Hornero (`articulos`), y la categoría se
+  deriva de ellos —la más exigente de los artículos seleccionados—. Se requiere al menos un
+  artículo por necesidad; ya no existe una necesidad sin artículos ni categoría.
 - Límite por nivel de acreditación sobre la cantidad de necesidades abiertas
-  simultáneamente y sobre las categorías de alimento que la organización puede solicitar.
+  simultáneamente y sobre las categorías de alimento —derivadas de los artículos
+  seleccionados— que la organización puede solicitar.
 - Vencimiento de necesidades por fecha.
 
 ### 4.4 Donaciones
 
 - Dos modalidades: donación **directa**, en la que el donante elige la necesidad, y
   donación al **fondo común**, en la que el sistema decide el destino.
+- Una donación —en cualquiera de las dos modalidades— se compone de una o más líneas, cada una
+  con un artículo del catálogo y una cantidad en la unidad propia de ese artículo (kilogramos,
+  paquetes, litros o unidades); ya no se describe por texto libre. La categoría de la donación
+  se deriva de sus líneas —la más exigente—, nunca se elige directamente.
+- Catálogo de artículos (`articulos`: nombre, categoría de alimento, unidad de medida)
+  administrado exclusivamente por un administrador, que puede darlos de alta, editarlos,
+  desactivarlos y reactivarlos; nunca borrarlos, para que las donaciones y necesidades
+  históricas que los referencian sigan resolviendo.
 - Ciclo de estados de la donación con confirmación mutua de entrega entre donante y
   referente, y posibilidad de intervención administrativa fundada.
 - Validación de la entrega mediante un identificador único y un código de un solo uso con
@@ -166,9 +179,12 @@ Dentro de los límites enunciados, el prototipo cubre los siguientes procesos.
   confirmado por ambas partes.
 - Asignación por rondas de las donaciones del fondo común, disparadas manualmente por un
   administrador, con registro del puntaje desglosado y del costo de oportunidad de cada
-  asignación. El donante marca un punto de retiro (coordenadas) y una categoría de alimento
-  obligatoria al ofrecer una donación al fondo común, datos que el motor usa para la
-  proximidad y el filtro duro de categoría.
+  asignación. El donante marca un punto de retiro (coordenadas) obligatorio al ofrecer una
+  donación al fondo común; la categoría ya no se marca aparte, se deriva de las líneas de la
+  donación. El motor de asignación aplica dos filtros duros antes de puntuar un par
+  donación-necesidad: que la categoría de la donación esté habilitada por el nivel de
+  acreditación de la organización, y que la donación comparta al menos un artículo con los que
+  la necesidad solicita —una necesidad sin artículos queda directamente excluida de la ronda—.
 - Si la organización rechaza una donación ya asignada, ésta vuelve al fondo común para una
   ronda posterior, excluyendo a esa organización como candidata en las rondas siguientes para
   esa misma donación.
@@ -316,15 +332,24 @@ especificación citado entre paréntesis.
   ronda, disparada manualmente por un administrador, debe resolver el reparto mediante el
   algoritmo húngaro, ponderando déficit de cobertura territorial, urgencia, proximidad,
   historial de espera de la organización e historial de cumplimiento, filtrando de forma dura
-  las categorías no habilitadas por el nivel de acreditación, y debe registrar el puntaje
-  desglosado y el costo de oportunidad de cada asignación resuelta (CU-05, CU-11; `design.md`
-  AD-1, AD-2, AD-11; `go_algorithms_worker/internal/assign`).
+  tanto las categorías no habilitadas por el nivel de acreditación como los pares
+  donación-necesidad que no comparten ningún artículo del catálogo, y debe registrar el
+  puntaje desglosado y el costo de oportunidad de cada asignación resuelta (CU-05, CU-11;
+  `design.md` AD-1, AD-2, AD-11; `go_algorithms_worker/internal/assign`).
 - **RF-15.** El sistema debe validar la entrega de una donación mediante un identificador
   único y un código de un solo uso con vencimiento automático, presentado como código QR con
   ingreso manual como alternativa, y debe exigir la confirmación de ambas partes —donante y
   referente— antes de considerar la donación entregada, admitiendo intervención administrativa
   fundada como excepción (CU-13; sección 1.3 y 4.4 de este documento;
   `EntregaService.verificar`).
+- **RF-16.** El sistema debe estructurar lo que se dona y lo que se solicita mediante un
+  catálogo de artículos (nombre, categoría de alimento, unidad de medida) administrado
+  exclusivamente por un administrador —alta, edición, desactivación y reactivación, nunca
+  borrado—. Una donación debe declararse como una o más líneas de artículo y cantidad, y una
+  necesidad como una o más selecciones de artículo sin cantidad; en ambos casos la categoría
+  de alimento debe derivarse de esas líneas o selecciones —la más exigente—, sin que ningún
+  cliente pueda declararla directamente (CU-03, CU-05; `Articulo`, `DonacionLinea`,
+  `NecesidadArticulo`, `CategoriaAlimento.masExigente`).
 
 ### 5.2 Requerimientos no funcionales
 
@@ -472,18 +497,19 @@ El mismo conjunto se presenta desglosado por actor en `docs/tesis/diagramas/caso
 - **Poscondición:** existe una nueva necesidad en estado abierto, visible en el sitio público
   una vez que la organización está aprobada.
 - **Flujo principal:**
-  1. El referente completa los datos de la necesidad (descripción, prioridad, categoría de
-     alimento, fecha de vencimiento).
-  2. El sistema verifica que la categoría solicitada esté habilitada por el nivel de
+  1. El referente completa los datos de la necesidad (descripción, prioridad, fecha de
+     vencimiento) y selecciona uno o más artículos del catálogo que la organización solicita.
+  2. El sistema deriva la categoría de alimento de la necesidad como la más exigente de los
+     artículos seleccionados, y verifica que esa categoría esté habilitada por el nivel de
      acreditación de la organización.
   3. El sistema verifica que la cantidad de necesidades abiertas de la organización no supere
      el cupo de su nivel.
-  4. El sistema crea la necesidad en estado abierto.
-- **Flujos alternativos:**
-  - 1a. La necesidad se crea sin categoría (no clasificada): el paso 2 no aplica y la
-    necesidad se comporta como hoy, sin la restricción de categoría.
+  4. El sistema crea la necesidad en estado abierto, con los artículos seleccionados y la
+     categoría derivada.
 - **Excepciones:**
-  - La categoría solicitada no está habilitada por el nivel actual: el sistema rechaza la
+  - No se seleccionó ningún artículo: el sistema rechaza la creación; toda necesidad requiere
+    al menos un artículo.
+  - La categoría derivada no está habilitada por el nivel actual: el sistema rechaza la
     creación, identificando el nivel requerido.
   - La organización ya alcanzó el cupo de necesidades abiertas de su nivel: el sistema rechaza
     la creación, identificando el cupo del nivel.
@@ -520,17 +546,24 @@ El mismo conjunto se presenta desglosado por actor en `docs/tesis/diagramas/caso
 - **Flujo principal:**
   1. El donante elige la modalidad de la donación: directa o al fondo común.
   2. En la modalidad directa, el donante selecciona la necesidad a la que destina la donación.
-  3. El sistema verifica que el correo del donante esté verificado.
-  4. El sistema crea la donación en estado `OFRECIDA`.
+  3. El donante declara una o más líneas de donación: un artículo del catálogo y una cantidad,
+     en la unidad propia de ese artículo.
+  4. El sistema verifica que el correo del donante esté verificado.
+  5. El sistema deriva la categoría de la donación como la más exigente de sus líneas, y crea
+     la donación en estado `OFRECIDA`.
 - **Flujos alternativos:**
   - 1a. Modalidad al fondo común (extiende CU-11): el donante no elige necesidad, sino un punto
-    de retiro (coordenadas) y una categoría de alimento, ambos obligatorios para esta modalidad;
-    la donación queda a la espera de que un administrador dispare la próxima ronda de
-    asignación.
+    de retiro (coordenadas), obligatorio para esta modalidad; la categoría no se marca aparte,
+    se deriva de las líneas como en el flujo principal. La donación queda a la espera de que un
+    administrador dispare la próxima ronda de asignación.
 - **Excepciones:**
   - El correo del donante no está verificado: el sistema rechaza la creación de la donación
     (véase CU-12).
   - La necesidad indicada no existe: el sistema rechaza la solicitud.
+  - No se declaró ninguna línea de donación: el sistema rechaza la creación; toda donación
+    requiere al menos un artículo y cantidad.
+  - Modalidad directa con un artículo que la necesidad no solicita entre los suyos: el sistema
+    rechaza la creación (`ARTICULO_INCOMPATIBLE`).
 
 ---
 
@@ -660,8 +693,9 @@ El mismo conjunto se presenta desglosado por actor en `docs/tesis/diagramas/caso
 - **Actores:** Administrador (dispara la ronda), motor de asignación (worker HTTP interno,
   resuelve el reparto).
 - **Precondición:** existen donaciones en estado `OFRECIDA` destinadas al fondo común, con su
-  punto de retiro y categoría marcados por el donante, y al menos una necesidad abierta
-  candidata.
+  punto de retiro marcado por el donante y sus líneas de artículo y cantidad —de las que se
+  deriva la categoría—, y al menos una necesidad abierta candidata con al menos un artículo
+  solicitado —una necesidad sin artículos nunca es candidata—.
 - **Poscondición:** cada donación asignable queda vinculada a una necesidad, con su puntaje
   desglosado y su costo de oportunidad registrados en una fila de `Asignacion`; las donaciones
   sin candidato factible quedan señaladas como no asignadas en la ronda. La ronda misma queda
@@ -675,8 +709,8 @@ El mismo conjunto se presenta desglosado por actor en `docs/tesis/diagramas/caso
      déficit de cobertura, urgencia, proximidad, historial de espera e historial de
      cumplimiento de la organización.
   4. El worker filtra de forma dura los pares cuya categoría de alimento no esté habilitada
-     por el nivel de acreditación de la organización o no coincida con lo solicitado por la
-     necesidad.
+     por el nivel de acreditación de la organización, y también los pares cuya donación no
+     comparta al menos un artículo del catálogo con los que la necesidad solicita.
   5. El worker resuelve la asignación óptima de la ronda mediante el algoritmo húngaro,
      maximizando el puntaje total, y devuelve el resultado al microservicio.
   6. El microservicio registra la ronda y cada asignación resuelta, con su puntaje y su costo
@@ -768,15 +802,18 @@ rechaza si algún requisito exigido está pendiente o vencido.
 
 **Secuencia 2 — Donación al fondo común y ronda de asignación** (`secuencia/donacion-fondo-comun.puml`)
 
-Cubre CU-05 (modalidad fondo común) y CU-11. Muestra al donante ofreciendo la donación, al
+Cubre CU-05 (modalidad fondo común) y CU-11. Muestra al donante ofreciendo la donación —con su
+punto de retiro y sus líneas de artículo y cantidad, de las que se deriva la categoría—, al
 administrador disparando la ronda, al microservicio llamando por HTTP al worker interno
 (`go_algorithms_worker`, contenedor `worker`, sin puerto expuesto) para calcular el puntaje y
 resolver la ronda con el algoritmo húngaro, y al microservicio persistiendo la `Ronda` y cada
-`Asignacion` con su puntaje desglosado y su costo de oportunidad. El transporte HTTP entre el
-microservicio y el worker, y la persistencia de la ronda y de las asignaciones, están
-implementados (`HttpAsignadorClient`, `RondaService`, `RondaController`); la única limitación
-vigente es que, sin el CSV poblacional del INDEC montado, el término de déficit resuelve a un
-valor neutro constante (ver 8.4).
+`Asignacion` con su puntaje desglosado y su costo de oportunidad. El filtro duro del worker
+descarta tanto los pares con categoría no habilitada por el nivel de acreditación como los
+pares cuya donación no comparte ningún artículo con los que la necesidad solicita. El
+transporte HTTP entre el microservicio y el worker, y la persistencia de la ronda y de las
+asignaciones, están implementados (`HttpAsignadorClient`, `RondaService`, `RondaController`);
+la única limitación vigente es que, sin el CSV poblacional del INDEC montado, el término de
+déficit resuelve a un valor neutro constante (ver 8.4).
 
 ![Donación al fondo común y ronda de asignación](diagramas/secuencia/donacion-fondo-comun.png)
 
@@ -799,8 +836,11 @@ controlador (`EntregaController`). El botón de confirmación unilateral anterio
 
 Esta sección documenta el modelo de persistencia de Hornero: qué tabla existe para qué propósito,
 qué significa cada columna en el dominio, y qué decisiones de modelado no son obvias a partir del
-diagrama solo. Las dos referencias gráficas son `docs/tesis/diagramas/estructura/der.png` (diagrama
-entidad-relación) y `docs/tesis/diagramas/estructura/clases.png` (diagrama de clases de dominio); ambas se
+diagrama solo. Las tres referencias gráficas son `docs/tesis/diagramas/estructura/der.png`
+(diagrama entidad-relación), `docs/tesis/diagramas/estructura/clases-dominio.png` (diagrama de
+clases de dominio: entidades y sus relaciones) y `docs/tesis/diagramas/estructura/clases-enumeraciones.png`
+(diagrama de clases de las enumeraciones del dominio, separado del anterior porque el catálogo de
+artículos ya no entraba junto a las entidades en una página A4 vertical legible); las tres se
 generan desde los archivos `.puml` homónimos y no se modifican en esta sección.
 
 El esquema no tiene archivos de migración: se gestiona con `spring.jpa.hibernate.ddl-auto=update`
@@ -809,14 +849,19 @@ directamente de las entidades JPA en `jar_hornero_ms/src/main/java/org/example/`
 de verdad que se usó para verificar cada columna de esta sección contra el código, no sólo contra
 el diagrama.
 
-Las diez tablas cubiertas están implementadas como entidades JPA. Cinco pertenecen al núcleo
+Las trece tablas cubiertas están implementadas como entidades JPA. Cinco pertenecen al núcleo
 original de la plataforma (`usuarios`, `organizaciones`, `necesidades`, `donaciones`,
 `codigos_verificacion`); dos se incorporaron con la acreditación progresiva —`organizacion_evidencia`
 y `organizacion_evento`, junto con las columnas `organizaciones.nivel` y `necesidades.categoria`
-(`openspec/changes/archive/2026-09-21-acreditacion-progresiva/`)—; y las tres restantes —`rondas`,
+(`openspec/changes/archive/2026-09-21-acreditacion-progresiva/`)—; tres —`rondas`,
 `asignaciones` y `codigos_entrega`—, junto con las columnas `donaciones.modalidad`,
-`donaciones.categoria`, `donaciones.latitud` y `donaciones.longitud`, se incorporaron con esta
-tesis de ingeniería (`openspec/changes/tesis-core-features/`).
+`donaciones.categoria`, `donaciones.latitud` y `donaciones.longitud`, se incorporaron con la
+tesis de ingeniería (`openspec/changes/tesis-core-features/`); y las tres restantes —`articulos`,
+`donacion_lineas` y `necesidad_articulos`— se incorporaron con el catálogo de artículos
+(feature `catalogo-articulos`, `odd/tasks/catalogo-articulos.md`), que además cambió cómo se
+llena `necesidades.categoria` y `donaciones.categoria`: dejaron de aceptar un valor directo del
+cliente y pasaron a derivarse siempre de las líneas o selecciones de artículo de cada fila (la
+más exigente de ellas), quedando nulas sólo en las filas creadas antes de esta incorporación.
 
 ### 6.1 Diccionario de datos
 
@@ -938,7 +983,22 @@ donaciones, tanto directas como del fondo común.
 | `estado` | `VARCHAR` (enum `EstadoNecesidad`) | No | — | Ciclo de vida de la necesidad. |
 | `fecha_publicacion` | `DATE` | Sí | — | Fecha en la que se publicó la necesidad. |
 | `fecha_vencimiento` | `DATE` | Sí | — | Fecha a partir de la cual la necesidad se considera vencida. |
-| `categoria` | `VARCHAR` (enum `CategoriaAlimento`) | Sí | — | Categoría de alimento solicitada, que se cruza contra el nivel de acreditación de la organización al publicar la necesidad (RF-13, RF-14): cada categoría exige un nivel mínimo y, si la organización no lo alcanza, la publicación se rechaza. Una necesidad sin categoría se trata como no clasificada y no está sujeta a esa restricción. |
+| `categoria` | `VARCHAR` (enum `CategoriaAlimento`) | Sí | — | Categoría de alimento solicitada. Desde el catálogo de artículos, se deriva siempre de los artículos seleccionados en `necesidad_articulos` —la más exigente— y se cruza contra el nivel de acreditación de la organización al publicar la necesidad (RF-13, RF-14, RF-16): cada categoría exige un nivel mínimo y, si la organización no lo alcanza, la publicación se rechaza. Nula únicamente en necesidades creadas antes del catálogo, que se tratan como no clasificadas y quedan excluidas de las rondas (decisión 2 de `catalogo-articulos`). |
+
+#### `articulos`
+
+El catálogo de artículos que Hornero ofrece para estructurar lo que se dona y lo que se
+solicita (feature `catalogo-articulos`), en reemplazo de la descripción de texto libre. Una
+donación referencia artículos a través de `donacion_lineas`, y una necesidad a través de
+`necesidad_articulos`.
+
+| Columna | Tipo | Nulo | Clave | Significado en el dominio |
+|---|---|---|---|---|
+| `id` | `BIGINT` | No | PK | Identificador del artículo. |
+| `nombre` | `VARCHAR` | No | — | Nombre del artículo (por ejemplo, "Arroz", "Leche"). |
+| `categoria` | `VARCHAR` (enum `CategoriaAlimento`) | No | — | Categoría de alimento del artículo; es la que se propaga a `necesidades.categoria` y `donaciones.categoria` cuando el artículo se selecciona o se declara en una línea. |
+| `unidad` | `VARCHAR` (enum `UnidadArticulo`) | No | — | Unidad de medida del artículo (`KG`, `PAQUETE`, `LITRO`, `UNIDAD`), con la que se expresa la cantidad de cada `donacion_lineas.cantidad` que lo referencia. |
+| `activo` | `BOOLEAN` | No | — | `true` por defecto. Un administrador lo desactiva (`false`) o lo reactiva; nunca se borra la fila, para que las donaciones y necesidades que ya lo referencian sigan resolviendo (decisión 3 de `catalogo-articulos`). |
 
 #### `donaciones`
 
@@ -951,12 +1011,38 @@ hasta la entrega confirmada por ambas partes.
 | `donante_id` | `BIGINT` | No | FK → `usuarios.id` | Donante que ofrece la donación. |
 | `necesidad_id` | `BIGINT` | Sí | FK → `necesidades.id` | Necesidad a la que se destina. Nulo en una donación al fondo común que todavía no fue asignada por una ronda (el script `scripts/sql/V001__donaciones_necesidad_id_nullable.sql` relaja la restricción `NOT NULL` original; `EsquemaVerificador` comprueba al arrancar que el script corrió). |
 | `modalidad` | `VARCHAR` (enum `ModalidadDonacion`) | Sí | — | `DIRECTA` o `FONDO_COMUN`. Columna aditiva: un valor nulo (donaciones previas a esta tesis) se lee como `DIRECTA` por convención (coalescencia D4, `Donacion.getModalidadEfectiva()`). |
-| `categoria` | `VARCHAR` (enum `CategoriaAlimento`) | Sí | — | Obligatoria en la modalidad fondo común: la categoría que el motor de asignación usa para el filtro duro contra la necesidad y el nivel de la organización candidata. |
+| `categoria` | `VARCHAR` (enum `CategoriaAlimento`) | Sí | — | Se deriva siempre de las líneas de la donación en `donacion_lineas` —la más exigente—; el motor de asignación la usa para el filtro duro contra la necesidad y el nivel de la organización candidata. Nula únicamente en donaciones creadas antes del catálogo de artículos. |
 | `latitud` / `longitud` | `DOUBLE` | Sí | — | Punto de retiro que el donante marca al ofrecer una donación al fondo común; alimenta el término de proximidad del motor de asignación. |
 | `fecha_oferta` | `DATE` | Sí | — | Fecha en la que el donante ofreció la donación. |
 | `fecha_entrega` | `DATE` | Sí | — | Fecha en la que la entrega quedó confirmada por ambas partes. |
 | `estado` | `VARCHAR` (enum `EstadoDonacion`) | No | — | Ciclo de vida de la donación (ver enumeraciones, 6.2). |
-| `observaciones` | `VARCHAR(1000)` | Sí | — | Texto libre asociado a la donación. |
+| `observaciones` | `VARCHAR(1000)` | Sí | — | Texto libre opcional asociado a la donación (por ejemplo, una aclaración sobre el estado del producto); ya no describe qué se dona, eso es responsabilidad de `donacion_lineas`. |
+
+#### `donacion_lineas`
+
+Una línea de una donación: un artículo del catálogo y una cantidad, en la unidad propia de ese
+artículo. Toda donación —directa o al fondo común— tiene una o más líneas; es la fuente desde
+la que se deriva `donaciones.categoria`.
+
+| Columna | Tipo | Nulo | Clave | Significado en el dominio |
+|---|---|---|---|---|
+| `id` | `BIGINT` | No | PK | Identificador de la línea. |
+| `donacion_id` | `BIGINT` | No | FK → `donaciones.id` | Donación a la que pertenece la línea. La relación es `@OneToMany` con cascada total y `orphanRemoval`: borrar una línea de la colección de la donación borra la fila. |
+| `articulo_id` | `BIGINT` | No | FK → `articulos.id` | Artículo donado en esta línea. |
+| `cantidad` | `NUMERIC` (`BigDecimal`) | No | — | Cantidad donada de ese artículo, validada como mayor a cero al crear la donación (`@Positive` en el DTO de la línea). |
+
+#### `necesidad_articulos`
+
+Un artículo del catálogo seleccionado por una necesidad, sin cantidad —a diferencia de
+`donacion_lineas`—, porque la organización sólo declara qué tipos de alimento necesita, no
+cuánto. Toda necesidad tiene una o más filas aquí; es la fuente desde la que se deriva
+`necesidades.categoria`.
+
+| Columna | Tipo | Nulo | Clave | Significado en el dominio |
+|---|---|---|---|---|
+| `id` | `BIGINT` | No | PK | Identificador de la selección. |
+| `necesidad_id` | `BIGINT` | No | FK → `necesidades.id` | Necesidad a la que pertenece la selección. Misma relación `@OneToMany` con cascada total y `orphanRemoval` que `donacion_lineas`. |
+| `articulo_id` | `BIGINT` | No | FK → `articulos.id` | Artículo solicitado. |
 | `confirmada_donante_en` | `TIMESTAMP` | Sí | — | Momento en el que el donante confirmó la entrega mediante el código de un solo uso. Nulo mientras no confirmó. |
 | `confirmada_referente_en` | `TIMESTAMP` | Sí | — | Momento en el que el referente confirmó la entrega mediante el código de un solo uso. Nulo mientras no confirmó. La donación pasa a `ENTREGADA` recién cuando ambas columnas están completas. |
 | `override_motivo` | `VARCHAR(500)` | Sí | — | Motivo obligatorio de una intervención administrativa que fuerza el estado de la donación. |
@@ -1068,9 +1154,13 @@ que `codigos_entrega` reutiliza para la validación de entrega de donaciones (CU
 - **`TipoEvidencia`** — `DECLARACION` (texto declarado por el referente), `FOTO` (fotografía
   adjunta), `DOCUMENTO` (documento adjunto). Los dos últimos guardan el archivo en el bucket y su
   clave en `object_key`.
-- **`CategoriaAlimento`** — Categorías de alimento que una necesidad puede solicitar, cada una con
-  el nivel mínimo de acreditación que exige: `NO_PERECEDERO` (desde `N1`), `REFRIGERADO` (desde
-  `N2`) y `CONGELADO` (desde `N2`).
+- **`CategoriaAlimento`** — Categoría de alimento de un artículo del catálogo, cada una con el
+  nivel mínimo de acreditación que exige: `NO_PERECEDERO` (desde `N1`), `REFRIGERADO` (desde
+  `N2`) y `CONGELADO` (desde `N2`). Desde el catálogo de artículos, una necesidad o una donación
+  ya no eligen esta categoría directamente: la heredan del artículo de cada selección o línea, y
+  `CategoriaAlimento.masExigente` resuelve la más exigente cuando hay más de una.
+- **`UnidadArticulo`** — Unidad de medida de un artículo del catálogo: `KG`, `PAQUETE`, `LITRO`,
+  `UNIDAD`. Determina en qué unidad se expresa `donacion_lineas.cantidad` para ese artículo.
 - **`EstadoOrganizacion`** — `PENDIENTE` (recién registrada, sin validar), `APROBADA` (validada por
   un administrador; proyección de `nivel ≥ N1`),
   `RECHAZADA` (rechazada explícitamente; se conserva en vez de volver a `PENDIENTE` para no reabrir
@@ -1133,6 +1223,22 @@ que `codigos_entrega` reutiliza para la validación de entrega de donaciones (CU
   dentro del payload, porque los datos que se consultan ya son columnas propias de la tabla
   (`tipo`, `nivel_antes`, `nivel_despues`, `requisito`, etc.).
 
+- **`donacion_lineas` y `necesidad_articulos` como entidades propias, no `@ElementCollection`.**
+  Ambas podrían modelarse como colecciones embebidas de Hibernate, sin tabla ni identidad propia.
+  Se optó por entidades hijas completas, con su propio `id` y repositorio implícito, porque es el
+  patrón ya establecido en el resto del esquema (`Necesidad.donaciones`, `Ronda.asignaciones`) y
+  porque `cantidad > 0` se valida más simple por fila con Bean Validation sobre una lista de DTOs
+  que sobre un tipo embebible; además, deja espacio para extender una línea con datos propios
+  —una nota, un precio estimado— sin migrar de esquema.
+- **`categoria` se deriva, nunca se acepta directamente del cliente.** Tanto `Necesidad` como
+  `Donacion` conservan su columna `categoria` —no se eliminó, para no romper la lectura
+  existente del motor de asignación—, pero el catálogo de artículos cerró el único camino por el
+  que un cliente podía enviarla: `CrearNecesidadRequest` y `CreateDonacionRequest` ya no tienen
+  un campo `categoria`, sólo `articuloIds`/`lineas`, y el servicio de dominio la calcula siempre
+  con `CategoriaAlimento.masExigente` antes de guardar. Es la misma idea que `validada`/`estado`
+  como proyecciones de `nivel` en `organizaciones` (sección 6.1): un valor que antes se guardaba
+  de forma independiente pasa a ser una función pura de otro dato, para que no pueda
+  desincronizarse de la realidad que describe.
 - **Columnas aditivas y nulables por `ddl-auto=update` sin archivos de migración.** El esquema no
   tiene migraciones escritas a mano: Hibernate agrega columnas y tablas a partir de las entidades
   JPA en cada arranque. Esa herramienta no puede agregar una columna `NOT NULL` sin `DEFAULT` sobre

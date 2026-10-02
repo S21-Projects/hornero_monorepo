@@ -32,6 +32,12 @@ escribieron y no se reescriben retroactivamente. Estado real a la fecha de esta 
   entrega con código de un solo uso.
 - Pregunta abierta #3 de la sección 6 (población por radio censal) sigue sin resolver: es la
   limitación operativa nombrada arriba, no una pregunta de diseño.
+- **Catálogo de artículos** (feature `catalogo-articulos`, `odd/tasks/catalogo-articulos.md`):
+  implementado de punta a punta (MS, worker, BFF, admin SPA, seeds) y documentado en esta misma
+  revisión (`documento.md` secciones 4.3/4.4, 5.1 RF-16, 5.3 CU-03/CU-05/CU-11, 5.4 secuencia 2,
+  6.1 tablas `articulos`/`donacion_lineas`/`necesidad_articulos`, 6.2, 6.3; diagrama de clases
+  dividido en `clases-dominio.puml`/`clases-enumeraciones.puml`; `der.puml` actualizado). Pendiente:
+  el reset de datos local/Pi sigue siendo una acción explícita del usuario (C16/C17 del task doc).
 
 ---
 

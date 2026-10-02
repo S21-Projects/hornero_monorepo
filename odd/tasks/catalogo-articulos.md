@@ -549,9 +549,43 @@ worker, then ronda wiring, then BFF, then admin UI, then seeds/reset, then docs.
 
 ### Work unit J — Thesis doc touch-up
 
-- **C18** — Add a short section to the thesis handoff doc (per memory
-  `tesis-ingenieria-handoff` — read `docs/tesis/handoff.md` first) noting the catalog addition:
-  what changed, why (the matching-bug root cause), and which of the 3 pillars it touches.
+- [x] **C18** — DONE 2026-10-01: verified every claim below against the actual committed code
+  (not just this task doc's prose) before writing — `Articulo`/`UnidadArticulo`/`DonacionLinea`/
+  `NecesidadArticulo` entities, `CategoriaAlimento.masExigente`, `CrearNecesidadRequest`/
+  `CreateDonacionRequest` (no client-supplied `categoria` field, `articuloIds`/`lineas`
+  required), `go_algorithms_worker/internal/assign/scoring.go`'s `aceptaArticulos` hard filter.
+  Updated `docs/tesis/documento.md`: 4.3 (necesidad articulo selection, categoria derived), 4.4
+  (donación lines, catalog admin CRUD, articulo-level hard filter), 5.1 (RF-14 extended, new
+  RF-16), 5.3 (CU-03/CU-05/CU-11 flows rewritten for the catalog), 5.4 (secuencia 2 prose +
+  `diagramas/secuencia/donacion-fondo-comun.puml` updated), 6 intro (10→13 tables), 6.1 (new
+  `articulos`/`donacion_lineas`/`necesidad_articulos` dictionary entries; `necesidades.categoria`/
+  `donaciones.categoria`/`donaciones.observaciones` descriptions rewritten for derivation), 6.2
+  (`CategoriaAlimento` reworded, new `UnidadArticulo`), 6.3 (two new modeling-decision bullets:
+  child entities vs `@ElementCollection`, derived-not-accepted categoria). Split
+  `diagramas/estructura/clases.puml` into `clases-dominio.puml` (entities/relations, now includes
+  `Articulo`/`DonacionLinea`/`NecesidadArticulo`) and `clases-enumeraciones.puml` (all enums,
+  including new `UnidadArticulo`) because the old single diagram was already 2001×2009px before
+  adding 3 entities + 1 enum — adding them would have pushed it well past an A4-portrait-legible
+  square; old `clases.puml`/`clases.png` removed, `documento.md`'s section-6 intro repointed to
+  both new files. `diagramas/estructura/der.puml` gained the three new tables/FKs.
+  All four changed `.puml` files re-rendered with `plantuml -tpng` and visually checked (Read)
+  for legibility: `clases-dominio.png` (1326×1787, portrait-friendly), `clases-enumeraciones.png`
+  (1003×741), `der.png` (1765×1391, landscape — unchanged orientation from before this pass, not
+  newly introduced), `secuencia/donacion-fondo-comun.png` (two message lines updated: the
+  donante's offer now says "líneas de artículo+cantidad" instead of "categoría", and the worker's
+  discard step mentions the articulo-level filter alongside categoria/nivel). No notes, legends,
+  titles, or header comments added, per house style. `docs/tesis/handoff.md` section 0 gained one
+  bullet noting the catalog feature is implemented and documented. No source code touched; no
+  `git` commands run. Files changed: `docs/tesis/documento.md`,
+  `docs/tesis/diagramas/estructura/der.puml`, `docs/tesis/diagramas/estructura/clases-dominio.puml`
+  (new), `docs/tesis/diagramas/estructura/clases-enumeraciones.puml` (new),
+  `docs/tesis/diagramas/secuencia/donacion-fondo-comun.puml`, `docs/tesis/handoff.md`, this file.
+  Removed: `docs/tesis/diagramas/estructura/clases.puml`, `docs/tesis/diagramas/estructura/clases.png`.
+
+- **C18 (original task text, superseded by the DONE note above)** — Add a short section to the
+  thesis handoff doc (per memory `tesis-ingenieria-handoff` — read `docs/tesis/handoff.md` first)
+  noting the catalog addition: what changed, why (the matching-bug root cause), and which of the
+  3 pillars it touches.
   - Files: `docs/tesis/handoff.md` or the relevant typed subfolder doc it points to (confirm
     exact file via `docs/tesis/handoff.md` at task start).
   - Verify: none (doc-only); readback.
@@ -754,6 +788,12 @@ worker, then ronda wiring, then BFF, then admin UI, then seeds/reset, then docs.
     that running stack. Both defects are proven fixed here only via the test suite (per the
     task's instruction not to run destructive Docker commands); no live `docker compose` restart
     or DB write was performed by this worker.
+
+- 2026-10-01: Work unit J (C18, thesis doc touch-up) implemented as a documentation-only pass, no
+  `git` mutation performed by this worker, no source code touched. See C18's DONE note above for
+  the full file list and per-section evidence. All prior work units (A-K) are now complete;
+  remaining open items are the two USER ACTION DB resets (C16/C17), already documented, never
+  executed by any worker.
 
 **Estimated total: ~18 tasks, 10 work units, ~3,480 changed lines** (sum of per-task estimates;
 heuristic only, not a hard cap — several units will need the chosen delivery/chain strategy
