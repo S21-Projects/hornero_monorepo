@@ -7,17 +7,13 @@ import { useAuthStore } from '../store/auth.store';
 import { CORDOBA_CENTER, type LatLng } from '../lib/geo';
 import { OrgLocationPickerLazy } from '../components/map/OrgLocationPickerLazy';
 import { CriteriosAsignacionPanel } from '../components/donacion/CriteriosAsignacionPanel';
-import { CategoriaDonacion, ModalidadDonacion } from '../types/domain';
-import type { ModalidadDonacion as ModalidadDonacionType } from '../types/domain';
+import { LineaArticuloEditor } from '../components/donacion/LineaArticuloEditor';
+import { mapDonacionError } from '../lib/hooks/mapDonacionError';
+import { ModalidadDonacion } from '../types/domain';
+import type { ModalidadDonacion as ModalidadDonacionType, DonacionLineaInput } from '../types/domain';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Text } from '../components/ui/Typography';
-
-const CATEGORIA_LABELS: Record<string, string> = {
-  [CategoriaDonacion.NO_PERECEDERO]: 'No perecedero',
-  [CategoriaDonacion.REFRIGERADO]: 'Refrigerado',
-  [CategoriaDonacion.CONGELADO]: 'Congelado',
-};
 
 interface ModalidadCardProps {
   value: ModalidadDonacionType;
@@ -67,11 +63,13 @@ export default function NuevaDonacionPage() {
   const { position, hasUserPosition, fixCount, request } = useGeolocation();
 
   const [modalidad, setModalidad] = useState<ModalidadDonacionType | null>(null);
-  const [categoria, setCategoria] = useState('');
+  const [lineas, setLineas] = useState<DonacionLineaInput[]>([]);
   const [coords, setCoords] = useState<LatLng | null>(null);
   const [observaciones, setObservaciones] = useState('');
 
-  const canSubmitFondoComun = categoria !== '' && coords !== null;
+  // Decision 4: every donación requires ≥1 línea with a chosen articulo and cantidad > 0.
+  const lineasValidas = lineas.length > 0 && lineas.every((l) => l.articuloId > 0 && l.cantidad > 0);
+  const canSubmitFondoComun = lineasValidas && coords !== null;
 
   function handleDirectaContinuar() {
     navigate('/explorar');
@@ -83,7 +81,7 @@ export default function NuevaDonacionPage() {
 
     const result = await crear.mutateAsync({
       modalidad: ModalidadDonacion.FONDO_COMUN,
-      categoria: categoria as (typeof CategoriaDonacion)[keyof typeof CategoriaDonacion],
+      lineas,
       latitud: coords.lat,
       longitud: coords.lng,
       observaciones: observaciones || undefined,
@@ -160,33 +158,8 @@ export default function NuevaDonacionPage() {
           <form onSubmit={(e) => { void handleFondoComunSubmit(e); }} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             <Card style={{ padding: '24px 28px', display: 'flex', flexDirection: 'column', gap: 16 }}>
               <div>
-                <label htmlFor="categoria">
-                  <Text variant="label" as="span" style={{ display: 'block', marginBottom: 6 }}>
-                    Categoría
-                  </Text>
-                </label>
-                <select
-                  id="categoria"
-                  value={categoria}
-                  onChange={(e) => { setCategoria(e.target.value); }}
-                  required
-                  style={{
-                    fontFamily: 'inherit',
-                    fontSize: 14.5,
-                    color: 'var(--ink)',
-                    background: '#fff',
-                    border: '1.5px solid var(--line)',
-                    borderRadius: 'var(--r-input)',
-                    padding: '12px 14px',
-                    width: '100%',
-                    minHeight: 44,
-                  }}
-                >
-                  <option value="" disabled>Elegí una categoría…</option>
-                  {Object.values(CategoriaDonacion).map((c) => (
-                    <option key={c} value={c}>{CATEGORIA_LABELS[c]}</option>
-                  ))}
-                </select>
+                <Text variant="label" as="p" style={{ marginBottom: 6 }}>Artículos que ofrecés</Text>
+                <LineaArticuloEditor lineas={lineas} onChange={setLineas} />
               </div>
 
               <div>
@@ -232,7 +205,7 @@ export default function NuevaDonacionPage() {
 
               {crear.isError && (
                 <Text variant="body-sm" color="urgent">
-                  No se pudo ofrecer la donación al fondo común. Intentá de nuevo en un momento.
+                  {mapDonacionError(crear.error)}
                 </Text>
               )}
 

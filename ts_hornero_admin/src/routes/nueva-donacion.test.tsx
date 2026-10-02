@@ -4,12 +4,16 @@ import userEvent from '@testing-library/user-event';
 import { createMemoryRouter, RouterProvider } from 'react-router-dom';
 import NuevaDonacionPage from './nueva-donacion';
 import { useCrearDonacion } from '../lib/hooks/useCrearDonacion';
+import { useArticulos } from '../lib/hooks/useArticulos';
+import type { Articulo } from '../types/domain';
 
 // Spec `donacion-fondo-comun` — "Nueva Donación Screen" + decision 14 (nueva-donacion entry
 // point): choosing DIRECTA navigates straight to /explorar without embedding a necesidad picker
-// here; choosing FONDO_COMUN reveals categoria + map + observaciones before submit is possible,
-// and submits the FONDO_COMUN payload shape (no necesidadId).
+// here; choosing FONDO_COMUN reveals the articulo línea editor + map + observaciones before
+// submit is possible, and submits the FONDO_COMUN payload shape (no necesidadId, no client-chosen
+// categoria — feature catalogo-articulos, decision 4/5: categoria is derived from `lineas`).
 vi.mock('../lib/hooks/useCrearDonacion', () => ({ useCrearDonacion: vi.fn() }));
+vi.mock('../lib/hooks/useArticulos', () => ({ useArticulos: vi.fn() }));
 
 // The Leaflet-backed picker needs real DOM measurement APIs jsdom doesn't provide — swapped for a
 // deterministic stub that fires onPick once (same pattern as register.test.tsx).
@@ -21,14 +25,14 @@ vi.mock('../components/map/OrgLocationPickerLazy', () => ({
   ),
 }));
 
+const ARROZ: Articulo = { id: 1, nombre: 'Arroz', categoria: 'NO_PERECEDERO', unidad: 'KG', activo: true };
+
 function buildRouter() {
   return createMemoryRouter(
     [
       { path: '/donar', element: <NuevaDonacionPage /> },
       { path: '/explorar', element: <div>Explorar Page</div> },
       { path: '/mis-donaciones', element: <div>Mis Donaciones Page</div> },
-      // Created in slice 5f — only the route shape is needed here so a successful FONDO_COMUN
-      // submit has somewhere to land without an unhandled router error.
       { path: '/mis-donaciones/:id', element: <div>Donación Detalle Page</div> },
     ],
     { initialEntries: ['/donar'] },
@@ -53,6 +57,11 @@ describe('NuevaDonacionPage', () => {
       isSuccess: false,
       error: null,
     } as unknown as ReturnType<typeof useCrearDonacion>);
+    vi.mocked(useArticulos).mockReturnValue({
+      data: [ARROZ],
+      isLoading: false,
+      isError: false,
+    } as ReturnType<typeof useArticulos>);
   });
 
   it('shows the two modalidad cards before anything is chosen', () => {
@@ -74,26 +83,28 @@ describe('NuevaDonacionPage', () => {
     expect(mutateAsync).not.toHaveBeenCalled();
   });
 
-  it('reveals categoria and the map control before FONDO_COMUN can be submitted', async () => {
+  it('reveals the línea editor and the map control before FONDO_COMUN can be submitted, with no manual categoria select', async () => {
     const user = userEvent.setup();
     renderPage();
 
     await user.click(screen.getByRole('radio', { name: /fondo común/i }));
 
-    expect(screen.getByLabelText(/categoría/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /agregar artículo/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /fijar ubicación \(test\)/i })).toBeInTheDocument();
+    expect(screen.queryByLabelText(/^categoría$/i)).not.toBeInTheDocument();
 
     const submit = screen.getByRole('button', { name: /ofrecer al fondo común/i });
     expect(submit).toBeDisabled();
   });
 
-  it('submits the FONDO_COMUN payload shape once categoria + location are set', async () => {
+  it('submits the FONDO_COMUN payload shape with lineas once a línea + location are set', async () => {
     const user = userEvent.setup();
     mutateAsync.mockResolvedValue({ id: 42 });
     renderPage();
 
     await user.click(screen.getByRole('radio', { name: /fondo común/i }));
-    await user.selectOptions(screen.getByLabelText(/categoría/i), 'NO_PERECEDERO');
+    await user.click(screen.getByRole('button', { name: /agregar artículo/i }));
+    await user.selectOptions(screen.getByRole('combobox', { name: /artículo/i }), '1');
     await user.click(screen.getByRole('button', { name: /fijar ubicación \(test\)/i }));
     await user.type(screen.getByLabelText(/descripci[oó]n/i), 'Arroz y fideos');
 
@@ -103,10 +114,20 @@ describe('NuevaDonacionPage', () => {
 
     expect(mutateAsync).toHaveBeenCalledWith({
       modalidad: 'FONDO_COMUN',
-      categoria: 'NO_PERECEDERO',
+      lineas: [{ articuloId: 1, cantidad: 1 }],
       latitud: -31.4,
       longitud: -64.18,
       observaciones: 'Arroz y fideos',
     });
+  });
+
+  it('keeps the submit button disabled with a location but no línea', async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(screen.getByRole('radio', { name: /fondo común/i }));
+    await user.click(screen.getByRole('button', { name: /fijar ubicación \(test\)/i }));
+
+    expect(screen.getByRole('button', { name: /ofrecer al fondo común/i })).toBeDisabled();
   });
 });
