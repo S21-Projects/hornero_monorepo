@@ -13,6 +13,7 @@ import org.example.domain.DonacionLinea;
 import org.example.domain.DonacionRepository;
 import org.example.domain.EstadoAsignacion;
 import org.example.domain.EstadoDonacion;
+import org.example.domain.EstadoNecesidad;
 import org.example.domain.ModalidadDonacion;
 import org.example.domain.Necesidad;
 import org.example.domain.NivelAcreditacion;
@@ -30,6 +31,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -43,6 +45,9 @@ import java.util.stream.Collectors;
 @Transactional(readOnly = true)
 public class DonacionService {
 
+    private static final Set<EstadoNecesidad> ESTADOS_ABIERTOS =
+            EnumSet.of(EstadoNecesidad.ABIERTA, EstadoNecesidad.EN_PROGRESO);
+
     private final DonacionRepository donacionRepository;
     private final NecesidadRepository necesidadRepository;
     private final UsuarioRepository usuarioRepository;
@@ -52,6 +57,7 @@ public class DonacionService {
     private final AsignacionRepository asignacionRepository;
     private final ArticuloRepository articuloRepository;
     private final DonanteVisibilidad donanteVisibilidad;
+    private final Clock clock;
 
     public Page<DonacionResponse> findAll(Pageable pageable) {
         return donacionRepository.findAllWithDonante(pageable)
@@ -127,6 +133,15 @@ public class DonacionService {
             if (nivel == null || nivel == NivelAcreditacion.N0) {
                 throw new ResponseStatusException(HttpStatus.CONFLICT,
                         "ORGANIZACION_NO_APROBADA: la organización aún no está aprobada para recibir donaciones");
+            }
+            // D2/N3: only an open, unexpired necesidad accepts donations. The date check is
+            // independent of the daily expiry job, so a necesidad is closed to donors from the
+            // first day past its fechaVencimiento even if the job has not run yet.
+            LocalDate hoy = LocalDate.now(clock);
+            if (!ESTADOS_ABIERTOS.contains(necesidad.getEstado())
+                    || (necesidad.getFechaVencimiento() != null && necesidad.getFechaVencimiento().isBefore(hoy))) {
+                throw new ResponseStatusException(HttpStatus.CONFLICT,
+                        "NECESIDAD_NO_DISPONIBLE: la necesidad está cerrada o vencida");
             }
             d.setNecesidad(necesidad);
         }

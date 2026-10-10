@@ -12,6 +12,7 @@ import org.example.domain.DonacionRepository;
 import org.example.domain.EstadoAsignacion;
 import org.example.domain.EstadoDonacion;
 import org.example.domain.ModalidadDonacion;
+import org.example.domain.EstadoNecesidad;
 import org.example.domain.Necesidad;
 import org.example.domain.NecesidadRepository;
 import org.example.domain.Organizacion;
@@ -25,7 +26,6 @@ import org.example.user.UsuarioRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
@@ -73,8 +73,12 @@ class DonacionServiceTest {
     @Mock
     private DonanteVisibilidad donanteVisibilidad;
 
-    @InjectMocks
     private DonacionService donacionService;
+
+    /** 2026-10-10 in Argentina; the service reads "today" from this clock (D2/N3). */
+    private static final java.time.ZoneId AR = java.time.ZoneId.of("America/Argentina/Buenos_Aires");
+    private static final LocalDate HOY = LocalDate.of(2026, 10, 10);
+    private final java.time.Clock clock = java.time.Clock.fixed(HOY.atTime(12, 0).atZone(AR).toInstant(), AR);
 
     private Referente referente;
     private Organizacion miOrganizacion;
@@ -82,6 +86,9 @@ class DonacionServiceTest {
 
     @BeforeEach
     void setUp() {
+        donacionService = new DonacionService(donacionRepository, necesidadRepository, usuarioRepository,
+                organizacionRepository, verificacionService, esquemaVerificador, asignacionRepository,
+                articuloRepository, donanteVisibilidad, clock);
         referente = new Referente(1L, "Ref Test", "ref@test.com", "encoded", true);
         donante = new Donante(2L, "Donante Test", "donante@test.com", "encoded", true);
 
@@ -138,6 +145,7 @@ class DonacionServiceTest {
 
     private Donacion donacionFor(Long id, Organizacion org) {
         Necesidad necesidad = new Necesidad();
+        necesidad.setEstado(EstadoNecesidad.ABIERTA);
         necesidad.setId(100L + id);
         necesidad.setOrganizacion(org);
 
@@ -208,6 +216,7 @@ class DonacionServiceTest {
     @Test
     void crear_verifiedDonante_succeeds() {
         Necesidad necesidad = new Necesidad();
+        necesidad.setEstado(EstadoNecesidad.ABIERTA);
         necesidad.setId(100L);
         necesidad.setOrganizacion(miOrganizacion);
         conArticuloSolicitado(necesidad, 1L, CategoriaAlimento.NO_PERECEDERO);
@@ -258,6 +267,7 @@ class DonacionServiceTest {
 
     private void assertDirectaRechazadaPorNoAprobada() {
         Necesidad necesidad = new Necesidad();
+        necesidad.setEstado(EstadoNecesidad.ABIERTA);
         necesidad.setId(100L);
         necesidad.setOrganizacion(miOrganizacion);
         conArticuloSolicitado(necesidad, 1L, CategoriaAlimento.NO_PERECEDERO);
@@ -280,6 +290,7 @@ class DonacionServiceTest {
     @Test
     void crear_directaToN1Organizacion_isAllowed() {
         Necesidad necesidad = new Necesidad();
+        necesidad.setEstado(EstadoNecesidad.ABIERTA);
         necesidad.setId(100L);
         necesidad.setOrganizacion(miOrganizacion);
         conArticuloSolicitado(necesidad, 1L, CategoriaAlimento.NO_PERECEDERO);
@@ -293,6 +304,76 @@ class DonacionServiceTest {
         when(donacionRepository.save(any(Donacion.class))).thenAnswer(inv -> inv.getArgument(0));
 
         assertThat(donacionService.crear(dto, 2L).necesidadId()).isEqualTo(100L);
+    }
+
+    // --- D2/N3: DIRECTA donations only target an open, unexpired necesidad ---
+
+    private Necesidad necesidadDirecta(EstadoNecesidad estado, LocalDate vencimiento) {
+        Necesidad necesidad = new Necesidad();
+        necesidad.setId(100L);
+        necesidad.setEstado(estado);
+        necesidad.setFechaVencimiento(vencimiento);
+        necesidad.setOrganizacion(miOrganizacion);
+        conArticuloSolicitado(necesidad, 1L, CategoriaAlimento.NO_PERECEDERO);
+        return necesidad;
+    }
+
+    private CreateDonacionRequest directaA100() {
+        CreateDonacionRequest dto = new CreateDonacionRequest();
+        dto.setNecesidadId(100L);
+        dto.setLineas(List.of(linea(1L, "2")));
+        return dto;
+    }
+
+    private void assertNecesidadNoDisponible(Necesidad necesidad) {
+        when(necesidadRepository.findById(100L)).thenReturn(Optional.of(necesidad));
+        when(usuarioRepository.findById(2L)).thenReturn(Optional.of(donante));
+
+        assertThatThrownBy(() -> donacionService.crear(directaA100(), 2L))
+                .isInstanceOfSatisfying(ResponseStatusException.class, e ->
+                        assertThat(e.getStatusCode()).isEqualTo(HttpStatus.CONFLICT))
+                .hasMessageContaining("NECESIDAD_NO_DISPONIBLE");
+
+        verify(donacionRepository, org.mockito.Mockito.never()).save(any(Donacion.class));
+    }
+
+    @Test
+    void crear_directaToVencidaNecesidad_throwsConflictAndSavesNothing() {
+        assertNecesidadNoDisponible(necesidadDirecta(EstadoNecesidad.VENCIDA, HOY.minusDays(1)));
+    }
+
+    @Test
+    void crear_directaToCumplidaNecesidad_throwsConflictAndSavesNothing() {
+        assertNecesidadNoDisponible(necesidadDirecta(EstadoNecesidad.CUMPLIDA, null));
+    }
+
+    @Test
+    void crear_directaToAbiertaNecesidadPastItsDate_throwsConflict_evenIfJobHasNotRunYet() {
+        assertNecesidadNoDisponible(necesidadDirecta(EstadoNecesidad.ABIERTA, HOY.minusDays(1)));
+    }
+
+    @Test
+    void crear_directaToNecesidadExpiringToday_isAllowed() {
+        when(necesidadRepository.findById(100L))
+                .thenReturn(Optional.of(necesidadDirecta(EstadoNecesidad.ABIERTA, HOY)));
+        when(usuarioRepository.findById(2L)).thenReturn(Optional.of(donante));
+        when(articuloRepository.findById(1L))
+                .thenReturn(Optional.of(articuloActivo(1L, CategoriaAlimento.NO_PERECEDERO)));
+        when(donacionRepository.save(any(Donacion.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        assertThat(donacionService.crear(directaA100(), 2L).necesidadId()).isEqualTo(100L);
+    }
+
+    @Test
+    void crear_directaToEnProgresoNecesidadWithoutDate_isAllowed() {
+        when(necesidadRepository.findById(100L))
+                .thenReturn(Optional.of(necesidadDirecta(EstadoNecesidad.EN_PROGRESO, null)));
+        when(usuarioRepository.findById(2L)).thenReturn(Optional.of(donante));
+        when(articuloRepository.findById(1L))
+                .thenReturn(Optional.of(articuloActivo(1L, CategoriaAlimento.NO_PERECEDERO)));
+        when(donacionRepository.save(any(Donacion.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        assertThat(donacionService.crear(directaA100(), 2L).necesidadId()).isEqualTo(100L);
     }
 
     // --- decidir (referente: OFRECIDA -> ACEPTADA | RECHAZADA) ---
@@ -683,6 +764,7 @@ class DonacionServiceTest {
     @Test
     void crear_directaConNecesidadId_persisteModalidadDirecta_comportamientoSinCambios() {
         Necesidad necesidad = new Necesidad();
+        necesidad.setEstado(EstadoNecesidad.ABIERTA);
         necesidad.setId(100L);
         necesidad.setOrganizacion(miOrganizacion);
         conArticuloSolicitado(necesidad, 1L, CategoriaAlimento.NO_PERECEDERO);
@@ -705,6 +787,7 @@ class DonacionServiceTest {
     @Test
     void crear_modalidadOmitida_defaultsToDirecta_backwardCompatible() {
         Necesidad necesidad = new Necesidad();
+        necesidad.setEstado(EstadoNecesidad.ABIERTA);
         necesidad.setId(100L);
         necesidad.setOrganizacion(miOrganizacion);
         conArticuloSolicitado(necesidad, 1L, CategoriaAlimento.NO_PERECEDERO);
@@ -872,6 +955,7 @@ class DonacionServiceTest {
 
         // DIRECTA is never gated by the flag.
         Necesidad necesidad = new Necesidad();
+        necesidad.setEstado(EstadoNecesidad.ABIERTA);
         necesidad.setId(100L);
         necesidad.setOrganizacion(miOrganizacion);
         conArticuloSolicitado(necesidad, 1L, CategoriaAlimento.NO_PERECEDERO);
@@ -892,6 +976,7 @@ class DonacionServiceTest {
     @Test
     void crear_directaArticuloNoSolicitadoPorLaNecesidad_throwsBadRequest() {
         Necesidad necesidad = new Necesidad();
+        necesidad.setEstado(EstadoNecesidad.ABIERTA);
         necesidad.setId(100L);
         necesidad.setOrganizacion(miOrganizacion);
         // The necesidad only requests articulo 2 (CONGELADO); the donación offers articulo 1.
@@ -916,6 +1001,7 @@ class DonacionServiceTest {
     @Test
     void crear_directaArticuloCompartidoEntreVariasLineas_succeeds() {
         Necesidad necesidad = new Necesidad();
+        necesidad.setEstado(EstadoNecesidad.ABIERTA);
         necesidad.setId(100L);
         necesidad.setOrganizacion(miOrganizacion);
         conArticuloSolicitado(necesidad, 2L, CategoriaAlimento.CONGELADO);
