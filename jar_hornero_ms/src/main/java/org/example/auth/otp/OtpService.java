@@ -69,9 +69,10 @@ public class OtpService {
 
     /**
      * Validates the submitted code. Returns normally on success (caller sets
-     * {@code emailVerificado = true}); throws otherwise.
+     * {@code emailVerificado = true}); throws otherwise. {@code noRollbackFor}: attempts, lockout
+     * and expiry are persisted before the exception is thrown and must survive it.
      */
-    @Transactional
+    @Transactional(noRollbackFor = ResponseStatusException.class)
     public void verify(String email, String codigo) {
         CodigoVerificacion registro = codigoVerificacionRepository
                 .findTopByEmailAndUsadoFalseOrderByCreadoEnDesc(normalize(email))
