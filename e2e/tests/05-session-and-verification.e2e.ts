@@ -11,7 +11,7 @@ describe('8 + 10. unverified user and session lifecycle', () => {
     const res = await user.post('/auth/register', {
       nombre: 'E2E Donante',
       email: `e2e-${runId}@example.com`,
-      password: 'E2e-pass-123',
+      password: 'cafetera azul canta fuerte',
       tipo: 'DONANTE',
     });
     expect(res.status).toBe(201);
@@ -19,6 +19,28 @@ describe('8 + 10. unverified user and session lifecycle', () => {
     expect(user.jar.refresh_token).toBeTruthy();
     const me = await user.get('/auth/me');
     expect(me.status).toBe(200);
+  });
+
+  it('rejects a short password with 400 PASSWORD_DEMASIADO_CORTA', async () => {
+    const res = await new Actor('weak-short').post('/auth/register', {
+      nombre: 'E2E Weak',
+      email: `e2e-short-${runId}@example.com`,
+      password: 'Short-1!',
+      tipo: 'DONANTE',
+    });
+    expect(res.status).toBe(400);
+    expect(JSON.stringify(res.body)).toContain('PASSWORD_DEMASIADO_CORTA');
+  });
+
+  it('rejects a common password with 400 PASSWORD_COMUN', async () => {
+    const res = await new Actor('weak-common').post('/auth/register', {
+      nombre: 'E2E Weak',
+      email: `e2e-common-${runId}@example.com`,
+      password: 'qwertyuiopasdfghjkl',
+      tipo: 'DONANTE',
+    });
+    expect(res.status).toBe(400);
+    expect(JSON.stringify(res.body)).toContain('PASSWORD_COMUN');
   });
 
   it('8. unverified donante cannot create a donation -> 403', async () => {

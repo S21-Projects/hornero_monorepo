@@ -28,6 +28,7 @@ public class AuthService {
     private final BCryptPasswordEncoder passwordEncoder;
     private final OtpService otpService;
     private final RefreshTokenService refreshTokenService;
+    private final PasswordPolicy passwordPolicy;
 
     public AuthResponse login(LoginRequest request) {
         Usuario usuario = usuarioRepository.findByEmail(request.getEmail())
@@ -89,6 +90,8 @@ public class AuthService {
     }
 
     public AuthResponse register(RegisterRequest request) {
+        passwordPolicy.validate(request.getPassword(), request.getEmail(), request.getNombre());
+
         if (usuarioRepository.findByEmail(request.getEmail()).isPresent()) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "El email ya está registrado");
         }

@@ -19,6 +19,9 @@ const BFF_URL = process.env.BFF_URL ?? 'http://localhost:3001';
 const SEED_COUNT = Math.min(Number(process.env.SEED_COUNT ?? 3), 5);
 const ADMIN_EMAIL = 'admin@hornero.ar';
 const ADMIN_PASSWORD = 'Admin123!';
+// Goes through POST /auth/register, so it must satisfy the MS password policy (15..64 chars,
+// not common, no email local part / name / "hornero").
+const REFERENTE_PASSWORD = 'comedor-solidario-cordoba';
 
 interface JsonResponse<T> {
   data: T;
@@ -89,7 +92,7 @@ interface ReferenteSlot {
 // 5 pre-defined slots — Córdoba capital area (~lat -31.4, lng -64.2)
 const REFERENTE_SLOTS: ReferenteSlot[] = [
   {
-    user: { nombre: 'Ana Rodríguez', email: 'ref1@test.ar', password: 'Ref123!' },
+    user: { nombre: 'Ana Rodríguez', email: 'ref1@test.ar', password: REFERENTE_PASSWORD },
     org: {
       nombre: 'Comedor San Martín',
       tipo: 'COMEDOR',
@@ -100,7 +103,7 @@ const REFERENTE_SLOTS: ReferenteSlot[] = [
     },
   },
   {
-    user: { nombre: 'Carlos López', email: 'ref2@test.ar', password: 'Ref123!' },
+    user: { nombre: 'Carlos López', email: 'ref2@test.ar', password: REFERENTE_PASSWORD },
     org: {
       nombre: 'Merendero Los Pinos',
       tipo: 'MERENDERO',
@@ -111,7 +114,7 @@ const REFERENTE_SLOTS: ReferenteSlot[] = [
     },
   },
   {
-    user: { nombre: 'María González', email: 'ref3@test.ar', password: 'Ref123!' },
+    user: { nombre: 'María González', email: 'ref3@test.ar', password: REFERENTE_PASSWORD },
     org: {
       nombre: 'Comedor Esperanza',
       tipo: 'COMEDOR',
@@ -122,7 +125,7 @@ const REFERENTE_SLOTS: ReferenteSlot[] = [
     },
   },
   {
-    user: { nombre: 'Pedro Díaz', email: 'ref4@test.ar', password: 'Ref123!' },
+    user: { nombre: 'Pedro Díaz', email: 'ref4@test.ar', password: REFERENTE_PASSWORD },
     org: {
       nombre: 'Comedor La Unión',
       tipo: 'COMEDOR',
@@ -133,7 +136,7 @@ const REFERENTE_SLOTS: ReferenteSlot[] = [
     },
   },
   {
-    user: { nombre: 'Laura Fernández', email: 'ref5@test.ar', password: 'Ref123!' },
+    user: { nombre: 'Laura Fernández', email: 'ref5@test.ar', password: REFERENTE_PASSWORD },
     org: {
       nombre: 'Merendero Arcoíris',
       tipo: 'MERENDERO',
