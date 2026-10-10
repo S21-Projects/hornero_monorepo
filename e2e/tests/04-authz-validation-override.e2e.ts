@@ -1,6 +1,6 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 import {
-  actors, anonymous, crearDirecta, estadoDe, llevarAEnCamino, marker, openNecesidades, orgOwners, pickNecesidad, type Actors, type Necesidad,
+  actors, anonymous, crearDirecta, retireLeftoverOrgs, retireOrg, estadoDe, llevarAEnCamino, marker, openNecesidades, orgOwners, pickNecesidad, type Actors, type Necesidad,
   type Articulo,
 } from '../src/fixtures.js';
 
@@ -12,6 +12,7 @@ describe('Authorization, validation and admin override', () => {
 
   beforeAll(async () => {
     a = actors();
+    await retireLeftoverOrgs(a.admin, a.referente3);
     const owners = await orgOwners(a);
     ({ necesidad, foreignArticulo } = await pickNecesidad(a.referente, owners));
     donacionId = (await crearDirecta(a.donante, necesidad, 'authz')).id;
@@ -159,7 +160,7 @@ describe('Authorization, validation and admin override', () => {
         expect(JSON.stringify(res.body)).toContain('ORGANIZACION_NO_APROBADA');
       } finally {
         // Free the referente's 3-organizacion cap for the next run.
-        await a.admin.patch(`/organizaciones/${orgId}/rechazar`);
+        await retireOrg(a.admin, orgId);
       }
     });
   });
@@ -238,7 +239,7 @@ describe('Authorization, validation and admin override', () => {
         expect(again.status).toBe(409);
         expect(JSON.stringify(again.body)).toContain('NECESIDAD_NO_VENCIDA');
       } finally {
-        await a.admin.patch(`/organizaciones/${orgId}/rechazar`);
+        await retireOrg(a.admin, orgId);
       }
     });
   });
