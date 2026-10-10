@@ -14,6 +14,7 @@ import type { Request } from 'express';
 import { Roles } from '../auth/decorators/roles.decorator.js';
 import { Role } from '../common/enums/role.enum.js';
 import { UsuariosService } from './usuarios.service.js';
+import { ToggleActivoDto } from './dto/toggle-activo.dto.js';
 
 @ApiTags('usuarios')
 @Controller('usuarios')
@@ -43,7 +44,7 @@ export class UsuariosController {
   @ApiOperation({ summary: 'Toggle user active status (ADMINISTRADOR only)' })
   toggleActivo(
     @Param('id', ParseIntPipe) id: number,
-    @Body() body: object,
+    @Body() body: ToggleActivoDto,
     @Req() req: Request,
   ) {
     return this.usuariosService.toggleActivo(id, body, this.getToken(req));

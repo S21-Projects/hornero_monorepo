@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
 import { S3Client } from '@aws-sdk/client-s3';
+import { BadRequestException } from '@nestjs/common';
 import { UploadService } from './upload.service';
 
 jest.mock('@aws-sdk/client-s3', () => {
@@ -12,6 +13,9 @@ jest.mock('@aws-sdk/client-s3', () => {
       .mockImplementation(() => ({ send: jest.fn().mockResolvedValue({}) })),
   };
 });
+
+const JPEG_BYTES = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10]);
+const PNG_BYTES = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 
 describe('UploadService', () => {
   let service: UploadService;
@@ -41,7 +45,7 @@ describe('UploadService', () => {
   it('uploadOrgEvidencia() writes under org-evidencia/{orgId}/', async () => {
     const file = {
       mimetype: 'image/jpeg',
-      buffer: Buffer.from('x'),
+      buffer: JPEG_BYTES,
     } as Express.Multer.File;
 
     const key = await service.uploadOrgEvidencia(7, file);
@@ -49,5 +53,52 @@ describe('UploadService', () => {
     expect(key).toMatch(/^org-evidencia\/7\/\d+\.jpg$/);
     const s3Instance = (S3Client as unknown as jest.Mock).mock.results[0].value;
     expect(s3Instance.send).toHaveBeenCalled();
+  });
+
+  const lastSentInput = () => {
+    const s3Instance = (S3Client as unknown as jest.Mock).mock.results.at(
+      -1,
+    )?.value;
+    return s3Instance.send.mock.calls.at(-1)[0].input;
+  };
+
+  it('derives extension and ContentType from the detected content, not the client mimetype', async () => {
+    const file = {
+      mimetype: 'image/jpeg', // lies: the bytes are a PNG
+      buffer: PNG_BYTES,
+    } as Express.Multer.File;
+
+    const key = await service.uploadOrgProfile(3, file);
+
+    expect(key).toMatch(/^org-profile\/3\/\d+\.png$/);
+    expect(lastSentInput()).toMatchObject({ ContentType: 'image/png' });
+  });
+
+  it('rejects content that is not an allowed image, even with an image mimetype', async () => {
+    const file = {
+      mimetype: 'image/png',
+      buffer: Buffer.from('<html><script>alert(1)</script></html>'),
+    } as Express.Multer.File;
+
+    await expect(service.uploadOrgBanner(3, file)).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
+    await expect(service.uploadOrgBanner(3, file)).rejects.toThrow(
+      /content does not match/i,
+    );
+  });
+
+  it('never defaults an unknown type to jpg', async () => {
+    const file = {
+      mimetype: 'application/octet-stream',
+      buffer: Buffer.from('GIF89a......'),
+    } as Express.Multer.File;
+    const s3Instance = (S3Client as unknown as jest.Mock).mock.results[0].value;
+    s3Instance.send.mockClear();
+
+    await expect(service.uploadOrgEvidencia(3, file)).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
+    expect(s3Instance.send).not.toHaveBeenCalled();
   });
 });
