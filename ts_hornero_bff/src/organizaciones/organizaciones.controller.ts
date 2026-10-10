@@ -32,12 +32,14 @@ export class OrganizacionesController {
     return token;
   }
 
+  @Roles(Role.REFERENTE)
   @Post()
   @ApiOperation({ summary: 'Propose a new organization (referente only)' })
   crear(@Body() dto: CrearOrganizacionDto, @Req() req: Request) {
     return this.organizacionesService.crear(dto, this.getToken(req));
   }
 
+  @Roles(Role.REFERENTE)
   @Get('mia')
   @ApiOperation({
     summary: 'Get the organizations of the authenticated referente',
@@ -101,6 +103,7 @@ export class OrganizacionesController {
     return this.organizacionesService.findBySlug(slug);
   }
 
+  @Roles(Role.REFERENTE)
   @Patch(':id')
   @ApiOperation({ summary: 'Update an organization (referente owner only)' })
   actualizar(

@@ -34,8 +34,11 @@ export class AxiosExceptionFilter implements ExceptionFilter {
 
       // Axios error without an MS envelope (e.g. network timeout, BFF misconfiguration).
       const httpStatus = exception.response?.status ?? HttpStatus.BAD_GATEWAY;
-      const message = exception.message;
-      this.logger.error(`BFF axios error ${httpStatus}: ${message} [${exception.config?.url}]`);
+      // The raw axios message can expose internal hosts/ports; log it, never send it.
+      const message = 'Upstream service unavailable';
+      this.logger.error(
+        `BFF axios error ${httpStatus}: ${exception.message} [${exception.config?.url}]`,
+      );
       response.status(httpStatus).json({
         status: httpStatus,
         message,
@@ -61,8 +64,8 @@ export class AxiosExceptionFilter implements ExceptionFilter {
     }
 
     // --- Unknown / unexpected errors ---
-    const message =
-      exception instanceof Error ? exception.message : 'Internal server error';
+    // Never relay the raw message (may expose SQL, paths or internals); it is logged below.
+    const message = 'Internal server error';
     this.logger.error('Unexpected error:', exception);
     response.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
       status: HttpStatus.INTERNAL_SERVER_ERROR,

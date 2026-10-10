@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { HttpService } from '@nestjs/axios';
 import { ConfigService } from '@nestjs/config';
 import { buildQuery } from '../common/build-query.js';
+import { ToggleActivoDto } from './dto/toggle-activo.dto.js';
 
 @Injectable()
 export class UsuariosService {
@@ -26,7 +27,7 @@ export class UsuariosService {
     return data;
   }
 
-  async toggleActivo(id: number, body: object, accessToken: string) {
+  async toggleActivo(id: number, body: ToggleActivoDto, accessToken: string) {
     const { data } = await this.httpService.axiosRef.patch(
       `${this.msUrl}/api/usuarios/${id}/activo`,
       body,
