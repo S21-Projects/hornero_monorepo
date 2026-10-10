@@ -27,6 +27,7 @@ public class AuthService {
     private final JwtService jwtService;
     private final BCryptPasswordEncoder passwordEncoder;
     private final OtpService otpService;
+    private final RefreshTokenService refreshTokenService;
 
     public AuthResponse login(LoginRequest request) {
         Usuario usuario = usuarioRepository.findByEmail(request.getEmail())
@@ -42,13 +43,19 @@ public class AuthService {
         }
 
         String accessToken = jwtService.generateAccessToken(usuario);
-        String refreshToken = jwtService.generateRefreshToken(usuario.getId());
+        String refreshToken = refreshTokenService.issue(usuario);
 
         return new AuthResponse(accessToken, refreshToken, toUserResponse(usuario));
     }
 
     public AuthResponse refresh(String refreshToken) {
-        if (!jwtService.isTokenValid(refreshToken)) {
+        if (!jwtService.isRefreshToken(refreshToken)) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Refresh token expirado o inválido");
+        }
+
+        String jti = jwtService.extractJti(refreshToken);
+        if (jti == null) {
+            // Issued before refresh tokens were persisted: cannot be tracked, force a new login.
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Refresh token expirado o inválido");
         }
 
@@ -61,10 +68,24 @@ public class AuthService {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Usuario inactivo");
         }
 
+        String newRefreshToken = refreshTokenService.rotate(jti, usuario);
         String newAccessToken = jwtService.generateAccessToken(usuario);
-        String newRefreshToken = jwtService.generateRefreshToken(usuario.getId());
 
         return new AuthResponse(newAccessToken, newRefreshToken, toUserResponse(usuario));
+    }
+
+    /** Revokes the token's family. Never fails and never reveals whether the token was valid. */
+    public void logout(String refreshToken) {
+        try {
+            if (jwtService.isRefreshToken(refreshToken)) {
+                String jti = jwtService.extractJti(refreshToken);
+                if (jti != null) {
+                    refreshTokenService.revokeFamilyOf(jti);
+                }
+            }
+        } catch (RuntimeException e) {
+            log.warn("[auth] logout could not revoke token: {}", e.getMessage());
+        }
     }
 
     public AuthResponse register(RegisterRequest request) {
@@ -93,7 +114,7 @@ public class AuthService {
         }
 
         String accessToken = jwtService.generateAccessToken(usuario);
-        String refreshToken = jwtService.generateRefreshToken(usuario.getId());
+        String refreshToken = refreshTokenService.issue(usuario);
 
         return new AuthResponse(accessToken, refreshToken, toUserResponse(usuario));
     }
@@ -108,7 +129,7 @@ public class AuthService {
         usuario = usuarioRepository.save(usuario);
 
         String accessToken = jwtService.generateAccessToken(usuario);
-        String refreshToken = jwtService.generateRefreshToken(usuario.getId());
+        String refreshToken = refreshTokenService.issue(usuario);
 
         return new AuthResponse(accessToken, refreshToken, toUserResponse(usuario));
     }

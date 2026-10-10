@@ -25,6 +25,9 @@ class UsuarioServiceTest {
     @Mock
     private OrganizacionRepository organizacionRepository;
 
+    @Mock
+    private org.example.auth.RefreshTokenService refreshTokenService;
+
     @InjectMocks
     private UsuarioService usuarioService;
 
@@ -74,5 +77,27 @@ class UsuarioServiceTest {
         usuarioService.toggleActivo(1L, true);
 
         verify(organizacionRepository, never()).findByReferente_Id(anyLong());
+    }
+
+    @Test
+    void toggleActivo_deactivating_revokesTheUsersRefreshTokens() {
+        Donante donante = new Donante(7L, "Don", "don@test.com", "encoded", true);
+        when(usuarioRepository.findById(7L)).thenReturn(Optional.of(donante));
+        when(usuarioRepository.save(any(Usuario.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        usuarioService.toggleActivo(7L, false);
+
+        verify(refreshTokenService).revokeAllFor(7L);
+    }
+
+    @Test
+    void toggleActivo_activating_doesNotRevokeTokens() {
+        Donante donante = new Donante(7L, "Don", "don@test.com", "encoded", false);
+        when(usuarioRepository.findById(7L)).thenReturn(Optional.of(donante));
+        when(usuarioRepository.save(any(Usuario.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        usuarioService.toggleActivo(7L, true);
+
+        verify(refreshTokenService, never()).revokeAllFor(any());
     }
 }
