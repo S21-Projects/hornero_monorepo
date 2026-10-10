@@ -1,4 +1,4 @@
-.PHONY: up down up-local seed backup migrate
+.PHONY: up down up-local seed backup migrate e2e
 
 ## Docker only — two modes, both full-stack including Postgres.
 ## The Pi runs docker compose directly, not through this Makefile
@@ -21,6 +21,10 @@ down:
 # secrets. Never touches the real production bucket.
 up-local:
 	docker compose --env-file .env.local --profile minio up --build
+
+## End-to-end (API level) — needs the stack already running: `make up-local` in another terminal.
+e2e:
+	cd e2e && npm install --no-audit --no-fund && npm test
 
 ## Seed
 seed:

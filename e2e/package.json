@@ -1,0 +1,17 @@
+{
+  "name": "hornero-e2e",
+  "private": true,
+  "type": "module",
+  "description": "API-level end-to-end tests for Hornero, run against the local docker stack (make up-local).",
+  "scripts": {
+    "test": "vitest run"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.6.0",
+    "vitest": "^3.0.0"
+  }
+}
