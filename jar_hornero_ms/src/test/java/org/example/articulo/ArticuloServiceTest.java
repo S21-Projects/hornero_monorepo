@@ -1,5 +1,6 @@
 package org.example.articulo;
 
+import org.example.actividad.ActividadService;
 import org.example.articulo.dto.ActualizarArticuloRequest;
 import org.example.articulo.dto.CrearArticuloRequest;
 import org.example.domain.Articulo;
@@ -28,6 +29,9 @@ class ArticuloServiceTest {
 
     @Mock
     private ArticuloRepository articuloRepository;
+
+    @Mock
+    private ActividadService actividadService;
 
     @InjectMocks
     private ArticuloService articuloService;
@@ -141,5 +145,23 @@ class ArticuloServiceTest {
 
         assertThat(result).extracting(ArticuloResponse::nombre)
                 .containsExactlyInAnyOrder("Arroz", "Queso viejo");
+    }
+
+    @Test
+    void desactivar_recordsAdminActionInSameTransaction() {
+        org.example.domain.Articulo a = new org.example.domain.Articulo();
+        a.setId(4L);
+        a.setActivo(true);
+        org.mockito.Mockito.when(articuloRepository.findById(4L)).thenReturn(java.util.Optional.of(a));
+        org.mockito.Mockito.when(articuloRepository.save(org.mockito.ArgumentMatchers.any())).thenAnswer(i -> i.getArgument(0));
+
+        articuloService.desactivar(4L);
+
+        org.mockito.ArgumentCaptor<ActividadService.Registro> captor =
+                org.mockito.ArgumentCaptor.forClass(ActividadService.Registro.class);
+        org.mockito.Mockito.verify(actividadService).registrar(captor.capture());
+        org.assertj.core.api.Assertions.assertThat(captor.getValue().accion())
+                .isEqualTo(org.example.actividad.TipoActividad.ARTICULO_DESACTIVADO);
+        org.assertj.core.api.Assertions.assertThat(captor.getValue().entidadId()).isEqualTo(4L);
     }
 }

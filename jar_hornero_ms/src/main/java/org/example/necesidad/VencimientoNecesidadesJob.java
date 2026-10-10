@@ -2,6 +2,8 @@ package org.example.necesidad;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.example.actividad.ActividadService;
+import org.example.actividad.TipoActividad;
 import org.example.domain.EstadoNecesidad;
 import org.example.domain.NecesidadRepository;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
@@ -28,6 +30,7 @@ public class VencimientoNecesidadesJob {
 
     private final NecesidadRepository necesidadRepository;
     private final Clock clock;
+    private final ActividadService actividadService;
 
     @Scheduled(cron = "${app.necesidades.vencimiento-cron:0 5 0 * * *}", zone = "America/Argentina/Buenos_Aires")
     @Transactional
@@ -38,6 +41,8 @@ public class VencimientoNecesidadesJob {
                 EstadoNecesidad.VENCIDA);
         if (vencidas > 0) {
             log.info("[necesidades] {} expired necesidades marked VENCIDA", vencidas);
+            actividadService.registrar(ActividadService.Registro.de(TipoActividad.NECESIDADES_VENCIDAS)
+                    .sistema().entidad("NECESIDAD", null).detalle(vencidas + " necesidades vencidas"));
         }
         return vencidas;
     }

@@ -1,5 +1,14 @@
+# Log rotation for every service (json-file keeps unbounded logs by default; the Raspberry Pi
+# runs on a microSD). 5 x 10 MB per container.
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "5"
+
 services:
   postgres:
+    logging: *logging
     image: postgres:16-alpine
     environment:
       POSTGRES_DB: "${DB_NAME:-hornero}"
@@ -21,6 +30,7 @@ services:
       start_period: 10s
 
   ms:
+    logging: *logging
     build:
       context: ./jar_hornero_ms
     ports:
@@ -47,6 +57,8 @@ services:
       # N7/D7: optional scheduled ronda (needs scripts/sql/V002 applied). Off by default.
       RONDAS_AUTO_ENABLED: "${RONDAS_AUTO_ENABLED:-false}"
       RONDAS_AUTO_CRON: "${RONDAS_AUTO_CRON:-0 0 6 * * *}"
+      # N10: activity log retention in days (provisional default pending D12)
+      ACTIVIDAD_RETENCION_DIAS: "${ACTIVIDAD_RETENCION_DIAS:-365}"
     depends_on:
       postgres:
         condition: service_healthy
@@ -67,6 +79,7 @@ services:
   # everything else fine when the worker is down, only POST /api/rondas
   # answers 503 WORKER_NO_DISPONIBLE.
   worker:
+    logging: *logging
     build:
       context: ./go_algorithms_worker
     environment:
@@ -89,6 +102,7 @@ services:
       start_period: 10s
 
   bff:
+    logging: *logging
     build:
       context: ./ts_hornero_bff
     ports:
@@ -121,6 +135,7 @@ services:
       - hornero
 
   astro:
+    logging: *logging
     build:
       context: ./ts_hornero_astro
       args:
@@ -153,6 +168,7 @@ services:
       - hornero
 
   admin:
+    logging: *logging
     build:
       context: ./ts_hornero_admin
       args:
@@ -172,6 +188,7 @@ services:
   # (R2) via the AWS_* vars in .env. Stays internal — the BFF reads/writes it
   # over the compose network; the browser never touches it.
   minio:
+    logging: *logging
     image: minio/minio:RELEASE.2025-09-07T16-13-09Z
     profiles: ["minio"]
     command: server /data --console-address ":9001"
@@ -186,6 +203,7 @@ services:
 
   # One-shot init: waits for MinIO, then creates the bucket if missing.
   createbuckets:
+    logging: *logging
     image: minio/mc:RELEASE.2025-08-13T08-35-41Z
     profiles: ["minio"]
     depends_on:
@@ -208,6 +226,7 @@ services:
   # OPT-IN: only runs with `docker compose --profile tunnel up`. Kept out of the
   # default stack so local `docker compose up` (no token) doesn't crash-loop.
   cloudflared:
+    logging: *logging
     image: cloudflare/cloudflared:2026.7.3
     profiles: ["tunnel"]
     command: tunnel --no-autoupdate run

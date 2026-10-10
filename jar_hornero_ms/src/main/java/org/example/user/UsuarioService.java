@@ -1,6 +1,8 @@
 package org.example.user;
 
 import lombok.RequiredArgsConstructor;
+import org.example.actividad.ActividadService;
+import org.example.actividad.TipoActividad;
 import org.example.auth.RefreshTokenService;
 import org.example.domain.Organizacion;
 import org.example.domain.OrganizacionRepository;
@@ -22,6 +24,7 @@ public class UsuarioService {
     private final UsuarioRepository usuarioRepository;
     private final OrganizacionRepository organizacionRepository;
     private final RefreshTokenService refreshTokenService;
+    private final ActividadService actividadService;
 
     public Page<UsuarioResponse> findAll(Pageable pageable) {
         return usuarioRepository.findAll(pageable)
@@ -30,10 +33,22 @@ public class UsuarioService {
 
     @Transactional
     public UsuarioResponse toggleActivo(Long id, boolean activo) {
+        return toggleActivo(id, activo, null);
+    }
+
+    /** {@code motivo} is optional; the actor is the admin in the security context (N10). */
+    @Transactional
+    public UsuarioResponse toggleActivo(Long id, boolean activo, String motivo) {
         Usuario u = usuarioRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Usuario not found"));
+        boolean antes = u.isActivo();
         u.setActivo(activo);
         Usuario saved = usuarioRepository.save(u);
+        actividadService.registrar(ActividadService.Registro.de(
+                        activo ? TipoActividad.USUARIO_ACTIVADO : TipoActividad.USUARIO_DESACTIVADO)
+                .entidad("USUARIO", u.getId())
+                .cambio(antes ? "activo" : "inactivo", activo ? "activo" : "inactivo")
+                .motivo(motivo));
 
         if (!activo) {
             refreshTokenService.revokeAllFor(u.getId());

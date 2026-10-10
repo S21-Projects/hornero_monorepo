@@ -1,5 +1,6 @@
 package org.example.donacion.entrega;
 
+import org.example.actividad.ActividadService;
 import org.example.domain.Donacion;
 import org.example.domain.DonacionRepository;
 import org.example.domain.EstadoDonacion;
@@ -57,6 +58,9 @@ class EntregaServiceTest {
     @Mock
     private CodigoEntregaThrottle throttle;
 
+    @Mock
+    private ActividadService actividadService;
+
     private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 
     private Instant now;
@@ -66,7 +70,7 @@ class EntregaServiceTest {
     void setUp() {
         now = Instant.parse("2026-01-01T00:00:00Z");
         Clock clock = Clock.fixed(now, ZoneOffset.UTC);
-        entregaService = new EntregaService(donacionRepository, codigoEntregaRepository, throttle, passwordEncoder, clock);
+        entregaService = new EntregaService(donacionRepository, codigoEntregaRepository, throttle, passwordEncoder, clock, actividadService);
         ReflectionTestUtils.setField(entregaService, "ttlMinutes", 10L);
         ReflectionTestUtils.setField(entregaService, "maxAttempts", 5);
     }
@@ -346,5 +350,27 @@ class EntregaServiceTest {
         assertThatThrownBy(() -> entregaService.verificar(DONACION_ID, REFERENTE_ID, "654321"))
                 .isInstanceOf(ResponseStatusException.class)
                 .hasMessageContaining("403");
+    }
+
+    @Test
+    void verificar_fifthWrongAttempt_recordsLockoutIsolatedWithoutTheCode() {
+        Donacion d = donacionActiva(EstadoDonacion.EN_CAMINO);
+        CodigoEntrega delReferente = codigo("654321", ParticipantesDonacion.Parte.REFERENTE, REFERENTE_ID,
+                now.plusSeconds(300), 4);
+        when(donacionRepository.findByIdForUpdate(DONACION_ID)).thenReturn(Optional.of(d));
+        when(codigoEntregaRepository.findTopByDonacion_IdAndEmisorParteAndUsadoFalseOrderByCreadoEnDesc(
+                DONACION_ID, ParticipantesDonacion.Parte.REFERENTE)).thenReturn(Optional.of(delReferente));
+
+        assertThatThrownBy(() -> entregaService.verificar(DONACION_ID, DONANTE_ID, "000000"))
+                .isInstanceOf(ResponseStatusException.class);
+
+        org.mockito.ArgumentCaptor<ActividadService.Registro> captor =
+                org.mockito.ArgumentCaptor.forClass(ActividadService.Registro.class);
+        org.mockito.Mockito.verify(actividadService).registrarAislado(captor.capture());
+        assertThat(captor.getValue().accion()).isEqualTo(org.example.actividad.TipoActividad.ENTREGA_CODIGO_BLOQUEO);
+        assertThat(captor.getValue().entidadTipo()).isEqualTo("DONACION");
+        assertThat(captor.getValue().entidadId()).isEqualTo(DONACION_ID);
+        assertThat(captor.getValue().actorId()).isEqualTo(DONANTE_ID);
+        assertThat(captor.getValue().detalle()).doesNotContain("000000").doesNotContain("654321");
     }
 }

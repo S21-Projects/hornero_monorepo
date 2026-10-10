@@ -33,7 +33,26 @@ public class MailerConfig {
     }
 
     private Mailer logMailer() {
-        return (email, codigo) -> log.info("[otp-mail] Código de verificación para {}: {}", email, codigo);
+        // Never log the code itself (ASVS 16.2.5): anyone with log access could take over the
+        // account. Local dev reads the code from the database / test hooks instead.
+        return (email, codigo) -> log.info("[otp-mail] Código de verificación generado para {} (no se registra)",
+                enmascarar(email));
+    }
+
+    /** {@code juan.perez@example.com} -> {@code j***@example.com}; also strips control characters. */
+    static String enmascarar(String email) {
+        if (email == null || email.isBlank()) {
+            return "(sin email)";
+        }
+        String limpio = org.example.actividad.TextoSeguro.limpiar(email, 254);
+        if (limpio == null) {
+            return "(sin email)";
+        }
+        int arroba = limpio.indexOf('@');
+        if (arroba <= 0) {
+            return "***";
+        }
+        return limpio.charAt(0) + "***" + limpio.substring(arroba);
     }
 
     private Mailer resendMailer(String apiKey, String from) {

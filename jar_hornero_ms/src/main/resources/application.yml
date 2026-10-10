@@ -52,6 +52,9 @@ app:
     generar-max: 5
     generar-window-minutes: 15
     generar-cooldown-seconds: 30
+  actividad:
+    # N10: activity-log retention. Provisional default until D12 (PII retention) is decided.
+    retencion-dias: ${ACTIVIDAD_RETENCION_DIAS:365}
   rondas:
     # N7/D7: optional scheduled ronda. Off by default (rondas are manual).
     auto:

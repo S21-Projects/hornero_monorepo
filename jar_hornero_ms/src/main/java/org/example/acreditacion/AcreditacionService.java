@@ -152,9 +152,9 @@ public class AcreditacionService {
      * {@code nivelAntes = null, nivelDespues = N0}.
      */
     @Transactional
-    public void registrarRegistroOrganizacion(Organizacion org) {
+    public void registrarRegistroOrganizacion(Organizacion org, Usuario actor) {
         eventoRepository.save(OrganizacionEvento.de(
-                org, TipoEventoOrganizacion.ORGANIZACION_REGISTRADA, null,
+                org, TipoEventoOrganizacion.ORGANIZACION_REGISTRADA, actor,
                 "Organización autoregistrada", null, NivelAcreditacion.N0));
     }
 
@@ -165,10 +165,10 @@ public class AcreditacionService {
      * {@code null} records an unassignment.
      */
     @Transactional
-    public void registrarReasignacionReferente(Organizacion org, Long antesId, Long despuesId) {
+    public void registrarReasignacionReferente(Organizacion org, Long antesId, Long despuesId, Usuario actor) {
         String motivo = "Referente reasignado: " + antesId + " -> " + despuesId;
         eventoRepository.save(OrganizacionEvento.de(
-                org, TipoEventoOrganizacion.REFERENTE_REASIGNADO, null, motivo, null, null));
+                org, TipoEventoOrganizacion.REFERENTE_REASIGNADO, actor, motivo, null, null));
     }
 
     /**

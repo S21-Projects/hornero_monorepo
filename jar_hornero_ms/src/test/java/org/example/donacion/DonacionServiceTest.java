@@ -1,5 +1,7 @@
 package org.example.donacion;
 
+import org.example.actividad.ActividadService;
+import org.example.actividad.TipoActividad;
 import org.example.auth.VerificacionService;
 import org.example.config.EsquemaVerificador;
 import org.example.domain.Articulo;
@@ -73,6 +75,9 @@ class DonacionServiceTest {
     @Mock
     private DonanteVisibilidad donanteVisibilidad;
 
+    @Mock
+    private ActividadService actividadService;
+
     private DonacionService donacionService;
 
     /** 2026-10-10 in Argentina; the service reads "today" from this clock (D2/N3). */
@@ -88,7 +93,7 @@ class DonacionServiceTest {
     void setUp() {
         donacionService = new DonacionService(donacionRepository, necesidadRepository, usuarioRepository,
                 organizacionRepository, verificacionService, esquemaVerificador, asignacionRepository,
-                articuloRepository, donanteVisibilidad, clock);
+                articuloRepository, donanteVisibilidad, clock, actividadService);
         referente = new Referente(1L, "Ref Test", "ref@test.com", "encoded", true);
         donante = new Donante(2L, "Donante Test", "donante@test.com", "encoded", true);
 
@@ -1209,5 +1214,52 @@ class DonacionServiceTest {
         when(donanteVisibilidad.paraLlamadaActual()).thenReturn(this::masked);
 
         assertThat(donacionService.findAll(pageable).getContent().get(0).donanteName()).isNull();
+    }
+
+    // --- N10: activity log hooks ---
+
+    @Test
+    void decidir_recordsEstadoChangeInSameTransaction() {
+        Donacion d = donacionFor(1L, miOrganizacion);
+        when(donacionRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(d));
+        when(donacionRepository.save(any(Donacion.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        donacionService.decidir(1L, EstadoDonacion.ACEPTADA, 1L);
+
+        org.mockito.ArgumentCaptor<ActividadService.Registro> captor =
+                org.mockito.ArgumentCaptor.forClass(ActividadService.Registro.class);
+        verify(actividadService).registrar(captor.capture());
+        ActividadService.Registro r = captor.getValue();
+        assertThat(r.accion()).isEqualTo(TipoActividad.DONACION_DECISION);
+        assertThat(r.entidadTipo()).isEqualTo("DONACION");
+        assertThat(r.entidadId()).isEqualTo(1L);
+        assertThat(r.antes()).isEqualTo("OFRECIDA");
+        assertThat(r.despues()).isEqualTo("ACEPTADA");
+    }
+
+    @Test
+    void decidir_forbiddenAttempt_recordsNothing() {
+        Donacion d = donacionFor(1L, miOrganizacion);
+        when(donacionRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(d));
+
+        assertThatThrownBy(() -> donacionService.decidir(1L, EstadoDonacion.ACEPTADA, 999L))
+                .isInstanceOf(ResponseStatusException.class);
+
+        verify(actividadService, org.mockito.Mockito.never()).registrar(any());
+    }
+
+    @Test
+    void actualizarEstado_toCancelada_recordsDonacionCancelada() {
+        Donacion d = donacionFor(1L, miOrganizacion);
+        when(donacionRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(d));
+        when(donacionRepository.save(any(Donacion.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        donacionService.actualizarEstado(1L, EstadoDonacion.CANCELADA, d.getDonante().getId());
+
+        org.mockito.ArgumentCaptor<ActividadService.Registro> captor =
+                org.mockito.ArgumentCaptor.forClass(ActividadService.Registro.class);
+        verify(actividadService).registrar(captor.capture());
+        assertThat(captor.getValue().accion()).isEqualTo(TipoActividad.DONACION_CANCELADA);
+        assertThat(captor.getValue().despues()).isEqualTo("CANCELADA");
     }
 }

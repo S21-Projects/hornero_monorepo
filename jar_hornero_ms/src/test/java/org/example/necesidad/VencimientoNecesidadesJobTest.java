@@ -1,5 +1,10 @@
 package org.example.necesidad;
 
+import org.mockito.ArgumentCaptor;
+import org.mockito.Mockito;
+import org.mockito.ArgumentMatchers;
+import org.example.actividad.TipoActividad;
+import org.example.actividad.ActividadService;
 import org.example.domain.EstadoNecesidad;
 import org.example.domain.Necesidad;
 import org.example.domain.NecesidadRepository;
@@ -36,6 +41,7 @@ class VencimientoNecesidadesJobTest {
 
     private Organizacion org;
     private VencimientoNecesidadesJob job;
+    private final ActividadService actividadService = Mockito.mock(ActividadService.class);
 
     @BeforeEach
     void setUp() {
@@ -45,7 +51,7 @@ class VencimientoNecesidadesJobTest {
         org = organizacionRepository.save(org);
         // 00:05 Argentina time on HOY.
         Clock clock = Clock.fixed(HOY.atTime(0, 5).atZone(AR).toInstant(), AR);
-        job = new VencimientoNecesidadesJob(necesidadRepository, clock);
+        job = new VencimientoNecesidadesJob(necesidadRepository, clock, actividadService);
     }
 
     private Necesidad necesidad(EstadoNecesidad estado, LocalDate vencimiento) {
@@ -97,5 +103,24 @@ class VencimientoNecesidadesJobTest {
 
         assertThat(job.vencerNecesidades()).isEqualTo(1);
         assertThat(job.vencerNecesidades()).isZero();
+    }
+
+    @Test
+    void vencerNecesidades_recordsOneSystemEntryWithTheCount_andNothingWhenZero() {
+        necesidad(EstadoNecesidad.ABIERTA, HOY.minusDays(1));
+        necesidad(EstadoNecesidad.ABIERTA, HOY.minusDays(2));
+
+        job.vencerNecesidades();
+
+        ArgumentCaptor<ActividadService.Registro> captor =
+                ArgumentCaptor.forClass(ActividadService.Registro.class);
+        Mockito.verify(actividadService).registrar(captor.capture());
+        assertThat(captor.getValue().accion()).isEqualTo(TipoActividad.NECESIDADES_VENCIDAS);
+        assertThat(captor.getValue().esSistema()).isTrue();
+        assertThat(captor.getValue().detalle()).contains("2");
+
+        Mockito.clearInvocations(actividadService);
+        job.vencerNecesidades();
+        Mockito.verify(actividadService, Mockito.never()).registrar(ArgumentMatchers.any());
     }
 }

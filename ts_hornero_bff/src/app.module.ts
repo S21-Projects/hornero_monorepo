@@ -14,6 +14,7 @@ import { AcreditacionModule } from './acreditacion/acreditacion.module.js';
 import { EvidenciaFilesModule } from './evidencia-files/evidencia-files.module.js';
 import { RondasModule } from './rondas/rondas.module.js';
 import { ArticulosModule } from './articulos/articulos.module.js';
+import { ActividadModule } from './actividad/actividad.module.js';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard.js';
 import { RolesGuard } from './auth/guards/roles.guard.js';
 
@@ -31,6 +32,7 @@ import { RolesGuard } from './auth/guards/roles.guard.js';
     EvidenciaFilesModule,
     RondasModule,
     ArticulosModule,
+    ActividadModule,
   ],
   controllers: [AppController],
   providers: [

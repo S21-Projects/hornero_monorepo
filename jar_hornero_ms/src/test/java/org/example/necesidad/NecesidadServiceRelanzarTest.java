@@ -1,5 +1,13 @@
 package org.example.necesidad;
 
+import org.mockito.ArgumentCaptor;
+import org.mockito.Mockito;
+import org.mockito.ArgumentMatchers;
+import org.example.actividad.TipoActividad;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.example.actividad.ActividadService;
 import org.example.auth.VerificacionService;
 import org.example.config.AcreditacionProperties;
 import org.example.domain.Articulo;
@@ -28,9 +36,6 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Clock;
@@ -62,6 +67,7 @@ class NecesidadServiceRelanzarTest {
     @Mock private VerificacionService verificacionService;
     @Mock private AcreditacionProperties acreditacionProperties;
     @Mock private ArticuloRepository articuloRepository;
+    @Mock private ActividadService actividadService;
 
     private NecesidadService service;
     private Organizacion org;
@@ -72,7 +78,7 @@ class NecesidadServiceRelanzarTest {
     void setUp() {
         Clock clock = Clock.fixed(HOY.atTime(12, 0).atZone(BA).toInstant(), BA);
         service = new NecesidadService(necesidadRepository, organizacionRepository, verificacionService,
-                acreditacionProperties, articuloRepository, clock);
+                acreditacionProperties, articuloRepository, clock, actividadService);
         referente = new Referente(1L, "Ref", "ref@test.com", "x", true);
         org = new Organizacion();
         org.setId(1L);
@@ -335,4 +341,20 @@ class NecesidadServiceRelanzarTest {
         verify(necesidadRepository).findByOrganizacion_Id(1L, pageable);
     }
 
+
+    @Test
+    void relanzar_recordsEstadoChangeInSameTransaction() {
+        Necesidad n = necesidad(EstadoNecesidad.VENCIDA, HOY.minusDays(1));
+        when(necesidadRepository.findById(10L)).thenReturn(Optional.of(n));
+
+        service.relanzar(10L, new RelanzarNecesidadRequest(HOY.plusDays(7)), 1L);
+
+        ArgumentCaptor<ActividadService.Registro> captor =
+                ArgumentCaptor.forClass(ActividadService.Registro.class);
+        verify(actividadService).registrar(captor.capture());
+        assertThat(captor.getValue().accion()).isEqualTo(TipoActividad.NECESIDAD_RELANZADA);
+        assertThat(captor.getValue().entidadTipo()).isEqualTo("NECESIDAD");
+        assertThat(captor.getValue().antes()).isEqualTo("VENCIDA");
+        assertThat(captor.getValue().despues()).isEqualTo("ABIERTA");
+    }
 }

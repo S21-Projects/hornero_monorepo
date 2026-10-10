@@ -549,3 +549,21 @@ export interface DonacionActiva {
   fase?: FaseDonacion;
   lineas?: DonacionLinea[];
 }
+
+/** Mirrors `ActividadResponse` (MS) — one row of the append-only activity log (N10). */
+export interface Actividad {
+  id: number;
+  ocurridoEn: string;
+  actorUsuarioId: number | null;
+  actorTipo: string;
+  accion: string;
+  resultado: string;
+  entidadTipo: string | null;
+  entidadId: number | null;
+  detalle: string | null;
+  antes: string | null;
+  despues: string | null;
+  motivo: string | null;
+  ip: string | null;
+  emailIntento: string | null;
+}

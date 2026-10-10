@@ -1,5 +1,6 @@
 package org.example.necesidad;
 
+import org.example.actividad.ActividadService;
 import org.example.domain.EstadoNecesidad;
 import org.example.domain.Necesidad;
 import org.example.domain.NecesidadRepository;
@@ -38,6 +39,9 @@ class NecesidadServicePageTest {
 
     @org.mockito.Spy
     private java.time.Clock clock = java.time.Clock.system(java.time.ZoneId.of("America/Argentina/Buenos_Aires"));
+
+    @Mock
+    private ActividadService actividadService;
 
     @InjectMocks
     private NecesidadService necesidadService;

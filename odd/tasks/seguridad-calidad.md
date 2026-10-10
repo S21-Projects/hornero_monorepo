@@ -213,10 +213,20 @@ The guide requires measures "related to the identified risks", so a risk matrix 
   - Caveat: e2e registration throttle (3/min) can carry over between back-to-back `make e2e`
     runs; full run ~3 min.
 
-- [ ] **N10** (from D10) Activity log: `actividad` table + recording service (insert-only, no
+- [x] **N10** (from D10) Activity log: `actividad` table + recording service (insert-only, no
   update/delete, input sanitized against log injection), hooks at the events above, admin
   query endpoint + screen, Docker `logging` max-size/max-file on every service, and stop the
   plaintext OTP log line in log-only mail mode. Inventory of today's coverage: see D10.
+  - Done: `actividad` package (immutable entity, 38 `TipoActividad` values stored as text, no
+    CHECK constraint), `registrar` (same tx) vs `registrarAislado` (REQUIRES_NEW, never throws)
+    for failure/security events, `TextoSeguro` against log injection, BFF forwards `X-Client-IP`
+    via an axios interceptor, `GET /api/actividad` (admin, paginated) + admin `/actividad`
+    screen, retention job (`ACTIVIDAD_RETENCION_DIAS`, default 365, provisional pending D12),
+    Docker log rotation (10m × 5) on every service, OTP no longer logged, null actors fixed in
+    `OrganizacionEvento`. Doc: `docs/registro-actividades.md`; R18 residual → B.
+  - Not done: `motivo` input in the admin UI for (de)activation; screen shows user id, not name;
+    no DB-level immutability (trigger / insert-only role); uploads not recorded (documented).
+  - **USER ACTION:** add `ACTIVIDAD_RETENCION_DIAS=365` to `.env.example` (optional).
 
 ## Business definitions pending (list 2)
 
@@ -268,6 +278,7 @@ Each item needs a team decision before related work starts. Record the decision 
 | Date | Task | Route | Evidence | Commit |
 |------|------|-------|----------|--------|
 | 2026-10-10 | — | — | Document created from audit | — |
+| 2026-10-10 | N10 | MS+BFF+admin+infra delegated; compose env wiring inline | RED for hooks/BFF/admin (core service + TextoSeguro written before tests, no RED). GREEN: `mvn test` 675/675; BFF 334/334, tsc ok; admin 442/442 + build + lint; compose config ok; `make e2e` 67/67 twice | (this commit) |
 | 2026-10-10 | N9+N7 | MS+BFF+admin delegated | RED: MS 2/7 new tests (then 10 WebMvcTests needed a repo mock), compile error for N7; BFF 8 fail; admin 2 fail. GREEN: `mvn test` 631/631; BFF 316/316, tsc ok; admin 432/432 + build; `make e2e` 61/61 | (this commit) |
 | 2026-10-10 | N8 | MS+BFF+admin delegated | RED: MS compile error, admin 4 fail, BFF DTO 2/7 fail. GREEN: `mvn test` 613/613; BFF 308/308, tsc ok; admin 427/427 + build; `make e2e` 53/53 (after e2e cleanup fix) | (this commit) |
 | 2026-10-10 | e2e fix | inline | D1/D2 e2e left APROBADA orgs (rechazar needs PENDIENTE) → referente3 hit the 3-org cap. `retireOrg` lowers to N0 then rejects; `retireLeftoverOrgs` heals old runs. `make e2e` 53/53 twice in a row | (separate commit) |

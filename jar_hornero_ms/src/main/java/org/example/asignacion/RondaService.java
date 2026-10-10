@@ -2,6 +2,8 @@ package org.example.asignacion;
 
 import org.example.asignacion.dto.RondaFondoResponse;
 import org.example.asignacion.dto.RondaResponse;
+import org.example.actividad.ActividadService;
+import org.example.actividad.TipoActividad;
 import org.example.asignacion.worker.AsignadorClient;
 import org.example.asignacion.worker.AsignadorNoDisponibleException;
 import org.example.asignacion.worker.AsignadorRespuestaInvalidaException;
@@ -69,6 +71,7 @@ public class RondaService {
     private final UsuarioRepository usuarioRepository;
     private final Clock clock;
     private final TransactionTemplate transactionTemplate;
+    private final ActividadService actividadService;
     private final ReentrantLock lock = new ReentrantLock();
 
     public RondaService(DonacionRepository donacionRepository,
@@ -79,7 +82,8 @@ public class RondaService {
                          AsignadorClient asignadorClient,
                          UsuarioRepository usuarioRepository,
                          Clock clock,
-                         PlatformTransactionManager transactionManager) {
+                         PlatformTransactionManager transactionManager,
+                         ActividadService actividadService) {
         this.donacionRepository = donacionRepository;
         this.necesidadRepository = necesidadRepository;
         this.asignacionRepository = asignacionRepository;
@@ -89,6 +93,7 @@ public class RondaService {
         this.usuarioRepository = usuarioRepository;
         this.clock = clock;
         this.transactionTemplate = new TransactionTemplate(transactionManager);
+        this.actividadService = actividadService;
     }
 
     /** Manual trigger ({@code POST /api/rondas}). */
@@ -125,17 +130,44 @@ public class RondaService {
             } catch (AsignadorNoDisponibleException e) {
                 transactionTemplate.executeWithoutResult(status ->
                         persistirFallida(adminId, origen, lectura, "WORKER_NO_DISPONIBLE"));
+                registrar(adminId, origen, null, "WORKER_NO_DISPONIBLE");
                 throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "WORKER_NO_DISPONIBLE");
             } catch (AsignadorRespuestaInvalidaException e) {
                 transactionTemplate.executeWithoutResult(status ->
                         persistirFallida(adminId, origen, lectura, "RESPUESTA_WORKER_INVALIDA"));
+                registrar(adminId, origen, null, "RESPUESTA_WORKER_INVALIDA");
                 throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "RESPUESTA_WORKER_INVALIDA");
             }
 
-            return transactionTemplate.execute(status -> persistirResultado(adminId, origen, lectura, salida));
+            Ronda ronda = transactionTemplate.execute(status -> persistirResultado(adminId, origen, lectura, salida));
+            registrar(adminId, origen, ronda, null);
+            return ronda;
         } finally {
             lock.unlock();
         }
+    }
+
+    /**
+     * N10: the ronda itself was committed by the template above, so the audit row is written
+     * afterwards through the isolated, never-throwing path: a log failure must not turn a finished
+     * ronda into an error response.
+     */
+    private void registrar(Long adminId, OrigenRonda origen, Ronda ronda, String error) {
+        ActividadService.Registro registro = ActividadService.Registro.de(TipoActividad.RONDA_EJECUTADA);
+        if (adminId != null) {
+            registro.actor(adminId, "ADMINISTRADOR");
+        } else {
+            registro.sistema();
+        }
+        if (error != null) {
+            registro.fallo().detalle("origen " + origen + ": " + error);
+        } else {
+            registro.detalle("origen " + origen + ", asignadas " + ronda.getAsignadas());
+            if (ronda.getId() != null) {
+                registro.entidad("RONDA", ronda.getId());
+            }
+        }
+        actividadService.registrarAislado(registro);
     }
 
     /** {@code GET /api/rondas}: most recent first. */

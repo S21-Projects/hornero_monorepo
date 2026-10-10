@@ -1,6 +1,9 @@
 package org.example.donacion;
 
 import lombok.RequiredArgsConstructor;
+import org.example.actividad.ActividadService;
+import org.example.actividad.ActividadService.Registro;
+import org.example.actividad.TipoActividad;
 import org.example.auth.VerificacionService;
 import org.example.config.EsquemaVerificador;
 import org.example.domain.Articulo;
@@ -58,6 +61,7 @@ public class DonacionService {
     private final ArticuloRepository articuloRepository;
     private final DonanteVisibilidad donanteVisibilidad;
     private final Clock clock;
+    private final ActividadService actividadService;
 
     public Page<DonacionResponse> findAll(Pageable pageable) {
         return donacionRepository.findAllWithDonante(pageable)
@@ -181,7 +185,12 @@ public class DonacionService {
             }
         }
 
-        return toResponse(donacionRepository.save(d));
+        Donacion guardada = donacionRepository.save(d);
+        actividadService.registrar(Registro.de(TipoActividad.DONACION_CREADA)
+                .entidad("DONACION", guardada.getId())
+                .cambio(null, EstadoDonacion.OFRECIDA)
+                .detalle("modalidad " + modalidad));
+        return toResponse(guardada);
     }
 
     public DonacionResponse findById(Long id) {
@@ -251,12 +260,18 @@ public class DonacionService {
             d.setNecesidad(null);
             DonacionResponse response = toResponse(donacionRepository.save(d));
             resolverAsignacionVigente(id, EstadoAsignacion.RECHAZADA);
+            actividadService.registrar(Registro.de(TipoActividad.DONACION_DECISION)
+                    .entidad("DONACION", id).cambio(d.getEstado(), d.getEstado())
+                    .detalle("rechazada por la organización, devuelta al fondo común"));
             return response;
         }
 
         TransicionesDonacion.validar(d.getEstado(), nuevoEstado);
+        EstadoDonacion estadoAntes = d.getEstado();
         d.setEstado(nuevoEstado);
         DonacionResponse response = toResponse(donacionRepository.save(d));
+        actividadService.registrar(Registro.de(TipoActividad.DONACION_DECISION)
+                .entidad("DONACION", id).cambio(estadoAntes, nuevoEstado));
         if (nuevoEstado == EstadoDonacion.ACEPTADA) {
             resolverAsignacionVigente(id, EstadoAsignacion.ACEPTADA);
         }
@@ -275,8 +290,13 @@ public class DonacionService {
                     "Invalid state transition: " + nuevoEstado);
         }
         TransicionesDonacion.validar(d.getEstado(), nuevoEstado);
+        EstadoDonacion estadoAntes = d.getEstado();
         d.setEstado(nuevoEstado);
         DonacionResponse response = toResponse(donacionRepository.save(d));
+        actividadService.registrar(Registro.de(
+                        nuevoEstado == EstadoDonacion.CANCELADA
+                                ? TipoActividad.DONACION_CANCELADA : TipoActividad.DONACION_ESTADO_ACTUALIZADO)
+                .entidad("DONACION", id).cambio(estadoAntes, nuevoEstado));
         if (nuevoEstado == EstadoDonacion.CANCELADA) {
             resolverAsignacionVigente(id, EstadoAsignacion.CANCELADA);
         }
@@ -315,12 +335,15 @@ public class DonacionService {
             d.setConfirmadaReferenteEn(null);
         }
 
+        EstadoDonacion estadoAntes = d.getEstado();
         d.setEstado(nuevoEstado);
         d.setOverrideMotivo(motivo);
         d.setOverrideAdminId(adminId);
         d.setOverrideEn(Instant.now());
 
         DonacionResponse response = toResponse(donacionRepository.save(d));
+        actividadService.registrar(Registro.de(TipoActividad.DONACION_OVERRIDE)
+                .entidad("DONACION", id).cambio(estadoAntes, nuevoEstado).motivo(motivo));
         if (nuevoEstado == EstadoDonacion.ACEPTADA
                 || nuevoEstado == EstadoDonacion.RECHAZADA
                 || nuevoEstado == EstadoDonacion.CANCELADA) {
@@ -362,6 +385,8 @@ public class DonacionService {
                     "Cannot delete a donation that is not in OFRECIDA state");
         }
         donacionRepository.delete(d);
+        actividadService.registrar(Registro.de(TipoActividad.DONACION_ELIMINADA)
+                .entidad("DONACION", id).cambio(d.getEstado(), null));
     }
 
     private DonacionResponse toResponse(Donacion d) {
