@@ -186,6 +186,30 @@ The guide requires measures "related to the identified risks", so a risk matrix 
   - Left alone: CUMPLIDA → ABIERTA via PATCH skips the cap check; an ABIERTA past-date necesidad
     stays listed until the nightly job runs (donations already refused).
 
+- [x] **N8** (from D8) Password policy per NIST SP 800-63B-4 at registration (MS authority, BFF DTO
+  and admin register form mirror it): length 15–64 characters, ≤ 72 UTF-8 bytes (BCrypt limit),
+  no composition rules, reject passwords in a bundled common/breached blocklist (≥ top 3000,
+  ASVS 6.2.4) and passwords containing the email local part or "hornero". Existing users are not
+  forced to change. Seeds/demo accounts must comply.
+  - Done: `PasswordPolicy` (MS authority) — 15–64 code points, ≤ 72 bytes, blocklist of 5,553
+    entries ≥ 15 chars from SecLists (MIT, attribution in the file header), repetitive/sequential
+    and personal-data checks; codes `PASSWORD_DEMASIADO_CORTA|LARGA`, `PASSWORD_COMUN`,
+    `PASSWORD_CONTIENE_DATOS_PERSONALES`. BFF DTO mirrors length; BFF filter now relays DTO
+    validation messages (was a generic "Bad Request"). Admin register form shows the rule.
+    `scripts/seed.ts` referentes now use `comedor-solidario-cordoba`; DataInitializer demo
+    accounts unchanged. RF draft delivered to the user for the thesis.
+- [ ] **N9** (from D9) Deactivating a user cuts access immediately: the MS rejects any request
+  whose token belongs to an inactive user (401 `USUARIO_INACTIVO`); refresh families already
+  revoked (S3). Check BFF paths that answer without calling the MS.
+- [ ] **N7** (from D7) Optional scheduled ronda: `app.rondas.auto.enabled` (default false) + cron
+  property; runs the same ronda as the manual trigger with a system actor; skips cleanly when
+  the worker is down.
+
+- [ ] **N10** (from D10) Activity log: `actividad` table + recording service (insert-only, no
+  update/delete, input sanitized against log injection), hooks at the events above, admin
+  query endpoint + screen, Docker `logging` max-size/max-file on every service, and stop the
+  plaintext OTP log line in log-only mail mode. Inventory of today's coverage: see D10.
+
 ## Business definitions pending (list 2)
 
 Each item needs a team decision before related work starts. Record the decision and date here.
@@ -199,7 +223,9 @@ Each item needs a team decision before related work starts. Record the decision 
     TTL. Implementation: task **N3**. Verified gap: `EstadoNecesidad.VENCIDA` exists but nothing
     sets it; rondas already skip past-date necesidades; DIRECTA creation checks neither date nor
     estado.
-- [ ] **D3** Quantity ceiling: can a donation exceed what the necesidad requests?
+- [x] **D3** Quantity ceiling: can a donation exceed what the necesidad requests?
+  - Closed 2026-10-10 (user): not applicable — necesidades select articulos without quantities
+    (catalog decision 6), so there is nothing to cap against.
 - [ ] **D4** Stale donations: do `OFRECIDA`/`EN_CAMINO` donations expire after some time?
 - [x] **D5** Which donor data is public? (today `GET /donaciones/{id}` exposes donor name)
   - Decided 2026-10-10 (user): donor identity is visible only to the receiving organization (plus
@@ -207,11 +233,25 @@ Each item needs a team decision before related work starts. Record the decision 
     default. Implementation: task **N2**.
 - [ ] **D6** Which events send email, and to whom? (offered, accepted, delivered, org approved…)
   Note: `Mailer` only exposes `enviarOtp`; needs generalizing.
-- [ ] **D7** Rondas: manual only, or also scheduled?
-- [ ] **D8** Password policy (min 6 today) and password reset flow.
-- [ ] **D9** Deactivated user: immediate cut-off (DB check per request) or wait for 15 min token
+- [x] **D7** Rondas: manual only, or also scheduled?
+  - Decided 2026-10-10 (user): manual stays the default; an optional scheduled job can be
+    enabled by config. Task **N7**.
+- [x] **D8** Password policy (min 6 today) and password reset flow.
+  - Decided 2026-10-10 (user): follow a standard, validated at registration, documented as a
+    functional requirement. Standard: NIST SP 800-63B-4 §3.1.1.2 (single-factor: min 15 chars,
+    allow ≥ 64, no composition rules, blocklist of common/compromised passwords, no forced
+    rotation), consistent with OWASP ASVS 5.0 V6.2 (6.2.1, 6.2.4, 6.2.5, 6.2.9). Task **N8**.
+    Reset flow: not decided yet.
+- [x] **D9** Deactivated user: immediate cut-off (DB check per request) or wait for 15 min token
   expiry?
-- [ ] **D10** Audit scope: which actions get logged (logins, admin actions, state changes)?
+  - Decided 2026-10-10 (user): immediate — the next request with the old token fails. Task **N9**.
+- [x] **D10** Audit scope: which actions get logged (logins, admin actions, state changes)?
+  - Decided 2026-10-10 (user): append-only `actividad` table (actor, rol, accion, entidad,
+    antes/despues, motivo, ip, ocurridoEn) for security events (login ok/fail, lockouts, refresh
+    reuse, logout), every ADMIN write, and donacion/necesidad state transitions; reads, 403 and
+    429 stay log-only; admin screen with filters; Docker log rotation; retention tied to D12.
+    Never store passwords, tokens, OTP/delivery codes. Reference: OWASP ASVS 5.0 V16
+    (16.2.1, 16.2.5, 16.3.1–16.3.3, 16.4.1–16.4.2). Task **N10** (after N8, N9, N7).
 - [ ] **D11** Backup policy: RPO, RTO, retention, offsite destination, who has access/restores.
 - [ ] **D12** PII retention and deletion (Ley 25.326); encryption of donor addresses/coordinates.
 
@@ -220,6 +260,8 @@ Each item needs a team decision before related work starts. Record the decision 
 | Date | Task | Route | Evidence | Commit |
 |------|------|-------|----------|--------|
 | 2026-10-10 | — | — | Document created from audit | — |
+| 2026-10-10 | N8 | MS+BFF+admin delegated | RED: MS compile error, admin 4 fail, BFF DTO 2/7 fail. GREEN: `mvn test` 613/613; BFF 308/308, tsc ok; admin 427/427 + build; `make e2e` 53/53 (after e2e cleanup fix) | (this commit) |
+| 2026-10-10 | e2e fix | inline | D1/D2 e2e left APROBADA orgs (rechazar needs PENDIENTE) → referente3 hit the 3-org cap. `retireOrg` lowers to N0 then rejects; `retireLeftoverOrgs` heals old runs. `make e2e` 53/53 twice in a row | (separate commit) |
 | 2026-10-10 | N4 | MS+BFF+admin delegated | RED: MS compile error; BFF 6 fail (admin detail guard written with its test, no RED). GREEN: `mvn test` 586/586; BFF 300/300 (3 reruns), tsc ok; admin 409/409 + build; astro build; `make e2e` 51/51 | (this commit) |
 | 2026-10-10 | N3 | MS delegated | RED: compile error on new tests; then 36 errors (self-invoked @Transactional), fixed. GREEN: `mvn test` 566/566; `make e2e` 51/51; startup catch-up logged 1 necesidad expired | (this commit) |
 | 2026-10-10 | Q2 fix | inline (1 test file) | `role-matrix.spec.ts` flaked ~1/8 runs ("socket hang up", supertest opening a server per request); listen once on port 0 → 25/25 green runs, tsc ok | (this commit) |

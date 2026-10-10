@@ -15,6 +15,27 @@ export type Actors = ReturnType<typeof actors>;
 
 export const anonymous = () => new Actor('anonymous');
 
+/**
+ * Retires an e2e organizacion so it stops counting toward the referente's organizacion cap:
+ * `rechazar` only accepts PENDIENTE, and an org at N1+ is APROBADA, so lower it to N0 first
+ * (which projects it back to PENDIENTE). Both calls are best-effort.
+ */
+export async function retireOrg(admin: Actor, orgId: number) {
+  await admin.patch(`/organizaciones/${orgId}/acreditacion/nivel`, { destino: 'N0', motivo: 'e2e cleanup' });
+  await admin.patch(`/organizaciones/${orgId}/rechazar`);
+}
+
+/** Retires organizaciones left behind by earlier e2e runs (name starts with the e2e marker). */
+export async function retireLeftoverOrgs(admin: Actor, referente: Actor) {
+  const res = await referente.get('/organizaciones/mia');
+  const orgs = (Array.isArray(res.data) ? res.data : res.data?.content ?? []) as any[];
+  for (const org of orgs) {
+    if (typeof org.nombre === 'string' && org.nombre.startsWith('e2e ') && org.estado !== 'RECHAZADA') {
+      await retireOrg(admin, org.id);
+    }
+  }
+}
+
 export const runId = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
 export const marker = (label: string) => `e2e ${runId} ${label}`;
 
