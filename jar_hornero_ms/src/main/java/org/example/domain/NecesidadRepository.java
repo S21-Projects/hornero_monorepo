@@ -3,10 +3,12 @@ package org.example.domain;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDate;
 import java.util.Collection;
 import java.util.List;
 
@@ -33,4 +35,16 @@ public interface NecesidadRepository extends JpaRepository<Necesidad, Long> {
     @Query("SELECT DISTINCT n FROM Necesidad n JOIN FETCH n.organizacion o LEFT JOIN FETCH o.referente "
             + "LEFT JOIN FETCH n.articulos WHERE n.estado IN :estados")
     List<Necesidad> findByEstadoInWithOrganizacion(@Param("estados") Collection<EstadoNecesidad> estados);
+
+    /**
+     * D2/N3: bulk-moves necesidades in {@code estados} whose {@code fechaVencimiento} is strictly
+     * before {@code hoy} to {@code destino}. A null {@code fechaVencimiento} never matches (never
+     * expires); the boundary day itself is not expired. Returns the number of rows updated.
+     */
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("UPDATE Necesidad n SET n.estado = :destino "
+            + "WHERE n.estado IN :estados AND n.fechaVencimiento < :hoy")
+    int cambiarEstadoDeVencidas(@Param("estados") Collection<EstadoNecesidad> estados,
+                                @Param("hoy") LocalDate hoy,
+                                @Param("destino") EstadoNecesidad destino);
 }

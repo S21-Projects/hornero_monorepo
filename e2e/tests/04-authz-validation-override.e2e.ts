@@ -1,6 +1,6 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 import {
-  actors, anonymous, crearDirecta, estadoDe, marker, openNecesidades, orgOwners, pickNecesidad, type Actors, type Necesidad,
+  actors, anonymous, crearDirecta, estadoDe, llevarAEnCamino, marker, openNecesidades, orgOwners, pickNecesidad, type Actors, type Necesidad,
   type Articulo,
 } from '../src/fixtures.js';
 
@@ -159,6 +159,58 @@ describe('Authorization, validation and admin override', () => {
         expect(JSON.stringify(res.body)).toContain('ORGANIZACION_NO_APROBADA');
       } finally {
         // Free the referente's 3-organizacion cap for the next run.
+        await a.admin.patch(`/organizaciones/${orgId}/rechazar`);
+      }
+    });
+  });
+
+  describe('D2/N3. donating to an expired necesidad', () => {
+    const isoDay = (offsetDays: number) => new Date(Date.now() + offsetDays * 86_400_000).toISOString().slice(0, 10);
+
+    it('DIRECTA donation to a VENCIDA / past-date necesidad -> 409 NECESIDAD_NO_DISPONIBLE; in-flight donations keep moving', async () => {
+      const articulo = (await openNecesidades())
+        .flatMap((n) => n.articulos)
+        .find((x) => x.categoria === 'NO_PERECEDERO');
+      expect(articulo, 'no NO_PERECEDERO articulo in seed data').toBeTruthy();
+      const donar = (necesidadId: number) => a.donante.post('/donaciones', {
+        modalidad: 'DIRECTA', necesidadId, lineas: [{ articuloId: articulo!.id, cantidad: 1 }],
+      });
+
+      const org = await a.referente3.post('/organizaciones', {
+        nombre: marker('org-expiry'), tipo: 'OTRO', latitud: -31.4, longitud: -64.19,
+      });
+      expect(org.status).toBe(201);
+      const orgId = org.data.id as number;
+      try {
+        expect((await a.admin.patch(`/organizaciones/${orgId}/validar`)).status).toBe(200);
+        const crear = (label: string, fechaVencimiento?: string) => a.referente3.post('/necesidades', {
+          descripcion: marker(label), prioridad: 'NORMAL', organizacionId: orgId,
+          articuloIds: [articulo!.id], ...(fechaVencimiento ? { fechaVencimiento } : {}),
+        });
+
+        // Past date but still ABIERTA (the daily job has not touched it): refused on the date alone.
+        const pastDate = await crear('necesidad-past-date', isoDay(-3));
+        expect(pastDate.status).toBe(201);
+        const r1 = await donar(pastDate.data.id);
+        expect(r1.status).toBe(409);
+        expect(JSON.stringify(r1.body)).toContain('NECESIDAD_NO_DISPONIBLE');
+
+        // A live necesidad with a donation already in flight, then closed as VENCIDA.
+        const live = await crear('necesidad-live', isoDay(30));
+        expect(live.status).toBe(201);
+        const inFlight = await donar(live.data.id);
+        expect(inFlight.status).toBe(201);
+        expect((await a.referente3.patch(`/necesidades/${live.data.id}`, { estado: 'VENCIDA' })).status).toBe(200);
+
+        const r2 = await donar(live.data.id);
+        expect(r2.status).toBe(409);
+        expect(JSON.stringify(r2.body)).toContain('NECESIDAD_NO_DISPONIBLE');
+
+        // In-flight donations are untouched (D2 default): they can still be accepted and sent.
+        await llevarAEnCamino(a.donante, a.referente3, inFlight.data.id);
+        expect(await estadoDe(inFlight.data.id)).toBe('EN_CAMINO');
+        expect((await a.donante.patch(`/donaciones/${inFlight.data.id}/estado`, { estado: 'CANCELADA' })).status).toBe(200);
+      } finally {
         await a.admin.patch(`/organizaciones/${orgId}/rechazar`);
       }
     });

@@ -164,6 +164,21 @@ The guide requires measures "related to the identified risks", so a risk matrix 
     request), applied to `findAll`/`findByOrganizacion`/`findById`. Pool donation without an org
     → only donor and admin. **USER ACTION:** add `DONANTE_PUBLICO=false` to `.env.example`.
 
+- [x] **N3** (from D2) Daily job moves `ABIERTA`/`EN_PROGRESO` necesidades past
+  `fechaVencimiento` to `VENCIDA`; DIRECTA donation creation rejects a necesidad that is not
+  open or is past its date (409, independent of the job's timing). In-flight donations are left
+  untouched (default; revisit with D4). Tests in MS + e2e.
+  - Done: `VencimientoNecesidadesJob` (cron 00:05 Buenos Aires + catch-up on startup, one bulk
+    UPDATE), `crear` → 409 `NECESIDAD_NO_DISPONIBLE`; date == today still valid. The `Clock` bean
+    moved from UTC to `America/Argentina/Buenos_Aires` (also affects ronda day logic).
+  - Findings: `fechaVencimiento` optional and past dates accepted on create; public/admin listings
+    still show `VENCIDA`; `actualizar` has no transition validation (handled in N4).
+
+- [ ] **N4** (from D2, user 2026-10-10) Referente can relaunch an expired necesidad from `/needs`:
+  explicit "Relanzar" action on `VENCIDA` necesidades, requires a new future `fechaVencimiento`,
+  goes back to `ABIERTA`, and respects the open-necesidades cap of the org's level. `actualizar`
+  must not allow `ABIERTA` with a past date (the job would re-expire it immediately).
+
 ## Business definitions pending (list 2)
 
 Each item needs a team decision before related work starts. Record the decision and date here.
@@ -171,8 +186,12 @@ Each item needs a team decision before related work starts. Record the decision 
 - [x] **D1** Can donors donate to an organization not yet approved? (today: yes)
   - Decided 2026-10-10 (user): **no**. The organization needs at least one approval level
     (`nivel` ≥ N1; N0 = REGISTRADA is not approved). Implementation: task **N1** below.
-- [ ] **D2** Can donors donate to a necesidad that is closed or expired? Who/what moves a
+- [x] **D2** Can donors donate to a necesidad that is closed or expired? Who/what moves a
   necesidad to `VENCIDA`? (today: not validated, nothing sets it)
+  - Decided 2026-10-10 (user): expired necesidades are taken down; `fechaVencimiento` is their
+    TTL. Implementation: task **N3**. Verified gap: `EstadoNecesidad.VENCIDA` exists but nothing
+    sets it; rondas already skip past-date necesidades; DIRECTA creation checks neither date nor
+    estado.
 - [ ] **D3** Quantity ceiling: can a donation exceed what the necesidad requests?
 - [ ] **D4** Stale donations: do `OFRECIDA`/`EN_CAMINO` donations expire after some time?
 - [x] **D5** Which donor data is public? (today `GET /donaciones/{id}` exposes donor name)
@@ -194,6 +213,7 @@ Each item needs a team decision before related work starts. Record the decision 
 | Date | Task | Route | Evidence | Commit |
 |------|------|-------|----------|--------|
 | 2026-10-10 | — | — | Document created from audit | — |
+| 2026-10-10 | N3 | MS delegated | RED: compile error on new tests; then 36 errors (self-invoked @Transactional), fixed. GREEN: `mvn test` 566/566; `make e2e` 51/51; startup catch-up logged 1 necesidad expired | (this commit) |
 | 2026-10-10 | Q2 fix | inline (1 test file) | `role-matrix.spec.ts` flaked ~1/8 runs ("socket hang up", supertest opening a server per request); listen once on port 0 → 25/25 green runs, tsc ok | (this commit) |
 | 2026-10-10 | N2 | MS+BFF+astro+admin delegated | RED: MS compile error, BFF 8 fail (no e2e RED captured). GREEN: `mvn test` 558/558; BFF 295/295, tsc ok; admin 399/399 + build; astro build; `make e2e` 50/50 | (this commit) |
 | 2026-10-10 | N1 | MS delegated | RED: DonacionServiceTest 2 fail; e2e 1 fail (201 vs 409). GREEN: `mvn test` 544/544; `make e2e` 44/44 | (this commit) |
