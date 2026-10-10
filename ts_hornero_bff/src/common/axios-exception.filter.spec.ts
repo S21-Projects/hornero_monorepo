@@ -148,6 +148,25 @@ describe('AxiosExceptionFilter', () => {
     });
   });
 
+  describe('Case 4b — ValidationPipe errors keep their field messages', () => {
+    it('relays the class-validator messages in errors[] and the first as message', () => {
+      const json = jest.fn();
+      filter.catch(
+        new BadRequestException({
+          statusCode: 400,
+          error: 'Bad Request',
+          message: ['PASSWORD_DEMASIADO_CORTA', 'otro error'],
+        }),
+        buildMockHost(json),
+      );
+
+      const body = json.mock.calls[0][0];
+      expect(body.status).toBe(400);
+      expect(body.message).toBe('PASSWORD_DEMASIADO_CORTA');
+      expect(body.errors).toEqual(['PASSWORD_DEMASIADO_CORTA', 'otro error']);
+    });
+  });
+
   describe('Case 5 — unknown errors', () => {
     it('returns a generic 500 message and logs the real error', () => {
       const json = jest.fn();

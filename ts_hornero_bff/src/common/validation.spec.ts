@@ -68,7 +68,7 @@ describe('global ValidationPipe options', () => {
         {
           nombre: 'N',
           email: 'a@b.ar',
-          password: 'Passw0rd!',
+          password: 'la cafetera azul canta',
           tipo: 'DONANTE',
         },
       ],

@@ -52,13 +52,26 @@ export class AxiosExceptionFilter implements ExceptionFilter {
     // --- NestJS HTTP exceptions (UnauthorizedException, BadRequestException, etc.) ---
     if (exception instanceof HttpException) {
       const httpStatus = exception.getStatus();
-      const message = exception.message;
+      // ValidationPipe puts one string per violated constraint in `message`; keep them (same shape
+      // as the MS handler: message = first, errors = all) so clients can map stable codes.
+      const body = exception.getResponse();
+      const fieldMessages =
+        typeof body === 'object' &&
+        body !== null &&
+        Array.isArray((body as { message?: unknown }).message) &&
+        (body as { message: unknown[] }).message.every(
+          (m) => typeof m === 'string',
+        ) &&
+        (body as { message: string[] }).message.length > 0
+          ? (body as { message: string[] }).message
+          : null;
+      const message = fieldMessages ? fieldMessages[0] : exception.message;
       response.status(httpStatus).json({
         status: httpStatus,
         message,
         timestamp,
         data: null,
-        errors: [message],
+        errors: fieldMessages ?? [message],
       });
       return;
     }

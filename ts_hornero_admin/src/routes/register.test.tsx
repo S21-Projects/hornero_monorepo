@@ -52,8 +52,8 @@ async function goToReferenteOrgStep() {
 
   await user.type(screen.getByLabelText('Nombre completo'), 'Ana García');
   await user.type(screen.getByLabelText('Email'), 'ana@example.com');
-  await user.type(screen.getByLabelText('Contraseña'), 'secret123');
-  await user.type(screen.getByLabelText('Confirmar contraseña'), 'secret123');
+  await user.type(screen.getByLabelText('Contraseña'), 'la cafetera azul canta');
+  await user.type(screen.getByLabelText('Confirmar contraseña'), 'la cafetera azul canta');
   await user.click(screen.getByRole('button', { name: 'Continuar' }));
 
   expect(await screen.findByText('Tu organización')).toBeInTheDocument();
@@ -149,8 +149,8 @@ describe('RegisterPage — referente org step + partial-failure retry', () => {
 
     await user.type(screen.getByLabelText('Nombre completo'), 'Juan Pérez');
     await user.type(screen.getByLabelText('Email'), 'juan@example.com');
-    await user.type(screen.getByLabelText('Contraseña'), 'secret123');
-    await user.type(screen.getByLabelText('Confirmar contraseña'), 'secret123');
+    await user.type(screen.getByLabelText('Contraseña'), 'la cafetera azul canta');
+    await user.type(screen.getByLabelText('Confirmar contraseña'), 'la cafetera azul canta');
     await user.click(screen.getByRole('button', { name: 'Crear cuenta' }));
 
     await waitFor(() => expect(screen.getByText('Login Page')).toBeInTheDocument());
@@ -201,8 +201,8 @@ describe('RegisterPage — Bienvenida acreditación step (3rd step, referente on
     await user.click(screen.getByRole('button', { name: 'Continuar' }));
     await user.type(screen.getByLabelText('Nombre completo'), 'Ana García');
     await user.type(screen.getByLabelText('Email'), 'ana@example.com');
-    await user.type(screen.getByLabelText('Contraseña'), 'secret123');
-    await user.type(screen.getByLabelText('Confirmar contraseña'), 'secret123');
+    await user.type(screen.getByLabelText('Contraseña'), 'la cafetera azul canta');
+    await user.type(screen.getByLabelText('Confirmar contraseña'), 'la cafetera azul canta');
     await user.click(screen.getByRole('button', { name: 'Continuar' }));
     await user.type(screen.getByLabelText('Nombre de la organización'), 'Comedor Los Hornitos');
     await user.selectOptions(screen.getByLabelText('Tipo de organización'), 'COMEDOR');
@@ -241,5 +241,75 @@ describe('RegisterPage — Bienvenida acreditación step (3rd step, referente on
     await user.click(screen.getByText('Quiero donar'));
     await user.click(screen.getByRole('button', { name: 'Continuar' }));
     expect(screen.getAllByRole('listitem')).toHaveLength(2);
+  });
+});
+
+describe('RegisterPage — password policy (NIST SP 800-63B-4)', () => {
+  beforeEach(() => {
+    vi.mocked(api.post).mockReset();
+  });
+
+  async function fillAccount(user: ReturnType<typeof userEvent.setup>, password: string) {
+    await user.click(screen.getByText('Quiero donar'));
+    await user.click(screen.getByRole('button', { name: 'Continuar' }));
+    await user.type(screen.getByLabelText('Nombre completo'), 'Juan Pérez');
+    await user.type(screen.getByLabelText('Email'), 'juan@example.com');
+    await user.type(screen.getByLabelText('Contraseña'), password);
+    await user.type(screen.getByLabelText('Confirmar contraseña'), password);
+  }
+
+  it('shows the rule under the password field', async () => {
+    renderRegister();
+    const user = userEvent.setup();
+    await user.click(screen.getByText('Quiero donar'));
+    await user.click(screen.getByRole('button', { name: 'Continuar' }));
+    expect(
+      screen.getByText('Mínimo 15 caracteres. Podés usar una frase; no hace falta mezclar símbolos.'),
+    ).toBeInTheDocument();
+  });
+
+  it('blocks a 14-character password client-side without calling the API', async () => {
+    renderRegister();
+    const user = userEvent.setup();
+    await fillAccount(user, 'a1b2c3d4e5f6g7');
+    await user.click(screen.getByRole('button', { name: 'Crear cuenta' }));
+    expect(await screen.findByText('La contraseña debe tener al menos 15 caracteres.')).toBeInTheDocument();
+    expect(api.post).not.toHaveBeenCalled();
+  });
+
+  it('maps the MS PASSWORD_COMUN code to Spanish copy on the password field', async () => {
+    vi.mocked(api.post).mockRejectedValue({ response: { status: 400, data: { message: 'PASSWORD_COMUN' } } });
+    renderRegister();
+    const user = userEvent.setup();
+    await fillAccount(user, 'qwertyuiopasdfghjkl');
+    await user.click(screen.getByRole('button', { name: 'Crear cuenta' }));
+    expect(
+      await screen.findByText('Esa contraseña es demasiado común o predecible. Probá con una frase más personal.'),
+    ).toBeInTheDocument();
+  });
+
+  it('returns a referente to the account step when the MS rejects the password', async () => {
+    vi.mocked(api.post).mockRejectedValue({
+      response: { status: 400, data: { message: 'PASSWORD_CONTIENE_DATOS_PERSONALES' } },
+    });
+    renderRegister();
+    const user = userEvent.setup();
+    await user.click(screen.getByText('Tengo una organización'));
+    await user.click(screen.getByRole('button', { name: 'Continuar' }));
+    await user.type(screen.getByLabelText('Nombre completo'), 'Ana García');
+    await user.type(screen.getByLabelText('Email'), 'ana@example.com');
+    await user.type(screen.getByLabelText('Contraseña'), 'mi-ana-clave-segura-1');
+    await user.type(screen.getByLabelText('Confirmar contraseña'), 'mi-ana-clave-segura-1');
+    await user.click(screen.getByRole('button', { name: 'Continuar' }));
+    await user.type(await screen.findByLabelText('Nombre de la organización'), 'Comedor X');
+    await user.selectOptions(screen.getByLabelText('Tipo de organización'), 'COMEDOR');
+    await user.type(screen.getByLabelText('Dirección'), 'Av. Colón 1234');
+    await user.click(screen.getByText('Fijar ubicación (test)'));
+    await user.click(screen.getByRole('button', { name: 'Postular organización' }));
+
+    expect(
+      await screen.findByText('La contraseña no puede incluir tu nombre, tu email ni el nombre de Hornero.'),
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText('Contraseña')).toBeInTheDocument();
   });
 });

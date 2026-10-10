@@ -51,14 +51,14 @@ class AuthServiceTest {
 
     @BeforeEach
     void setUp() {
-        authService = new AuthService(usuarioRepository, jwtService, passwordEncoder, otpService, refreshTokenService);
+        authService = new AuthService(usuarioRepository, jwtService, passwordEncoder, otpService, refreshTokenService, new PasswordPolicy());
     }
 
     // --- register: HIGH PRIORITY risk area (mail dispatch failure must not block registration) ---
 
     @Test
     void register_otpIssueThrows_stillPersistsUserAndIssuesTokens() {
-        RegisterRequest request = new RegisterRequest("Donante Test", "donante@test.com", "password123", "DONANTE");
+        RegisterRequest request = new RegisterRequest("Donante Test", "donante@test.com", "correct-horse-battery-staple", "DONANTE");
 
         when(usuarioRepository.findByEmail("donante@test.com")).thenReturn(Optional.empty());
         when(usuarioRepository.save(any(Usuario.class))).thenAnswer(inv -> {
@@ -81,7 +81,7 @@ class AuthServiceTest {
 
     @Test
     void register_newUser_startsUnverifiedAndIssuesOtp() {
-        RegisterRequest request = new RegisterRequest("Referente Test", "ref@test.com", "password123", "REFERENTE");
+        RegisterRequest request = new RegisterRequest("Referente Test", "ref@test.com", "correct-horse-battery-staple", "REFERENTE");
 
         when(usuarioRepository.findByEmail("ref@test.com")).thenReturn(Optional.empty());
         ArgumentCaptor<Usuario> captor = ArgumentCaptor.forClass(Usuario.class);
@@ -103,7 +103,7 @@ class AuthServiceTest {
 
     @Test
     void register_emailAlreadyRegistered_throws409() {
-        RegisterRequest request = new RegisterRequest("Test", "dup@test.com", "password123", "DONANTE");
+        RegisterRequest request = new RegisterRequest("Test", "dup@test.com", "correct-horse-battery-staple", "DONANTE");
         when(usuarioRepository.findByEmail("dup@test.com")).thenReturn(Optional.of(new Donante()));
 
         assertThatThrownBy(() -> authService.register(request))
@@ -111,6 +111,29 @@ class AuthServiceTest {
                 .hasMessageContaining("409");
 
         verify(otpService, never()).issue(anyString());
+    }
+
+    @Test
+    void register_weakPassword_throws400WithCodeAndPersistsNothing() {
+        RegisterRequest request = new RegisterRequest("Test", "weak@test.com", "short", "DONANTE");
+
+        assertThatThrownBy(() -> authService.register(request))
+                .isInstanceOfSatisfying(ResponseStatusException.class, ex -> {
+                    assertThat(ex.getStatusCode().value()).isEqualTo(400);
+                    assertThat(ex.getReason()).isEqualTo("PASSWORD_DEMASIADO_CORTA");
+                });
+
+        verify(usuarioRepository, never()).save(any(Usuario.class));
+        verify(otpService, never()).issue(anyString());
+    }
+
+    @Test
+    void register_passwordContainingEmailLocalPart_throws400() {
+        RegisterRequest request = new RegisterRequest("Test User", "marisol.vega@test.com", "x-marisol.vega-clave-9", "DONANTE");
+
+        assertThatThrownBy(() -> authService.register(request))
+                .isInstanceOfSatisfying(ResponseStatusException.class,
+                        ex -> assertThat(ex.getReason()).isEqualTo("PASSWORD_CONTIENE_DATOS_PERSONALES"));
     }
 
     // --- verifyOtp ---
