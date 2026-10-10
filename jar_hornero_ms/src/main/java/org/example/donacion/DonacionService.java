@@ -51,15 +51,18 @@ public class DonacionService {
     private final EsquemaVerificador esquemaVerificador;
     private final AsignacionRepository asignacionRepository;
     private final ArticuloRepository articuloRepository;
+    private final DonanteVisibilidad donanteVisibilidad;
 
     public Page<DonacionResponse> findAll(Pageable pageable) {
         return donacionRepository.findAllWithDonante(pageable)
-                .map(this::toResponse);
+                .map(this::toResponse)
+                .map(donanteVisibilidad.paraLlamadaActual());
     }
 
     public Page<DonacionResponse> findByOrganizacion(Long orgId, Pageable pageable) {
         return donacionRepository.findByOrganizacionId(orgId, pageable)
-                .map(this::toResponse);
+                .map(this::toResponse)
+                .map(donanteVisibilidad.paraLlamadaActual());
     }
 
     @Transactional
@@ -167,8 +170,8 @@ public class DonacionService {
     }
 
     public DonacionResponse findById(Long id) {
-        return toResponse(donacionRepository.findByIdWithRelations(id)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Donacion not found")));
+        return donanteVisibilidad.paraLlamadaActual().apply(toResponse(donacionRepository.findByIdWithRelations(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Donacion not found"))));
     }
 
     public Page<DonacionResponse> findMias(Long donanteId, Pageable pageable) {

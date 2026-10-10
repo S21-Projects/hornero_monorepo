@@ -155,6 +155,15 @@ The guide requires measures "related to the identified risks", so a risk matrix 
   - Follow-ups (optional): public `GET /necesidades` still lists necesidades of orgs lowered to N0;
     admin SPA doesn't map `ORGANIZACION_NO_APROBADA` to a friendly message.
 
+- [x] **N2** (from D5) Feature flag `app.donaciones.donante-publico` (env `DONANTE_PUBLICO`,
+  default false), enforced in the MS: public donation reads mask `donanteName`/`donanteId` unless
+  the flag is on or the caller is the receiving org's referente, the donor or an admin. BFF
+  forwards the session token on those public routes when present. Astro renders masked donors
+  anonymously. Tests in MS, BFF and e2e.
+  - Done: `DonanteVisibilidad` policy (one SecurityContext read, referente org ids loaded once per
+    request), applied to `findAll`/`findByOrganizacion`/`findById`. Pool donation without an org
+    → only donor and admin. **USER ACTION:** add `DONANTE_PUBLICO=false` to `.env.example`.
+
 ## Business definitions pending (list 2)
 
 Each item needs a team decision before related work starts. Record the decision and date here.
@@ -166,7 +175,10 @@ Each item needs a team decision before related work starts. Record the decision 
   necesidad to `VENCIDA`? (today: not validated, nothing sets it)
 - [ ] **D3** Quantity ceiling: can a donation exceed what the necesidad requests?
 - [ ] **D4** Stale donations: do `OFRECIDA`/`EN_CAMINO` donations expire after some time?
-- [ ] **D5** Which donor data is public? (today `GET /donaciones/{id}` exposes donor name)
+- [x] **D5** Which donor data is public? (today `GET /donaciones/{id}` exposes donor name)
+  - Decided 2026-10-10 (user): donor identity is visible only to the receiving organization (plus
+    the donor and admins). Public display stays possible behind a feature flag, **off** by
+    default. Implementation: task **N2**.
 - [ ] **D6** Which events send email, and to whom? (offered, accepted, delivered, org approved…)
   Note: `Mailer` only exposes `enviarOtp`; needs generalizing.
 - [ ] **D7** Rondas: manual only, or also scheduled?
@@ -182,6 +194,7 @@ Each item needs a team decision before related work starts. Record the decision 
 | Date | Task | Route | Evidence | Commit |
 |------|------|-------|----------|--------|
 | 2026-10-10 | — | — | Document created from audit | — |
+| 2026-10-10 | N2 | MS+BFF+astro+admin delegated | RED: MS compile error, BFF 8 fail (no e2e RED captured). GREEN: `mvn test` 558/558; BFF 295/295, tsc ok; admin 399/399 + build; astro build; `make e2e` 50/50 | (this commit) |
 | 2026-10-10 | N1 | MS delegated | RED: DonacionServiceTest 2 fail; e2e 1 fail (201 vs 409). GREEN: `mvn test` 544/544; `make e2e` 44/44 | (this commit) |
 | 2026-10-10 | B1–B3 + S5b | delegated | RED: restore-check on garbage/truncated dump exits 1. GREEN: shellcheck clean; local backup + `make restore-check` OK (14 tables); encrypted round trip OK, wrong passphrase refused; upload tested against local MinIO only; astro build + headers on both pages | (this commit) |
 | 2026-10-10 | Q3 | inline (1 doc) | `docs/seguridad-matriz-riesgos.md`: 21 risks, every cited evidence file verified to exist | 89c0599 |

@@ -37,6 +37,10 @@ app:
     resend-max: 3
     resend-window-minutes: 15
     resend-cooldown-seconds: 60
+  donaciones:
+    # D5: donor identity on public donation reads. Off = only admin, the donor and the
+    # receiving organization's referente see it.
+    donante-publico: ${DONANTE_PUBLICO:false}
   acreditacion:
     cap-n0: 0
     cap-n1: 3
