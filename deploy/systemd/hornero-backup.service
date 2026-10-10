@@ -1,0 +1,19 @@
+[Unit]
+Description=Hornero database backup (pg_dump + optional encrypted offsite copy)
+# The compose stack must be running for pg_dump to work.
+After=docker.service network-online.target
+Requires=docker.service
+
+[Service]
+Type=oneshot
+# Replace both placeholders (see docs/deploy-rpi-cloudflare.md, "Backups"):
+#   /home/pi/hornero_app -> absolute path of the repo checkout on the Pi
+#   User=pi              -> a user in the `docker` group that owns the checkout
+User=pi
+WorkingDirectory=/home/pi/hornero_app
+Environment=ENV_FILE=.env
+ExecStart=/home/pi/hornero_app/scripts/backup/backup.sh
+# Dumps hold personal data: nobody but the owner reads them.
+UMask=0077
+Nice=10
+IOSchedulingClass=idle
