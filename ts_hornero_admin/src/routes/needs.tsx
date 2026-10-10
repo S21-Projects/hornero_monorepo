@@ -9,6 +9,7 @@ import { useNecesidadesDeOrg } from '../lib/hooks/useNecesidadesDeOrg';
 import { useCrearNecesidad } from '../lib/hooks/useCrearNecesidad';
 import { useActualizarNecesidad } from '../lib/hooks/useActualizarNecesidad';
 import { useEliminarNecesidad } from '../lib/hooks/useEliminarNecesidad';
+import { useRelanzarNecesidad } from '../lib/hooks/useRelanzarNecesidad';
 import { mapNecesidadError } from '../lib/hooks/mapNecesidadError';
 import { ArticuloPicker } from '../components/necesidad/ArticuloPicker';
 import { usePageClamp } from '../lib/hooks/usePageClamp';
@@ -165,7 +166,8 @@ function EditForm({ need, orgId, onSuccess, onCancel }: EditFormProps) {
         id: need.id,
         descripcion: descripcion.trim(),
         prioridad,
-        estado,
+        // A VENCIDA necesidad keeps its estado here; reopening goes through "Relanzar".
+        estado: need.estado === 'VENCIDA' ? undefined : estado,
         fechaVencimiento: fechaVencimiento || undefined,
         articuloIds,
       });
@@ -205,19 +207,25 @@ function EditForm({ need, orgId, onSuccess, onCancel }: EditFormProps) {
         </select>
       </label>
 
-      <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-        <Text variant="label">Estado</Text>
-        <select
-          value={estado}
-          onChange={(e) => setEstado(e.target.value as EstadoNecesidad)}
-          style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid var(--line)', fontSize: 'var(--fs-body)' }}
-        >
-          <option value="ABIERTA">Abierta</option>
-          <option value="EN_PROGRESO">En progreso</option>
-          <option value="CUMPLIDA">Cumplida</option>
-          <option value="VENCIDA">Vencida</option>
-        </select>
-      </label>
+      {need.estado === 'VENCIDA' ? (
+        <Text variant="caption" color="ink-3">
+          Esta necesidad está vencida. Para reabrirla usá «Relanzar» desde la lista.
+        </Text>
+      ) : (
+        <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+          <Text variant="label">Estado</Text>
+          <select
+            value={estado}
+            onChange={(e) => setEstado(e.target.value as EstadoNecesidad)}
+            style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid var(--line)', fontSize: 'var(--fs-body)' }}
+          >
+            <option value="ABIERTA">Abierta</option>
+            <option value="EN_PROGRESO">En progreso</option>
+            <option value="CUMPLIDA">Cumplida</option>
+            <option value="VENCIDA">Vencida</option>
+          </select>
+        </label>
+      )}
 
       <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
         <Text variant="label">Fecha de vencimiento (opcional)</Text>
@@ -254,6 +262,62 @@ function EditForm({ need, orgId, onSuccess, onCancel }: EditFormProps) {
 }
 
 // ---------------------------------------------------------------------------
+// Relaunch form (inline, VENCIDA necesidades only)
+// ---------------------------------------------------------------------------
+interface RelaunchFormProps {
+  needId: number;
+  orgId: number;
+  onDone(): void;
+}
+
+function RelaunchForm({ needId, orgId, onDone }: RelaunchFormProps) {
+  const [fecha, setFecha] = useState('');
+  const [fieldError, setFieldError] = useState('');
+  const relanzarMutation = useRelanzarNecesidad(orgId);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!fecha) {
+      setFieldError('Elegí una fecha de vencimiento.');
+      return;
+    }
+    setFieldError('');
+    try {
+      await relanzarMutation.mutateAsync({ id: needId, fechaVencimiento: fecha });
+      onDone();
+    } catch (err) {
+      void err;
+    }
+  }
+
+  const mutationError = relanzarMutation.isError ? mapNecesidadError(relanzarMutation.error) : null;
+
+  return (
+    <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 4 }}>
+      <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+        <Text variant="label">Nueva fecha de vencimiento *</Text>
+        <input
+          type="date"
+          value={fecha}
+          onChange={(e) => setFecha(e.target.value)}
+          style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid var(--line)', fontSize: 'var(--fs-body)', maxWidth: 220 }}
+        />
+      </label>
+      {fieldError && <Text variant="caption" color="urgent">{fieldError}</Text>}
+      {mutationError && <Text variant="caption" color="urgent">{mutationError}</Text>}
+      <div style={{ display: 'flex', gap: 8 }}>
+        <Button type="submit" variant="primary" disabled={relanzarMutation.isPending}>
+          {relanzarMutation.isPending ? 'Relanzando…' : 'Confirmar relanzamiento'}
+        </Button>
+        <Button type="button" variant="ghost" onClick={onDone}>
+          Cancelar
+        </Button>
+      </div>
+    </form>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // NeedsPage (list view + in-page create/edit routing)
 // ---------------------------------------------------------------------------
 export default function NeedsPage() {
@@ -280,6 +344,7 @@ export default function NeedsPage() {
   const eliminarMutation = useEliminarNecesidad(orgId ?? 0);
 
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [relanzandoId, setRelanzandoId] = useState<number | null>(null);
 
   // Resolve which need is being edited (if view is an object)
   const editingNeed: Necesidad | undefined =
@@ -416,11 +481,19 @@ export default function NeedsPage() {
                       Artículos: {need.articulos.map((a) => a.nombre).join(', ')}
                     </Text>
                   )}
+                  {relanzandoId === need.id && (
+                    <RelaunchForm needId={need.id} orgId={orgId} onDone={() => setRelanzandoId(null)} />
+                  )}
                 </div>
 
                 <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
                   {!isPendingDelete ? (
                     <>
+                      {need.estado === 'VENCIDA' && relanzandoId !== need.id && (
+                        <Button variant="primary" onClick={() => { clearDelete(); setRelanzandoId(need.id); }}>
+                          Relanzar
+                        </Button>
+                      )}
                       <Button
                         variant="ghost"
                         onClick={() => { clearDelete(); goToEdit(need.id); }}

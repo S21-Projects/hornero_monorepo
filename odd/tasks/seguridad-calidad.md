@@ -174,10 +174,17 @@ The guide requires measures "related to the identified risks", so a risk matrix 
   - Findings: `fechaVencimiento` optional and past dates accepted on create; public/admin listings
     still show `VENCIDA`; `actualizar` has no transition validation (handled in N4).
 
-- [ ] **N4** (from D2, user 2026-10-10) Referente can relaunch an expired necesidad from `/needs`:
+- [x] **N4** (from D2, user 2026-10-10) Referente can relaunch an expired necesidad from `/needs`:
   explicit "Relanzar" action on `VENCIDA` necesidades, requires a new future `fechaVencimiento`,
   goes back to `ABIERTA`, and respects the open-necesidades cap of the org's level. `actualizar`
   must not allow `ABIERTA` with a past date (the job would re-expire it immediately).
+  - Done: `POST /necesidades/{id}/relanzar` (VENCIDA only, date strictly future, level cap,
+    resets `fechaPublicacion`); PATCH can't leave VENCIDA (`NECESIDAD_VENCIDA_USAR_RELANZAR`) nor
+    open with a past date; create rejects past dates; public listings hide VENCIDA (owner/admin
+    still see them; BFF forwards the session token on the public GET); admin "Relanzar" button,
+    donate form hidden for non-open necesidades.
+  - Left alone: CUMPLIDA → ABIERTA via PATCH skips the cap check; an ABIERTA past-date necesidad
+    stays listed until the nightly job runs (donations already refused).
 
 ## Business definitions pending (list 2)
 
@@ -213,6 +220,7 @@ Each item needs a team decision before related work starts. Record the decision 
 | Date | Task | Route | Evidence | Commit |
 |------|------|-------|----------|--------|
 | 2026-10-10 | — | — | Document created from audit | — |
+| 2026-10-10 | N4 | MS+BFF+admin delegated | RED: MS compile error; BFF 6 fail (admin detail guard written with its test, no RED). GREEN: `mvn test` 586/586; BFF 300/300 (3 reruns), tsc ok; admin 409/409 + build; astro build; `make e2e` 51/51 | (this commit) |
 | 2026-10-10 | N3 | MS delegated | RED: compile error on new tests; then 36 errors (self-invoked @Transactional), fixed. GREEN: `mvn test` 566/566; `make e2e` 51/51; startup catch-up logged 1 necesidad expired | (this commit) |
 | 2026-10-10 | Q2 fix | inline (1 test file) | `role-matrix.spec.ts` flaked ~1/8 runs ("socket hang up", supertest opening a server per request); listen once on port 0 → 25/25 green runs, tsc ok | (this commit) |
 | 2026-10-10 | N2 | MS+BFF+astro+admin delegated | RED: MS compile error, BFF 8 fail (no e2e RED captured). GREEN: `mvn test` 558/558; BFF 295/295, tsc ok; admin 399/399 + build; astro build; `make e2e` 50/50 | (this commit) |

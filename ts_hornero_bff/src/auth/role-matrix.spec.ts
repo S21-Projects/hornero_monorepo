@@ -111,6 +111,7 @@ const EXPECTED_ACCESS: Record<string, Access> = {
   'POST /donaciones/:id/entrega/codigo': [Role.DONANTE, Role.REFERENTE],
   'POST /donaciones/:id/entrega/verificar': [Role.DONANTE, Role.REFERENTE],
   'POST /necesidades': [Role.REFERENTE],
+  'POST /necesidades/:id/relanzar': [Role.REFERENTE],
   'POST /organizaciones': [Role.REFERENTE],
   'POST /organizaciones/:id/acreditacion/evidencias': [Role.REFERENTE],
   'POST /rondas': [Role.ADMINISTRADOR],

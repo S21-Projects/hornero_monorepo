@@ -306,6 +306,11 @@ export interface CrearNecesidadInput {
   articuloIds: number[];
 }
 
+/** Relaunch of an expired necesidad: the new expiry date must be after today. */
+export interface RelanzarNecesidadInput {
+  fechaVencimiento: string;
+}
+
 export interface ActualizarNecesidadInput {
   descripcion?: string;
   prioridad?: PrioridadNecesidad;

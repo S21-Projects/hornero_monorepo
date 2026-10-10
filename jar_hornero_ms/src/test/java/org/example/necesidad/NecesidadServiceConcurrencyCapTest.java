@@ -60,6 +60,9 @@ class NecesidadServiceConcurrencyCapTest {
     @Mock
     private ArticuloRepository articuloRepository;
 
+    @org.mockito.Spy
+    private java.time.Clock clock = java.time.Clock.system(java.time.ZoneId.of("America/Argentina/Buenos_Aires"));
+
     @InjectMocks
     private NecesidadService necesidadService;
 

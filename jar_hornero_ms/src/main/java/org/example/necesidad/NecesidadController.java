@@ -7,6 +7,7 @@ import lombok.RequiredArgsConstructor;
 import org.example.common.PageData;
 import org.example.necesidad.dto.ActualizarNecesidadRequest;
 import org.example.necesidad.dto.CrearNecesidadRequest;
+import org.example.necesidad.dto.RelanzarNecesidadRequest;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
@@ -68,6 +69,16 @@ public class NecesidadController {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         Long referenteId = (Long) auth.getPrincipal();
         return necesidadService.actualizar(id, request, referenteId);
+    }
+
+    @Operation(summary = "Relaunch an expired need with a new expiry date")
+    @PostMapping("/{id}/relanzar")
+    @PreAuthorize("hasRole('REFERENTE')")
+    public NecesidadResponse relanzar(@PathVariable Long id,
+                                      @Valid @RequestBody RelanzarNecesidadRequest request) {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        Long referenteId = (Long) auth.getPrincipal();
+        return necesidadService.relanzar(id, request, referenteId);
     }
 
     @Operation(summary = "Delete a need")
