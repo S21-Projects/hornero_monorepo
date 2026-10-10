@@ -60,6 +60,8 @@ The guide requires measures "related to the identified risks", so a risk matrix 
   RED → GREEN → REFACTOR, evidence recorded per task.
 - Native review (RDD): off (default). Ordinary checks apply.
 - Delivery strategy: `ask-on-risk`; forecast ~1500 authored lines total across tasks.
+- 2026-10-10: user approved commits; 8 thematic commits (shared files prevented one commit per task).
+- B1–B3: build the mechanism now with configurable defaults; D11 later sets the real values.
 
 ## Tasks — defined (list 1)
 
@@ -99,9 +101,7 @@ The guide requires measures "related to the identified risks", so a risk matrix 
   in admin `nginx.conf` and Astro.
   - Done with CSP in **Report-Only**. Follow-ups: (a) after deploy, browse every flow, clean
     console violations, switch to enforced `Content-Security-Policy`; replace Astro
-    `script-src 'unsafe-inline'` with hashes/nonces; (b) prerendered Astro pages `/nosotros`,
-    `/contacto` skip middleware (no headers) — set `prerender = false` or a Cloudflare Transform
-    Rule; (c) HSTS for the apex/panel belongs in Cloudflare; (d) admin CSP hardcodes
+    `script-src 'unsafe-inline'` with hashes/nonces; (b) DONE: `/nosotros` and `/contacto` now server-rendered, headers verified; (c) HSTS for the apex/panel belongs in Cloudflare; (d) admin CSP hardcodes
     `https://api.elhornero.org`.
 - [x] **S6** CSRF defense in the BFF: reject state-changing requests whose `Origin`/`Referer` is
   not in the CORS allowlist (covers multipart uploads).
@@ -118,12 +118,22 @@ The guide requires measures "related to the identified risks", so a risk matrix 
 
 ### Backups
 
-- [ ] **B1** Automated daily `pg_dump` on the Pi (cron/systemd timer) with retention rotation.
+- [x] **B1** Automated daily `pg_dump` on the Pi (cron/systemd timer) with retention rotation.
   Retention values depend on **D11**.
-- [ ] **B2** Offsite copy of DB dumps (destination depends on **D11**; R2 is the candidate since it
+- [x] **B2** Offsite copy of DB dumps (destination depends on **D11**; R2 is the candidate since it
   already holds images).
-- [ ] **B3** Restore drill documented and executed once against a scratch DB; runbook in
+- [x] **B3** Restore drill documented and executed once against a scratch DB; runbook in
   `docs/deploy-rpi-cloudflare.md` with roles (who can access, who restores).
+
+  - Done (mechanism, local drill): `scripts/backup/{backup,restore-check,common}.sh` (`pg_dump -Fc`,
+    retention 14 d, AES-256 + PBKDF2 encrypted offsite to a separate bucket via `amazon/aws-cli`,
+    refuses the images bucket), `deploy/systemd/hornero-backup.{service,timer}`, `make backup` /
+    `make restore-check`, runbook Parte C in `docs/deploy-rpi-cloudflare.md`.
+  - **USER ACTIONS (Pi):** install the timer; create a private R2 backup bucket + scoped token +
+    lifecycle rule; fill `BACKUP_*` in `.env` (+ lines in `.env.example`, edit blocked for us);
+    keep the passphrase off the Pi; run `make restore-check` on the Pi (also on a downloaded `.enc`).
+  - Still open in D11: real RPO/RTO/retention values and the `TBD (D11)` roles table.
+    Residual: R2 images/evidence not covered.
 
 ### Quality
 
@@ -159,16 +169,17 @@ Each item needs a team decision before related work starts. Record the decision 
 | Date | Task | Route | Evidence | Commit |
 |------|------|-------|----------|--------|
 | 2026-10-10 | — | — | Document created from audit | — |
-| 2026-10-10 | Q3 | inline (1 doc) | `docs/seguridad-matriz-riesgos.md`: 21 risks, every cited evidence file verified to exist | pending |
-| 2026-10-10 | F1 | MS delegated | RED: new lockout integration tests 6/7 fail; e2e `5c` "Expect test to fail" after rebuild. GREEN: 7/7 targeted, `mvn test` 541/541, `make e2e` 43/43. Files: EntregaService, OtpService, EntregaServiceLockoutIntegrationTest, OtpServiceLockoutIntegrationTest, e2e/tests/03-exceptional-paths.e2e.ts | pending |
-| 2026-10-10 | Q1 | e2e delegated | `make up-local` healthy; `make e2e` 43/43 (1 `it.fails` = bug F1), ~66 s (mostly login throttle wait), 3 reruns green on same DB. RED: lockout test failed on first run (400 instead of 429), probe confirmed. Files: e2e/ (package.json, tsconfig, vitest.config, .gitignore, README, src/client|global-setup|fixtures.ts, tests/01–05), Makefile (`e2e` target), CLAUDE.md (1 line) | pending |
-| 2026-10-10 | Q2 | BFF delegated (test only) | Mutation RED (removed/widened `@Roles` → fail). GREEN: `role-matrix.spec.ts` 15/15; `npm test` 287/287; `tsc` ok. 62 routes: 15 public, 2 any-auth (`GET /` scaffold, `/auth/me`), 45 role-restricted. Note: `GET /donaciones/:id/asignaciones` open to all roles, ownership enforced in MS | pending |
-| 2026-10-10 | S3 | MS+BFF delegated | RED: MS compile error, BFF 3 fail. GREEN: `mvn test` 534/534; BFF `npm test` 272/272 (3 reruns green), `tsc` ok. Files — MS: auth/RefreshToken, RefreshTokenRepository, RefreshTokenService, JwtService, AuthService, AuthController, user/UsuarioService + 3 new tests, AuthServiceTest/JwtServiceTest/UsuarioServiceTest. BFF: auth.service(.spec).ts, auth.controller.ts. Docs: security-access-token-httponly.md | pending |
-| 2026-10-10 | S4+S6+S5+S8b | BFF/admin/astro delegated | RED: missing-module failures per suite. GREEN: BFF `npm test` 269/269, `tsc` ok, `npm run build` ok, real boot checked (helmet headers, foreign-Origin POST 403, 6th login 429); `nginx -t` ok; astro build ok. Files — S8b: usuarios/dto/toggle-activo.dto(.spec).ts, usuarios.controller/service. S4: auth/auth-throttler.config.ts, guards/client-ip-throttler.guard(.spec).ts, auth.throttling.spec.ts, auth.controller.ts, auth.module.ts, package(-lock).json (shared with S5). S6: common/allowed-origins(.spec).ts, common/origin-check.middleware(.spec).ts. S5: app.setup(.spec).ts, main.ts, admin security-headers.conf + nginx.conf + Dockerfile, astro src/lib/securityHeaders.ts + src/middleware.ts | pending |
-| 2026-10-10 | S11+S10+S8+S7 | BFF delegated | RED per task (S11 3 fail, S10 4 fail, S8 2 fail, S7 3 fail + missing module). GREEN: `npm test` 233/233, `tsc --noEmit` ok. Lint baseline already failing (241 pre-existing errors), not a gate. Files — S11: organizaciones.controller.ts, organizaciones.roles.spec.ts. S10: common/axios-exception.filter(.spec).ts. S8: common/validation(.spec).ts, main.ts (DTO cross-check: all admin/seed payloads covered). S7: upload/image-type(.spec).ts, upload.service(.spec).ts, upload.module.ts | pending |
-| 2026-10-10 | S2+S9 | MS delegated | RED: compile failure on new tests. GREEN: `mvn test` 506/506; `docker compose config -q` ok. Files S2: application.yml (jwt+mail), JwtService, MailerConfig, test application.yml, docker-compose.yml, README.md, docs/otp-email-validation.md, JwtSecretValidationTest, MailerConfigTest. S9: SecurityConfig, application.yml (show-sql, split with `git add -p`), SecurityConfigH2ConsoleTest | pending |
+| 2026-10-10 | B1–B3 + S5b | delegated | RED: restore-check on garbage/truncated dump exits 1. GREEN: shellcheck clean; local backup + `make restore-check` OK (14 tables); encrypted round trip OK, wrong passphrase refused; upload tested against local MinIO only; astro build + headers on both pages | (this commit) |
+| 2026-10-10 | Q3 | inline (1 doc) | `docs/seguridad-matriz-riesgos.md`: 21 risks, every cited evidence file verified to exist | 89c0599 |
+| 2026-10-10 | F1 | MS delegated | RED: new lockout integration tests 6/7 fail; e2e `5c` "Expect test to fail" after rebuild. GREEN: 7/7 targeted, `mvn test` 541/541, `make e2e` 43/43. Files: EntregaService, OtpService, EntregaServiceLockoutIntegrationTest, OtpServiceLockoutIntegrationTest, e2e/tests/03-exceptional-paths.e2e.ts | 0bfe751 |
+| 2026-10-10 | Q1 | e2e delegated | `make up-local` healthy; `make e2e` 43/43 (1 `it.fails` = bug F1), ~66 s (mostly login throttle wait), 3 reruns green on same DB. RED: lockout test failed on first run (400 instead of 429), probe confirmed. Files: e2e/ (package.json, tsconfig, vitest.config, .gitignore, README, src/client|global-setup|fixtures.ts, tests/01–05), Makefile (`e2e` target), CLAUDE.md (1 line) | bb161d6 |
+| 2026-10-10 | Q2 | BFF delegated (test only) | Mutation RED (removed/widened `@Roles` → fail). GREEN: `role-matrix.spec.ts` 15/15; `npm test` 287/287; `tsc` ok. 62 routes: 15 public, 2 any-auth (`GET /` scaffold, `/auth/me`), 45 role-restricted. Note: `GET /donaciones/:id/asignaciones` open to all roles, ownership enforced in MS | b89218c |
+| 2026-10-10 | S3 | MS+BFF delegated | RED: MS compile error, BFF 3 fail. GREEN: `mvn test` 534/534; BFF `npm test` 272/272 (3 reruns green), `tsc` ok. Files — MS: auth/RefreshToken, RefreshTokenRepository, RefreshTokenService, JwtService, AuthService, AuthController, user/UsuarioService + 3 new tests, AuthServiceTest/JwtServiceTest/UsuarioServiceTest. BFF: auth.service(.spec).ts, auth.controller.ts. Docs: security-access-token-httponly.md | 1901288 |
+| 2026-10-10 | S4+S6+S5+S8b | BFF/admin/astro delegated | RED: missing-module failures per suite. GREEN: BFF `npm test` 269/269, `tsc` ok, `npm run build` ok, real boot checked (helmet headers, foreign-Origin POST 403, 6th login 429); `nginx -t` ok; astro build ok. Files — S8b: usuarios/dto/toggle-activo.dto(.spec).ts, usuarios.controller/service. S4: auth/auth-throttler.config.ts, guards/client-ip-throttler.guard(.spec).ts, auth.throttling.spec.ts, auth.controller.ts, auth.module.ts, package(-lock).json (shared with S5). S6: common/allowed-origins(.spec).ts, common/origin-check.middleware(.spec).ts. S5: app.setup(.spec).ts, main.ts, admin security-headers.conf + nginx.conf + Dockerfile, astro src/lib/securityHeaders.ts + src/middleware.ts | 1901288 (S4) / a5a6816 (S8b) / 6eba20f (S5, S6) |
+| 2026-10-10 | S11+S10+S8+S7 | BFF delegated | RED per task (S11 3 fail, S10 4 fail, S8 2 fail, S7 3 fail + missing module). GREEN: `npm test` 233/233, `tsc --noEmit` ok. Lint baseline already failing (241 pre-existing errors), not a gate. Files — S11: organizaciones.controller.ts, organizaciones.roles.spec.ts. S10: common/axios-exception.filter(.spec).ts. S8: common/validation(.spec).ts, main.ts (DTO cross-check: all admin/seed payloads covered). S7: upload/image-type(.spec).ts, upload.service(.spec).ts, upload.module.ts | a5a6816 |
+| 2026-10-10 | S2+S9 | MS delegated | RED: compile failure on new tests. GREEN: `mvn test` 506/506; `docker compose config -q` ok. Files S2: application.yml (jwt+mail), JwtService, MailerConfig, test application.yml, docker-compose.yml, README.md, docs/otp-email-validation.md, JwtSecretValidationTest, MailerConfigTest. S9: SecurityConfig, application.yml (show-sql, split with `git add -p`), SecurityConfigH2ConsoleTest | baf387d |
 | 2026-10-10 | S1 | MS delegated (4 src files + tests); BFF inline (1 file) | RED: new MS tests 5 fail/2 error, BFF spec 2 fail. GREEN: MS `mvn test` 497/497; BFF `npm test` 190/190, `tsc --noEmit` ok | pending user permission |
 
 ## Next step
 
-Commits (awaiting go-ahead). Then blocked items: B1–B3 need D11; open D1–D12. Commits at the end, one per task (user decision 2026-10-10).
+All defined tasks done. Remaining: user actions on the Pi (deploy, backup setup, restore drill), CSP enforcement after deploy, and decisions D1–D12. Commits at the end, one per task (user decision 2026-10-10).
