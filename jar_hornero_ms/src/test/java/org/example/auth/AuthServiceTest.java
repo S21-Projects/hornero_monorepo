@@ -1,5 +1,9 @@
 package org.example.auth;
 
+import org.example.actividad.ActividadService;
+import org.example.actividad.ResultadoActividad;
+import org.example.actividad.TipoActividad;
+import org.example.actividad.TipoActor;
 import org.example.auth.dto.RegisterRequest;
 import org.example.auth.dto.ResendOtpRequest;
 import org.example.auth.dto.VerifyOtpRequest;
@@ -47,11 +51,14 @@ class AuthServiceTest {
     @Mock
     private RefreshTokenService refreshTokenService;
 
+    @Mock
+    private ActividadService actividadService;
+
     private AuthService authService;
 
     @BeforeEach
     void setUp() {
-        authService = new AuthService(usuarioRepository, jwtService, passwordEncoder, otpService, refreshTokenService, new PasswordPolicy());
+        authService = new AuthService(usuarioRepository, jwtService, passwordEncoder, otpService, refreshTokenService, new PasswordPolicy(), actividadService);
     }
 
     // --- register: HIGH PRIORITY risk area (mail dispatch failure must not block registration) ---
@@ -258,5 +265,90 @@ class AuthServiceTest {
 
         assertThatCode(() -> authService.logout("garbage")).doesNotThrowAnyException();
         verify(refreshTokenService, never()).revokeFamilyOf(any());
+    }
+
+    // --- N10: activity log hooks (ASVS 16.3.1) ---
+
+    private ActividadService.Registro capturarAislado() {
+        ArgumentCaptor<ActividadService.Registro> captor = ArgumentCaptor.forClass(ActividadService.Registro.class);
+        verify(actividadService).registrarAislado(captor.capture());
+        return captor.getValue();
+    }
+
+    @Test
+    void login_wrongPassword_recordsIsolatedFailureWithAttemptedEmailAndNoPassword() {
+        Donante u = new Donante(5L, "Don", "don@test.com", passwordEncoder.encode("correct-horse-battery-staple"), true);
+        when(usuarioRepository.findByEmail("don@test.com")).thenReturn(Optional.of(u));
+
+        assertThatThrownBy(() -> authService.login(new org.example.auth.dto.LoginRequest("don@test.com", "wrong-password-123")))
+                .isInstanceOf(ResponseStatusException.class);
+
+        ActividadService.Registro r = capturarAislado();
+        assertThat(r.accion()).isEqualTo(TipoActividad.LOGIN);
+        assertThat(r.resultado()).isEqualTo(ResultadoActividad.FALLO);
+        assertThat(r.emailIntento()).isEqualTo("don@test.com");
+        assertThat(r.entidadId()).isEqualTo(5L);
+        assertThat(r.toString()).doesNotContain("wrong-password-123");
+        assertThat(r.detalle()).doesNotContain("wrong-password-123");
+        verify(actividadService, never()).registrar(any());
+    }
+
+    @Test
+    void login_unknownEmail_recordsFailure() {
+        when(usuarioRepository.findByEmail("nadie@test.com")).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> authService.login(new org.example.auth.dto.LoginRequest("nadie@test.com", "whatever-123456")))
+                .isInstanceOf(ResponseStatusException.class);
+
+        ActividadService.Registro r = capturarAislado();
+        assertThat(r.accion()).isEqualTo(TipoActividad.LOGIN);
+        assertThat(r.resultado()).isEqualTo(ResultadoActividad.FALLO);
+        assertThat(r.entidadId()).isNull();
+    }
+
+    @Test
+    void login_inactiveUser_recordsFailureNamingTheReason() {
+        Donante u = new Donante(5L, "Don", "don@test.com", passwordEncoder.encode("correct-horse-battery-staple"), false);
+        when(usuarioRepository.findByEmail("don@test.com")).thenReturn(Optional.of(u));
+
+        assertThatThrownBy(() -> authService.login(new org.example.auth.dto.LoginRequest("don@test.com", "correct-horse-battery-staple")))
+                .isInstanceOf(ResponseStatusException.class);
+
+        ActividadService.Registro r = capturarAislado();
+        assertThat(r.resultado()).isEqualTo(ResultadoActividad.FALLO);
+        assertThat(r.detalle()).contains("USUARIO_INACTIVO");
+    }
+
+    @Test
+    void login_success_recordsLoginWithTheUserAsActor() {
+        Donante u = new Donante(5L, "Don", "don@test.com", passwordEncoder.encode("correct-horse-battery-staple"), true);
+        when(usuarioRepository.findByEmail("don@test.com")).thenReturn(Optional.of(u));
+        when(jwtService.generateAccessToken(any())).thenReturn("access-token");
+        when(refreshTokenService.issue(any())).thenReturn("refresh-token");
+
+        authService.login(new org.example.auth.dto.LoginRequest("don@test.com", "correct-horse-battery-staple"));
+
+        ActividadService.Registro r = capturarAislado();
+        assertThat(r.accion()).isEqualTo(TipoActividad.LOGIN);
+        assertThat(r.resultado()).isEqualTo(ResultadoActividad.EXITO);
+        assertThat(r.actorId()).isEqualTo(5L);
+        assertThat(r.actorTipo()).isEqualTo(TipoActor.DONANTE);
+        assertThat(r.emailIntento()).isNull();
+    }
+
+    @Test
+    void verifyOtp_lockout_recordsOtpBloqueo() {
+        Donante u = new Donante(5L, "Don", "don@test.com", "x", true);
+        when(usuarioRepository.findByEmail("don@test.com")).thenReturn(Optional.of(u));
+        doThrow(new ResponseStatusException(org.springframework.http.HttpStatus.TOO_MANY_REQUESTS, "DEMASIADOS_INTENTOS"))
+                .when(otpService).verify("don@test.com", "000000");
+
+        assertThatThrownBy(() -> authService.verifyOtp(new VerifyOtpRequest("don@test.com", "000000")))
+                .isInstanceOf(ResponseStatusException.class);
+
+        ActividadService.Registro r = capturarAislado();
+        assertThat(r.accion()).isEqualTo(TipoActividad.OTP_BLOQUEO);
+        assertThat(r.resultado()).isEqualTo(ResultadoActividad.FALLO);
+        assertThat(r.detalle()).doesNotContain("000000");
     }
 }

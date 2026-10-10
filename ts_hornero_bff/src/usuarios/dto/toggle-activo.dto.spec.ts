@@ -25,4 +25,19 @@ describe('ToggleActivoDto', () => {
       transform({ activo: true, tipo: 'ADMINISTRADOR' }),
     ).rejects.toBeInstanceOf(BadRequestException);
   });
+
+  it('accepts an optional motivo', async () => {
+    await expect(
+      transform({ activo: false, motivo: 'abuso reiterado' }),
+    ).resolves.toEqual({ activo: false, motivo: 'abuso reiterado' });
+  });
+
+  it('rejects a non-string or over-long motivo', async () => {
+    await expect(
+      transform({ activo: false, motivo: 5 }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    await expect(
+      transform({ activo: false, motivo: 'x'.repeat(501) }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
 });

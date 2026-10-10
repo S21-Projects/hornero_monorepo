@@ -1,8 +1,6 @@
 import { afterAll, describe, expect, it } from 'vitest';
-import { Actor } from '../src/client.js';
+import { Actor, registerDonante, retryOn429 } from '../src/client.js';
 import { actors, anonymous, runId } from '../src/fixtures.js';
-
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 /** N9/D9: deactivating a user cuts access at once, even though the access token is still valid. */
 describe('N9. deactivated user is cut off immediately', () => {
@@ -16,19 +14,9 @@ describe('N9. deactivated user is cut off immediately', () => {
   });
 
   it('registers a throw-away donante (retrying past the 3/min registration throttle)', async () => {
-    let res;
-    for (let attempt = 0; attempt < 3; attempt++) {
-      res = await user.post('/auth/register', {
-        nombre: 'E2E Desactivable',
-        email: `e2e-off-${runId}@example.com`,
-        password: 'cafetera azul canta fuerte',
-        tipo: 'DONANTE',
-      });
-      if (res.status !== 429) break;
-      await sleep(61_000);
-    }
-    expect(res!.status).toBe(201);
-    userId = res!.data?.user?.id ?? res!.body?.user?.id;
+    const res = await registerDonante(user, { nombre: 'E2E Desactivable', email: `e2e-off-${runId}@example.com` });
+    expect(res.status).toBe(201);
+    userId = res.data?.user?.id ?? res.body?.user?.id;
     expect(userId).toBeTruthy();
     expect((await user.get('/auth/me')).status).toBe(200);
   }, 150_000);
@@ -54,11 +42,14 @@ describe('N9. deactivated user is cut off immediately', () => {
     expect((await user.post('/auth/refresh')).status).toBe(401);
   });
 
-  it('login is refused while deactivated', async () => {
-    const res = await new Actor('retry-login').post('/auth/login', {
-      email: `e2e-off-${runId}@example.com`,
-      password: 'cafetera azul canta fuerte',
-    });
+  it('login is refused while deactivated', { timeout: 150_000 }, async () => {
+    // Login is throttled per IP (5/min) and global-setup just used the budget: retry past a 429.
+    const res = await retryOn429(() =>
+      new Actor('retry-login').post('/auth/login', {
+        email: `e2e-off-${runId}@example.com`,
+        password: 'cafetera azul canta fuerte',
+      }),
+    );
     expect(res.status).toBe(401);
   });
 
@@ -66,14 +57,16 @@ describe('N9. deactivated user is cut off immediately', () => {
     expect((await anonymous().get('/necesidades')).status).toBe(200);
   });
 
-  it('after reactivation a fresh login works again', async () => {
+  it('after reactivation a fresh login works again', { timeout: 150_000 }, async () => {
     const on = await a.admin.patch(`/usuarios/${userId}/activo`, { activo: true });
     expect(on.status).toBeLessThan(300);
     const fresh = new Actor('fresh');
-    const res = await fresh.post('/auth/login', {
-      email: `e2e-off-${runId}@example.com`,
-      password: 'cafetera azul canta fuerte',
-    });
+    const res = await retryOn429(() =>
+      fresh.post('/auth/login', {
+        email: `e2e-off-${runId}@example.com`,
+        password: 'cafetera azul canta fuerte',
+      }),
+    );
     expect(res.status).toBeLessThan(300);
     expect((await fresh.get('/auth/me')).status).toBe(200);
   });

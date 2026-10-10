@@ -2,6 +2,9 @@ package org.example.auth;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.example.actividad.ActividadService;
+import org.example.actividad.ActividadService.Registro;
+import org.example.actividad.TipoActividad;
 import org.example.auth.dto.AuthResponse;
 import org.example.auth.dto.LoginRequest;
 import org.example.auth.dto.RegisterRequest;
@@ -29,48 +32,54 @@ public class AuthService {
     private final OtpService otpService;
     private final RefreshTokenService refreshTokenService;
     private final PasswordPolicy passwordPolicy;
+    /** N10: auth events use the isolated (REQUIRES_NEW, never-throwing) write; see ActividadService. */
+    private final ActividadService actividadService;
 
     public AuthResponse login(LoginRequest request) {
         Usuario usuario = usuarioRepository.findByEmail(request.getEmail())
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.UNAUTHORIZED, "Credenciales inválidas"));
+                .orElseThrow(() -> loginFallido(null, request.getEmail(), "USUARIO_DESCONOCIDO"));
 
         if (!usuario.isActivo()) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Credenciales inválidas");
+            throw loginFallido(usuario.getId(), request.getEmail(), "USUARIO_INACTIVO");
         }
 
         if (!passwordEncoder.matches(request.getPassword(), usuario.getPassword())) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Credenciales inválidas");
+            throw loginFallido(usuario.getId(), request.getEmail(), "CREDENCIALES_INVALIDAS");
         }
 
         String accessToken = jwtService.generateAccessToken(usuario);
         String refreshToken = refreshTokenService.issue(usuario);
+
+        actividadService.registrarAislado(Registro.de(TipoActividad.LOGIN)
+                .actor(usuario).entidad("USUARIO", usuario.getId()));
 
         return new AuthResponse(accessToken, refreshToken, toUserResponse(usuario));
     }
 
     public AuthResponse refresh(String refreshToken) {
         if (!jwtService.isRefreshToken(refreshToken)) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Refresh token expirado o inválido");
+            throw refreshFallido(null, "TOKEN_INVALIDO", "Refresh token expirado o inválido");
         }
 
         String jti = jwtService.extractJti(refreshToken);
         if (jti == null) {
             // Issued before refresh tokens were persisted: cannot be tracked, force a new login.
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Refresh token expirado o inválido");
+            throw refreshFallido(null, "TOKEN_SIN_JTI", "Refresh token expirado o inválido");
         }
 
         Long userId = jwtService.extractUserId(refreshToken);
         Usuario usuario = usuarioRepository.findById(userId)
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.UNAUTHORIZED, "Usuario no encontrado"));
+                .orElseThrow(() -> refreshFallido(userId, "USUARIO_NO_ENCONTRADO", "Usuario no encontrado"));
 
         if (!usuario.isActivo()) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Usuario inactivo");
+            throw refreshFallido(userId, "USUARIO_INACTIVO", "Usuario inactivo");
         }
 
         String newRefreshToken = refreshTokenService.rotate(jti, usuario);
         String newAccessToken = jwtService.generateAccessToken(usuario);
+
+        actividadService.registrarAislado(Registro.de(TipoActividad.REFRESH_TOKEN)
+                .actor(usuario).entidad("USUARIO", usuario.getId()));
 
         return new AuthResponse(newAccessToken, newRefreshToken, toUserResponse(usuario));
     }
@@ -82,6 +91,12 @@ public class AuthService {
                 String jti = jwtService.extractJti(refreshToken);
                 if (jti != null) {
                     refreshTokenService.revokeFamilyOf(jti);
+                    Long userId = jwtService.extractUserId(refreshToken);
+                    if (userId != null) {
+                        Registro registro = Registro.de(TipoActividad.LOGOUT).entidad("USUARIO", userId);
+                        usuarioRepository.findById(userId).ifPresent(registro::actor);
+                        actividadService.registrarAislado(registro);
+                    }
                 }
             }
         } catch (RuntimeException e) {
@@ -109,6 +124,9 @@ public class AuthService {
 
         usuario = usuarioRepository.save(usuario);
 
+        actividadService.registrarAislado(Registro.de(TipoActividad.REGISTRO)
+                .actor(usuario).entidad("USUARIO", usuario.getId()));
+
         try {
             otpService.issue(usuario.getEmail());
         } catch (Exception e) {
@@ -124,12 +142,28 @@ public class AuthService {
 
     public AuthResponse verifyOtp(VerifyOtpRequest request) {
         Usuario usuario = usuarioRepository.findByEmail(request.getEmail())
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "CODIGO_INVALIDO"));
+                .orElseThrow(() -> {
+                    actividadService.registrarAislado(Registro.de(TipoActividad.OTP_VERIFICACION)
+                            .fallo().detalle("USUARIO_DESCONOCIDO"));
+                    return new ResponseStatusException(HttpStatus.BAD_REQUEST, "CODIGO_INVALIDO");
+                });
 
-        otpService.verify(request.getEmail(), request.getCodigo());
+        try {
+            otpService.verify(request.getEmail(), request.getCodigo());
+        } catch (ResponseStatusException e) {
+            // 429 = the attempt limit was reached (lockout); anything else is a plain failure.
+            boolean bloqueo = e.getStatusCode().value() == HttpStatus.TOO_MANY_REQUESTS.value();
+            actividadService.registrarAislado(Registro.de(
+                            bloqueo ? TipoActividad.OTP_BLOQUEO : TipoActividad.OTP_VERIFICACION)
+                    .fallo().entidad("USUARIO", usuario.getId()).detalle(e.getReason()));
+            throw e;
+        }
 
         usuario.setEmailVerificado(true);
         usuario = usuarioRepository.save(usuario);
+
+        actividadService.registrarAislado(Registro.de(TipoActividad.OTP_VERIFICACION)
+                .actor(usuario).entidad("USUARIO", usuario.getId()));
 
         String accessToken = jwtService.generateAccessToken(usuario);
         String refreshToken = refreshTokenService.issue(usuario);
@@ -144,6 +178,25 @@ public class AuthService {
             return;
         }
         otpService.resend(request.getEmail());
+    }
+
+    /**
+     * Records a failed login (the row survives the exception) and returns the generic 401: the
+     * client never learns which of the three reasons applied, the admin-only log does.
+     */
+    private ResponseStatusException loginFallido(Long usuarioId, String email, String motivo) {
+        actividadService.registrarAislado(Registro.de(TipoActividad.LOGIN).fallo()
+                .entidad(usuarioId != null ? "USUARIO" : null, usuarioId)
+                .detalle(motivo)
+                .emailIntento(email));
+        return new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Credenciales inválidas");
+    }
+
+    private ResponseStatusException refreshFallido(Long usuarioId, String motivo, String mensaje) {
+        actividadService.registrarAislado(Registro.de(TipoActividad.REFRESH_TOKEN).fallo()
+                .entidad(usuarioId != null ? "USUARIO" : null, usuarioId)
+                .detalle(motivo));
+        return new ResponseStatusException(HttpStatus.UNAUTHORIZED, mensaje);
     }
 
     private UserResponse toUserResponse(Usuario usuario) {

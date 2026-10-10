@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { Actor } from '../src/client.js';
+import { Actor, registerDonante } from '../src/client.js';
 import { actors, anonymous, orgOwners, pickNecesidad, runId } from '../src/fixtures.js';
 
 /** One registration per run (limit 3/min per IP): reused for the unverified-user and session checks. */
@@ -7,13 +7,8 @@ describe('8 + 10. unverified user and session lifecycle', () => {
   const user = new Actor('fresh-donante');
   let staleRefresh: string;
 
-  it('registers a donante (unverified, no OTP) and gets a session', async () => {
-    const res = await user.post('/auth/register', {
-      nombre: 'E2E Donante',
-      email: `e2e-${runId}@example.com`,
-      password: 'cafetera azul canta fuerte',
-      tipo: 'DONANTE',
-    });
+  it('registers a donante (unverified, no OTP) and gets a session', { timeout: 150_000 }, async () => {
+    const res = await registerDonante(user, { email: `e2e-${runId}@example.com` });
     expect(res.status).toBe(201);
     expect(user.jar.access_token).toBeTruthy();
     expect(user.jar.refresh_token).toBeTruthy();
@@ -21,23 +16,21 @@ describe('8 + 10. unverified user and session lifecycle', () => {
     expect(me.status).toBe(200);
   });
 
-  it('rejects a short password with 400 PASSWORD_DEMASIADO_CORTA', async () => {
-    const res = await new Actor('weak-short').post('/auth/register', {
+  it('rejects a short password with 400 PASSWORD_DEMASIADO_CORTA', { timeout: 150_000 }, async () => {
+    const res = await registerDonante(new Actor('weak-short'), {
       nombre: 'E2E Weak',
       email: `e2e-short-${runId}@example.com`,
       password: 'Short-1!',
-      tipo: 'DONANTE',
     });
     expect(res.status).toBe(400);
     expect(JSON.stringify(res.body)).toContain('PASSWORD_DEMASIADO_CORTA');
   });
 
-  it('rejects a common password with 400 PASSWORD_COMUN', async () => {
-    const res = await new Actor('weak-common').post('/auth/register', {
+  it('rejects a common password with 400 PASSWORD_COMUN', { timeout: 150_000 }, async () => {
+    const res = await registerDonante(new Actor('weak-common'), {
       nombre: 'E2E Weak',
       email: `e2e-common-${runId}@example.com`,
       password: 'qwertyuiopasdfghjkl',
-      tipo: 'DONANTE',
     });
     expect(res.status).toBe(400);
     expect(JSON.stringify(res.body)).toContain('PASSWORD_COMUN');

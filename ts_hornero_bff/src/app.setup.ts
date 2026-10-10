@@ -1,6 +1,7 @@
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
+import { clientIpMiddleware, installClientIpForwarding } from './common/client-ip.js';
 import { AxiosExceptionFilter } from './common/axios-exception.filter.js';
 import { resolveAllowedOrigins } from './common/allowed-origins.js';
 import { createOriginCheckMiddleware } from './common/origin-check.middleware.js';
@@ -34,6 +35,9 @@ export function configureApp(
 
   app.use(securityHeaders());
   app.use(cookieParser());
+  // N10: forward the visitor's IP to the MS on every proxied call (activity log).
+  app.use(clientIpMiddleware);
+  installClientIpForwarding();
   app.useGlobalPipes(new ValidationPipe(VALIDATION_PIPE_OPTIONS));
   app.useGlobalFilters(new AxiosExceptionFilter());
   app.enableCors({

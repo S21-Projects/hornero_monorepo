@@ -33,6 +33,6 @@ public class UsuarioController {
     @PreAuthorize("hasRole('ADMINISTRADOR')")
     public UsuarioResponse toggleActivo(@PathVariable Long id,
                                         @Valid @RequestBody UpdateActivoRequest request) {
-        return usuarioService.toggleActivo(id, request.getActivo());
+        return usuarioService.toggleActivo(id, request.getActivo(), request.getMotivo());
     }
 }

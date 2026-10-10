@@ -1,6 +1,9 @@
 package org.example.donacion.entrega;
 
 import lombok.RequiredArgsConstructor;
+import org.example.actividad.ActividadService;
+import org.example.actividad.ActividadService.Registro;
+import org.example.actividad.TipoActividad;
 import org.example.domain.Donacion;
 import org.example.domain.DonacionRepository;
 import org.example.donacion.ConfirmacionEntrega;
@@ -37,6 +40,7 @@ public class EntregaService {
     private final CodigoEntregaThrottle throttle;
     private final BCryptPasswordEncoder passwordEncoder;
     private final Clock clock;
+    private final ActividadService actividadService;
 
     @Value("${app.entrega.ttl-minutes}")
     private long ttlMinutes;
@@ -80,6 +84,10 @@ public class EntregaService {
         nuevo.setCreadoEn(clock.instant());
         codigoEntregaRepository.save(nuevo);
 
+        // Never the code itself (ASVS 16.2.5): only who generated one for which donación.
+        actividadService.registrar(Registro.de(TipoActividad.ENTREGA_CODIGO_GENERADO)
+                .entidad("DONACION", donacionId).detalle("parte " + parte));
+
         return new CodigoEntregaResponse(codigoPlano, expiraEn);
     }
 
@@ -104,11 +112,15 @@ public class EntregaService {
         ParticipantesDonacion.Parte contraparte = contraparteDe(parte);
         CodigoEntrega vigente = codigoEntregaRepository
                 .findTopByDonacion_IdAndEmisorParteAndUsadoFalseOrderByCreadoEnDesc(donacionId, contraparte)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "CODIGO_INVALIDO"));
+                .orElseThrow(() -> {
+                    fallo(TipoActividad.ENTREGA_CODIGO_VERIFICACION, donacionId, actorId, parte, "SIN_CODIGO_VIGENTE");
+                    return new ResponseStatusException(HttpStatus.BAD_REQUEST, "CODIGO_INVALIDO");
+                });
 
         if (vigente.getExpiraEn().isBefore(clock.instant())) {
             vigente.setUsado(true);
             codigoEntregaRepository.save(vigente);
+            fallo(TipoActividad.ENTREGA_CODIGO_VERIFICACION, donacionId, actorId, parte, "CODIGO_EXPIRADO");
             throw new ResponseStatusException(HttpStatus.GONE, "CODIGO_EXPIRADO");
         }
 
@@ -117,9 +129,12 @@ public class EntregaService {
             if (vigente.getIntentos() >= maxAttempts) {
                 vigente.setUsado(true);
                 codigoEntregaRepository.save(vigente);
+                fallo(TipoActividad.ENTREGA_CODIGO_BLOQUEO, donacionId, actorId, parte, "DEMASIADOS_INTENTOS");
                 throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS, "DEMASIADOS_INTENTOS");
             }
             codigoEntregaRepository.save(vigente);
+            fallo(TipoActividad.ENTREGA_CODIGO_VERIFICACION, donacionId, actorId, parte,
+                    "CODIGO_INVALIDO (intento " + vigente.getIntentos() + ")");
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "CODIGO_INVALIDO");
         }
 
@@ -128,6 +143,9 @@ public class EntregaService {
 
         ConfirmacionEntrega.registrar(d, parte, clock);
         donacionRepository.save(d);
+        // Success commits with the confirmation itself (same transaction).
+        actividadService.registrar(Registro.de(TipoActividad.ENTREGA_CODIGO_VERIFICACION)
+                .entidad("DONACION", donacionId).detalle("parte " + parte));
 
         return toEstadoResponse(d);
     }
@@ -141,6 +159,17 @@ public class EntregaService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.FORBIDDEN, "Access denied"));
 
         return toEstadoResponse(d);
+    }
+
+    /**
+     * Failure/lockout rows go through the isolated write: this transaction's row lock and its
+     * counters are unrelated to the audit row, and the row must exist whatever happens next to the
+     * caller's transaction (ASVS 16.3.3). Never receives the submitted code.
+     */
+    private void fallo(TipoActividad accion, Long donacionId, Long actorId, ParticipantesDonacion.Parte parte,
+                       String motivo) {
+        actividadService.registrarAislado(Registro.de(accion).fallo().actor(actorId, parte.name())
+                .entidad("DONACION", donacionId).detalle("parte " + parte + ": " + motivo));
     }
 
     private boolean yaConfirmoEstaParte(Donacion d, ParticipantesDonacion.Parte parte) {

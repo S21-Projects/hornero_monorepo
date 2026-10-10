@@ -2,6 +2,9 @@ package org.example.organizacion;
 
 import lombok.RequiredArgsConstructor;
 import org.example.acreditacion.AcreditacionService;
+import org.example.actividad.ActividadService;
+import org.example.actividad.ActividadService.Registro;
+import org.example.actividad.TipoActividad;
 import org.example.domain.EstadoOrganizacion;
 import org.example.domain.NivelAcreditacion;
 import org.example.domain.Organizacion;
@@ -19,6 +22,8 @@ import org.example.user.UsuarioRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
@@ -37,6 +42,7 @@ public class OrganizacionService {
     private final OrganizacionRepository organizacionRepository;
     private final UsuarioRepository usuarioRepository;
     private final AcreditacionService acreditacionService;
+    private final ActividadService actividadService;
 
     @Transactional
     public OrganizacionResponse crear(CrearOrganizacionRequest request, Long referenteUserId) {
@@ -71,7 +77,9 @@ public class OrganizacionService {
         organizacion.setDonacionDirectaUrl(normalizarUrl(request.getDonacionDirectaUrl()));
 
         Organizacion saved = organizacionRepository.save(organizacion);
-        acreditacionService.registrarRegistroOrganizacion(saved);
+        acreditacionService.registrarRegistroOrganizacion(saved, referente);
+        actividadService.registrar(Registro.de(TipoActividad.ORGANIZACION_CREADA)
+                .entidad("ORGANIZACION", saved.getId()).detalle(saved.getNombre()));
         return toResponse(saved);
     }
 
@@ -105,11 +113,14 @@ public class OrganizacionService {
 
         // AD-6: delegates to AcreditacionService so this legacy action and the new ladder cannot
         // disagree — nivel, estado/validada and the event log are written by one single method.
+        EstadoOrganizacion estadoAntes = organizacion.getEstado();
         acreditacionService.aplicarTransicionLegacy(organizacion, NivelAcreditacion.N1, administrador,
                 "Validación administrativa", TipoEventoOrganizacion.NIVEL_ELEVADO);
         organizacion.setValidadoPor(administrador);
 
         Organizacion saved = organizacionRepository.save(organizacion);
+        actividadService.registrar(Registro.de(TipoActividad.ORGANIZACION_VALIDADA)
+                .entidad("ORGANIZACION", orgId).cambio(estadoAntes, saved.getEstado()));
         return toResponseAutenticado(saved);
     }
 
@@ -127,9 +138,12 @@ public class OrganizacionService {
         Administrador administrador = usuario instanceof Administrador a ? a : null;
 
         // AD-6: never raises nivel (a never-validated org stays N0) — see rechazarRegistro's doc.
+        EstadoOrganizacion estadoAntes = organizacion.getEstado();
         acreditacionService.rechazarRegistro(organizacion, administrador, "Registro rechazado por un administrador");
 
         Organizacion saved = organizacionRepository.save(organizacion);
+        actividadService.registrar(Registro.de(TipoActividad.ORGANIZACION_RECHAZADA)
+                .entidad("ORGANIZACION", orgId).cambio(estadoAntes, saved.getEstado()));
         return toResponseAutenticado(saved);
     }
 
@@ -167,7 +181,7 @@ public class OrganizacionService {
         Long referenteId = request.getReferenteId();
         if (referenteId == null) {
             organizacion.setReferente(null);
-            acreditacionService.registrarReasignacionReferente(organizacion, referenteAnteriorId, null);
+            registrarReasignacion(organizacion, referenteAnteriorId, null);
             return toResponse(organizacionRepository.save(organizacion));
         }
 
@@ -193,7 +207,7 @@ public class OrganizacionService {
         }
 
         organizacion.setReferente(referente);
-        acreditacionService.registrarReasignacionReferente(organizacion, referenteAnteriorId, referente.getId());
+        registrarReasignacion(organizacion, referenteAnteriorId, referente.getId());
         return toResponseAutenticado(organizacionRepository.save(organizacion));
     }
 
@@ -228,6 +242,18 @@ public class OrganizacionService {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "No tenés permiso para editar esta organización");
         }
 
+        List<String> campos = new java.util.ArrayList<>();
+        if (request.getNombre() != null) campos.add("nombre");
+        if (request.getTipo() != null) campos.add("tipo");
+        if (request.getDescripcion() != null) campos.add("descripcion");
+        if (request.getDireccion() != null) campos.add("direccion");
+        if (request.getLatitud() != null || request.getLongitud() != null) campos.add("coordenadas");
+        if (request.getProfileImageKey() != null) campos.add("imagenPerfil");
+        if (request.getBannerKey() != null) campos.add("banner");
+        if (request.getAceptaDonaciones() != null) campos.add("aceptaDonacionesPendiente");
+        if (request.getSitioWebUrl() != null) campos.add("sitioWebPendiente");
+        if (request.getDonacionDirectaUrl() != null) campos.add("donacionDirectaPendiente");
+
         if (request.getNombre() != null) organizacion.setNombre(request.getNombre());
         if (request.getTipo() != null) organizacion.setTipo(request.getTipo());
         if (request.getDescripcion() != null) organizacion.setDescripcion(request.getDescripcion());
@@ -259,6 +285,9 @@ public class OrganizacionService {
         }
 
         Organizacion saved = organizacionRepository.save(organizacion);
+        // Field NAMES only: the values (urls, keys, address) stay out of the log.
+        actividadService.registrar(Registro.de(TipoActividad.ORGANIZACION_ACTUALIZADA)
+                .entidad("ORGANIZACION", orgId).detalle("campos: " + String.join(", ", campos)));
         return toResponseAutenticado(saved);
     }
 
@@ -282,6 +311,8 @@ public class OrganizacionService {
         limpiarPendiente(organizacion);
 
         Organizacion saved = organizacionRepository.save(organizacion);
+        actividadService.registrar(Registro.de(TipoActividad.ORGANIZACION_INFO_PUBLICA_EDITADA)
+                .entidad("ORGANIZACION", orgId));
         return toResponseAutenticado(saved);
     }
 
@@ -302,6 +333,8 @@ public class OrganizacionService {
         limpiarPendiente(organizacion);
 
         Organizacion saved = organizacionRepository.save(organizacion);
+        actividadService.registrar(Registro.de(TipoActividad.ORGANIZACION_INFO_PUBLICA_APROBADA)
+                .entidad("ORGANIZACION", orgId));
         return toResponseAutenticado(saved);
     }
 
@@ -318,7 +351,26 @@ public class OrganizacionService {
         limpiarPendiente(organizacion);
 
         Organizacion saved = organizacionRepository.save(organizacion);
+        actividadService.registrar(Registro.de(TipoActividad.ORGANIZACION_INFO_PUBLICA_RECHAZADA)
+                .entidad("ORGANIZACION", orgId));
         return toResponseAutenticado(saved);
+    }
+
+    /** Event-log entry (OrganizacionEvento, with the acting admin) plus the activity-log entry. */
+    private void registrarReasignacion(Organizacion organizacion, Long antesId, Long despuesId) {
+        acreditacionService.registrarReasignacionReferente(organizacion, antesId, despuesId, actorActual());
+        actividadService.registrar(Registro.de(TipoActividad.ORGANIZACION_REFERENTE_REASIGNADO)
+                .entidad("ORGANIZACION", organizacion.getId())
+                .cambio(antesId, despuesId));
+    }
+
+    /** The authenticated caller, or {@code null} outside a request (never fabricated). */
+    private Usuario actorActual() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth != null && auth.getPrincipal() instanceof Long id) {
+            return usuarioRepository.findById(id).orElse(null);
+        }
+        return null;
     }
 
     /** D2: seeds the pending trio from the current live state, once per pending cycle. */

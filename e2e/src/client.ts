@@ -84,3 +84,35 @@ export async function login(email: string, password: string, label = email): Pro
   }
   throw new Error(`login ${email} still rate limited after retries`);
 }
+
+/**
+ * Runs `call`, and when the BFF auth throttle answers 429 (login 5/min, register 3/min per IP;
+ * the window carries over between back-to-back runs) waits for it to reset and retries.
+ */
+export async function retryOn429(call: () => Promise<Res>): Promise<Res> {
+  let res!: Res;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    res = await call();
+    if (res.status !== 429) return res;
+    await sleep(61_000);
+  }
+  return res;
+}
+
+export interface RegistroDonante {
+  email: string;
+  nombre?: string;
+  password?: string;
+}
+
+/** Registers a donante through the BFF. Every e2e registration goes through here (429-safe). */
+export function registerDonante(actor: Actor, datos: RegistroDonante): Promise<Res> {
+  return retryOn429(() =>
+    actor.post('/auth/register', {
+      nombre: datos.nombre ?? 'E2E Donante',
+      email: datos.email,
+      password: datos.password ?? 'cafetera azul canta fuerte',
+      tipo: 'DONANTE',
+    }),
+  );
+}

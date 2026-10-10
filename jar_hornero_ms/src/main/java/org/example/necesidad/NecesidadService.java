@@ -1,6 +1,9 @@
 package org.example.necesidad;
 
 import lombok.RequiredArgsConstructor;
+import org.example.actividad.ActividadService;
+import org.example.actividad.ActividadService.Registro;
+import org.example.actividad.TipoActividad;
 import org.example.auth.VerificacionService;
 import org.example.config.AcreditacionProperties;
 import org.example.domain.Articulo;
@@ -47,6 +50,7 @@ public class NecesidadService {
     private final AcreditacionProperties acreditacionProperties;
     private final ArticuloRepository articuloRepository;
     private final Clock clock;
+    private final ActividadService actividadService;
 
     @Transactional
     public NecesidadResponse crear(CrearNecesidadRequest dto, Long referenteId) {
@@ -100,7 +104,10 @@ public class NecesidadService {
         necesidad.setArticulos(articulos);
         necesidad.setCategoria(categoria);
 
-        return toResponse(necesidadRepository.save(necesidad));
+        Necesidad guardada = necesidadRepository.save(necesidad);
+        actividadService.registrar(Registro.de(TipoActividad.NECESIDAD_CREADA)
+                .entidad("NECESIDAD", guardada.getId()).detalle("organización " + org.getId()));
+        return toResponse(guardada);
     }
 
     public Page<NecesidadResponse> findByOrganizacion(Long organizacionId, Pageable pageable) {
@@ -128,6 +135,7 @@ public class NecesidadService {
         Necesidad n = necesidadRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Necesidad not found"));
         checkOwnership(n, referenteId);
+        EstadoNecesidad estadoAntes = n.getEstado();
         if (dto.getDescripcion() != null) n.setDescripcion(dto.getDescripcion());
         if (dto.getPrioridad() != null) n.setPrioridad(dto.getPrioridad());
         // D2/N4: leaving VENCIDA goes through relanzar (date + cap checks); an open necesidad
@@ -155,7 +163,10 @@ public class NecesidadService {
             n.setCategoria(CategoriaAlimento.masExigente(
                     nuevos.stream().map(na -> na.getArticulo().getCategoria()).collect(Collectors.toList())));
         }
-        return toResponse(necesidadRepository.save(n));
+        Necesidad guardada = necesidadRepository.save(n);
+        actividadService.registrar(Registro.de(TipoActividad.NECESIDAD_ACTUALIZADA)
+                .entidad("NECESIDAD", id).cambio(estadoAntes, guardada.getEstado()));
+        return toResponse(guardada);
     }
 
     /**
@@ -184,10 +195,15 @@ public class NecesidadService {
                     "La categoría " + n.getCategoria() + " requiere el nivel " + n.getCategoria().getNivelMinimo()
                             + " o superior");
         }
+        EstadoNecesidad estadoAntes = n.getEstado();
         n.setEstado(EstadoNecesidad.ABIERTA);
         n.setFechaVencimiento(dto.getFechaVencimiento());
         n.setFechaPublicacion(hoy);
-        return toResponse(necesidadRepository.save(n));
+        Necesidad guardada = necesidadRepository.save(n);
+        actividadService.registrar(Registro.de(TipoActividad.NECESIDAD_RELANZADA)
+                .entidad("NECESIDAD", id).cambio(estadoAntes, EstadoNecesidad.ABIERTA)
+                .detalle("nuevo vencimiento " + dto.getFechaVencimiento()));
+        return toResponse(guardada);
     }
 
     @Transactional
@@ -196,6 +212,8 @@ public class NecesidadService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Necesidad not found"));
         checkOwnership(n, referenteId);
         necesidadRepository.delete(n);
+        actividadService.registrar(Registro.de(TipoActividad.NECESIDAD_ELIMINADA)
+                .entidad("NECESIDAD", id).cambio(n.getEstado(), null));
     }
 
     private LocalDate hoy() {

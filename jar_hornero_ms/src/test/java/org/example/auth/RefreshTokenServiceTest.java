@@ -1,5 +1,6 @@
 package org.example.auth;
 
+import org.example.actividad.ActividadService;
 import org.example.user.Donante;
 import org.example.user.Usuario;
 import org.junit.jupiter.api.BeforeEach;
@@ -39,13 +40,16 @@ class RefreshTokenServiceTest {
     @Mock
     private JwtService jwtService;
 
+    @Mock
+    private ActividadService actividadService;
+
     private RefreshTokenService service;
     private Usuario usuario;
 
     @BeforeEach
     void setUp() {
         Clock clock = Clock.fixed(NOW, ZoneOffset.UTC);
-        service = new RefreshTokenService(repository, jwtService, clock, REFRESH_TTL_MS, 30L);
+        service = new RefreshTokenService(repository, jwtService, clock, REFRESH_TTL_MS, 30L, actividadService);
         usuario = new Donante(1L, "Don", "don@test.com", "pw", true);
     }
 
@@ -180,5 +184,32 @@ class RefreshTokenServiceTest {
         service.purgeExpired();
 
         verify(repository).deleteExpiredBefore(NOW.minus(Duration.ofDays(1)));
+    }
+
+    @Test
+    void rotate_reuseAfterGrace_recordsTheTheftIsolatedSoItSurvivesTheRollback() {
+        RefreshToken old = stored("old", NOW.minusSeconds(31), null);
+        when(repository.findByJti("old")).thenReturn(Optional.of(old));
+
+        assertThatThrownBy(() -> service.rotate("old", usuario)).isInstanceOf(ResponseStatusException.class);
+
+        org.mockito.ArgumentCaptor<ActividadService.Registro> captor =
+                org.mockito.ArgumentCaptor.forClass(ActividadService.Registro.class);
+        verify(actividadService).registrarAislado(captor.capture());
+        assertThat(captor.getValue().accion()).isEqualTo(org.example.actividad.TipoActividad.REFRESH_TOKEN_REUTILIZADO);
+        assertThat(captor.getValue().resultado()).isEqualTo(org.example.actividad.ResultadoActividad.FALLO);
+        assertThat(captor.getValue().actorId()).isEqualTo(1L);
+        assertThat(captor.getValue().toString() + captor.getValue().detalle()).doesNotContain("old-jwt");
+    }
+
+    @Test
+    void rotate_withinGrace_recordsNothing() {
+        RefreshToken old = stored("old", NOW.minusSeconds(10), null);
+        when(repository.findByJti("old")).thenReturn(Optional.of(old));
+        when(jwtService.generateRefreshToken(eq(1L), anyString())).thenReturn("new-jwt");
+
+        service.rotate("old", usuario);
+
+        verify(actividadService, never()).registrarAislado(any());
     }
 }

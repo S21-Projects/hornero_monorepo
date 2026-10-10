@@ -2,6 +2,9 @@ package org.example.articulo;
 
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
+import org.example.actividad.ActividadService;
+import org.example.actividad.ActividadService.Registro;
+import org.example.actividad.TipoActividad;
 import org.example.articulo.dto.ActualizarArticuloRequest;
 import org.example.articulo.dto.CrearArticuloRequest;
 import org.example.domain.Articulo;
@@ -22,6 +25,7 @@ import java.util.List;
 public class ArticuloService {
 
     private final ArticuloRepository articuloRepository;
+    private final ActividadService actividadService;
 
     public List<ArticuloResponse> listar(boolean incluirInactivos) {
         List<Articulo> articulos = incluirInactivos
@@ -37,7 +41,10 @@ public class ArticuloService {
         a.setCategoria(dto.getCategoria());
         a.setUnidad(dto.getUnidad());
         a.setActivo(true);
-        return toResponse(articuloRepository.save(a));
+        Articulo guardado = articuloRepository.save(a);
+        actividadService.registrar(Registro.de(TipoActividad.ARTICULO_CREADO)
+                .entidad("ARTICULO", guardado.getId()).detalle(guardado.getNombre()));
+        return toResponse(guardado);
     }
 
     @Transactional
@@ -47,7 +54,10 @@ public class ArticuloService {
         a.setNombre(dto.getNombre());
         a.setCategoria(dto.getCategoria());
         a.setUnidad(dto.getUnidad());
-        return toResponse(articuloRepository.save(a));
+        Articulo guardado = articuloRepository.save(a);
+        actividadService.registrar(Registro.de(TipoActividad.ARTICULO_ACTUALIZADO)
+                .entidad("ARTICULO", id).detalle(guardado.getNombre()));
+        return toResponse(guardado);
     }
 
     @Transactional
@@ -55,7 +65,10 @@ public class ArticuloService {
         Articulo a = articuloRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Articulo not found"));
         a.setActivo(false);
-        return toResponse(articuloRepository.save(a));
+        Articulo guardado = articuloRepository.save(a);
+        actividadService.registrar(Registro.de(TipoActividad.ARTICULO_DESACTIVADO)
+                .entidad("ARTICULO", id).cambio("activo", "inactivo"));
+        return toResponse(guardado);
     }
 
     /**
@@ -68,7 +81,10 @@ public class ArticuloService {
         Articulo a = articuloRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Articulo not found"));
         a.setActivo(true);
-        return toResponse(articuloRepository.save(a));
+        Articulo guardado = articuloRepository.save(a);
+        actividadService.registrar(Registro.de(TipoActividad.ARTICULO_REACTIVADO)
+                .entidad("ARTICULO", id).cambio("inactivo", "activo"));
+        return toResponse(guardado);
     }
 
     private ArticuloResponse toResponse(Articulo a) {

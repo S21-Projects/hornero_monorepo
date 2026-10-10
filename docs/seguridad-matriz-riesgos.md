@@ -40,10 +40,10 @@ queda después de aplicar la medida.
 | R12 | Fuga de detalles internos en mensajes de error | M | B | Manejadores globales con mensajes genéricos; el detalle solo va al log | MS / BFF | `GlobalExceptionHandler`, `axios-exception.filter.spec.ts` | B |
 | R13 | Confirmación fraudulenta de una entrega | M | A | Código de un solo uso, hasheado, válido 10 min, bloqueo tras 5 intentos | MS | `EntregaServiceLockoutIntegrationTest`, e2e `03-exceptional-paths` (5, 5b, 5c) | B |
 | R14 | Alta de cuentas con emails ajenos | M | M | Verificación de email por OTP (Resend), hasheado, con bloqueo por intentos; acciones sensibles exigen email verificado | MS | `OtpServiceLockoutIntegrationTest`, `OtpServiceTest`, e2e escenario 8 | B |
-| R15 | Envío silencioso de OTP al log en producción | B | M | El MS no arranca sin configuración de Resend salvo `MAIL_LOG_ONLY=true` explícito | MS | `MailerConfigTest` | B |
+| R15 | Envío silencioso de OTP al log en producción | B | M | El MS no arranca sin configuración de Resend salvo `MAIL_LOG_ONLY=true` explícito; incluso en ese modo el código no se escribe en el log (solo el email enmascarado) | MS | `MailerConfigTest` | B |
 | R16 | Superficie expuesta innecesaria (consola H2, SQL en logs) | B | M | `/h2-console` fuera de las rutas públicas; `show-sql` desactivado por defecto | MS | `SecurityConfigH2ConsoleTest` | B |
 | R17 | Transiciones de estado inválidas en donaciones | M | M | Máquina de estados explícita; override de admin solo con motivo registrado | MS | `TransicionesDonacion`, `DonacionServiceTest`, e2e escenarios 3, 4 y 9 | B |
-| R18 | Acciones administrativas sin trazabilidad | M | M | Registro inmutable de eventos de acreditación; override con motivo, admin y fecha | MS | `OrganizacionEvento`, e2e escenario 9 | **M** (alcance de auditoría pendiente, D10) |
+| R18 | Acciones administrativas y eventos de seguridad sin trazabilidad | M | M | Registro de actividades inmutable (`actividad`): inicios de sesión (éxito y fallo), cierres, renovación y reutilización de tokens, bloqueos de OTP y de códigos de entrega, escrituras de administración y cambios de estado de donaciones y necesidades; solo lectura para ADMINISTRADOR, texto saneado contra inyección de logs, retención configurable, rotación de logs de Docker. Ver `docs/registro-actividades.md` | MS / BFF / admin / Infra | `ActividadServiceIntegrationTest`, `AuthLoginActividadIntegrationTest`, `ActividadControllerTest`, `client-ip.spec.ts`, e2e `08-activity-log` | B (la tabla es inmutable para la aplicación, no para quien tenga acceso directo a la base; retención provisoria hasta D12) |
 | R19 | Pérdida de datos (falla del Pi o de la microSD, error humano) | M | A | `make backup` (pg_dump comprimido) previo a migraciones | Infra | `Makefile`, `docs/deploy-rpi-cloudflare.md` | **A** (backup automático, copia externa y restauración probada pendientes: B1–B3, D11) |
 | R20 | Exposición de datos personales del donante | M | M | La identidad del donante solo la ven la organización receptora, el propio donante y los administradores; publicarla requiere activar `DONANTE_PUBLICO` | MS / BFF | `DonanteVisibilidadTest`, e2e `06-donor-privacy` | B (retención y borrado pendientes, D12) |
 | R21 | Evasión del límite de intentos falseando la IP | B | M | La IP se toma de `cf-connecting-ip`; el BFF solo es accesible a través del túnel de Cloudflare | Infra | `client-ip-throttler.guard.spec.ts`, runbook de despliegue | B (requiere no exponer el puerto 3001) |
@@ -56,7 +56,7 @@ Los riesgos marcados en negrita dependen de definiciones de negocio todavía abi
 - **R19**: definir RPO/RTO, retención, destino de la copia externa y responsables (D11), y luego
   automatizar el backup y ejecutar un simulacro de restauración (B1–B3).
 - **R20**: definir la política de retención y borrado de datos personales (D12).
-- **R18**: decidir qué acciones se auditan (D10).
+- **R18**: alcance decidido (D10) e implementado (N10). Queda definir la retención definitiva junto con los datos personales (D12); el valor actual, 365 días, es provisorio.
 - **R3**: pasar la CSP de Report-Only a forzada después de observar el sitio desplegado.
 
 ## Cómo se verifica

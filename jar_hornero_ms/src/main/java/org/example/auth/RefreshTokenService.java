@@ -1,6 +1,9 @@
 package org.example.auth;
 
 import lombok.extern.slf4j.Slf4j;
+import org.example.actividad.ActividadService;
+import org.example.actividad.ActividadService.Registro;
+import org.example.actividad.TipoActividad;
 import org.example.user.Usuario;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
@@ -30,18 +33,21 @@ public class RefreshTokenService {
     private final Clock clock;
     private final long refreshTtlMillis;
     private final long reuseGraceSeconds;
+    private final ActividadService actividadService;
 
     public RefreshTokenService(
             RefreshTokenRepository repository,
             JwtService jwtService,
             Clock clock,
             @Value("${app.jwt.expiration-refresh}") long refreshTtlMillis,
-            @Value("${app.jwt.refresh-reuse-grace-seconds:30}") long reuseGraceSeconds) {
+            @Value("${app.jwt.refresh-reuse-grace-seconds:30}") long reuseGraceSeconds,
+            ActividadService actividadService) {
         this.repository = repository;
         this.jwtService = jwtService;
         this.clock = clock;
         this.refreshTtlMillis = refreshTtlMillis;
         this.reuseGraceSeconds = reuseGraceSeconds;
+        this.actividadService = actividadService;
     }
 
     /** Starts a new family (login, register, OTP verification) and returns the signed token. */
@@ -56,9 +62,9 @@ public class RefreshTokenService {
      */
     @Transactional(noRollbackFor = ResponseStatusException.class)
     public String rotate(String jti, Usuario usuario) {
-        RefreshToken current = repository.findByJti(jti).orElseThrow(this::unauthorized);
+        RefreshToken current = repository.findByJti(jti).orElseThrow(() -> rechazado(usuario, "TOKEN_DESCONOCIDO"));
         if (current.getRevokedAt() != null || !current.getUsuarioId().equals(usuario.getId())) {
-            throw unauthorized();
+            throw rechazado(usuario, "TOKEN_REVOCADO");
         }
 
         Instant now = clock.instant();
@@ -70,6 +76,10 @@ public class RefreshTokenService {
         } else {
             repository.revokeFamily(current.getFamilyId(), now);
             log.warn("[auth] refresh token reuse detected for user {}: family revoked", usuario.getId());
+            // ASVS 16.3.3 (bypass attempt). Isolated: the caller's transaction ends in an exception.
+            actividadService.registrarAislado(Registro.de(TipoActividad.REFRESH_TOKEN_REUTILIZADO).fallo()
+                    .actor(usuario).entidad("USUARIO", usuario.getId())
+                    .detalle("familia revocada"));
             throw unauthorized();
         }
         return create(usuario.getId(), current.getFamilyId());
@@ -94,6 +104,8 @@ public class RefreshTokenService {
         int deleted = repository.deleteExpiredBefore(clock.instant().minus(Duration.ofDays(1)));
         if (deleted > 0) {
             log.info("[auth] purged {} expired refresh tokens", deleted);
+            actividadService.registrar(Registro.de(TipoActividad.TOKENS_PURGADOS).sistema()
+                    .detalle(deleted + " refresh tokens vencidos"));
         }
     }
 
@@ -110,6 +122,12 @@ public class RefreshTokenService {
         repository.save(row);
 
         return jwtService.generateRefreshToken(usuarioId, jti);
+    }
+
+    private ResponseStatusException rechazado(Usuario usuario, String motivo) {
+        actividadService.registrarAislado(Registro.de(TipoActividad.REFRESH_TOKEN).fallo()
+                .entidad("USUARIO", usuario.getId()).detalle(motivo));
+        return unauthorized();
     }
 
     private ResponseStatusException unauthorized() {

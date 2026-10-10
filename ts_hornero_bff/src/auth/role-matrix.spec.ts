@@ -49,6 +49,7 @@ const EXPECTED_ACCESS: Record<string, Access> = {
   'DELETE /donaciones/:id': [Role.DONANTE],
   'DELETE /necesidades/:id': [Role.REFERENTE],
   'GET /': 'any-authenticated',
+  'GET /actividad': [Role.ADMINISTRADOR],
   'GET /articulos': 'public',
   'GET /auditoria/evidencias': [Role.ADMINISTRADOR],
   'GET /auth/me': 'any-authenticated',

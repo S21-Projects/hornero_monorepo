@@ -91,6 +91,9 @@ public class SecurityConfig {
                         // GET blocks below, but it is still declared ahead of them out of the same
                         // defense-in-depth discipline as every other admin-only matcher here.
                         .requestMatchers("/api/rondas/**").hasRole("ADMINISTRADOR")
+                        // N10: the activity log is ADMINISTRADOR-only and read-only. Its own root, declared
+                        // ahead of the permitAll GET blocks below like every other admin-only matcher.
+                        .requestMatchers("/api/actividad", "/api/actividad/**").hasRole("ADMINISTRADOR")
                         // Feature catalogo-articulos (C3): the catalog is publicly readable but
                         // ADMINISTRADOR-only to write. The GET permitAll matcher must be declared
                         // before the catch-all admin-only matcher on the same root (Spring

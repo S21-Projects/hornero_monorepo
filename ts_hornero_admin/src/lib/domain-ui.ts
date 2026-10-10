@@ -96,3 +96,74 @@ export const FASE_DONACION: Record<string, BadgeConfig> = {
   EN_FONDO: { tone: 'neutral', label: 'En espera de asignación' },
   ASIGNADA: { tone: 'sky',     label: 'Asignada' },
 };
+
+/**
+ * N10 activity log: Spanish labels for the MS `TipoActividad` values. An unknown code (a newer MS)
+ * renders as the raw code, see `labelAccion`.
+ */
+export const ACCION_ACTIVIDAD: Record<string, string> = {
+  LOGIN: 'Inicio de sesión',
+  LOGOUT: 'Cierre de sesión',
+  REGISTRO: 'Registro de cuenta',
+  REFRESH_TOKEN: 'Renovación de sesión',
+  REFRESH_TOKEN_REUTILIZADO: 'Reutilización de token de sesión',
+  OTP_VERIFICACION: 'Verificación de email',
+  OTP_BLOQUEO: 'Bloqueo por intentos de verificación',
+  ENTREGA_CODIGO_GENERADO: 'Código de entrega generado',
+  ENTREGA_CODIGO_VERIFICACION: 'Verificación de código de entrega',
+  ENTREGA_CODIGO_BLOQUEO: 'Bloqueo de código de entrega',
+  USUARIO_ACTIVADO: 'Usuario activado',
+  USUARIO_DESACTIVADO: 'Usuario desactivado',
+  ORGANIZACION_CREADA: 'Organización creada',
+  ORGANIZACION_VALIDADA: 'Organización validada',
+  ORGANIZACION_RECHAZADA: 'Organización rechazada',
+  ORGANIZACION_ACTUALIZADA: 'Organización actualizada',
+  ORGANIZACION_REFERENTE_REASIGNADO: 'Referente reasignado',
+  ORGANIZACION_INFO_PUBLICA_EDITADA: 'Información pública editada',
+  ORGANIZACION_INFO_PUBLICA_APROBADA: 'Información pública aprobada',
+  ORGANIZACION_INFO_PUBLICA_RECHAZADA: 'Información pública rechazada',
+  NECESIDAD_CREADA: 'Necesidad creada',
+  NECESIDAD_ACTUALIZADA: 'Necesidad actualizada',
+  NECESIDAD_ELIMINADA: 'Necesidad eliminada',
+  NECESIDAD_RELANZADA: 'Necesidad relanzada',
+  NECESIDADES_VENCIDAS: 'Necesidades vencidas (automático)',
+  DONACION_CREADA: 'Donación creada',
+  DONACION_DECISION: 'Decisión sobre donación',
+  DONACION_ESTADO_ACTUALIZADO: 'Estado de donación actualizado',
+  DONACION_CANCELADA: 'Donación cancelada',
+  DONACION_ELIMINADA: 'Donación eliminada',
+  DONACION_OVERRIDE: 'Estado de donación forzado',
+  RONDA_EJECUTADA: 'Ronda ejecutada',
+  ARTICULO_CREADO: 'Artículo creado',
+  ARTICULO_ACTUALIZADO: 'Artículo actualizado',
+  ARTICULO_DESACTIVADO: 'Artículo desactivado',
+  ARTICULO_REACTIVADO: 'Artículo reactivado',
+  TOKENS_PURGADOS: 'Limpieza de sesiones vencidas',
+  ACTIVIDAD_PURGADA: 'Purga por retención',
+};
+
+export function labelAccion(codigo: string): string {
+  return ACCION_ACTIVIDAD[codigo] ?? codigo;
+}
+
+export const RESULTADO_ACTIVIDAD: Record<string, BadgeConfig> = {
+  EXITO: { tone: 'ok', label: 'Éxito' },
+  FALLO: { tone: 'danger', label: 'Fallo' },
+};
+
+export const ACTOR_ACTIVIDAD: Record<string, string> = {
+  ADMINISTRADOR: 'Administrador',
+  REFERENTE: 'Referente',
+  DONANTE: 'Donante',
+  SISTEMA: 'Sistema',
+  ANONIMO: 'Sin sesión',
+};
+
+export const ENTIDAD_ACTIVIDAD: Record<string, string> = {
+  USUARIO: 'Usuario',
+  ORGANIZACION: 'Organización',
+  NECESIDAD: 'Necesidad',
+  DONACION: 'Donación',
+  ARTICULO: 'Artículo',
+  RONDA: 'Ronda',
+};
