@@ -7,6 +7,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.example.auth.JwtService;
+import org.example.user.UsuarioRepository;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -23,6 +24,7 @@ import java.util.List;
 public class JwtAuthFilter extends OncePerRequestFilter {
 
     private final JwtService jwtService;
+    private final UsuarioRepository usuarioRepository;
 
     @Override
     protected void doFilterInternal(HttpServletRequest request,
@@ -43,7 +45,11 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                 Long userId = jwtService.extractUserId(token);
                 String tipo = jwtService.extractTipo(token);
 
-                if (userId != null && SecurityContextHolder.getContext().getAuthentication() == null) {
+                if (userId != null && !usuarioRepository.existsByIdAndActivoTrue(userId)) {
+                    // N9: a deactivated (or deleted) user is cut off at once. Stay anonymous so
+                    // public GETs keep working; protected routes answer 401 USUARIO_INACTIVO.
+                    UsuarioInactivo.mark(request);
+                } else if (userId != null && SecurityContextHolder.getContext().getAuthentication() == null) {
                     List<SimpleGrantedAuthority> authorities = List.of(
                             new SimpleGrantedAuthority("ROLE_" + tipo)
                     );

@@ -52,5 +52,10 @@ app:
     generar-max: 5
     generar-window-minutes: 15
     generar-cooldown-seconds: 30
+  rondas:
+    # N7/D7: optional scheduled ronda. Off by default (rondas are manual).
+    auto:
+      enabled: ${RONDAS_AUTO_ENABLED:false}
+      cron: ${RONDAS_AUTO_CRON:0 0 6 * * *}
   worker:
     url: ${WORKER_URL:}

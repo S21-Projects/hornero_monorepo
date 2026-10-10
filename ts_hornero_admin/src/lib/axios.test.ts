@@ -73,6 +73,65 @@ describe('single-flight 401 refresh', () => {
   });
 });
 
+describe('N9: 401 USUARIO_INACTIVO', () => {
+  const inactiveBody = {
+    status: 401,
+    message: 'USUARIO_INACTIVO',
+    timestamp: '2026-10-10T00:00:00Z',
+    data: null,
+    errors: ['USUARIO_INACTIVO'],
+  };
+
+  function withLocation(pathname: string, run: (loc: { href: string; pathname: string }) => Promise<void>) {
+    const originalLocation = globalThis.location;
+    const mockLocation = { href: '', pathname };
+    Object.defineProperty(globalThis, 'location', {
+      value: mockLocation,
+      configurable: true,
+      writable: true,
+    });
+    return run(mockLocation).finally(() => {
+      Object.defineProperty(globalThis, 'location', {
+        value: originalLocation,
+        configurable: true,
+        writable: true,
+      });
+    });
+  }
+
+  it('does not try to refresh, clears the session and goes to /login with the reason', async () => {
+    document.cookie = 'session_hint=1; path=/';
+    let refreshCount = 0;
+    let logoutCount = 0;
+    mock.onGet('/protected').reply(401, inactiveBody);
+    mock.onPost('/auth/refresh').reply(() => {
+      refreshCount++;
+      return [204, null];
+    });
+    mock.onPost('/auth/logout').reply(() => {
+      logoutCount++;
+      return [200, { message: 'ok' }];
+    });
+
+    await withLocation('/admin', async (loc) => {
+      await expect(api.get('/protected')).rejects.toBeTruthy();
+      expect(refreshCount).toBe(0);
+      expect(logoutCount).toBe(1);
+      expect(loc.href).toBe('/login?motivo=cuenta-desactivada');
+    });
+  });
+
+  it('does not redirect again when already on /login (no reload loop)', async () => {
+    mock.onGet('/auth/me').reply(401, inactiveBody);
+    mock.onPost('/auth/logout').reply(200, { message: 'ok' });
+
+    await withLocation('/login', async (loc) => {
+      await expect(api.get('/auth/me')).rejects.toBeTruthy();
+      expect(loc.href).toBe('');
+    });
+  });
+});
+
 describe('envelope unwrap', () => {
   it('unwraps an ApiResponse-shaped body to its .data payload', async () => {
     mock.onGet('/organizaciones').reply(200, {

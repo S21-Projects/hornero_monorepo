@@ -44,12 +44,15 @@ class RondaControllerTest {
     @MockBean
     private JwtService jwtService;
 
+    @MockBean
+    private org.example.user.UsuarioRepository usuarioRepository;
+
     private static UsernamePasswordAuthenticationToken auth(long userId, String role) {
         return new UsernamePasswordAuthenticationToken(userId, null, List.of(new SimpleGrantedAuthority("ROLE_" + role)));
     }
 
     private RondaResponse sampleRonda() {
-        return new RondaResponse(1L, Instant.now(), Instant.now(), 2L, "Ada Admin", "COMPLETADA", null,
+        return new RondaResponse(1L, Instant.now(), Instant.now(), 2L, "Ada Admin", "MANUAL", "COMPLETADA", null,
                 1, 0, 0, 0, 0, 0, 0.0, null, null, null, null, null);
     }
 

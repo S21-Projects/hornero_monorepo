@@ -116,6 +116,15 @@ public class SecurityConfig {
                                 "/api/donaciones",
                                 "/api/donaciones/**").permitAll()
                         .anyRequest().authenticated())
+                // N9: 401 USUARIO_INACTIVO for a deactivated user's token; every other
+                // unauthenticated denial keeps the previous default 403.
+                .exceptionHandling(ex -> ex.authenticationEntryPoint((request, response, authException) -> {
+                    if (UsuarioInactivo.isMarked(request)) {
+                        UsuarioInactivo.write401(response);
+                    } else {
+                        response.sendError(jakarta.servlet.http.HttpServletResponse.SC_FORBIDDEN, "Forbidden");
+                    }
+                }))
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
                 .headers(headers -> headers.frameOptions(frame -> frame.sameOrigin()))
                 .build();

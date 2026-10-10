@@ -10,6 +10,24 @@ production DB) — check the "Applied to" line before running anything twice.
 
 ---
 
+## 2026-10-10 — `rondas.ejecutada_por`: drop NOT NULL for scheduled rondas (N7)
+
+**Reason**: the optional scheduled ronda (`RONDAS_AUTO_ENABLED=true`) has no executing user.
+
+**Before**: `rondas.ejecutada_por BIGINT NOT NULL`.
+
+**Migration**: `scripts/sql/V002__rondas_ejecutada_por_nullable.sql` (run `make migrate`). The new `rondas.origen` column (default `MANUAL`) is created by `ddl-auto=update`.
+
+**After**: `ejecutada_por` is nullable; automatic rondas store NULL and `origen = 'AUTOMATICA'`.
+
+**Rollback**: `UPDATE rondas SET ejecutada_por = <admin id> WHERE ejecutada_por IS NULL; ALTER TABLE rondas ALTER COLUMN ejecutada_por SET NOT NULL;`
+
+**Applied to**:
+- [ ] Local dev DB
+- [ ] Pi production DB (only needed before enabling `RONDAS_AUTO_ENABLED`)
+
+---
+
 ## 2026-09-30 — `donaciones.necesidad_id`: drop NOT NULL for fondo común donations
 
 **Reason**: `tesis-core-features` slice 5b introduces `FONDO_COMUN` donations, which are created

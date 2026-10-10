@@ -22,7 +22,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 /**
  * Manual ronda trigger and history (AD-9, spec `ronda-asignacion`): ADMINISTRADOR-only at every
- * endpoint — there is no scheduler and no per-donation automatic trigger.
+ * endpoint — the optional scheduled ronda (N7) runs in-process and is not exposed here.
  */
 @Tag(name = "Rondas", description = "Manual ronda trigger and history (ADMINISTRADOR only)")
 @RestController

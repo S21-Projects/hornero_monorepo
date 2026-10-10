@@ -37,8 +37,14 @@ public class Ronda {
     @Column(name = "finalizada_en")
     private Instant finalizadaEn;
 
-    @Column(name = "ejecutada_por", nullable = false)
+    // Null for an AUTOMATICA ronda (N7): there is no user. Needs scripts/sql/V002 on existing DBs.
+    @Column(name = "ejecutada_por")
     private Long ejecutadaPor;
+
+    // Existing rows predate N7 and were all triggered by an admin, hence the default.
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, columnDefinition = "varchar(20) default 'MANUAL'")
+    private OrigenRonda origen = OrigenRonda.MANUAL;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)

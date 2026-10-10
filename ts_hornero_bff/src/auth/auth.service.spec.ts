@@ -5,7 +5,7 @@ import { AuthService } from './auth.service';
 
 describe('AuthService', () => {
   let service: AuthService;
-  let httpService: { axiosRef: { post: jest.Mock } };
+  let httpService: { axiosRef: { post: jest.Mock; get: jest.Mock } };
   let configService: { get: jest.Mock };
   let res: {
     cookie: jest.Mock;
@@ -13,7 +13,7 @@ describe('AuthService', () => {
   };
 
   beforeEach(async () => {
-    httpService = { axiosRef: { post: jest.fn() } };
+    httpService = { axiosRef: { post: jest.fn(), get: jest.fn() } };
     configService = { get: jest.fn().mockReturnValue('http://ms:8081') };
     res = { cookie: jest.fn(), clearCookie: jest.fn() };
 
@@ -26,6 +26,26 @@ describe('AuthService', () => {
     }).compile();
 
     service = module.get<AuthService>(AuthService);
+  });
+
+  describe('verificarSesion (N9: BFF routes that never reach the MS)', () => {
+    it('asks the MS /me with the access token as Bearer', async () => {
+      httpService.axiosRef.get.mockResolvedValue({ data: { id: 1 } });
+
+      await service.verificarSesion('tok');
+
+      expect(httpService.axiosRef.get).toHaveBeenCalledWith(
+        'http://ms:8081/api/auth/me',
+        { headers: { Authorization: 'Bearer tok' } },
+      );
+    });
+
+    it('propagates the MS rejection (401 USUARIO_INACTIVO) untouched', async () => {
+      const err = new Error('inactive');
+      httpService.axiosRef.get.mockRejectedValue(err);
+
+      await expect(service.verificarSesion('tok')).rejects.toBe(err);
+    });
   });
 
   describe('verifyOtp', () => {

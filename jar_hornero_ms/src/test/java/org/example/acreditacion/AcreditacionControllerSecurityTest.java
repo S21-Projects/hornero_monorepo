@@ -70,6 +70,9 @@ class AcreditacionControllerSecurityTest {
     @MockBean
     private JwtService jwtService;
 
+    @MockBean
+    private org.example.user.UsuarioRepository usuarioRepository;
+
     private static UsernamePasswordAuthenticationToken auth(long userId, String role) {
         return new UsernamePasswordAuthenticationToken(userId, null, List.of(new SimpleGrantedAuthority("ROLE_" + role)));
     }

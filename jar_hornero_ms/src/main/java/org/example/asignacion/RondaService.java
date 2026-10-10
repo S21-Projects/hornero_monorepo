@@ -19,6 +19,7 @@ import org.example.domain.EstadoDonacion;
 import org.example.domain.EstadoNecesidad;
 import org.example.domain.EstadoRonda;
 import org.example.domain.ModalidadDonacion;
+import org.example.domain.OrigenRonda;
 import org.example.domain.Necesidad;
 import org.example.domain.NecesidadRepository;
 import org.example.domain.NivelAcreditacion;
@@ -90,7 +91,17 @@ public class RondaService {
         this.transactionTemplate = new TransactionTemplate(transactionManager);
     }
 
+    /** Manual trigger ({@code POST /api/rondas}). */
     public Ronda ejecutar(Long adminId) {
+        return ejecutar(adminId, OrigenRonda.MANUAL);
+    }
+
+    /** Scheduled trigger (N7): same logic, no user. */
+    public Ronda ejecutarAutomatica() {
+        return ejecutar(null, OrigenRonda.AUTOMATICA);
+    }
+
+    private Ronda ejecutar(Long adminId, OrigenRonda origen) {
         if (!lock.tryLock()) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "RONDA_EN_CURSO");
         }
@@ -113,15 +124,15 @@ public class RondaService {
                 salida = asignadorClient.ejecutar(lecturaConEntrada.entrada());
             } catch (AsignadorNoDisponibleException e) {
                 transactionTemplate.executeWithoutResult(status ->
-                        persistirFallida(adminId, lectura, "WORKER_NO_DISPONIBLE"));
+                        persistirFallida(adminId, origen, lectura, "WORKER_NO_DISPONIBLE"));
                 throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "WORKER_NO_DISPONIBLE");
             } catch (AsignadorRespuestaInvalidaException e) {
                 transactionTemplate.executeWithoutResult(status ->
-                        persistirFallida(adminId, lectura, "RESPUESTA_WORKER_INVALIDA"));
+                        persistirFallida(adminId, origen, lectura, "RESPUESTA_WORKER_INVALIDA"));
                 throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "RESPUESTA_WORKER_INVALIDA");
             }
 
-            return transactionTemplate.execute(status -> persistirResultado(adminId, lectura, salida));
+            return transactionTemplate.execute(status -> persistirResultado(adminId, origen, lectura, salida));
         } finally {
             lock.unlock();
         }
@@ -156,7 +167,7 @@ public class RondaService {
                 ? usuarioRepository.findById(r.getEjecutadaPor()).map(Usuario::getNombre).orElse(null)
                 : null;
         return new RondaResponse(
-                r.getId(), r.getEjecutadaEn(), r.getFinalizadaEn(), r.getEjecutadaPor(), ejecutadaPorNombre,
+                r.getId(), r.getEjecutadaEn(), r.getFinalizadaEn(), r.getEjecutadaPor(), ejecutadaPorNombre, r.getOrigen().name(),
                 r.getEstado().name(), r.getError(), r.getVersionContrato(),
                 r.getDonacionesConsideradas(), r.getCandidatosConsiderados(),
                 r.getAsignadas(), r.getSinAsignar(), r.getDescartadas(), r.getScoreTotal(),
@@ -219,11 +230,12 @@ public class RondaService {
         return org.getLatitud() != null && org.getLongitud() != null;
     }
 
-    private void persistirFallida(Long adminId, Lectura lectura, String error) {
+    private void persistirFallida(Long adminId, OrigenRonda origen, Lectura lectura, String error) {
         Ronda ronda = new Ronda();
         ronda.setEjecutadaEn(clock.instant());
         ronda.setFinalizadaEn(clock.instant());
         ronda.setEjecutadaPor(adminId);
+        ronda.setOrigen(origen);
         ronda.setEstado(EstadoRonda.FALLIDA);
         ronda.setError(error);
         ronda.setVersionContrato(VERSION_CONTRATO);
@@ -235,10 +247,11 @@ public class RondaService {
         rondaRepository.save(ronda);
     }
 
-    private Ronda persistirResultado(Long adminId, Lectura lectura, SalidaRondaV1 salida) {
+    private Ronda persistirResultado(Long adminId, OrigenRonda origen, Lectura lectura, SalidaRondaV1 salida) {
         Ronda ronda = new Ronda();
         ronda.setEjecutadaEn(clock.instant());
         ronda.setEjecutadaPor(adminId);
+        ronda.setOrigen(origen);
         ronda.setEstado(EstadoRonda.COMPLETADA);
         ronda.setVersionContrato(VERSION_CONTRATO);
         ronda.setDonacionesConsideradas(lectura.pool().size());

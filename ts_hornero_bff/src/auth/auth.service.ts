@@ -61,6 +61,21 @@ export class AuthService {
     await this.httpService.axiosRef.post(`${javaUrl}/api/auth/resend-otp`, dto);
   }
 
+  /**
+   * N9: the BFF validates JWTs locally, so a deactivated user's still-valid access token would pass
+   * every route that answers without calling the MS. Those routes call this first: the MS
+   * (JwtAuthFilter) refuses the token with 401 USUARIO_INACTIVO, which the exception filter
+   * relays unchanged.
+   */
+  async verificarSesion(accessToken: string) {
+    const javaUrl = this.configService.get<string>('JAVA_MS_URL');
+    const { data } = await this.httpService.axiosRef.get(
+      `${javaUrl}/api/auth/me`,
+      { headers: { Authorization: `Bearer ${accessToken}` } },
+    );
+    return data;
+  }
+
   async logout(refreshToken: string | undefined, res: Response) {
     if (refreshToken) {
       // Best effort: the session must end locally even if the MS is unreachable.

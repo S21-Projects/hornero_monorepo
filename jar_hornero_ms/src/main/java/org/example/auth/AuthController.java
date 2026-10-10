@@ -68,7 +68,10 @@ public class AuthController {
 
     @Operation(summary = "Get the currently authenticated user's profile")
     @GetMapping("/me")
-    public UserResponse me() {
+    public UserResponse me(jakarta.servlet.http.HttpServletRequest request) {
+        if (org.example.config.UsuarioInactivo.isMarked(request)) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, org.example.config.UsuarioInactivo.CODE);
+        }
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication == null || !authentication.isAuthenticated()
                 || !(authentication.getPrincipal() instanceof Long)) {

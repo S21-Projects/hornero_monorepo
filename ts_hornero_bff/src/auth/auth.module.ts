@@ -25,6 +25,6 @@ import { AUTH_THROTTLER_OPTIONS } from './auth-throttler.config.js';
   ],
   providers: [AuthService, JwtStrategy],
   controllers: [AuthController],
-  exports: [JwtModule],
+  exports: [JwtModule, AuthService],
 })
 export class AuthModule {}

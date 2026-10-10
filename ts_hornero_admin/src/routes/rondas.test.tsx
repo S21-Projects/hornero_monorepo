@@ -28,6 +28,7 @@ const RONDA: RondaResponse = {
   finalizadaEn: '2026-09-20T12:00:05Z',
   ejecutadaPor: 1,
   ejecutadaPorNombre: 'Ada Admin',
+  origen: 'MANUAL',
   estado: 'COMPLETADA',
   error: null,
   versionContrato: 1,
@@ -208,5 +209,20 @@ describe('RondasPage — tasks 5f.12/5f.13 (admin ronda trigger and history)', (
     render(<RondasPage />, { wrapper: Wrapper });
 
     expect(screen.getByText(/respuesta inválida/i)).toBeInTheDocument();
+  });
+});
+
+describe('RondasPage — origin of the ronda (N7)', () => {
+  it('shows "Automática" with no executor name for a scheduled ronda', () => {
+    vi.mocked(useHistorialRondas).mockReturnValue(
+      historialPage({
+        content: [{ ...RONDA, origen: 'AUTOMATICA', ejecutadaPor: null, ejecutadaPorNombre: null }],
+      }) as ReturnType<typeof useHistorialRondas>,
+    );
+
+    render(<RondasPage />, { wrapper: Wrapper });
+
+    expect(screen.getByText('Automática')).toBeInTheDocument();
+    expect(screen.queryByText(/Admin #/)).not.toBeInTheDocument();
   });
 });

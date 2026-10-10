@@ -14,6 +14,7 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { Request } from 'express';
+import { AuthService } from '../auth/auth.service.js';
 import { Roles } from '../auth/decorators/roles.decorator.js';
 import { Role } from '../common/enums/role.enum.js';
 import { OrganizacionesService } from '../organizaciones/organizaciones.service.js';
@@ -31,6 +32,7 @@ export class UploadController {
   constructor(
     private readonly uploadService: UploadService,
     private readonly organizacionesService: OrganizacionesService,
+    private readonly authService: AuthService,
   ) {}
 
   @Post('org-profile/:id')
@@ -52,6 +54,7 @@ export class UploadController {
         'Image file is required (jpeg, png, or webp, max 5 MB)',
       );
 
+    await this.assertSesionActiva(req);
     const key = await this.uploadService.uploadOrgProfile(id, file);
     await this.persistKey(id, 'profileImageKey', key, req);
 
@@ -77,6 +80,7 @@ export class UploadController {
         'Image file is required (jpeg, png, or webp, max 5 MB)',
       );
 
+    await this.assertSesionActiva(req);
     const key = await this.uploadService.uploadOrgBanner(id, file);
     await this.persistKey(id, 'bannerKey', key, req);
 
@@ -103,12 +107,21 @@ export class UploadController {
         'Image file is required (jpeg, png, or webp, max 5 MB)',
       );
 
+    await this.assertSesionActiva(req);
     if (req.user?.tipo !== Role.ADMINISTRADOR) {
       await this.assertOwnership(id, this.extractToken(req));
     }
 
     const key = await this.uploadService.uploadOrgEvidencia(id, file);
     return { key };
+  }
+
+  /**
+   * N9: uploads write to S3 before (or without) any MS call, so a deactivated user's still-valid
+   * token must be refused by the MS first.
+   */
+  private async assertSesionActiva(req: Request): Promise<void> {
+    await this.authService.verificarSesion(this.extractToken(req));
   }
 
   private extractToken(req: Request): string {

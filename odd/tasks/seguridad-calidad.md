@@ -198,12 +198,20 @@ The guide requires measures "related to the identified risks", so a risk matrix 
     validation messages (was a generic "Bad Request"). Admin register form shows the rule.
     `scripts/seed.ts` referentes now use `comedor-solidario-cordoba`; DataInitializer demo
     accounts unchanged. RF draft delivered to the user for the thesis.
-- [ ] **N9** (from D9) Deactivating a user cuts access immediately: the MS rejects any request
+- [x] **N9** (from D9) Deactivating a user cuts access immediately: the MS rejects any request
   whose token belongs to an inactive user (401 `USUARIO_INACTIVO`); refresh families already
   revoked (S3). Check BFF paths that answer without calling the MS.
-- [ ] **N7** (from D7) Optional scheduled ronda: `app.rondas.auto.enabled` (default false) + cron
+- [x] **N7** (from D7) Optional scheduled ronda: `app.rondas.auto.enabled` (default false) + cron
   property; runs the same ronda as the manual trigger with a system actor; skips cleanly when
   the worker is down.
+  - Done N9: `JwtAuthFilter` checks `existsByIdAndActivoTrue` per request → 401 `USUARIO_INACTIVO`
+    on protected routes, anonymous on public ones; BFF `/auth/me` and uploads verify against the
+    MS first; admin SPA skips refresh and shows "Tu cuenta fue desactivada" on /login.
+  - Done N7: `RondaAutomaticaJob` (`RONDAS_AUTO_ENABLED`, default false; `RONDAS_AUTO_CRON`,
+    default 06:00 Buenos Aires), `Ronda.origen` MANUAL/AUTOMATICA, `ejecutadaPor` nullable.
+    **USER ACTION (Pi):** `make migrate` (V002) before enabling; add the two vars to `.env.example`.
+  - Caveat: e2e registration throttle (3/min) can carry over between back-to-back `make e2e`
+    runs; full run ~3 min.
 
 - [ ] **N10** (from D10) Activity log: `actividad` table + recording service (insert-only, no
   update/delete, input sanitized against log injection), hooks at the events above, admin
@@ -260,6 +268,7 @@ Each item needs a team decision before related work starts. Record the decision 
 | Date | Task | Route | Evidence | Commit |
 |------|------|-------|----------|--------|
 | 2026-10-10 | — | — | Document created from audit | — |
+| 2026-10-10 | N9+N7 | MS+BFF+admin delegated | RED: MS 2/7 new tests (then 10 WebMvcTests needed a repo mock), compile error for N7; BFF 8 fail; admin 2 fail. GREEN: `mvn test` 631/631; BFF 316/316, tsc ok; admin 432/432 + build; `make e2e` 61/61 | (this commit) |
 | 2026-10-10 | N8 | MS+BFF+admin delegated | RED: MS compile error, admin 4 fail, BFF DTO 2/7 fail. GREEN: `mvn test` 613/613; BFF 308/308, tsc ok; admin 427/427 + build; `make e2e` 53/53 (after e2e cleanup fix) | (this commit) |
 | 2026-10-10 | e2e fix | inline | D1/D2 e2e left APROBADA orgs (rechazar needs PENDIENTE) → referente3 hit the 3-org cap. `retireOrg` lowers to N0 then rejects; `retireLeftoverOrgs` heals old runs. `make e2e` 53/53 twice in a row | (separate commit) |
 | 2026-10-10 | N4 | MS+BFF+admin delegated | RED: MS compile error; BFF 6 fail (admin detail guard written with its test, no RED). GREEN: `mvn test` 586/586; BFF 300/300 (3 reruns), tsc ok; admin 409/409 + build; astro build; `make e2e` 51/51 | (this commit) |
