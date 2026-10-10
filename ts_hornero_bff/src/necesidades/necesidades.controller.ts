@@ -19,6 +19,7 @@ import { Roles } from '../auth/decorators/roles.decorator.js';
 import { Role } from '../common/enums/role.enum.js';
 import { ActualizarNecesidadDto } from './dto/actualizar-necesidad.dto.js';
 import { CrearNecesidadDto } from './dto/crear-necesidad.dto.js';
+import { RelanzarNecesidadDto } from './dto/relanzar-necesidad.dto.js';
 import { NecesidadesService } from './necesidades.service.js';
 
 @ApiTags('necesidades')
@@ -38,12 +39,19 @@ export class NecesidadesController {
     summary: 'List needs, optionally filtered by organization (public)',
   })
   getNecesidades(
+    @Req() req: Request,
     @Query('organizacionId') organizacionId?: string,
     @Query('page') page?: string,
     @Query('size') size?: string,
     @Query('sort') sort?: string,
   ) {
-    return this.necesidadesService.getNecesidades(organizacionId, page, size, sort);
+    return this.necesidadesService.getNecesidades(
+      organizacionId,
+      page,
+      size,
+      sort,
+      (req as any).cookies?.['access_token'] || undefined,
+    );
   }
 
   @Roles(Role.REFERENTE)
@@ -72,6 +80,20 @@ export class NecesidadesController {
     @Req() req: Request,
   ) {
     return this.necesidadesService.actualizar(id, dto, this.getToken(req));
+  }
+
+  @Roles(Role.REFERENTE)
+  @Post(':id/relanzar')
+  @HttpCode(200)
+  @ApiOperation({
+    summary: 'Relaunch an expired need with a new expiry date (REFERENTE only)',
+  })
+  relanzar(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: RelanzarNecesidadDto,
+    @Req() req: Request,
+  ) {
+    return this.necesidadesService.relanzar(id, dto, this.getToken(req));
   }
 
   @Roles(Role.REFERENTE)

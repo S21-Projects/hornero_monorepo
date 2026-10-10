@@ -19,6 +19,11 @@ public interface NecesidadRepository extends JpaRepository<Necesidad, Long> {
 
     Page<Necesidad> findByOrganizacion_Id(Long organizacionId, Pageable pageable);
 
+    /** D2/N4: public listings skip expired necesidades. */
+    Page<Necesidad> findByEstadoNot(EstadoNecesidad estado, Pageable pageable);
+
+    Page<Necesidad> findByOrganizacion_IdAndEstadoNot(Long organizacionId, EstadoNecesidad estado, Pageable pageable);
+
     /** `specs/organizacion-acreditacion/spec.md` "Level-Driven Concurrency Caps". */
     long countByOrganizacion_IdAndEstadoIn(Long organizacionId, Collection<EstadoNecesidad> estados);
 

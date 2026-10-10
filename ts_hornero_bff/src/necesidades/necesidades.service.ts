@@ -3,6 +3,7 @@ import { HttpService } from '@nestjs/axios';
 import { ConfigService } from '@nestjs/config';
 import { buildQuery } from '../common/build-query.js';
 import { CrearNecesidadDto } from './dto/crear-necesidad.dto.js';
+import { RelanzarNecesidadDto } from './dto/relanzar-necesidad.dto.js';
 import { ActualizarNecesidadDto } from './dto/actualizar-necesidad.dto.js';
 
 @Injectable()
@@ -20,14 +21,19 @@ export class NecesidadesService {
     return { Authorization: `Bearer ${accessToken}` };
   }
 
+  // Public read: the MS hides expired needs except from their owning referente (and admins), so
+  // the session token rides along when there is one. Anonymous callers send no header.
   async getNecesidades(
     organizacionId?: string,
     page?: string,
     size?: string,
     sort?: string,
+    accessToken?: string,
   ) {
     const url = `${this.msUrl}/api/necesidades${buildQuery({ organizacionId, page, size, sort })}`;
-    const { data } = await this.httpService.axiosRef.get(url);
+    const { data } = await this.httpService.axiosRef.get(url, {
+      headers: accessToken ? this.authHeaders(accessToken) : {},
+    });
     return data;
   }
 
@@ -54,6 +60,15 @@ export class NecesidadesService {
   ) {
     const { data } = await this.httpService.axiosRef.patch(
       `${this.msUrl}/api/necesidades/${id}`,
+      dto,
+      { headers: this.authHeaders(accessToken) },
+    );
+    return data;
+  }
+
+  async relanzar(id: number, dto: RelanzarNecesidadDto, accessToken: string) {
+    const { data } = await this.httpService.axiosRef.post(
+      `${this.msUrl}/api/necesidades/${id}/relanzar`,
       dto,
       { headers: this.authHeaders(accessToken) },
     );

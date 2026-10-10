@@ -165,6 +165,8 @@ describe('Authorization, validation and admin override', () => {
   });
 
   describe('D2/N3. donating to an expired necesidad', () => {
+    const fetchPublicNecesidades = async (orgId: number) =>
+      (await anonymous().get(`/necesidades?organizacionId=${orgId}&size=100`)).data.content as any[];
     const isoDay = (offsetDays: number) => new Date(Date.now() + offsetDays * 86_400_000).toISOString().slice(0, 10);
 
     it('DIRECTA donation to a VENCIDA / past-date necesidad -> 409 NECESIDAD_NO_DISPONIBLE; in-flight donations keep moving', async () => {
@@ -188,12 +190,10 @@ describe('Authorization, validation and admin override', () => {
           articuloIds: [articulo!.id], ...(fechaVencimiento ? { fechaVencimiento } : {}),
         });
 
-        // Past date but still ABIERTA (the daily job has not touched it): refused on the date alone.
-        const pastDate = await crear('necesidad-past-date', isoDay(-3));
-        expect(pastDate.status).toBe(201);
-        const r1 = await donar(pastDate.data.id);
-        expect(r1.status).toBe(409);
-        expect(JSON.stringify(r1.body)).toContain('NECESIDAD_NO_DISPONIBLE');
+        // N4: a past expiry date is refused at creation, and can't be set on an open necesidad.
+        const pastCreate = await crear('necesidad-past-date', isoDay(-3));
+        expect(pastCreate.status).toBe(400);
+        expect(JSON.stringify(pastCreate.body)).toContain('FECHA_VENCIMIENTO_PASADA');
 
         // A live necesidad with a donation already in flight, then closed as VENCIDA.
         const live = await crear('necesidad-live', isoDay(30));
@@ -210,6 +210,33 @@ describe('Authorization, validation and admin override', () => {
         await llevarAEnCamino(a.donante, a.referente3, inFlight.data.id);
         expect(await estadoDe(inFlight.data.id)).toBe('EN_CAMINO');
         expect((await a.donante.patch(`/donaciones/${inFlight.data.id}/estado`, { estado: 'CANCELADA' })).status).toBe(200);
+
+        // D2/N4: taken down publicly (listing) but still readable by id and visible to its owner.
+        const necId = live.data.id as number;
+        const publicIds = async () => (await fetchPublicNecesidades(orgId)).map((n: any) => n.id);
+        expect(await publicIds()).not.toContain(necId);
+        expect((await a.referente3.get(`/necesidades?organizacionId=${orgId}&size=100`)).data.content.map((n: any) => n.id))
+          .toContain(necId);
+        expect((await a.donante.get(`/necesidades/${necId}`)).data.estado).toBe('VENCIDA');
+
+        // Leaving VENCIDA through the generic update is refused; relanzar has its own rules.
+        const reopen = await a.referente3.patch(`/necesidades/${necId}`, { estado: 'ABIERTA', fechaVencimiento: isoDay(10) });
+        expect(reopen.status).toBe(409);
+        expect(JSON.stringify(reopen.body)).toContain('NECESIDAD_VENCIDA_USAR_RELANZAR');
+        const pastRelaunch = await a.referente3.post(`/necesidades/${necId}/relanzar`, { fechaVencimiento: isoDay(-1) });
+        expect(pastRelaunch.status).toBe(400);
+        expect((await a.referente3.post(`/necesidades/${necId}/relanzar`, {})).status).toBe(400);
+        expect((await a.donante.post(`/necesidades/${necId}/relanzar`, { fechaVencimiento: isoDay(10) })).status).toBe(403);
+
+        // Relaunch -> open again, donations accepted, listed publicly.
+        const relaunched = await a.referente3.post(`/necesidades/${necId}/relanzar`, { fechaVencimiento: isoDay(10) });
+        expect(relaunched.status).toBe(200);
+        expect(relaunched.data.estado).toBe('ABIERTA');
+        expect((await donar(necId)).status).toBe(201);
+        expect(await publicIds()).toContain(necId);
+        const again = await a.referente3.post(`/necesidades/${necId}/relanzar`, { fechaVencimiento: isoDay(10) });
+        expect(again.status).toBe(409);
+        expect(JSON.stringify(again.body)).toContain('NECESIDAD_NO_VENCIDA');
       } finally {
         await a.admin.patch(`/organizaciones/${orgId}/rechazar`);
       }

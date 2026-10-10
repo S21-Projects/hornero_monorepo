@@ -39,6 +39,7 @@ export default function NecesidadDetallePage() {
   // server-side for any stale/race case (decision 6). A pre-catalog necesidad with no articulos
   // leaves the picker unrestricted rather than impossible to donate to.
   const articulosPermitidosIds = necesidad?.articulos?.length ? necesidad.articulos.map((a) => a.id) : undefined;
+  const abierta = necesidad?.estado === 'ABIERTA' || necesidad?.estado === 'EN_PROGRESO';
   const lineasValidas = lineas.length > 0 && lineas.every((l) => l.articuloId > 0 && l.cantidad > 0);
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -104,8 +105,16 @@ export default function NecesidadDetallePage() {
               )}
             </Card>
 
-            {/* Donation form — hidden when mutation succeeded */}
-            {!mutation.isSuccess && (
+            {!abierta && (
+              <Card style={{ padding: '20px 24px' }}>
+                <Text variant="body" color="ink-3">
+                  Esta necesidad {necesidad.estado === 'VENCIDA' ? 'está vencida' : 'está cerrada'} y ya no recibe donaciones.
+                </Text>
+              </Card>
+            )}
+
+            {/* Donation form — hidden when mutation succeeded or the necesidad is closed */}
+            {abierta && !mutation.isSuccess && (
               <Card as="section" style={{ padding: '24px 28px' }}>
                 <Text variant="h3" style={{ marginBottom: 16 }}>Ofrecer donación</Text>
                 <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>

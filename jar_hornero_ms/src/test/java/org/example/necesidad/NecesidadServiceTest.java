@@ -58,6 +58,9 @@ class NecesidadServiceTest {
     @Mock
     private ArticuloRepository articuloRepository;
 
+    @org.mockito.Spy
+    private java.time.Clock clock = java.time.Clock.system(java.time.ZoneId.of("America/Argentina/Buenos_Aires"));
+
     @InjectMocks
     private NecesidadService necesidadService;
 
@@ -109,7 +112,7 @@ class NecesidadServiceTest {
         List<Necesidad> content = List.of(buildNecesidad(1L), buildNecesidad(2L));
         Page<Necesidad> repoPage = new PageImpl<>(content, defaultPageable, 2L);
 
-        when(necesidadRepository.findByOrganizacion_Id(1L, defaultPageable)).thenReturn(repoPage);
+        when(necesidadRepository.findByOrganizacion_IdAndEstadoNot(1L, EstadoNecesidad.VENCIDA, defaultPageable)).thenReturn(repoPage);
 
         Page<NecesidadResponse> result = necesidadService.findByOrganizacion(1L, defaultPageable);
 
@@ -121,7 +124,7 @@ class NecesidadServiceTest {
     @Test
     void findByOrganizacion_repoReturnsEmpty_returnsEmptyPage() {
         Page<Necesidad> emptyPage = new PageImpl<>(List.of(), defaultPageable, 0L);
-        when(necesidadRepository.findByOrganizacion_Id(99L, defaultPageable)).thenReturn(emptyPage);
+        when(necesidadRepository.findByOrganizacion_IdAndEstadoNot(99L, EstadoNecesidad.VENCIDA, defaultPageable)).thenReturn(emptyPage);
 
         Page<NecesidadResponse> result = necesidadService.findByOrganizacion(99L, defaultPageable);
 
@@ -137,7 +140,7 @@ class NecesidadServiceTest {
         List<Necesidad> content = List.of(buildNecesidad(1L), buildNecesidad(2L), buildNecesidad(3L));
         Page<Necesidad> repoPage = new PageImpl<>(content, defaultPageable, 3L);
 
-        when(necesidadRepository.findAll(defaultPageable)).thenReturn(repoPage);
+        when(necesidadRepository.findByEstadoNot(EstadoNecesidad.VENCIDA, defaultPageable)).thenReturn(repoPage);
 
         Page<NecesidadResponse> result = necesidadService.findAll(defaultPageable);
 
@@ -147,7 +150,7 @@ class NecesidadServiceTest {
     @Test
     void findAll_repoReturnsEmpty_returnsEmptyPage() {
         Page<Necesidad> emptyPage = new PageImpl<>(List.of(), defaultPageable, 0L);
-        when(necesidadRepository.findAll(defaultPageable)).thenReturn(emptyPage);
+        when(necesidadRepository.findByEstadoNot(EstadoNecesidad.VENCIDA, defaultPageable)).thenReturn(emptyPage);
 
         Page<NecesidadResponse> result = necesidadService.findAll(defaultPageable);
 
