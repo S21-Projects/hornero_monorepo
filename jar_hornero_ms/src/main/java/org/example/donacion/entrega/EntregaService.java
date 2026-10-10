@@ -83,7 +83,11 @@ public class EntregaService {
         return new CodigoEntregaResponse(codigoPlano, expiraEn);
     }
 
-    @Transactional
+    /**
+     * {@code noRollbackFor}: the attempt counter, the lockout and the expiry burn are persisted and
+     * THEN reported as a {@link ResponseStatusException}; rolling back would lose that bookkeeping.
+     */
+    @Transactional(noRollbackFor = ResponseStatusException.class)
     public EntregaEstadoResponse verificar(Long donacionId, Long actorId, String codigoIngresado) {
         Donacion d = donacionRepository.findByIdForUpdate(donacionId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Donacion not found"));
