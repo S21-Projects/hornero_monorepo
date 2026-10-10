@@ -15,6 +15,7 @@ import org.example.domain.EstadoAsignacion;
 import org.example.domain.EstadoDonacion;
 import org.example.domain.ModalidadDonacion;
 import org.example.domain.Necesidad;
+import org.example.domain.NivelAcreditacion;
 import org.example.domain.NecesidadRepository;
 import org.example.domain.Organizacion;
 import org.example.domain.OrganizacionRepository;
@@ -117,6 +118,13 @@ public class DonacionService {
         } else {
             Necesidad necesidad = necesidadRepository.findById(dto.getNecesidadId())
                     .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Necesidad not found"));
+            // D1: donors can only donate to an approved organization (nivel >= N1). A null nivel
+            // is a not-yet-backfilled row and reads as N0. Checked before any write.
+            NivelAcreditacion nivel = necesidad.getOrganizacion().getNivel();
+            if (nivel == null || nivel == NivelAcreditacion.N0) {
+                throw new ResponseStatusException(HttpStatus.CONFLICT,
+                        "ORGANIZACION_NO_APROBADA: la organización aún no está aprobada para recibir donaciones");
+            }
             d.setNecesidad(necesidad);
         }
 
