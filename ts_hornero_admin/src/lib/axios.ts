@@ -29,6 +29,21 @@ api.interceptors.response.use(
   },
   async (error) => {
     const originalRequest = error.config;
+    // N9: the account was deactivated. Refreshing cannot help (its token family is revoked), so
+    // skip the refresh, drop the cookies (best effort) and send the user to /login with the
+    // reason. Never navigate when already on /login: session_hint can outlive the session and a
+    // redirect to the page we are on would reload-loop.
+    if (error.response?.status === 401 && error.response?.data?.message === 'USUARIO_INACTIVO') {
+      try {
+        await api.post('/auth/logout');
+      } catch {
+        // best effort: the redirect below still ends the UI session
+      }
+      if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
+        window.location.href = '/login?motivo=cuenta-desactivada';
+      }
+      return Promise.reject(error);
+    }
     if (
       error.response?.status === 401 &&
       !originalRequest._retry &&

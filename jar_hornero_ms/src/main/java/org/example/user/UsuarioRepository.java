@@ -9,4 +9,7 @@ import java.util.Optional;
 public interface UsuarioRepository extends JpaRepository<Usuario, Long> {
 
     Optional<Usuario> findByEmail(String email);
+
+    /** N9: one PK-index probe per authenticated request; no entity is loaded. */
+    boolean existsByIdAndActivoTrue(Long id);
 }

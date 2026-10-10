@@ -251,9 +251,11 @@ export interface RondaResponse {
   id: number;
   ejecutadaEn: string;
   finalizadaEn: string | null;
-  ejecutadaPor: number;
+  /** `null` for a scheduled (AUTOMATICA) ronda, which has no executing user (N7). */
+  ejecutadaPor: number | null;
   /** Resolved server-side from `usuarios` (T6); `null` when the executor account no longer exists. */
   ejecutadaPorNombre: string | null;
+  origen: 'MANUAL' | 'AUTOMATICA';
   estado: 'COMPLETADA' | 'FALLIDA';
   error: string | null;
   versionContrato: number;

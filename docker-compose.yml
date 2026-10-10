@@ -44,6 +44,9 @@ services:
       WORKER_URL: "http://worker:8090"
       # D5: show the donor identity on public donation reads. Off by default.
       DONANTE_PUBLICO: "${DONANTE_PUBLICO:-false}"
+      # N7/D7: optional scheduled ronda (needs scripts/sql/V002 applied). Off by default.
+      RONDAS_AUTO_ENABLED: "${RONDAS_AUTO_ENABLED:-false}"
+      RONDAS_AUTO_CRON: "${RONDAS_AUTO_CRON:-0 0 6 * * *}"
     depends_on:
       postgres:
         condition: service_healthy

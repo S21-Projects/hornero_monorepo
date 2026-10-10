@@ -115,7 +115,11 @@ export class AuthController {
   @ApiBearerAuth('access-token')
   @ApiCookieAuth('access_token')
   @ApiOkResponse({ description: 'Current user payload from the JWT' })
-  me(@Req() req: any) {
+  async me(@Req() req: any) {
+    // N9: the payload comes from the token, so ask the MS whether the user is still active.
+    const token = req.cookies?.['access_token'];
+    if (!token) throw new UnauthorizedException();
+    await this.authService.verificarSesion(token);
     return req.user;
   }
 }

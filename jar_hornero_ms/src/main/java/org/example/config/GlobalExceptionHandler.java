@@ -53,7 +53,13 @@ public class GlobalExceptionHandler {
      * {@code @PreAuthorize} annotation in the app, not something new this change introduces.
      */
     @ExceptionHandler(AccessDeniedException.class)
-    public ResponseEntity<ApiResponse<Void>> handleAccessDenied(AccessDeniedException ex) {
+    public ResponseEntity<ApiResponse<Void>> handleAccessDenied(AccessDeniedException ex,
+                                                                 jakarta.servlet.http.HttpServletRequest request) {
+        if (UsuarioInactivo.isMarked(request)) {
+            // N9: the denial is really "your account was deactivated", not a role problem.
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(ApiResponse.error(401, UsuarioInactivo.CODE, List.of(UsuarioInactivo.CODE)));
+        }
         String message = "Acceso denegado";
         return ResponseEntity.status(HttpStatus.FORBIDDEN)
                 .body(ApiResponse.error(HttpStatus.FORBIDDEN.value(), message, List.of(message)));

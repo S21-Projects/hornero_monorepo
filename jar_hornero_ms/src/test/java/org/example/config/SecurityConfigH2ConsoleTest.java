@@ -27,6 +27,9 @@ class SecurityConfigH2ConsoleTest {
     @MockBean
     private JwtService jwtService;
 
+    @MockBean
+    private org.example.user.UsuarioRepository usuarioRepository;
+
     @Test
     void h2Console_anonymous_isForbidden() throws Exception {
         mockMvc.perform(get("/h2-console/")).andExpect(status().isForbidden());

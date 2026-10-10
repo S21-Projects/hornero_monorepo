@@ -5,6 +5,7 @@ import { UploadController } from './upload.controller';
 import { UploadService } from './upload.service';
 import { OrganizacionesService } from '../organizaciones/organizaciones.service';
 import { Role } from '../common/enums/role.enum';
+import { AuthService } from '../auth/auth.service';
 
 describe('UploadController', () => {
   let controller: UploadController;
@@ -13,6 +14,7 @@ describe('UploadController', () => {
     uploadOrgBanner: jest.Mock;
     uploadOrgEvidencia: jest.Mock;
   };
+  let authService: { verificarSesion: jest.Mock };
   let organizacionesService: {
     misOrganizaciones: jest.Mock;
     actualizar: jest.Mock;
@@ -36,6 +38,7 @@ describe('UploadController', () => {
       uploadOrgBanner: jest.fn().mockResolvedValue('org-banner/1-key'),
       uploadOrgEvidencia: jest.fn().mockResolvedValue('org-evidencia/5/1-key'),
     };
+    authService = { verificarSesion: jest.fn().mockResolvedValue({}) };
     organizacionesService = {
       misOrganizaciones: jest.fn(),
       actualizar: jest.fn().mockResolvedValue({}),
@@ -47,6 +50,7 @@ describe('UploadController', () => {
       providers: [
         { provide: UploadService, useValue: uploadService },
         { provide: OrganizacionesService, useValue: organizacionesService },
+        { provide: AuthService, useValue: authService },
       ],
     }).compile();
 
@@ -168,6 +172,27 @@ describe('UploadController', () => {
       expect(
         organizacionesService.actualizarInfoPublica,
       ).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('N9: deactivated user is refused before anything is written to S3', () => {
+    const inactive = new Error('USUARIO_INACTIVO');
+
+    beforeEach(() => {
+      authService.verificarSesion.mockRejectedValue(inactive);
+    });
+
+    it.each([
+      ['org-profile', (c: UploadController, r: Request) => c.uploadOrgProfile(1, file, r)],
+      ['org-banner', (c: UploadController, r: Request) => c.uploadOrgBanner(1, file, r)],
+      ['org-evidencia', (c: UploadController, r: Request) => c.uploadOrgEvidencia(1, file, r)],
+    ])('%s: admin token of an inactive user is rejected, nothing uploaded', async (_n, call) => {
+      await expect(call(controller, requestAsAdmin())).rejects.toBe(inactive);
+
+      expect(authService.verificarSesion).toHaveBeenCalledWith('admin-token');
+      expect(uploadService.uploadOrgProfile).not.toHaveBeenCalled();
+      expect(uploadService.uploadOrgBanner).not.toHaveBeenCalled();
+      expect(uploadService.uploadOrgEvidencia).not.toHaveBeenCalled();
     });
   });
 });

@@ -49,6 +49,9 @@ class DonacionControllerTest {
     @MockBean
     private JwtService jwtService;
 
+    @MockBean
+    private org.example.user.UsuarioRepository usuarioRepository;
+
     // ─── helpers ──────────────────────────────────────────────────────────────
 
     private DonacionResponse buildResponse(Long id, String descripcion, String orgNombre) {
