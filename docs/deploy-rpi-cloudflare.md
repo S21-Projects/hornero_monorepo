@@ -137,8 +137,8 @@ Pasos, a correr por SSH en la Pi, desde la carpeta del repo:
    ```bash
    make backup
    ```
-   Deja un `.sql.gz` en `backups/` con timestamp — conservarlo hasta confirmar que el reseed
-   salió bien.
+   Deja un `hornero-<fecha>.dump` en `backups/` — conservarlo hasta confirmar que el reseed
+   salió bien (más sobre backups en la Parte C).
 
 2. **Confirmar el nombre exacto del volumen de Postgres** (depende del nombre del proyecto
    compose, normalmente el nombre de la carpeta del repo en la Pi):
@@ -167,9 +167,8 @@ Pasos, a correr por SSH en la Pi, desde la carpeta del repo:
    `GET /api/donaciones` deben traer artículos/líneas en cada registro), y que el sitio público
    vuelve a mostrar datos.
 
-**Rollback**: si algo sale mal, restaurar el `.sql.gz` del paso 1 con `gunzip` + `psql` (mismo
-patrón que `scripts/sql/README.md`'s "Back up first" / restore manual) contra el volumen recién
-recreado, antes de levantar el MS.
+**Rollback**: si algo sale mal, restaurar el dump del paso 1 (`pg_restore`, ver C.5) contra el
+volumen recién recreado, antes de levantar el MS. Para dumps viejos `.sql.gz`: `gunzip` + `psql`.
 
 ### A.4 — Levantar (en la Pi)
 
@@ -309,10 +308,7 @@ R2 — no arranca ningún MinIO.
 
 > ⚠️ **La DB sigue en la microSD.** R2 salva las imágenes, pero Postgres vive en
 > el volumen `hornero_pgdata` de la Pi. Si la SD muere, perdés los datos igual.
-> Hacé dumps periódicos a otro lado (ej. a R2 o a tu máquina):
-> ```bash
-> docker compose exec -T postgres pg_dump -U hornero hornero | gzip > hornero_$(date +%F).sql.gz
-> ```
+> Los dumps periódicos y la copia offsite cifrada están en la **Parte C**.
 
 ### Opción 3 — Tu propio bucket en la Pi con MinIO (OPT-IN)
 
@@ -368,6 +364,148 @@ keys, así Postgres sigue apuntando bien):
 # rclone config → remote "railway" (origen) y "minio" (destino, S3, endpoint http://<ip>:9000)
 rclone sync railway:<bucket-viejo> minio:hornero-images --progress
 ```
+
+---
+
+## Parte C — Backups y restauración
+
+La DB vive en el volumen `hornero_pgdata`, sobre la microSD de la Pi: **sin backup, si la SD
+muere se pierde todo**. El mecanismo está en `scripts/backup/` y los valores de negocio
+(RPO/RTO, retención, destino, responsables) están pendientes de la decisión **D11**; hoy corre
+con los defaults documentados abajo.
+
+| Archivo                                 | Qué hace                                                              |
+| --------------------------------------- | --------------------------------------------------------------------- |
+| `scripts/backup/backup.sh`              | `pg_dump -Fc`, verifica el archivo, copia cifrada offsite (opcional), poda local |
+| `scripts/backup/restore-check.sh`       | Restaura un dump en un Postgres descartable y corre chequeos          |
+| `deploy/systemd/hornero-backup.{service,timer}` | Ejecuta `backup.sh` todos los días 03:15 (`Persistent=true`)  |
+
+Formato: dump en formato custom (`-Fc`, comprimido, verificable con `pg_restore --list`,
+restaurable de forma selectiva). `make backup` llama al mismo script; los dumps viejos
+`.sql.gz` se restauran con `gunzip | psql` como antes.
+
+### C.1 — Variables (en el `.env` de la Pi)
+
+| Variable                       | Default        | Para qué                                                    |
+| ------------------------------ | -------------- | ----------------------------------------------------------- |
+| `BACKUP_RETENTION_DAYS`        | `14`           | Días de retención local (`0` = no podar)                    |
+| `BACKUP_S3_BUCKET`             | *(vacío)*      | Si está seteado, activa la copia offsite cifrada            |
+| `BACKUP_S3_ENDPOINT`           | —              | Endpoint S3/R2 del bucket de backups                        |
+| `BACKUP_AWS_ACCESS_KEY_ID` / `BACKUP_AWS_SECRET_ACCESS_KEY` | — | Credenciales **propias** del bucket de backups |
+| `BACKUP_PASSPHRASE`            | —              | Frase de cifrado (obligatoria con `BACKUP_S3_BUCKET`)       |
+| `BACKUP_S3_PREFIX`             | `hornero/`     | Prefijo de las keys                                         |
+
+Opcionales: `BACKUP_DIR`, `BACKUP_AWS_CLI_IMAGE`, `BACKUP_AWS_DOCKER_ARGS`
+(ver cabecera de `backup.sh`). `chmod 600 .env`: ahí viven la passphrase y las keys.
+
+### C.2 — Instalar el timer
+
+En la Pi, desde el repo (el usuario debe estar en el grupo `docker`):
+
+```bash
+# 1. Ajustar User= y las rutas /home/pi/hornero_app en el .service
+sudo cp deploy/systemd/hornero-backup.service deploy/systemd/hornero-backup.timer /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now hornero-backup.timer
+
+# 2. Probar una corrida ya mismo y mirar el resultado
+sudo systemctl start hornero-backup.service
+journalctl -u hornero-backup.service -n 20 --no-pager
+systemctl list-timers hornero-backup.timer
+ls -l backups/
+```
+
+### C.3 — Copia offsite cifrada (opcional hasta que D11 defina el destino)
+
+1. Crear un bucket **distinto** del de imágenes (ej. `hornero-backups`), **privado**.
+   `backup.sh` se niega a correr si `BACKUP_S3_BUCKET` es igual a `AWS_S3_BUCKET_NAME`:
+   las imágenes pueden ser públicas, los dumps tienen datos personales (Ley 25.326).
+2. R2 → Manage API Tokens → crear un token **solo para ese bucket** (Object Read & Write) y
+   usarlo en `BACKUP_AWS_*`. No reutilizar las credenciales de `AWS_*`.
+3. Generar la passphrase (`openssl rand -base64 32`) y **guardarla fuera de la Pi** (gestor de
+   contraseñas / otra persona del equipo). Si la Pi muere, la passphrase tiene que sobrevivir:
+   sin ella los dumps cifrados no se pueden abrir.
+4. Completar `BACKUP_S3_*`, `BACKUP_AWS_*` y `BACKUP_PASSPHRASE` en el `.env` y repetir la prueba
+   de C.2. Cada dump se cifra con `openssl enc -aes-256-cbc -pbkdf2` y se sube con la imagen
+   `amazon/aws-cli` (no requiere instalar nada en el host) a `s3://<bucket>/hornero/`.
+5. **Retención remota:** no la hace el script. Configurarla en el bucket: R2 → bucket →
+   Settings → Object lifecycle rules → eliminar objetos con prefijo `hornero/` después de N días
+   (sugerido 30, a definir en D11).
+
+### C.4 — Simulacro de restauración (restore drill)
+
+Un backup que nunca se restauró no es un backup. Correr el simulacro después de instalar el
+timer y cada vez que cambie el esquema o la passphrase:
+
+```bash
+make restore-check                                  # el dump más nuevo de backups/
+make restore-check DUMP=backups/hornero-<fecha>.dump
+BACKUP_PASSPHRASE=… make restore-check DUMP=hornero-<fecha>.dump.enc   # bajado del bucket
+```
+
+Levanta un Postgres descartable (misma imagen que el compose, sin puertos publicados, se borra
+al terminar), restaura ahí, cuenta filas de `usuarios`, `organizaciones`, `necesidades`,
+`donaciones` y `refresh_tokens` y termina con `RESULT: OK` o un código de salida distinto de
+cero. **Nunca toca la DB real.** Registrar fecha y resultado de cada simulacro en
+`docs/seguridad-matriz-riesgos.md` o donde defina D11.
+
+### C.5 — Restauración real
+
+Solo ante pérdida o corrupción de datos. Implica downtime del MS (el sitio público y el login
+dejan de responder datos) hasta terminar.
+
+```bash
+cd /…/hornero_app
+# 0. Validar primero el dump a restaurar
+make restore-check DUMP=<dump>
+
+# 1. Cortar escrituras y tomar un backup del estado actual (por si la restauración empeora)
+docker compose stop ms
+scripts/backup/backup.sh            # pre-restore: anotar el nombre del archivo
+
+# 2. Si el dump es .enc, descifrarlo (la passphrase se pide por stdin, no queda en el historial)
+read -rs BACKUP_CRYPTO_PASS; export BACKUP_CRYPTO_PASS
+openssl enc -d -aes-256-cbc -pbkdf2 -iter 600000 -pass env:BACKUP_CRYPTO_PASS \
+  -in hornero-<fecha>.dump.enc -out hornero-<fecha>.dump
+unset BACKUP_CRYPTO_PASS
+
+# 3. Restaurar sobre la DB real (reemplaza los objetos existentes)
+docker compose exec -T postgres sh -c \
+  'pg_restore -U "$POSTGRES_USER" -d "$POSTGRES_DB" --clean --if-exists --no-owner --no-privileges --exit-on-error' \
+  < hornero-<fecha>.dump
+
+# 4. Levantar el MS y verificar (Hibernate completa lo que falte del esquema)
+docker compose start ms
+docker compose ps
+# login en https://panel.elhornero.org y revisar organizaciones / necesidades
+rm -f hornero-<fecha>.dump          # borrar el dump descifrado si no estaba en backups/
+```
+
+Si la restauración falla a mitad de camino, volver al estado previo con el dump del paso 1.
+Los refresh tokens restaurados pueden estar revocados o vencidos: los usuarios solo tendrán
+que volver a iniciar sesión.
+
+### C.6 — Roles y accesos
+
+| Rol / decisión                                | Responsable | Estado       |
+| --------------------------------------------- | ----------- | ------------ |
+| Quién guarda la passphrase (y su copia fuera de la Pi) | TBD (D11) | TBD (D11) |
+| Quién tiene acceso al bucket de backups (token R2)     | TBD (D11) | TBD (D11) |
+| Quién puede ejecutar una restauración real             | TBD (D11) | TBD (D11) |
+| Quién corre el simulacro y con qué frecuencia          | TBD (D11) | TBD (D11) |
+| RPO / RTO objetivo                                     | TBD (D11) | TBD (D11) |
+| Retención local / remota                               | 14 d / 30 d (defaults provisorios) | TBD (D11) |
+
+### C.7 — Riesgo residual
+
+- **Imágenes (y futuras evidencias) en R2 no están cubiertas** por este mecanismo: solo se
+  respalda Postgres. Si alguien borra o sobrescribe objetos en `hornero-images`, no hay copia.
+  Opciones, no implementadas: activar el versionado/replicación del bucket, o un
+  `aws s3 sync` periódico hacia el bucket de backups.
+- El timer y el dump corren en la misma Pi: si la Pi se pierde antes de la copia offsite
+  (o sin offsite configurado), se pierde hasta 24 h de datos. El RPO real depende de D11.
+- La passphrase está en el `.env` de la Pi para poder automatizar: protege el bucket frente a
+  una filtración del lado de Cloudflare, no frente a un atacante con acceso a la Pi.
 
 ---
 
