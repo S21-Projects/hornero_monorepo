@@ -19,17 +19,18 @@ spring:
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
-    show-sql: true
+    show-sql: ${SHOW_SQL:false}
     open-in-view: false
 
 app:
   jwt:
-    secret: ${JWT_SECRET:dev-hornero-secret-must-be-at-least-32-chars}
+    secret: ${JWT_SECRET}
     expiration-access: 900000
     expiration-refresh: 604800000
   mail:
     resend-api-key: ${RESEND_API_KEY:}
     otp-from-email: ${OTP_FROM_EMAIL:}
+    log-only: ${MAIL_LOG_ONLY:false}
   otp:
     ttl-minutes: 15
     max-attempts: 5

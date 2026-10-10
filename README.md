@@ -111,6 +111,8 @@ reference with comments: `.env.example`.
 | Variable | Used by | Description |
 |----------|---------|-------------|
 | `JWT_SECRET` | MS + BFF | HS256 signing secret — must match in both services (min 32 chars) |
+| `RESEND_API_KEY`, `OTP_FROM_EMAIL` | MS | OTP email delivery (Resend). Missing either → MS fails at startup unless `MAIL_LOG_ONLY=true` |
+| `MAIL_LOG_ONLY` | MS | `true` logs OTP codes instead of sending (local dev only; default `false`) |
 | `SERVER_PORT` | MS | HTTP port (default 8081) |
 | `FRONTEND_URL` | BFF | Primary allowed CORS origin |
 | `CORS_ORIGINS` | BFF | Full CORS allowlist — every browser origin calling the BFF with credentials |
