@@ -45,7 +45,7 @@ queda después de aplicar la medida.
 | R17 | Transiciones de estado inválidas en donaciones | M | M | Máquina de estados explícita; override de admin solo con motivo registrado | MS | `TransicionesDonacion`, `DonacionServiceTest`, e2e escenarios 3, 4 y 9 | B |
 | R18 | Acciones administrativas sin trazabilidad | M | M | Registro inmutable de eventos de acreditación; override con motivo, admin y fecha | MS | `OrganizacionEvento`, e2e escenario 9 | **M** (alcance de auditoría pendiente, D10) |
 | R19 | Pérdida de datos (falla del Pi o de la microSD, error humano) | M | A | `make backup` (pg_dump comprimido) previo a migraciones | Infra | `Makefile`, `docs/deploy-rpi-cloudflare.md` | **A** (backup automático, copia externa y restauración probada pendientes: B1–B3, D11) |
-| R20 | Exposición de datos personales del donante | M | M | — | MS | — | **M** (`GET /donaciones/{id}` público devuelve el nombre del donante; D5, D12) |
+| R20 | Exposición de datos personales del donante | M | M | La identidad del donante solo la ven la organización receptora, el propio donante y los administradores; publicarla requiere activar `DONANTE_PUBLICO` | MS / BFF | `DonanteVisibilidadTest`, e2e `06-donor-privacy` | B (retención y borrado pendientes, D12) |
 | R21 | Evasión del límite de intentos falseando la IP | B | M | La IP se toma de `cf-connecting-ip`; el BFF solo es accesible a través del túnel de Cloudflare | Infra | `client-ip-throttler.guard.spec.ts`, runbook de despliegue | B (requiere no exponer el puerto 3001) |
 
 ## Riesgos residuales y decisiones pendientes
@@ -55,8 +55,7 @@ Los riesgos marcados en negrita dependen de definiciones de negocio todavía abi
 
 - **R19**: definir RPO/RTO, retención, destino de la copia externa y responsables (D11), y luego
   automatizar el backup y ejecutar un simulacro de restauración (B1–B3).
-- **R20**: decidir qué datos del donante son públicos (D5) y la política de retención y borrado
-  de datos personales (D12).
+- **R20**: definir la política de retención y borrado de datos personales (D12).
 - **R18**: decidir qué acciones se auditan (D10).
 - **R3**: pasar la CSP de Report-Only a forzada después de observar el sitio desplegado.
 

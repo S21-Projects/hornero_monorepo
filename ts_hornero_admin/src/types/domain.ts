@@ -184,8 +184,9 @@ export interface Donacion {
   fechaEntrega?: string;
   estado: EstadoDonacion;
   observaciones?: string;
-  donanteName?: string;
-  donanteId?: number;
+  /** Null when the viewer may not see the donor (D5: only admin, the donor and the receiving referente). */
+  donanteName?: string | null;
+  donanteId?: number | null;
   /** Null for a `FONDO_COMUN` donación — it has no necesidad until the solver assigns it. */
   necesidadId: number | null;
   organizacionId?: number | null;

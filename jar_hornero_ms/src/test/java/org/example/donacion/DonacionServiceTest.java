@@ -70,6 +70,9 @@ class DonacionServiceTest {
     @Mock
     private ArticuloRepository articuloRepository;
 
+    @Mock
+    private DonanteVisibilidad donanteVisibilidad;
+
     @InjectMocks
     private DonacionService donacionService;
 
@@ -91,6 +94,8 @@ class DonacionServiceTest {
         // Default: schema already migrated (V001 ran). Only the dedicated ESQUEMA_PENDIENTE test
         // overrides this.
         org.mockito.Mockito.lenient().when(esquemaVerificador.necesidadIdEsNullable()).thenReturn(true);
+        org.mockito.Mockito.lenient().when(donanteVisibilidad.paraLlamadaActual())
+                .thenReturn(java.util.function.UnaryOperator.identity());
     }
 
     // ─── catalogo-articulos helpers ─────────────────────────────────────────────
@@ -1075,5 +1080,48 @@ class DonacionServiceTest {
         assertThat(response.necesidadId()).isNull();
         assertThat(response.organizacionId()).isNull();
         assertThat(response.fase()).isEqualTo("EN_FONDO");
+    }
+
+    // ─── D5: donor identity on public reads goes through DonanteVisibilidad ───────────────
+
+    private DonacionResponse masked(DonacionResponse r) {
+        return new DonacionResponse(r.id(), r.fechaOferta(), r.fechaEntrega(), r.estado(),
+                r.observaciones(), null, r.necesidadId(), r.organizacionId(),
+                r.necesidadDescripcion(), r.organizacionNombre(), null, null, null,
+                r.modalidad(), r.categoria(), r.fase(), r.lineas());
+    }
+
+    @Test
+    void findById_appliesDonorVisibilityPolicy() {
+        Donacion d = donacionFor(7L, miOrganizacion);
+        when(donacionRepository.findByIdWithRelations(7L)).thenReturn(Optional.of(d));
+        when(donanteVisibilidad.paraLlamadaActual()).thenReturn(this::masked);
+
+        DonacionResponse response = donacionService.findById(7L);
+
+        assertThat(response.donanteName()).isNull();
+        assertThat(response.donanteId()).isNull();
+    }
+
+    @Test
+    void findByOrganizacion_appliesDonorVisibilityPolicyToEveryRow() {
+        org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(0, 20);
+        when(donacionRepository.findByOrganizacionId(10L, pageable)).thenReturn(
+                new org.springframework.data.domain.PageImpl<>(List.of(donacionFor(1L, miOrganizacion), donacionFor(2L, miOrganizacion))));
+        when(donanteVisibilidad.paraLlamadaActual()).thenReturn(this::masked);
+
+        var page = donacionService.findByOrganizacion(10L, pageable);
+
+        assertThat(page.getContent()).hasSize(2).allSatisfy(r -> assertThat(r.donanteName()).isNull());
+    }
+
+    @Test
+    void findAll_appliesDonorVisibilityPolicy() {
+        org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(0, 20);
+        when(donacionRepository.findAllWithDonante(pageable)).thenReturn(
+                new org.springframework.data.domain.PageImpl<>(List.of(donacionFor(1L, miOrganizacion))));
+        when(donanteVisibilidad.paraLlamadaActual()).thenReturn(this::masked);
+
+        assertThat(donacionService.findAll(pageable).getContent().get(0).donanteName()).isNull();
     }
 }
