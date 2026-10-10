@@ -194,6 +194,7 @@ Each item needs a team decision before related work starts. Record the decision 
 | Date | Task | Route | Evidence | Commit |
 |------|------|-------|----------|--------|
 | 2026-10-10 | — | — | Document created from audit | — |
+| 2026-10-10 | Q2 fix | inline (1 test file) | `role-matrix.spec.ts` flaked ~1/8 runs ("socket hang up", supertest opening a server per request); listen once on port 0 → 25/25 green runs, tsc ok | (this commit) |
 | 2026-10-10 | N2 | MS+BFF+astro+admin delegated | RED: MS compile error, BFF 8 fail (no e2e RED captured). GREEN: `mvn test` 558/558; BFF 295/295, tsc ok; admin 399/399 + build; astro build; `make e2e` 50/50 | (this commit) |
 | 2026-10-10 | N1 | MS delegated | RED: DonacionServiceTest 2 fail; e2e 1 fail (201 vs 409). GREEN: `mvn test` 544/544; `make e2e` 44/44 | (this commit) |
 | 2026-10-10 | B1–B3 + S5b | delegated | RED: restore-check on garbage/truncated dump exits 1. GREEN: shellcheck clean; local backup + `make restore-check` OK (14 tables); encrypted round trip OK, wrong passphrase refused; upload tested against local MinIO only; astro build + headers on both pages | (this commit) |

@@ -239,7 +239,10 @@ describe('BFF role matrix (real guards + real JwtStrategy)', () => {
 
     app = moduleRef.createNestApplication({ logger: false });
     configureApp(app, { allowedOrigins: ['http://localhost:5173'] });
-    await app.init();
+    // Listen once on an ephemeral port: without it supertest opens and closes a server per
+    // request, and across ~300 sequential requests that intermittently fails with
+    // "socket hang up".
+    await app.listen(0);
 
     routes = discoverRoutes(app);
     signer = new JwtService();
