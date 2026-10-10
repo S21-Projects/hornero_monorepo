@@ -1,6 +1,7 @@
 package org.example.user;
 
 import lombok.RequiredArgsConstructor;
+import org.example.auth.RefreshTokenService;
 import org.example.domain.Organizacion;
 import org.example.domain.OrganizacionRepository;
 import org.springframework.data.domain.Page;
@@ -20,6 +21,7 @@ public class UsuarioService {
 
     private final UsuarioRepository usuarioRepository;
     private final OrganizacionRepository organizacionRepository;
+    private final RefreshTokenService refreshTokenService;
 
     public Page<UsuarioResponse> findAll(Pageable pageable) {
         return usuarioRepository.findAll(pageable)
@@ -32,6 +34,10 @@ public class UsuarioService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Usuario not found"));
         u.setActivo(activo);
         Usuario saved = usuarioRepository.save(u);
+
+        if (!activo) {
+            refreshTokenService.revokeAllFor(u.getId());
+        }
 
         if (!activo && u instanceof Referente referente) {
             List<Organizacion> organizaciones = organizacionRepository.findByReferente_Id(referente.getId());

@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { HttpService } from '@nestjs/axios';
 import { ConfigService } from '@nestjs/config';
 import { Response } from 'express';
@@ -9,6 +9,8 @@ import { ResendOtpDto } from './dto/resend-otp.dto.js';
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     private httpService: HttpService,
     private configService: ConfigService,
@@ -59,7 +61,20 @@ export class AuthService {
     await this.httpService.axiosRef.post(`${javaUrl}/api/auth/resend-otp`, dto);
   }
 
-  logout(res: Response) {
+  async logout(refreshToken: string | undefined, res: Response) {
+    if (refreshToken) {
+      // Best effort: the session must end locally even if the MS is unreachable.
+      try {
+        const javaUrl = this.configService.get<string>('JAVA_MS_URL');
+        await this.httpService.axiosRef.post(`${javaUrl}/api/auth/logout`, {
+          refreshToken,
+        });
+      } catch (error) {
+        this.logger.warn(
+          `Refresh token revocation failed: ${(error as Error).message}`,
+        );
+      }
+    }
     res.clearCookie('access_token');
     res.clearCookie('refresh_token');
     res.clearCookie('session_hint');

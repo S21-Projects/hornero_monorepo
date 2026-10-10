@@ -73,4 +73,39 @@ describe('AuthService', () => {
       expect(res.cookie).not.toHaveBeenCalled();
     });
   });
+
+  describe('logout', () => {
+    it('revokes the refresh token at the MS and clears the cookies', async () => {
+      httpService.axiosRef.post.mockResolvedValue({ data: undefined });
+
+      await service.logout('the-refresh', res as any);
+
+      expect(httpService.axiosRef.post).toHaveBeenCalledWith(
+        'http://ms:8081/api/auth/logout',
+        { refreshToken: 'the-refresh' },
+      );
+      expect(res.clearCookie).toHaveBeenCalledWith('access_token');
+      expect(res.clearCookie).toHaveBeenCalledWith('refresh_token');
+      expect(res.clearCookie).toHaveBeenCalledWith('session_hint');
+    });
+
+    it('still clears the cookies when the MS call fails', async () => {
+      httpService.axiosRef.post.mockRejectedValue(new Error('ms down'));
+
+      await expect(
+        service.logout('the-refresh', res as any),
+      ).resolves.toBeUndefined();
+
+      expect(res.clearCookie).toHaveBeenCalledWith('access_token');
+      expect(res.clearCookie).toHaveBeenCalledWith('refresh_token');
+      expect(res.clearCookie).toHaveBeenCalledWith('session_hint');
+    });
+
+    it('skips the MS call when there is no refresh cookie', async () => {
+      await service.logout(undefined, res as any);
+
+      expect(httpService.axiosRef.post).not.toHaveBeenCalled();
+      expect(res.clearCookie).toHaveBeenCalledWith('refresh_token');
+    });
+  });
 });

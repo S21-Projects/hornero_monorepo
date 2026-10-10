@@ -82,3 +82,17 @@ In `ts_hornero_bff/src/auth/auth.service.ts`, `setCookies()`:
 - The Bruno collection in `bruno/` parses `access_token` from `Set-Cookie` in a
   post-response script. That parsing reads the HTTP response header, not
   `document.cookie`, so it keeps working after this fix — no change needed.
+
+## Refresh-token rotation and revocation
+
+Refresh tokens are tracked server-side in the MS (`refresh_tokens`: `jti`, family, expiry,
+`rotatedAt`, `revokedAt`; never the raw token). A login starts a family; every `/auth/refresh`
+marks the presented token as rotated and issues a successor in the same family.
+
+- Replaying a rotated token after the grace window (`app.jwt.refresh-reuse-grace-seconds`,
+  default 30s, covers several tabs sharing cookies) is treated as theft: the whole family is
+  revoked and the request gets 401.
+- `POST /auth/logout` (BFF) revokes the family at the MS (`POST /api/auth/logout`, always 204)
+  and clears the cookies, even if the MS call fails.
+- Deactivating a user revokes all their families. A daily job deletes rows expired over a day ago.
+- Refresh tokens issued before this change carry no `jti` and are rejected once: users log in again.
