@@ -1,6 +1,6 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 import {
-  actors, anonymous, crearDirecta, estadoDe, marker, orgOwners, pickNecesidad, type Actors, type Necesidad,
+  actors, anonymous, crearDirecta, estadoDe, marker, openNecesidades, orgOwners, pickNecesidad, type Actors, type Necesidad,
   type Articulo,
 } from '../src/fixtures.js';
 
@@ -124,6 +124,43 @@ describe('Authorization, validation and admin override', () => {
     it('overriding to the same state is refused; cleanup by cancelling', async () => {
       expect((await a.admin.patch(`/donaciones/${donacionId}/estado-admin`, { estado: 'ACEPTADA', motivo: 'again' })).status).toBe(400);
       expect((await a.donante.patch(`/donaciones/${donacionId}/estado`, { estado: 'CANCELADA' })).status).toBe(200);
+    });
+  });
+
+  describe('D1. donating to an organization that is not approved (N0)', () => {
+    it('DIRECTA donation to an N0 organization -> 409 ORGANIZACION_NO_APROBADA, nothing persisted', async () => {
+      // Precondition built through the API: a fresh org reaches N1 (validar), publishes a
+      // necesidad, then an admin lowers it back to N0 (the only way an N0 org owns a necesidad).
+      const articulo = (await openNecesidades())
+        .flatMap((n) => n.articulos)
+        .find((x) => x.categoria === 'NO_PERECEDERO');
+      expect(articulo, 'no NO_PERECEDERO articulo in seed data').toBeTruthy();
+
+      const org = await a.referente3.post('/organizaciones', {
+        nombre: marker('org-n0'), tipo: 'OTRO', latitud: -31.4, longitud: -64.19,
+      });
+      expect(org.status).toBe(201);
+      const orgId = org.data.id as number;
+      try {
+        expect((await a.admin.patch(`/organizaciones/${orgId}/validar`)).status).toBe(200);
+        const nec = await a.referente3.post('/necesidades', {
+          descripcion: marker('necesidad-n0'), prioridad: 'NORMAL', organizacionId: orgId, articuloIds: [articulo!.id],
+        });
+        expect(nec.status).toBe(201);
+        const lower = await a.admin.patch(`/organizaciones/${orgId}/acreditacion/nivel`, {
+          destino: 'N0', motivo: marker('lower to N0'),
+        });
+        expect(lower.status).toBe(200);
+
+        const res = await a.donante.post('/donaciones', {
+          modalidad: 'DIRECTA', necesidadId: nec.data.id, lineas: [{ articuloId: articulo!.id, cantidad: 1 }],
+        });
+        expect(res.status).toBe(409);
+        expect(JSON.stringify(res.body)).toContain('ORGANIZACION_NO_APROBADA');
+      } finally {
+        // Free the referente's 3-organizacion cap for the next run.
+        await a.admin.patch(`/organizaciones/${orgId}/rechazar`);
+      }
     });
   });
 });

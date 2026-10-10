@@ -86,6 +86,7 @@ class DonacionServiceTest {
         miOrganizacion.setId(10L);
         miOrganizacion.setNombre("Comedor Test");
         miOrganizacion.setReferente(referente);
+        miOrganizacion.setNivel(org.example.domain.NivelAcreditacion.N1);
 
         // Default: schema already migrated (V001 ran). Only the dedicated ESQUEMA_PENDIENTE test
         // overrides this.
@@ -236,6 +237,57 @@ class DonacionServiceTest {
                 .hasMessageContaining("EMAIL_NO_VERIFICADO");
 
         verifyNoInteractions(necesidadRepository);
+    }
+
+    @Test
+    void crear_directaToN0Organizacion_throwsConflictAndSavesNothing() {
+        miOrganizacion.setNivel(org.example.domain.NivelAcreditacion.N0);
+        assertDirectaRechazadaPorNoAprobada();
+    }
+
+    @Test
+    void crear_directaToNullNivelOrganizacion_isTreatedAsN0() {
+        miOrganizacion.setNivel(null);
+        assertDirectaRechazadaPorNoAprobada();
+    }
+
+    private void assertDirectaRechazadaPorNoAprobada() {
+        Necesidad necesidad = new Necesidad();
+        necesidad.setId(100L);
+        necesidad.setOrganizacion(miOrganizacion);
+        conArticuloSolicitado(necesidad, 1L, CategoriaAlimento.NO_PERECEDERO);
+
+        CreateDonacionRequest dto = new CreateDonacionRequest();
+        dto.setNecesidadId(100L);
+        dto.setLineas(List.of(linea(1L, "2")));
+
+        when(necesidadRepository.findById(100L)).thenReturn(Optional.of(necesidad));
+        when(usuarioRepository.findById(2L)).thenReturn(Optional.of(donante));
+
+        assertThatThrownBy(() -> donacionService.crear(dto, 2L))
+                .isInstanceOfSatisfying(ResponseStatusException.class, e ->
+                        assertThat(e.getStatusCode()).isEqualTo(HttpStatus.CONFLICT))
+                .hasMessageContaining("ORGANIZACION_NO_APROBADA");
+
+        verify(donacionRepository, org.mockito.Mockito.never()).save(any(Donacion.class));
+    }
+
+    @Test
+    void crear_directaToN1Organizacion_isAllowed() {
+        Necesidad necesidad = new Necesidad();
+        necesidad.setId(100L);
+        necesidad.setOrganizacion(miOrganizacion);
+        conArticuloSolicitado(necesidad, 1L, CategoriaAlimento.NO_PERECEDERO);
+
+        CreateDonacionRequest dto = new CreateDonacionRequest();
+        dto.setNecesidadId(100L);
+        dto.setLineas(unaLineaNoPerecedero());
+
+        when(necesidadRepository.findById(100L)).thenReturn(Optional.of(necesidad));
+        when(usuarioRepository.findById(2L)).thenReturn(Optional.of(donante));
+        when(donacionRepository.save(any(Donacion.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        assertThat(donacionService.crear(dto, 2L).necesidadId()).isEqualTo(100L);
     }
 
     // --- decidir (referente: OFRECIDA -> ACEPTADA | RECHAZADA) ---

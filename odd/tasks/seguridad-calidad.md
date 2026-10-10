@@ -144,11 +144,24 @@ The guide requires measures "related to the identified risks", so a risk matrix 
 - [x] **Q3** Risk matrix doc (`docs/seguridad-matriz-riesgos.md`): asset → threat → measure →
   evidence (test/file), linking every task above.
 
+### Business rules (from decisions)
+
+- [x] **N1** (from D1) Reject a DIRECTA donation when the necesidad's organization is at N0, in
+  `DonacionService.crear`; make sure rondas never assign pool donations to necesidades of N0
+  organizations. Tests in MS + an e2e exceptional case.
+  - Done: `crear` (DIRECTA) → 409 `ORGANIZACION_NO_APROBADA` for N0/null before any write. Rondas
+    already excluded N0 (`RondaService.esCandidataElegible`). `nivel` is the authority: `estado` is
+    projected from it (N1+ → APROBADA), so no extra estado check.
+  - Follow-ups (optional): public `GET /necesidades` still lists necesidades of orgs lowered to N0;
+    admin SPA doesn't map `ORGANIZACION_NO_APROBADA` to a friendly message.
+
 ## Business definitions pending (list 2)
 
 Each item needs a team decision before related work starts. Record the decision and date here.
 
-- [ ] **D1** Can donors donate to an organization not yet approved? (today: yes)
+- [x] **D1** Can donors donate to an organization not yet approved? (today: yes)
+  - Decided 2026-10-10 (user): **no**. The organization needs at least one approval level
+    (`nivel` ≥ N1; N0 = REGISTRADA is not approved). Implementation: task **N1** below.
 - [ ] **D2** Can donors donate to a necesidad that is closed or expired? Who/what moves a
   necesidad to `VENCIDA`? (today: not validated, nothing sets it)
 - [ ] **D3** Quantity ceiling: can a donation exceed what the necesidad requests?
@@ -169,6 +182,7 @@ Each item needs a team decision before related work starts. Record the decision 
 | Date | Task | Route | Evidence | Commit |
 |------|------|-------|----------|--------|
 | 2026-10-10 | — | — | Document created from audit | — |
+| 2026-10-10 | N1 | MS delegated | RED: DonacionServiceTest 2 fail; e2e 1 fail (201 vs 409). GREEN: `mvn test` 544/544; `make e2e` 44/44 | (this commit) |
 | 2026-10-10 | B1–B3 + S5b | delegated | RED: restore-check on garbage/truncated dump exits 1. GREEN: shellcheck clean; local backup + `make restore-check` OK (14 tables); encrypted round trip OK, wrong passphrase refused; upload tested against local MinIO only; astro build + headers on both pages | (this commit) |
 | 2026-10-10 | Q3 | inline (1 doc) | `docs/seguridad-matriz-riesgos.md`: 21 risks, every cited evidence file verified to exist | 89c0599 |
 | 2026-10-10 | F1 | MS delegated | RED: new lockout integration tests 6/7 fail; e2e `5c` "Expect test to fail" after rebuild. GREEN: 7/7 targeted, `mvn test` 541/541, `make e2e` 43/43. Files: EntregaService, OtpService, EntregaServiceLockoutIntegrationTest, OtpServiceLockoutIntegrationTest, e2e/tests/03-exceptional-paths.e2e.ts | 0bfe751 |
