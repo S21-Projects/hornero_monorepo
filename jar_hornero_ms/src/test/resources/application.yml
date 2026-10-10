@@ -28,6 +28,7 @@ app:
   mail:
     resend-api-key: ""
     otp-from-email: ""
+    log-only: true
   otp:
     ttl-minutes: 15
     max-attempts: 5

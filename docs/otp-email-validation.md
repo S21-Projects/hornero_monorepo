@@ -68,8 +68,8 @@ future version).
 
 `ResendClient` uses Spring's `RestClient` (already available via
 `spring-boot-starter-web`, no new dependency) to POST to the Resend API.
-`MailerConfig` falls back to a log-only mailer when `RESEND_API_KEY` /
-`OTP_FROM_EMAIL` are absent, mirroring the pattern in
+`MailerConfig` fails startup when `RESEND_API_KEY` / `OTP_FROM_EMAIL` are absent,
+unless `MAIL_LOG_ONLY=true` explicitly opts into a log-only mailer (local dev), mirroring the pattern in
 `ts_hornero_astro/src/lib/mailer.ts`. `OTP_FROM_EMAIL` is a dedicated env var,
 distinct from `CONTACTO_FROM_EMAIL` used by the contact form.
 

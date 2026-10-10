@@ -37,6 +37,7 @@ services:
       DB_PASSWORD: "${DB_PASSWORD:-hornero}"
       RESEND_API_KEY: "${RESEND_API_KEY:-}"
       OTP_FROM_EMAIL: "${OTP_FROM_EMAIL:-}"
+      MAIL_LOG_ONLY: "${MAIL_LOG_ONLY:-false}"
       # AD-1: the ronda allocation worker's internal URL. The MS does NOT
       # depends_on the worker service (see the `worker` service comment below) —
       # it boots fine without it; only POST /api/rondas answers 503 if blank/down.
