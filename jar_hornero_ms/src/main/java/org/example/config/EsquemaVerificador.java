@@ -39,7 +39,18 @@ public class EsquemaVerificador implements ApplicationRunner {
 
     private final JdbcTemplate jdbcTemplate;
 
+    /**
+     * V003 (N11): {@code ddl-auto=update} adds the {@code @Version} columns as nullable, leaving
+     * existing rows NULL until the script sets them to 0. Lists the tables that still hold NULLs.
+     */
+    private static final String CHECK_VERSIONES_PENDIENTES_SQL = """
+            SELECT 'donaciones' WHERE EXISTS (SELECT 1 FROM donaciones WHERE version IS NULL)
+            UNION ALL SELECT 'necesidades' WHERE EXISTS (SELECT 1 FROM necesidades WHERE version IS NULL)
+            UNION ALL SELECT 'organizaciones' WHERE EXISTS (SELECT 1 FROM organizaciones WHERE version IS NULL)
+            """;
+
     private final AtomicBoolean necesidadIdNullable = new AtomicBoolean(true);
+    private final AtomicBoolean versionesInicializadas = new AtomicBoolean(true);
 
     @Override
     public void run(ApplicationArguments args) throws Exception {
@@ -55,6 +66,24 @@ public class EsquemaVerificador implements ApplicationRunner {
         } else {
             necesidadIdNullable.set(true);
         }
+        verificarVersiones();
+    }
+
+    private void verificarVersiones() {
+        java.util.List<String> pendientes = jdbcTemplate.queryForList(CHECK_VERSIONES_PENDIENTES_SQL, String.class);
+        if (pendientes != null && !pendientes.isEmpty()) {
+            versionesInicializadas.set(false);
+            log.error("ESQUEMA_PENDIENTE: rows with a NULL optimistic-lock version in {}. Run "
+                    + "scripts/sql/V003__optimistic_version_columns.sql (make migrate); until then updates to "
+                    + "those rows fail with CONFLICTO_CONCURRENTE.", pendientes);
+        } else {
+            versionesInicializadas.set(true);
+        }
+    }
+
+    /** False when V003 has not been applied (NULL version rows exist). Informational; PostgreSQL only. */
+    public boolean versionesInicializadas() {
+        return versionesInicializadas.get();
     }
 
     public boolean necesidadIdEsNullable() {

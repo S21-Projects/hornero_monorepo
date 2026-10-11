@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { QueryClient } from '@tanstack/react-query';
 import { api } from '../axios';
+import { idempotencyHeaders, useIdempotencyKey } from '../idempotency';
 import type { Articulo, ArticuloInput } from '../../types/domain';
 
 const ARTICULOS_KEY = ['articulos'] as const;
@@ -27,8 +28,14 @@ function invalidateArticulos(queryClient: QueryClient) {
 /** `POST /articulos` (ADMINISTRADOR only). */
 export function useCrearArticulo() {
   const queryClient = useQueryClient();
+  const idempotency = useIdempotencyKey();
   return useMutation<Articulo, Error, ArticuloInput>({
-    mutationFn: (input) => api.post<Articulo>('/articulos', input).then((r) => r.data),
+    mutationFn: (input) =>
+      idempotency.run(input, (key) =>
+        api
+          .post<Articulo>('/articulos', input, { headers: idempotencyHeaders(key) })
+          .then((r) => r.data),
+      ),
     onSuccess: () => invalidateArticulos(queryClient),
   });
 }

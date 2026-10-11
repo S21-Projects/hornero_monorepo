@@ -1,0 +1,13 @@
+[Unit]
+Description=Daily Hornero database backup
+
+[Timer]
+# 03:15 local time. Persistent=true runs a missed backup at next boot (the Pi
+# may be off or rebooting at 03:15).
+OnCalendar=*-*-* 03:15:00
+Persistent=true
+RandomizedDelaySec=5min
+Unit=hornero-backup.service
+
+[Install]
+WantedBy=timers.target

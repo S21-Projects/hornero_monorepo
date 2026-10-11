@@ -52,6 +52,9 @@ class NecesidadControllerTest {
     @MockBean
     private JwtService jwtService;
 
+    @MockBean
+    private org.example.user.UsuarioRepository usuarioRepository;
+
     // ------------------------------------------------------------------
     // T-MS-17: pagination params bind correctly; response has full envelope
     // ------------------------------------------------------------------

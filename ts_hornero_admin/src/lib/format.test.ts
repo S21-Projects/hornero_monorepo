@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { formatLineas } from './format';
+import { formatFechaHora, formatLineas } from './format';
 import type { DonacionLinea } from '../types/domain';
 
 // Work unit G (feature catalogo-articulos): a compact one-line summary of a donación's
@@ -30,5 +30,16 @@ describe('formatLineas', () => {
       { articuloId: 1, nombre: 'Fideos', unidad: 'PAQUETE', cantidad: 1 },
     ];
     expect(formatLineas(lineas)).toBe('1 paquete Fideos');
+  });
+});
+
+describe('formatFechaHora', () => {
+  it('renders an instant in Argentina time (UTC-3)', () => {
+    expect(formatFechaHora('2026-10-10T15:30:00Z')).toBe('10/10/2026 12:30:00');
+  });
+
+  it('returns — for missing or invalid input', () => {
+    expect(formatFechaHora(undefined)).toBe('—');
+    expect(formatFechaHora('not a date')).toBe('—');
   });
 });

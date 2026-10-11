@@ -1,5 +1,6 @@
 package org.example.asignacion;
 
+import org.example.idempotencia.Idempotente;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -22,7 +23,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 /**
  * Manual ronda trigger and history (AD-9, spec `ronda-asignacion`): ADMINISTRADOR-only at every
- * endpoint — there is no scheduler and no per-donation automatic trigger.
+ * endpoint — the optional scheduled ronda (N7) runs in-process and is not exposed here.
  */
 @Tag(name = "Rondas", description = "Manual ronda trigger and history (ADMINISTRADOR only)")
 @RestController
@@ -34,6 +35,7 @@ public class RondaController {
 
     @Operation(summary = "Trigger a ronda (admin only — AD-9)")
     @PostMapping
+    @Idempotente
     @ResponseStatus(HttpStatus.CREATED)
     @PreAuthorize("hasRole('ADMINISTRADOR')")
     public RondaResponse ejecutar() {

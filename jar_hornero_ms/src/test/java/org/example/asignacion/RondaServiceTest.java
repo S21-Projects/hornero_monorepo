@@ -1,5 +1,6 @@
 package org.example.asignacion;
 
+import org.example.actividad.ActividadService;
 import org.example.acreditacion.AcreditacionService;
 import org.example.asignacion.dto.RondaResponse;
 import org.example.asignacion.worker.AsignadorClient;
@@ -104,6 +105,9 @@ class RondaServiceTest {
     @Mock
     private TransactionStatus transactionStatus;
 
+    @Mock
+    private ActividadService actividadService;
+
     private RondaService rondaService;
     private EntradaRondaFactory entradaRondaFactory;
 
@@ -113,7 +117,7 @@ class RondaServiceTest {
         entradaRondaFactory = new EntradaRondaFactory(acreditacionService, cumplimientoCalculator);
         lenient().when(cumplimientoCalculator.calcular()).thenReturn(java.util.Map.of());
         rondaService = new RondaService(donacionRepository, necesidadRepository, asignacionRepository,
-                rondaRepository, entradaRondaFactory, asignadorClient, usuarioRepository, clock, transactionManager);
+                rondaRepository, entradaRondaFactory, asignadorClient, usuarioRepository, clock, transactionManager, actividadService);
 
         // Runs the transactional callback synchronously against the mocked collaborators. `lenient`
         // because the toResponse-only tests (T6) exercise `rondaService` without ever calling
@@ -384,6 +388,64 @@ class RondaServiceTest {
         assertThat(captor.getValue().getError()).isEqualTo("RESPUESTA_WORKER_INVALIDA");
     }
 
+    // --- N7: origin of the ronda (manual admin vs scheduled system actor) ---
+
+    @Test
+    void manualRondaRecordsOrigenManualAndTheAdmin() {
+        stubSinAsignaciones(List.of());
+        when(necesidadRepository.findByEstadoInWithOrganizacion(any())).thenReturn(List.of());
+        when(asignadorClient.ejecutar(any())).thenReturn(salidaVacia());
+
+        Ronda ronda = rondaService.ejecutar(ADMIN_ID);
+
+        assertThat(ronda.getOrigen()).isEqualTo(org.example.domain.OrigenRonda.MANUAL);
+        assertThat(ronda.getEjecutadaPor()).isEqualTo(ADMIN_ID);
+    }
+
+    @Test
+    void automaticRondaRecordsOrigenAutomaticaWithNoUser() {
+        stubSinAsignaciones(List.of());
+        when(necesidadRepository.findByEstadoInWithOrganizacion(any())).thenReturn(List.of());
+        when(asignadorClient.ejecutar(any())).thenReturn(salidaVacia());
+
+        Ronda ronda = rondaService.ejecutarAutomatica();
+
+        assertThat(ronda.getOrigen()).isEqualTo(org.example.domain.OrigenRonda.AUTOMATICA);
+        assertThat(ronda.getEjecutadaPor()).isNull();
+        assertThat(ronda.getEstado()).isEqualTo(EstadoRonda.COMPLETADA);
+    }
+
+    @Test
+    void automaticRondaWithWorkerDownPersistsFallidaWithNoUserAndAnswers503() {
+        stubSinAsignaciones(List.of());
+        when(necesidadRepository.findByEstadoInWithOrganizacion(any())).thenReturn(List.of());
+        when(asignadorClient.ejecutar(any())).thenThrow(new AsignadorNoDisponibleException("down"));
+
+        assertThatThrownBy(() -> rondaService.ejecutarAutomatica())
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("WORKER_NO_DISPONIBLE");
+
+        ArgumentCaptor<Ronda> captor = ArgumentCaptor.forClass(Ronda.class);
+        verify(rondaRepository).save(captor.capture());
+        assertThat(captor.getValue().getOrigen()).isEqualTo(org.example.domain.OrigenRonda.AUTOMATICA);
+        assertThat(captor.getValue().getEjecutadaPor()).isNull();
+        assertThat(captor.getValue().getEstado()).isEqualTo(EstadoRonda.FALLIDA);
+    }
+
+    @Test
+    void toResponseOfAnAutomaticRondaHasOrigenAndNoExecutorLookup() {
+        Ronda ronda = new Ronda();
+        ronda.setEstado(EstadoRonda.COMPLETADA);
+        ronda.setOrigen(org.example.domain.OrigenRonda.AUTOMATICA);
+
+        RondaResponse response = rondaService.toResponse(ronda);
+
+        assertThat(response.origen()).isEqualTo("AUTOMATICA");
+        assertThat(response.ejecutadaPor()).isNull();
+        assertThat(response.ejecutadaPorNombre()).isNull();
+        verify(usuarioRepository, never()).findById(any());
+    }
+
     // --- Staleness between read and write ---
 
     @Test
@@ -548,5 +610,35 @@ class RondaServiceTest {
         salida.setSinAsignar(List.of());
         salida.setScoreTotal(0.0);
         return salida;
+    }
+
+    @Test
+    void ejecutar_recordsRondaWithTheAdminAsActor() {
+        when(necesidadRepository.findByEstadoInWithOrganizacion(any())).thenReturn(List.of());
+        stubSinAsignaciones(List.of());
+        when(asignadorClient.ejecutar(any())).thenReturn(salidaVacia());
+
+        rondaService.ejecutar(ADMIN_ID);
+
+        org.mockito.ArgumentCaptor<ActividadService.Registro> captor =
+                org.mockito.ArgumentCaptor.forClass(ActividadService.Registro.class);
+        verify(actividadService).registrarAislado(captor.capture());
+        assertThat(captor.getValue().accion()).isEqualTo(org.example.actividad.TipoActividad.RONDA_EJECUTADA);
+        assertThat(captor.getValue().actorId()).isEqualTo(ADMIN_ID);
+        assertThat(captor.getValue().esSistema()).isFalse();
+    }
+
+    @Test
+    void ejecutarAutomatica_recordsRondaAsSystem() {
+        when(necesidadRepository.findByEstadoInWithOrganizacion(any())).thenReturn(List.of());
+        stubSinAsignaciones(List.of());
+        when(asignadorClient.ejecutar(any())).thenReturn(salidaVacia());
+
+        rondaService.ejecutarAutomatica();
+
+        org.mockito.ArgumentCaptor<ActividadService.Registro> captor =
+                org.mockito.ArgumentCaptor.forClass(ActividadService.Registro.class);
+        verify(actividadService).registrarAislado(captor.capture());
+        assertThat(captor.getValue().esSistema()).isTrue();
     }
 }

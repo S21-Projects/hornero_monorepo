@@ -29,6 +29,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  */
 @DataJpaTest
 @Import({OrganizacionService.class, AcreditacionService.class})
+@org.springframework.boot.test.mock.mockito.MockBean(org.example.actividad.ActividadService.class)
 class OrganizacionServiceValidarRechazarTest {
 
     @Autowired

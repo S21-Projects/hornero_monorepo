@@ -1,5 +1,6 @@
 package org.example.necesidad;
 
+import org.example.idempotencia.Idempotente;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -7,6 +8,7 @@ import lombok.RequiredArgsConstructor;
 import org.example.common.PageData;
 import org.example.necesidad.dto.ActualizarNecesidadRequest;
 import org.example.necesidad.dto.CrearNecesidadRequest;
+import org.example.necesidad.dto.RelanzarNecesidadRequest;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
@@ -35,6 +37,7 @@ public class NecesidadController {
 
     @Operation(summary = "Create a need for the authenticated referente's organization")
     @PostMapping
+    @Idempotente
     @ResponseStatus(HttpStatus.CREATED)
     @PreAuthorize("hasRole('REFERENTE')")
     public NecesidadResponse crear(@Valid @RequestBody CrearNecesidadRequest request) {
@@ -68,6 +71,17 @@ public class NecesidadController {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         Long referenteId = (Long) auth.getPrincipal();
         return necesidadService.actualizar(id, request, referenteId);
+    }
+
+    @Operation(summary = "Relaunch an expired need with a new expiry date")
+    @PostMapping("/{id}/relanzar")
+    @Idempotente
+    @PreAuthorize("hasRole('REFERENTE')")
+    public NecesidadResponse relanzar(@PathVariable Long id,
+                                      @Valid @RequestBody RelanzarNecesidadRequest request) {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        Long referenteId = (Long) auth.getPrincipal();
+        return necesidadService.relanzar(id, request, referenteId);
     }
 
     @Operation(summary = "Delete a need")

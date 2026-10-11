@@ -43,4 +43,39 @@ class GlobalExceptionHandlerTest {
         assertThat(response.getStatusCode().value()).isEqualTo(500);
         assertThat(response.getBody().errors()).containsExactly("Error interno del servidor");
     }
+
+    @Test
+    void handleDataIntegrity_answers409GenericAndLeaksNoConstraintDetail() {
+        var ex = new org.springframework.dao.DataIntegrityViolationException(
+                "duplicate key value violates unique constraint \"uk_organizaciones_slug\"");
+
+        ResponseEntity<ApiResponse<Void>> response = handler.handleDataIntegrity(ex);
+
+        assertThat(response.getStatusCode().value()).isEqualTo(409);
+        assertThat(response.getBody().message()).isEqualTo("CONFLICTO_DATOS");
+        assertThat(response.getBody().errors()).containsExactly("CONFLICTO_DATOS");
+        assertThat(response.getBody().toString()).doesNotContain("uk_organizaciones_slug");
+    }
+
+    @Test
+    void handleOptimisticLock_answers409ConflictoConcurrente() {
+        var ex = new org.springframework.orm.ObjectOptimisticLockingFailureException(
+                "org.example.domain.Donacion", 1L);
+
+        ResponseEntity<ApiResponse<Void>> response = handler.handleOptimisticLock(ex);
+
+        assertThat(response.getStatusCode().value()).isEqualTo(409);
+        assertThat(response.getBody().message()).isEqualTo("CONFLICTO_CONCURRENTE");
+        assertThat(response.getBody().errors()).containsExactly("CONFLICTO_CONCURRENTE");
+    }
+
+    @Test
+    void handleOptimisticLock_coversJpaOptimisticLockException() {
+        var ex = new jakarta.persistence.OptimisticLockException("stale");
+
+        ResponseEntity<ApiResponse<Void>> response = handler.handleOptimisticLockJpa(ex);
+
+        assertThat(response.getStatusCode().value()).isEqualTo(409);
+        assertThat(response.getBody().message()).isEqualTo("CONFLICTO_CONCURRENTE");
+    }
 }

@@ -1,12 +1,7 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
-
-const EXT_MAP: Record<string, string> = {
-  'image/jpeg': 'jpg',
-  'image/png': 'png',
-  'image/webp': 'webp',
-};
+import { detectImageType } from './image-type.js';
 
 @Injectable()
 export class UploadService {
@@ -53,15 +48,21 @@ export class UploadService {
     prefix: string,
     file: Express.Multer.File,
   ): Promise<string> {
-    const ext = EXT_MAP[file.mimetype] ?? 'jpg';
-    const key = `${prefix}/${Date.now()}.${ext}`;
+    // Trust the bytes, not the client-declared mimetype/filename.
+    const detected = detectImageType(file.buffer);
+    if (!detected) {
+      throw new BadRequestException(
+        'File content does not match an allowed image type (jpeg, png, or webp)',
+      );
+    }
+    const key = `${prefix}/${Date.now()}.${detected.ext}`;
 
     await this.s3.send(
       new PutObjectCommand({
         Bucket: this.bucket,
         Key: key,
         Body: file.buffer,
-        ContentType: file.mimetype,
+        ContentType: detected.mimetype,
       }),
     );
 

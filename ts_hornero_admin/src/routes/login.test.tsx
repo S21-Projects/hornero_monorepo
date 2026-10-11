@@ -82,3 +82,23 @@ describe('LoginPage — post-login navigation uses roleHome', () => {
     });
   });
 });
+
+describe('LoginPage — deactivated account notice (N9)', () => {
+  it('shows "Tu cuenta fue desactivada" when redirected with motivo=cuenta-desactivada', () => {
+    const router = createMemoryRouter([{ path: '/login', element: <LoginPage /> }], {
+      initialEntries: ['/login?motivo=cuenta-desactivada'],
+    });
+    render(<RouterProvider router={router} />);
+
+    expect(screen.getByRole('alert')).toHaveTextContent('Tu cuenta fue desactivada');
+  });
+
+  it('shows no notice without the query param', () => {
+    const router = createMemoryRouter([{ path: '/login', element: <LoginPage /> }], {
+      initialEntries: ['/login'],
+    });
+    render(<RouterProvider router={router} />);
+
+    expect(screen.queryByText(/Tu cuenta fue desactivada/)).not.toBeInTheDocument();
+  });
+});

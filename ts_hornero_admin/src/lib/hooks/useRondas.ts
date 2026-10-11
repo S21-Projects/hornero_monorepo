@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../axios';
+import { idempotencyHeaders, useIdempotencyKey } from '../idempotency';
 import type { RondaFondoResponse, RondaResponse } from '../../types/domain';
 import type { PageData, PageParams } from '../../types/api';
 
@@ -35,8 +36,14 @@ export function useHistorialRondas(params?: PageParams) {
 export function useEjecutarRonda() {
   const queryClient = useQueryClient();
 
+  const idempotency = useIdempotencyKey();
   return useMutation<RondaResponse, Error, void>({
-    mutationFn: () => api.post<RondaResponse>('/rondas').then((r) => r.data),
+    mutationFn: () =>
+      idempotency.run(null, (key) =>
+        api
+          .post<RondaResponse>('/rondas', undefined, { headers: idempotencyHeaders(key) })
+          .then((r) => r.data),
+      ),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: FONDO_KEY });
       void queryClient.invalidateQueries({ queryKey: ['rondas', 'historial'] });

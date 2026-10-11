@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../axios';
+import { idempotencyHeaders, useIdempotencyKey } from '../idempotency';
 import type { Organizacion, CrearOrganizacionInput } from '../../types/domain';
 
 /**
@@ -10,10 +11,15 @@ import type { Organizacion, CrearOrganizacionInput } from '../../types/domain';
  */
 export function useCrearOrganizacion() {
   const queryClient = useQueryClient();
+  const idempotency = useIdempotencyKey();
 
   return useMutation<Organizacion, Error, CrearOrganizacionInput>({
     mutationFn: (input) =>
-      api.post<Organizacion>('/organizaciones', input).then((r) => r.data),
+      idempotency.run(input, (key) =>
+        api
+          .post<Organizacion>('/organizaciones', input, { headers: idempotencyHeaders(key) })
+          .then((r) => r.data),
+      ),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['organizaciones', 'mias'] });
     },

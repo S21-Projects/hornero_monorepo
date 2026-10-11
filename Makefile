@@ -1,4 +1,4 @@
-.PHONY: up down up-local seed backup migrate
+.PHONY: up down up-local seed backup restore-check migrate e2e
 
 ## Docker only — two modes, both full-stack including Postgres.
 ## The Pi runs docker compose directly, not through this Makefile
@@ -22,17 +22,27 @@ down:
 up-local:
 	docker compose --env-file .env.local --profile minio up --build
 
+## End-to-end (API level) — needs the stack already running: `make up-local` in another terminal.
+e2e:
+	cd e2e && npm install --no-audit --no-fund && npm test
+
 ## Seed
 seed:
 	cd ts_hornero_bff && npx tsx ../scripts/seed.ts
 
 ## Database
-# Gzipped pg_dump of the running postgres container into backups/.
+# pg_dump (custom format) of the running postgres into backups/, verified and
+# pruned by BACKUP_RETENTION_DAYS; also makes the encrypted offsite copy when
+# BACKUP_S3_BUCKET is configured. Same script the systemd timer runs
+# (deploy/systemd/), see docs/deploy-rpi-cloudflare.md.
 backup:
-	@mkdir -p backups
-	$(COMPOSE) exec -T postgres sh -c 'pg_dump -U "$$POSTGRES_USER" "$$POSTGRES_DB"' \
-		| gzip > backups/hornero_$$(date +%Y%m%d_%H%M%S).sql.gz
-	@ls -1t backups | head -1
+	@ENV_FILE=$(ENV_FILE) scripts/backup/backup.sh
+
+# Restore drill: restore DUMP (default: newest in backups/, .dump or .dump.enc)
+# into a throwaway postgres container and sanity-check it. Never touches the
+# real DB. Usage: make restore-check [DUMP=backups/hornero-....dump]
+restore-check:
+	@ENV_FILE=$(ENV_FILE) scripts/backup/restore-check.sh $(DUMP)
 
 # Backup first, then apply every scripts/sql/V*.sql in order. Each script is
 # idempotent (see scripts/sql/README.md), so re-running is safe. Restart the

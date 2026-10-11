@@ -129,3 +129,38 @@ describe('NecesidadDetallePage — DIRECTA línea editor', () => {
     expect(screen.getByText(/corresponde a lo solicitado/i)).toBeInTheDocument();
   });
 });
+
+// D2/N4: a VENCIDA / CUMPLIDA necesidad no longer takes donations (the MS answers 409).
+describe('NecesidadDetallePage — closed necesidad', () => {
+  beforeEach(() => {
+    vi.mocked(useOrgNombre).mockReturnValue({
+      getNombre: () => 'Comedor Sol',
+      isLoading: false,
+    } as ReturnType<typeof useOrgNombre>);
+    vi.mocked(useArticulos).mockReturnValue({
+      data: [ARROZ],
+      isLoading: false,
+      isError: false,
+    } as ReturnType<typeof useArticulos>);
+    vi.mocked(useCrearDonacion).mockReturnValue({
+      mutate: vi.fn(),
+      isPending: false,
+      isError: false,
+      isSuccess: false,
+      error: null,
+    } as unknown as ReturnType<typeof useCrearDonacion>);
+  });
+
+  it.each(['VENCIDA', 'CUMPLIDA'] as const)('hides the donation form when %s', (estado) => {
+    vi.mocked(useNecesidad).mockReturnValue({
+      data: { ...necesidad, estado },
+      isLoading: false,
+      isError: false,
+      error: null,
+    } as unknown as ReturnType<typeof useNecesidad>);
+    renderPage();
+
+    expect(screen.queryByRole('button', { name: /ofrecer donación/i })).not.toBeInTheDocument();
+    expect(screen.getByText(/ya no recibe donaciones/i)).toBeInTheDocument();
+  });
+});

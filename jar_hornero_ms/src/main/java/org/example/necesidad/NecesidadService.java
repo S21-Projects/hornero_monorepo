@@ -1,6 +1,9 @@
 package org.example.necesidad;
 
 import lombok.RequiredArgsConstructor;
+import org.example.actividad.ActividadService;
+import org.example.actividad.ActividadService.Registro;
+import org.example.actividad.TipoActividad;
 import org.example.auth.VerificacionService;
 import org.example.config.AcreditacionProperties;
 import org.example.domain.Articulo;
@@ -15,13 +18,18 @@ import org.example.domain.Organizacion;
 import org.example.domain.OrganizacionRepository;
 import org.example.necesidad.dto.ActualizarNecesidadRequest;
 import org.example.necesidad.dto.CrearNecesidadRequest;
+import org.example.necesidad.dto.RelanzarNecesidadRequest;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.time.Clock;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
@@ -41,6 +49,8 @@ public class NecesidadService {
     private final VerificacionService verificacionService;
     private final AcreditacionProperties acreditacionProperties;
     private final ArticuloRepository articuloRepository;
+    private final Clock clock;
+    private final ActividadService actividadService;
 
     @Transactional
     public NecesidadResponse crear(CrearNecesidadRequest dto, Long referenteId) {
@@ -54,6 +64,11 @@ public class NecesidadService {
                     "Necesidad requires at least one articulo");
         }
 
+        // D2/N4: a past expiry date would be expired by the daily job right away.
+        if (dto.getFechaVencimiento() != null && dto.getFechaVencimiento().isBefore(hoy())) {
+            throw fechaPasada();
+        }
+
         Organizacion org = organizacionRepository.findByIdAndReferente_Id(dto.getOrganizacionId(), referenteId)
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.FORBIDDEN,
@@ -61,18 +76,13 @@ public class NecesidadService {
 
         // `specs/organizacion-acreditacion/spec.md` "Level-Driven Concurrency Caps".
         NivelAcreditacion nivel = org.getNivel() == null ? NivelAcreditacion.N0 : org.getNivel();
-        long cap = acreditacionProperties.capPara(nivel);
-        long abiertas = necesidadRepository.countByOrganizacion_IdAndEstadoIn(org.getId(), ESTADOS_ABIERTOS);
-        if (abiertas >= cap) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT,
-                    "Alcanzaste el máximo de " + cap + " necesidades abiertas para el nivel " + nivel);
-        }
+        verificarCupo(org, nivel);
 
         Necesidad necesidad = new Necesidad();
         necesidad.setDescripcion(dto.getDescripcion());
         necesidad.setPrioridad(dto.getPrioridad());
         necesidad.setEstado(EstadoNecesidad.ABIERTA);
-        necesidad.setFechaPublicacion(LocalDate.now());
+        necesidad.setFechaPublicacion(hoy());
         necesidad.setFechaVencimiento(dto.getFechaVencimiento());
         necesidad.setOrganizacion(org);
 
@@ -94,16 +104,24 @@ public class NecesidadService {
         necesidad.setArticulos(articulos);
         necesidad.setCategoria(categoria);
 
-        return toResponse(necesidadRepository.save(necesidad));
+        Necesidad guardada = necesidadRepository.save(necesidad);
+        actividadService.registrar(Registro.de(TipoActividad.NECESIDAD_CREADA)
+                .entidad("NECESIDAD", guardada.getId()).detalle("organización " + org.getId()));
+        return toResponse(guardada);
     }
 
     public Page<NecesidadResponse> findByOrganizacion(Long organizacionId, Pageable pageable) {
-        return necesidadRepository.findByOrganizacion_Id(organizacionId, pageable)
-                .map(this::toResponse);
+        // D2/N4: expired necesidades are taken down publicly; only the owning referente and
+        // admins still see them (the referente needs them to relaunch).
+        Page<Necesidad> page = puedeVerVencidas(organizacionId)
+                ? necesidadRepository.findByOrganizacion_Id(organizacionId, pageable)
+                : necesidadRepository.findByOrganizacion_IdAndEstadoNot(
+                        organizacionId, EstadoNecesidad.VENCIDA, pageable);
+        return page.map(this::toResponse);
     }
 
     public Page<NecesidadResponse> findAll(Pageable pageable) {
-        return necesidadRepository.findAll(pageable)
+        return necesidadRepository.findByEstadoNot(EstadoNecesidad.VENCIDA, pageable)
                 .map(this::toResponse);
     }
 
@@ -117,10 +135,23 @@ public class NecesidadService {
         Necesidad n = necesidadRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Necesidad not found"));
         checkOwnership(n, referenteId);
+        EstadoNecesidad estadoAntes = n.getEstado();
         if (dto.getDescripcion() != null) n.setDescripcion(dto.getDescripcion());
         if (dto.getPrioridad() != null) n.setPrioridad(dto.getPrioridad());
+        // D2/N4: leaving VENCIDA goes through relanzar (date + cap checks); an open necesidad
+        // can't carry a past date (the daily job would expire it again).
+        if (n.getEstado() == EstadoNecesidad.VENCIDA
+                && dto.getEstado() != null && dto.getEstado() != EstadoNecesidad.VENCIDA) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "NECESIDAD_VENCIDA_USAR_RELANZAR: una necesidad vencida solo se reabre relanzándola");
+        }
         if (dto.getEstado() != null) n.setEstado(dto.getEstado());
         if (dto.getFechaVencimiento() != null) n.setFechaVencimiento(dto.getFechaVencimiento());
+        if ((dto.getEstado() != null || dto.getFechaVencimiento() != null)
+                && ESTADOS_ABIERTOS.contains(n.getEstado())
+                && n.getFechaVencimiento() != null && n.getFechaVencimiento().isBefore(hoy())) {
+            throw fechaPasada();
+        }
         if (dto.getArticuloIds() != null) {
             if (dto.getArticuloIds().isEmpty()) {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
@@ -132,7 +163,47 @@ public class NecesidadService {
             n.setCategoria(CategoriaAlimento.masExigente(
                     nuevos.stream().map(na -> na.getArticulo().getCategoria()).collect(Collectors.toList())));
         }
-        return toResponse(necesidadRepository.save(n));
+        Necesidad guardada = necesidadRepository.save(n);
+        actividadService.registrar(Registro.de(TipoActividad.NECESIDAD_ACTUALIZADA)
+                .entidad("NECESIDAD", id).cambio(estadoAntes, guardada.getEstado()));
+        return toResponse(guardada);
+    }
+
+    /**
+     * D2/N4: reopens an expired necesidad with a new expiry date. Counts against the level cap like
+     * a new publication and is stamped as published today.
+     */
+    @Transactional
+    public NecesidadResponse relanzar(Long id, RelanzarNecesidadRequest dto, Long referenteId) {
+        Necesidad n = necesidadRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Necesidad not found"));
+        checkOwnership(n, referenteId);
+        if (n.getEstado() != EstadoNecesidad.VENCIDA) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "NECESIDAD_NO_VENCIDA: solo se puede relanzar una necesidad vencida");
+        }
+        LocalDate hoy = hoy();
+        if (!dto.getFechaVencimiento().isAfter(hoy)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "FECHA_VENCIMIENTO_PASADA: la nueva fecha de vencimiento debe ser posterior a hoy");
+        }
+        Organizacion org = n.getOrganizacion();
+        NivelAcreditacion nivel = org.getNivel() == null ? NivelAcreditacion.N0 : org.getNivel();
+        verificarCupo(org, nivel);
+        if (n.getCategoria() != null && n.getCategoria().getNivelMinimo().compareTo(nivel) > 0) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "La categoría " + n.getCategoria() + " requiere el nivel " + n.getCategoria().getNivelMinimo()
+                            + " o superior");
+        }
+        EstadoNecesidad estadoAntes = n.getEstado();
+        n.setEstado(EstadoNecesidad.ABIERTA);
+        n.setFechaVencimiento(dto.getFechaVencimiento());
+        n.setFechaPublicacion(hoy);
+        Necesidad guardada = necesidadRepository.save(n);
+        actividadService.registrar(Registro.de(TipoActividad.NECESIDAD_RELANZADA)
+                .entidad("NECESIDAD", id).cambio(estadoAntes, EstadoNecesidad.ABIERTA)
+                .detalle("nuevo vencimiento " + dto.getFechaVencimiento()));
+        return toResponse(guardada);
     }
 
     @Transactional
@@ -141,6 +212,41 @@ public class NecesidadService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Necesidad not found"));
         checkOwnership(n, referenteId);
         necesidadRepository.delete(n);
+        actividadService.registrar(Registro.de(TipoActividad.NECESIDAD_ELIMINADA)
+                .entidad("NECESIDAD", id).cambio(n.getEstado(), null));
+    }
+
+    private LocalDate hoy() {
+        return LocalDate.now(clock);
+    }
+
+    private static ResponseStatusException fechaPasada() {
+        return new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                "FECHA_VENCIMIENTO_PASADA: la fecha de vencimiento no puede ser anterior a hoy");
+    }
+
+    /** `specs/organizacion-acreditacion/spec.md` "Level-Driven Concurrency Caps". */
+    private void verificarCupo(Organizacion org, NivelAcreditacion nivel) {
+        long cap = acreditacionProperties.capPara(nivel);
+        long abiertas = necesidadRepository.countByOrganizacion_IdAndEstadoIn(org.getId(), ESTADOS_ABIERTOS);
+        if (abiertas >= cap) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Alcanzaste el máximo de " + cap + " necesidades abiertas para el nivel " + nivel);
+        }
+    }
+
+    /** Admins and the referente owning {@code organizacionId} may list its expired necesidades. */
+    private boolean puedeVerVencidas(Long organizacionId) {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !auth.isAuthenticated() || !(auth.getPrincipal() instanceof Long userId)) {
+            return false;
+        }
+        for (GrantedAuthority a : auth.getAuthorities()) {
+            if ("ROLE_ADMINISTRADOR".equals(a.getAuthority())) {
+                return true;
+            }
+        }
+        return organizacionRepository.findByIdAndReferente_Id(organizacionId, userId).isPresent();
     }
 
     private void checkOwnership(Necesidad n, Long referenteId) {

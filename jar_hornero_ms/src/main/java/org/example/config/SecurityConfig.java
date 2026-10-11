@@ -27,7 +27,6 @@ public class SecurityConfig {
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/auth/**").permitAll()
-                        .requestMatchers("/h2-console/**").permitAll()
                         // Spring Security 6.1+ re-runs AuthorizationFilter on the internal
                         // /error forward too. JwtAuthFilter doesn't repopulate auth for that
                         // dispatch, so without this, every ResponseStatusException (403/404/etc.)
@@ -92,6 +91,9 @@ public class SecurityConfig {
                         // GET blocks below, but it is still declared ahead of them out of the same
                         // defense-in-depth discipline as every other admin-only matcher here.
                         .requestMatchers("/api/rondas/**").hasRole("ADMINISTRADOR")
+                        // N10: the activity log is ADMINISTRADOR-only and read-only. Its own root, declared
+                        // ahead of the permitAll GET blocks below like every other admin-only matcher.
+                        .requestMatchers("/api/actividad", "/api/actividad/**").hasRole("ADMINISTRADOR")
                         // Feature catalogo-articulos (C3): the catalog is publicly readable but
                         // ADMINISTRADOR-only to write. The GET permitAll matcher must be declared
                         // before the catch-all admin-only matcher on the same root (Spring
@@ -117,6 +119,15 @@ public class SecurityConfig {
                                 "/api/donaciones",
                                 "/api/donaciones/**").permitAll()
                         .anyRequest().authenticated())
+                // N9: 401 USUARIO_INACTIVO for a deactivated user's token; every other
+                // unauthenticated denial keeps the previous default 403.
+                .exceptionHandling(ex -> ex.authenticationEntryPoint((request, response, authException) -> {
+                    if (UsuarioInactivo.isMarked(request)) {
+                        UsuarioInactivo.write401(response);
+                    } else {
+                        response.sendError(jakarta.servlet.http.HttpServletResponse.SC_FORBIDDEN, "Forbidden");
+                    }
+                }))
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
                 .headers(headers -> headers.frameOptions(frame -> frame.sameOrigin()))
                 .build();

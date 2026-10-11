@@ -19,23 +19,28 @@ spring:
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
-    show-sql: true
+    show-sql: ${SHOW_SQL:false}
     open-in-view: false
 
 app:
   jwt:
-    secret: ${JWT_SECRET:dev-hornero-secret-must-be-at-least-32-chars}
+    secret: ${JWT_SECRET}
     expiration-access: 900000
     expiration-refresh: 604800000
   mail:
     resend-api-key: ${RESEND_API_KEY:}
     otp-from-email: ${OTP_FROM_EMAIL:}
+    log-only: ${MAIL_LOG_ONLY:false}
   otp:
     ttl-minutes: 15
     max-attempts: 5
     resend-max: 3
     resend-window-minutes: 15
     resend-cooldown-seconds: 60
+  donaciones:
+    # D5: donor identity on public donation reads. Off = only admin, the donor and the
+    # receiving organization's referente see it.
+    donante-publico: ${DONANTE_PUBLICO:false}
   acreditacion:
     cap-n0: 0
     cap-n1: 3
@@ -47,5 +52,19 @@ app:
     generar-max: 5
     generar-window-minutes: 15
     generar-cooldown-seconds: 30
+  actividad:
+    # N10: activity-log retention. Provisional default until D12 (PII retention) is decided.
+    retencion-dias: ${ACTIVIDAD_RETENCION_DIAS:365}
+  idempotencia:
+    # N11: Idempotency-Key retention. A repeated key within the TTL replays the original response;
+    # after it the key is a new operation. An EN_PROCESO key older than en-proceso-max-minutos is
+    # treated as abandoned (crashed request) and can be taken over.
+    ttl-horas: ${IDEMPOTENCIA_TTL_HORAS:24}
+    en-proceso-max-minutos: 2
+  rondas:
+    # N7/D7: optional scheduled ronda. Off by default (rondas are manual).
+    auto:
+      enabled: ${RONDAS_AUTO_ENABLED:false}
+      cron: ${RONDAS_AUTO_CRON:0 0 6 * * *}
   worker:
     url: ${WORKER_URL:}

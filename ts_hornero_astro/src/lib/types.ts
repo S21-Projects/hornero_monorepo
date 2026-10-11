@@ -54,7 +54,8 @@ export interface Donacion {
   fechaEntrega?: string;
   estado: 'OFRECIDA' | 'EN_CAMINO' | 'ENTREGADA' | 'CANCELADA';
   observaciones?: string;
-  donanteName: string;
+  /** Null unless the viewer is allowed to see the donor (D5); the MS masks it for the public. */
+  donanteName: string | null;
   necesidadId: number;
   organizacionId: number;
 }

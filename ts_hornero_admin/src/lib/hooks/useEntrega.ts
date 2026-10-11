@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../axios';
+import { idempotencyHeaders, useIdempotencyKey } from '../idempotency';
 
 /** Mirrors the MS `CodigoEntregaResponse` record via the 3b BFF proxy. */
 export interface CodigoEntregaResponse {
@@ -39,12 +40,17 @@ export function useEstadoEntrega(donacionId: number | undefined) {
 /** Generates the caller's own delivery code (donante or referente); burns any previous one (AD-6). */
 export function useGenerarCodigo(donacionId: number | undefined) {
   const queryClient = useQueryClient();
+  const idempotency = useIdempotencyKey();
 
   return useMutation<CodigoEntregaResponse, Error, void>({
     mutationFn: () =>
-      api
-        .post<CodigoEntregaResponse>(`/donaciones/${donacionId}/entrega/codigo`)
-        .then((r) => r.data),
+      idempotency.run({ donacionId }, (key) =>
+        api
+          .post<CodigoEntregaResponse>(`/donaciones/${donacionId}/entrega/codigo`, undefined, {
+            headers: idempotencyHeaders(key),
+          })
+          .then((r) => r.data),
+      ),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: entregaQueryKey(donacionId) });
     },
@@ -54,12 +60,19 @@ export function useGenerarCodigo(donacionId: number | undefined) {
 /** Verifies the counterpart's code (scanned or typed); the MS transitions the donación per AD-5. */
 export function useVerificarCodigo(donacionId: number | undefined) {
   const queryClient = useQueryClient();
+  const idempotency = useIdempotencyKey();
 
   return useMutation<EntregaEstadoResponse, Error, string>({
     mutationFn: (codigo) =>
-      api
-        .post<EntregaEstadoResponse>(`/donaciones/${donacionId}/entrega/verificar`, { codigo })
-        .then((r) => r.data),
+      idempotency.run({ donacionId, codigo }, (key) =>
+        api
+          .post<EntregaEstadoResponse>(
+            `/donaciones/${donacionId}/entrega/verificar`,
+            { codigo },
+            { headers: idempotencyHeaders(key) },
+          )
+          .then((r) => r.data),
+      ),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: entregaQueryKey(donacionId) });
     },

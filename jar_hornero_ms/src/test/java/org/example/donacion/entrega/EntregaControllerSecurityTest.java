@@ -31,6 +31,9 @@ class EntregaControllerSecurityTest {
     @MockBean
     private JwtService jwtService;
 
+    @MockBean
+    private org.example.user.UsuarioRepository usuarioRepository;
+
     @Test
     void anonymousGetEstado_isDenied() throws Exception {
         mockMvc.perform(get("/api/donaciones/1/entrega"))

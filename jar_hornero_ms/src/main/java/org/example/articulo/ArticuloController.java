@@ -1,5 +1,6 @@
 package org.example.articulo;
 
+import org.example.idempotencia.Idempotente;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -43,6 +44,7 @@ public class ArticuloController {
 
     @Operation(summary = "Create a catalog item")
     @PostMapping
+    @Idempotente
     @ResponseStatus(HttpStatus.CREATED)
     @PreAuthorize("hasRole('ADMINISTRADOR')")
     public ArticuloResponse crear(@Valid @RequestBody CrearArticuloRequest request) {
