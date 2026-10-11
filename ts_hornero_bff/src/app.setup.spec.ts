@@ -59,6 +59,23 @@ describe('configureApp', () => {
     expect(res.headers['access-control-allow-credentials']).toBe('true');
   });
 
+  it('allows the Idempotency-Key header in preflights and exposes Idempotent-Replayed', async () => {
+    const pre = await request(app.getHttpServer())
+      .options('/ping')
+      .set('Origin', 'https://app.elhornero.org')
+      .set('Access-Control-Request-Method', 'POST')
+      .set('Access-Control-Request-Headers', 'content-type,idempotency-key');
+    expect(
+      String(pre.headers['access-control-allow-headers']).toLowerCase(),
+    ).toContain('idempotency-key');
+    const res = await request(app.getHttpServer())
+      .get('/ping')
+      .set('Origin', 'https://app.elhornero.org');
+    expect(
+      String(res.headers['access-control-expose-headers']).toLowerCase(),
+    ).toContain('idempotent-replayed');
+  });
+
   it('rejects a state-changing request from a foreign origin', async () => {
     await request(app.getHttpServer())
       .post('/ping')

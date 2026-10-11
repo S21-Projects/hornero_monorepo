@@ -1,7 +1,10 @@
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
-import { clientIpMiddleware, installClientIpForwarding } from './common/client-ip.js';
+import {
+  clientIpMiddleware,
+  installClientIpForwarding,
+} from './common/client-ip.js';
 import { AxiosExceptionFilter } from './common/axios-exception.filter.js';
 import { resolveAllowedOrigins } from './common/allowed-origins.js';
 import { createOriginCheckMiddleware } from './common/origin-check.middleware.js';
@@ -47,6 +50,14 @@ export function configureApp(
       callback(null, !origin || allowedOrigins.includes(origin));
     },
     credentials: true,
+    allowedHeaders: [
+      'Content-Type',
+      'Authorization',
+      'Accept',
+      'Idempotency-Key',
+    ],
+    // N11: lets the SPA tell a replayed response from a first execution.
+    exposedHeaders: ['Idempotent-Replayed'],
   });
   // After CORS so preflights (OPTIONS, never checked) are answered by it first.
   app.use(createOriginCheckMiddleware(allowedOrigins));

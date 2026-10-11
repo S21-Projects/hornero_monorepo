@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../axios';
+import { idempotencyHeaders, useIdempotencyKey } from '../idempotency';
 import type {
   AcreditacionResponse,
   EvidenciaResponse,
@@ -72,12 +73,19 @@ interface CargarEvidenciaVariables {
 
 export function useCargarEvidencia() {
   const queryClient = useQueryClient();
+  const idempotency = useIdempotencyKey();
 
   return useMutation<EvidenciaResponse, Error, CargarEvidenciaVariables>({
     mutationFn: ({ organizacionId, input }) =>
-      api
-        .post<EvidenciaResponse>(`/organizaciones/${organizacionId}/acreditacion/evidencias`, input)
-        .then((r) => r.data),
+      idempotency.run({ organizacionId, input }, (key) =>
+        api
+          .post<EvidenciaResponse>(
+            `/organizaciones/${organizacionId}/acreditacion/evidencias`,
+            input,
+            { headers: idempotencyHeaders(key) },
+          )
+          .then((r) => r.data),
+      ),
     onSuccess: (_data, { organizacionId }) => {
       void queryClient.invalidateQueries({ queryKey: ['acreditacion', organizacionId] });
       void queryClient.invalidateQueries({ queryKey: ['legajo', organizacionId] });

@@ -59,3 +59,12 @@ Validar request to a real pending organization id.
 - `bffUrl` → `http://localhost:3001`
 - `msUrl`  → `http://localhost:8081` (MS direct, for reference)
 - `accessToken` → populated at runtime by Login/Register
+
+## Idempotency-Key (N11)
+
+Every business `POST` that creates or triggers something (donaciones, necesidades, relanzar,
+organizaciones, evidencias, entrega codigo/verificar, rondas, articulos) requires an
+`Idempotency-Key` header, otherwise the MS answers `400 IDEMPOTENCY_KEY_REQUERIDA`. The requests in
+this collection send `Idempotency-Key: {{$guid}}`, so each run is a new operation. To test a replay,
+replace `{{$guid}}` with a fixed UUID and send the request twice: the second answer is the stored
+one, with the response header `Idempotent-Replayed: true`. `/auth/**` does not need the header.

@@ -1,3 +1,5 @@
+import { randomUUID } from 'node:crypto';
+
 /** Minimal HTTP client with a per-actor cookie jar (BFF auth rides on httpOnly cookies). */
 
 export const BFF_URL = (process.env.E2E_BFF_URL ?? 'http://localhost:3001').replace(/\/$/, '');
@@ -9,6 +11,8 @@ export interface Res<T = any> {
   /** Envelope payload (`body.data`) when present. */
   data: T;
   setCookies: string[];
+  /** Response headers, lower-cased names. */
+  headers: Record<string, string>;
 }
 
 export type CookieJar = Record<string, string>;
@@ -38,8 +42,13 @@ export class Actor {
     }
   }
 
-  async request<T = any>(method: string, path: string, body?: unknown): Promise<Res<T>> {
-    const headers: Record<string, string> = {};
+  async request<T = any>(
+    method: string,
+    path: string,
+    body?: unknown,
+    extraHeaders: Record<string, string> = {},
+  ): Promise<Res<T>> {
+    const headers: Record<string, string> = { ...extraHeaders };
     const cookie = this.cookieHeader();
     if (cookie) headers.cookie = cookie;
     if (body !== undefined) headers['content-type'] = 'application/json';
@@ -57,11 +66,27 @@ export class Actor {
     } catch {
       parsed = text;
     }
-    return { status: res.status, body: parsed, data: parsed?.data, setCookies };
+    return {
+      status: res.status,
+      body: parsed,
+      data: parsed?.data,
+      setCookies,
+      headers: Object.fromEntries(res.headers.entries()),
+    };
   }
 
   get = <T = any>(path: string) => this.request<T>('GET', path);
-  post = <T = any>(path: string, body?: unknown) => this.request<T>('POST', path, body);
+  /**
+   * Business POSTs are idempotent-by-key (N11): a fresh `Idempotency-Key` is added unless the test
+   * passes one (`{ key }`) or opts out (`{ key: null }`, to assert the 400). `/auth/**` never gets one.
+   */
+  post = <T = any>(path: string, body?: unknown, opts: { key?: string | null } = {}) => {
+    const headers: Record<string, string> = {};
+    if (opts.key !== null && !path.startsWith('/auth/')) {
+      headers['idempotency-key'] = opts.key ?? randomUUID();
+    }
+    return this.request<T>('POST', path, body, headers);
+  };
   patch = <T = any>(path: string, body?: unknown) => this.request<T>('PATCH', path, body);
   del = <T = any>(path: string) => this.request<T>('DELETE', path);
 }

@@ -1,5 +1,6 @@
 package org.example.donacion;
 
+import org.example.idempotencia.Idempotente;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -51,6 +52,7 @@ public class DonacionController {
 
     @Operation(summary = "Create a donation offer")
     @PostMapping
+    @Idempotente
     @ResponseStatus(HttpStatus.CREATED)
     @PreAuthorize("hasRole('DONANTE')")
     public DonacionResponse crear(@Valid @RequestBody CreateDonacionRequest request) {

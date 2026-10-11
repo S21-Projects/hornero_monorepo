@@ -21,6 +21,14 @@ public class Organizacion {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    /**
+     * Optimistic lock (N11). Two concurrent operations on the same row: the first commit wins, the
+     * other fails with CONFLICTO_CONCURRENTE (409). Existing rows are initialised to 0 by
+     * scripts/sql/V003__optimistic_version_columns.sql.
+     */
+    @Version
+    private Long version;
+
     @Column(nullable = false)
     private String nombre;
 

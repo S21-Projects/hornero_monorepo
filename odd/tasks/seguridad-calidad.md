@@ -228,6 +228,26 @@ The guide requires measures "related to the identified risks", so a risk matrix 
     no DB-level immutability (trigger / insert-only role); uploads not recorded (documented).
   - **USER ACTION:** add `ACTIVIDAD_RETENCION_DIAS=365` to `.env.example` (optional).
 
+- [x] **N11** Idempotency (user decision 2026-10-10: **mandatory**, "like transactions").
+  `Idempotency-Key` header per draft-ietf-httpapi-idempotency-key-header-07 (expired I-D, de facto
+  industry practice): required on every business `POST` that creates or triggers something (not
+  the `/auth/*` endpoints); stored in the MS (`idempotency_keys`, per user + operation, request
+  fingerprint, cached status/body, 24 h expiry); replay → original response; in-flight → 409;
+  other payload → 422; missing → 400. BFF forwards it (CORS allowed header). Admin sends a stable
+  key per logical submission. Plus `@Version` optimistic locking on Donacion, Necesidad,
+  Organizacion (concurrent different operations → 409) with `scripts/sql/V003` initializing the
+  version column. Breaking for old open admin tabs and the Bruno collection (accepted).
+  - Done: `@Idempotente` on 9 POSTs (donaciones, necesidades, relanzar, organizaciones,
+    evidencias, entrega codigo/verificar, rondas, articulos); filter after Spring Security,
+    SHA-256 fingerprint over method + URI + canonical JSON, stale EN_PROCESO takeover after 2 min,
+    5xx/401/403/429 release the key, daily purge; BFF forwards key + relays `Idempotent-Replayed`,
+    CORS allowedHeaders explicit; admin `useIdempotencyKey` per submission + axios fallback;
+    `@Version` → 409 `CONFLICTO_CONCURRENTE`; V003 applied locally.
+  - Found while verifying: `make seed` broken by the S4 register throttle (seed now waits out 429s)
+    and org creation with an existing name → 500 on the unique slug (fixed: `-2`, `-3` suffix;
+    `DataIntegrityViolationException` → 409 `CONFLICTO_DATOS`; seed skips orgs already owned).
+  - **USER ACTION (Pi):** `make migrate` (V002 + V003) right after deploy; reload open admin tabs.
+
 ## Business definitions pending (list 2)
 
 Each item needs a team decision before related work starts. Record the decision and date here.
@@ -278,6 +298,7 @@ Each item needs a team decision before related work starts. Record the decision 
 | Date | Task | Route | Evidence | Commit |
 |------|------|-------|----------|--------|
 | 2026-10-10 | — | — | Document created from audit | — |
+| 2026-10-10 | N11 + slug fix | MS+BFF+admin+e2e delegated; seed 429 retry inline | RED per part. GREEN: `mvn test` 700/700; BFF 341/341, tsc ok; admin 460/460 + build + lint; `make e2e` 76/76; `make seed` exit 0 on 3 consecutive runs | (these commits) |
 | 2026-10-10 | N10 | MS+BFF+admin+infra delegated; compose env wiring inline | RED for hooks/BFF/admin (core service + TextoSeguro written before tests, no RED). GREEN: `mvn test` 675/675; BFF 334/334, tsc ok; admin 442/442 + build + lint; compose config ok; `make e2e` 67/67 twice | (this commit) |
 | 2026-10-10 | N9+N7 | MS+BFF+admin delegated | RED: MS 2/7 new tests (then 10 WebMvcTests needed a repo mock), compile error for N7; BFF 8 fail; admin 2 fail. GREEN: `mvn test` 631/631; BFF 316/316, tsc ok; admin 432/432 + build; `make e2e` 61/61 | (this commit) |
 | 2026-10-10 | N8 | MS+BFF+admin delegated | RED: MS compile error, admin 4 fail, BFF DTO 2/7 fail. GREEN: `mvn test` 613/613; BFF 308/308, tsc ok; admin 427/427 + build; `make e2e` 53/53 (after e2e cleanup fix) | (this commit) |
