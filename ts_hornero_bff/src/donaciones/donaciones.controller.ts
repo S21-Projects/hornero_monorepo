@@ -35,12 +35,18 @@ export class DonacionesController {
     return token;
   }
 
+  // Optional session for public routes: never throws, the MS decides what the caller may see.
+  private getOptionalToken(req: Request): string | undefined {
+    return (req as any).cookies?.['access_token'] || undefined;
+  }
+
   @Public()
   @Get()
   @ApiOperation({
     summary: 'List donations, optionally filtered by organization (public)',
   })
   getDonaciones(
+    @Req() req: Request,
     @Query('organizacionId') organizacionId?: string,
     @Query('page') page?: string,
     @Query('size') size?: string,
@@ -51,6 +57,7 @@ export class DonacionesController {
       page,
       size,
       sort,
+      this.getOptionalToken(req),
     );
   }
 
@@ -124,8 +131,8 @@ export class DonacionesController {
   @Public()
   @Get(':id')
   @ApiOperation({ summary: 'Get a donation by ID (public)' })
-  findById(@Param('id', ParseIntPipe) id: number) {
-    return this.donacionesService.findById(id);
+  findById(@Param('id', ParseIntPipe) id: number, @Req() req: Request) {
+    return this.donacionesService.findById(id, this.getOptionalToken(req));
   }
 
   @Roles(Role.REFERENTE)

@@ -2,7 +2,10 @@ package org.example.config;
 
 import java.util.List;
 import java.util.stream.Collectors;
+import jakarta.persistence.OptimisticLockException;
 import org.example.common.ApiResponse;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -53,7 +56,13 @@ public class GlobalExceptionHandler {
      * {@code @PreAuthorize} annotation in the app, not something new this change introduces.
      */
     @ExceptionHandler(AccessDeniedException.class)
-    public ResponseEntity<ApiResponse<Void>> handleAccessDenied(AccessDeniedException ex) {
+    public ResponseEntity<ApiResponse<Void>> handleAccessDenied(AccessDeniedException ex,
+                                                                 jakarta.servlet.http.HttpServletRequest request) {
+        if (UsuarioInactivo.isMarked(request)) {
+            // N9: the denial is really "your account was deactivated", not a role problem.
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(ApiResponse.error(401, UsuarioInactivo.CODE, List.of(UsuarioInactivo.CODE)));
+        }
         String message = "Acceso denegado";
         return ResponseEntity.status(HttpStatus.FORBIDDEN)
                 .body(ApiResponse.error(HttpStatus.FORBIDDEN.value(), message, List.of(message)));
@@ -72,6 +81,40 @@ public class GlobalExceptionHandler {
         String message = "Not found";
         return ResponseEntity.status(HttpStatus.NOT_FOUND)
                 .body(ApiResponse.error(HttpStatus.NOT_FOUND.value(), message, List.of(message)));
+    }
+
+    /**
+     * N11: {@code @Version} on Donacion, Necesidad and Organizacion. Two concurrent operations on
+     * the same row: the first commit wins, the second one fails here and the client should reload
+     * and decide again.
+     */
+    @ExceptionHandler(ObjectOptimisticLockingFailureException.class)
+    public ResponseEntity<ApiResponse<Void>> handleOptimisticLock(ObjectOptimisticLockingFailureException ex) {
+        return conflictoConcurrente();
+    }
+
+    @ExceptionHandler(OptimisticLockException.class)
+    public ResponseEntity<ApiResponse<Void>> handleOptimisticLockJpa(OptimisticLockException ex) {
+        return conflictoConcurrente();
+    }
+
+    /**
+     * A constraint violation that no service translated (e.g. a race on a unique column). The
+     * detail (constraint and SQL) is logged here and never echoed to the client.
+     * {@code IdempotenciaService} catches its own violation before it can reach this handler.
+     */
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<ApiResponse<Void>> handleDataIntegrity(DataIntegrityViolationException ex) {
+        log.warn("Data integrity violation", ex);
+        String code = "CONFLICTO_DATOS";
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(ApiResponse.error(HttpStatus.CONFLICT.value(), code, List.of(code)));
+    }
+
+    private static ResponseEntity<ApiResponse<Void>> conflictoConcurrente() {
+        String code = "CONFLICTO_CONCURRENTE";
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(ApiResponse.error(HttpStatus.CONFLICT.value(), code, List.of(code)));
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)

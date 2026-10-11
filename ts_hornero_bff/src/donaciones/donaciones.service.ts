@@ -23,14 +23,23 @@ export class DonacionesService {
     return { Authorization: `Bearer ${accessToken}` };
   }
 
+  // Public reads: the MS masks the donor identity unless the caller is allowed to see it, so
+  // the session token rides along when there is one. Anonymous callers send no header.
+  private optionalAuthHeaders(accessToken?: string) {
+    return accessToken ? this.authHeaders(accessToken) : {};
+  }
+
   async getDonaciones(
     organizacionId?: string,
     page?: string,
     size?: string,
     sort?: string,
+    accessToken?: string,
   ) {
     const url = `${this.msUrl}/api/donaciones${buildQuery({ organizacionId, page, size, sort })}`;
-    const { data } = await this.httpService.axiosRef.get(url);
+    const { data } = await this.httpService.axiosRef.get(url, {
+      headers: this.optionalAuthHeaders(accessToken),
+    });
     return data;
   }
 
@@ -43,9 +52,10 @@ export class DonacionesService {
     return data;
   }
 
-  async findById(id: number) {
+  async findById(id: number, accessToken?: string) {
     const { data } = await this.httpService.axiosRef.get(
       `${this.msUrl}/api/donaciones/${id}`,
+      { headers: this.optionalAuthHeaders(accessToken) },
     );
     return data;
   }

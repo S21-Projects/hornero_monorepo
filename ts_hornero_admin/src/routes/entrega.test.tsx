@@ -158,4 +158,21 @@ describe('EntregaPage', () => {
 
     expect(screen.getByText(/Ana Donante/)).toBeInTheDocument();
   });
+
+  it('renders without a counterpart name when the donor is masked (null)', () => {
+    useAuthStore.setState({
+      status: 'authenticated',
+      user: { userId: 9, nombre: 'Ref', email: 'r@test.com', tipo: 'REFERENTE', emailVerificado: true },
+    });
+    vi.mocked(useDonacion).mockReturnValue({
+      data: { ...donacion, donanteName: null, donanteId: null },
+      isLoading: false,
+      isError: false,
+    } as ReturnType<typeof useDonacion>);
+
+    renderPage();
+
+    expect(screen.queryByText(/null/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Ana Donante/)).not.toBeInTheDocument();
+  });
 });

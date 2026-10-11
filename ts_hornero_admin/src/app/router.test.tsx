@@ -93,4 +93,16 @@ describe('router.tsx — real route wiring', () => {
       requireVerified: true,
     });
   });
+
+  // N10 — the activity log is ADMINISTRADOR-only, like the other admin-block routes.
+  it('/actividad is ADMINISTRADOR-only, requireVerified', () => {
+    const guard = findGuardElementForPath(router.routes, '/actividad');
+
+    expect(guard).toBeDefined();
+    expect((guard!.type as { name?: string }).name).toBe('ProtectedRoute');
+    expect(guard!.props).toMatchObject({
+      allow: ['ADMINISTRADOR'],
+      requireVerified: true,
+    });
+  });
 });

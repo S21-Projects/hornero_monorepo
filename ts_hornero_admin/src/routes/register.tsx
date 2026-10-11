@@ -18,6 +18,7 @@ import { TipoOrganizacion } from '../types/domain';
 import type { TipoOrganizacion as TipoOrganizacionType } from '../types/domain';
 import { TIPO_ORGANIZACION } from '../lib/domain-ui';
 import { CORDOBA_CENTER, type LatLng } from '../lib/geo';
+import { PASSWORD_HINT, passwordErrorFromResponse, validatePasswordLength } from '../lib/passwordPolicy';
 
 // Step 'org-error' — the referente's account was created and they are logged
 // in, but organización creation failed. They must NOT be asked to re-register
@@ -149,7 +150,8 @@ export default function RegisterPage() {
     if (!nombre.trim()) errs.nombre = 'El nombre es obligatorio';
     if (!email.trim()) errs.email = 'El email es obligatorio';
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) errs.email = 'Formato de email inválido';
-    if (!password || password.length < 6) errs.password = 'La contraseña debe tener al menos 6 caracteres';
+    const passwordError = validatePasswordLength(password);
+    if (passwordError) errs.password = passwordError;
     if (password !== confirmPassword) errs.confirmPassword = 'Las contraseñas no coinciden';
     return errs;
   }
@@ -165,7 +167,12 @@ export default function RegisterPage() {
 
   function handleRegistrationError(err: unknown) {
     const status = (err as { response?: { status?: number } }).response?.status;
-    if (status === 409) {
+    const passwordError = passwordErrorFromResponse(err);
+    if (passwordError) {
+      // The MS owns the blocklist / personal-data checks; the account step is where it is fixed.
+      setStep('account');
+      setFieldErrors({ password: passwordError });
+    } else if (status === 409) {
       setFieldErrors({ email: 'Este email ya está registrado' });
     } else {
       setGlobalError('Ocurrió un error. Intentá de nuevo.');
@@ -460,10 +467,11 @@ export default function RegisterPage() {
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="Mínimo 6 caracteres"
+              placeholder="Mínimo 15 caracteres"
               autoComplete="new-password"
               showToggle
             />
+            <Text variant="label">{PASSWORD_HINT}</Text>
             {fieldErrors.password && <ErrorBanner msg={fieldErrors.password} />}
 
             <Input

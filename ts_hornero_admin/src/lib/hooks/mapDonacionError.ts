@@ -23,6 +23,9 @@ export function mapDonacionError(error: unknown): string {
   if (status === 400 && /inactivo/i.test(message)) {
     return 'Uno de los artículos elegidos ya no está disponible. Actualizá la selección.';
   }
+  if (status === 409 && message.includes('NECESIDAD_NO_DISPONIBLE')) {
+    return 'Esta necesidad ya no recibe donaciones (está cerrada o vencida).';
+  }
   if (status === 400) {
     return 'Revisá los artículos y cantidades ingresados.';
   }

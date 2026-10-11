@@ -10,6 +10,8 @@ describe('DonacionesController', () => {
   let controller: DonacionesController;
   let service: {
     findDeMiOrganizacion: jest.Mock;
+    findById: jest.Mock;
+    getDonaciones: jest.Mock;
     decidir: jest.Mock;
     actualizarEstado: jest.Mock;
     overrideEstado: jest.Mock;
@@ -26,6 +28,8 @@ describe('DonacionesController', () => {
   beforeEach(async () => {
     service = {
       findDeMiOrganizacion: jest.fn(),
+      findById: jest.fn(),
+      getDonaciones: jest.fn(),
       decidir: jest.fn(),
       actualizarEstado: jest.fn(),
       overrideEstado: jest.fn(),
@@ -49,6 +53,46 @@ describe('DonacionesController', () => {
       ROLES_KEY,
       DonacionesController.prototype[methodName],
     ) ?? [];
+
+  describe('public reads with optional session', () => {
+    it('findById forwards the cookie token when present', async () => {
+      await controller.findById(5, requestWithToken('token-123'));
+      expect(service.findById).toHaveBeenCalledWith(5, 'token-123');
+    });
+
+    it('findById passes undefined (no 401) when anonymous', async () => {
+      await controller.findById(5, requestWithToken());
+      expect(service.findById).toHaveBeenCalledWith(5, undefined);
+    });
+
+    it('getDonaciones forwards the cookie token when present', async () => {
+      await controller.getDonaciones(
+        requestWithToken('tk'),
+        '10',
+        '0',
+        '20',
+        'id,desc',
+      );
+      expect(service.getDonaciones).toHaveBeenCalledWith(
+        '10',
+        '0',
+        '20',
+        'id,desc',
+        'tk',
+      );
+    });
+
+    it('getDonaciones passes undefined when anonymous', async () => {
+      await controller.getDonaciones(requestWithToken(), '10');
+      expect(service.getDonaciones).toHaveBeenCalledWith(
+        '10',
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+      );
+    });
+  });
 
   describe('findDeMiOrganizacion', () => {
     it('reads the access_token cookie and forwards it to the service', async () => {

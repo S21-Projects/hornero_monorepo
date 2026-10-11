@@ -1,5 +1,6 @@
 package org.example.organizacion;
 
+import org.example.idempotencia.Idempotente;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -33,6 +34,7 @@ public class OrganizacionController {
 
     @Operation(summary = "Propose a new organization (referente only)")
     @PostMapping
+    @Idempotente
     @ResponseStatus(HttpStatus.CREATED)
     @PreAuthorize("hasRole('REFERENTE')")
     public OrganizacionResponse crear(@Valid @RequestBody CrearOrganizacionRequest request) {

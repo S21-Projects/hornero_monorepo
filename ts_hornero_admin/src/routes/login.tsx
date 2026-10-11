@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { FormEvent } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Logo } from '../components/ui/Logo';
 import { Card } from '../components/ui/Card';
 import { Input } from '../components/ui/Input';
@@ -11,6 +11,8 @@ import { roleHome } from '../lib/roleHome';
 
 export default function LoginPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const cuentaDesactivada = searchParams.get('motivo') === 'cuenta-desactivada';
   const login = useAuthStore((s) => s.login);
 
   const [email, setEmail] = useState('');
@@ -89,6 +91,22 @@ export default function LoginPage() {
             autoComplete="current-password"
             showToggle
           />
+
+          {cuentaDesactivada && (
+            <div
+              role="alert"
+              style={{
+                background: '#FEF3C7',
+                border: '1px solid #FCD34D',
+                borderRadius: 10,
+                padding: '10px 14px',
+              }}
+            >
+              <Text variant="label" style={{ color: '#92400E' }}>
+                Tu cuenta fue desactivada. Si creés que es un error, contactá al equipo de Hornero.
+              </Text>
+            </div>
+          )}
 
           {error && (
             <div

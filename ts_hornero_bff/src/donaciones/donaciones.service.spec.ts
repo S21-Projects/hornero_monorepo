@@ -27,6 +27,42 @@ describe('DonacionesService', () => {
     service = module.get<DonacionesService>(DonacionesService);
   });
 
+  describe('optional session on public reads', () => {
+    beforeEach(() => {
+      httpService.axiosRef.get.mockResolvedValue({ data: {} });
+    });
+
+    it('findById forwards the Bearer token when present', async () => {
+      await service.findById(5, 'token-123');
+      expect(httpService.axiosRef.get).toHaveBeenCalledWith(
+        'http://ms:8081/api/donaciones/5',
+        { headers: { Authorization: 'Bearer token-123' } },
+      );
+    });
+
+    it('findById sends no Authorization header when anonymous', async () => {
+      await service.findById(5);
+      expect(httpService.axiosRef.get).toHaveBeenCalledWith(
+        'http://ms:8081/api/donaciones/5',
+        { headers: {} },
+      );
+    });
+
+    it('getDonaciones forwards the Bearer token when present', async () => {
+      await service.getDonaciones('10', undefined, undefined, undefined, 'tk');
+      const [url, config] = httpService.axiosRef.get.mock.calls[0];
+      expect(url).toContain('/api/donaciones?organizacionId=10');
+      expect(config).toEqual({ headers: { Authorization: 'Bearer tk' } });
+    });
+
+    it('getDonaciones sends no Authorization header when anonymous', async () => {
+      await service.getDonaciones('10');
+      expect(httpService.axiosRef.get.mock.calls[0][1]).toEqual({
+        headers: {},
+      });
+    });
+  });
+
   describe('findDeMiOrganizacion', () => {
     it('forwards the access token as a Bearer header to the MS mi-organizacion endpoint', async () => {
       const data = [{ id: 1, organizacionId: 10, estado: 'OFRECIDA' }];

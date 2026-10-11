@@ -1,5 +1,13 @@
 package org.example.organizacion;
 
+import org.mockito.ArgumentCaptor;
+import org.mockito.Mockito;
+import org.mockito.ArgumentMatchers;
+import org.example.actividad.TipoActividad;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.example.actividad.ActividadService;
 import org.example.acreditacion.AcreditacionService;
 import org.example.domain.EstadoOrganizacion;
 import org.example.domain.NivelAcreditacion;
@@ -43,6 +51,9 @@ class OrganizacionServiceTest {
     @Mock
     private AcreditacionService acreditacionService;
 
+    @Mock
+    private ActividadService actividadService;
+
     @InjectMocks
     private OrganizacionService organizacionService;
 
@@ -78,6 +89,33 @@ class OrganizacionServiceTest {
         assertThat(response.getReferenteEmail()).isEqualTo("ref@test.com");
         assertThat(response.getNombre()).isEqualTo("Org Test");
         verify(organizacionRepository).save(any(Organizacion.class));
+    }
+
+    @Test
+    void crear_appendsSuffixWhenSlugAlreadyExists() {
+        CrearOrganizacionRequest request = new CrearOrganizacionRequest(
+                "Org Test", TipoOrganizacion.COMEDOR, "d", "Calle 123", -34.0, -58.0, null, null, null);
+        when(usuarioRepository.findById(1L)).thenReturn(Optional.of(referente));
+        when(organizacionRepository.existsBySlug("org-test")).thenReturn(true);
+        when(organizacionRepository.save(any(Organizacion.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        OrganizacionResponse response = organizacionService.crear(request, 1L);
+
+        assertThat(response.getSlug()).isEqualTo("org-test-2");
+    }
+
+    @Test
+    void crear_keepsCountingUntilSlugIsFree() {
+        CrearOrganizacionRequest request = new CrearOrganizacionRequest(
+                "Org Test", TipoOrganizacion.COMEDOR, "d", "Calle 123", -34.0, -58.0, null, null, null);
+        when(usuarioRepository.findById(1L)).thenReturn(Optional.of(referente));
+        when(organizacionRepository.existsBySlug("org-test")).thenReturn(true);
+        when(organizacionRepository.existsBySlug("org-test-2")).thenReturn(true);
+        when(organizacionRepository.save(any(Organizacion.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        OrganizacionResponse response = organizacionService.crear(request, 1L);
+
+        assertThat(response.getSlug()).isEqualTo("org-test-3");
     }
 
     @Test
@@ -735,5 +773,58 @@ class OrganizacionServiceTest {
         OrganizacionResponse response = organizacionService.findBySlug("comedor-validado", 1L, "ROLE_REFERENTE");
 
         assertThat(response.getSitioWebUrlPendiente()).isEqualTo("https://pending.org");
+    }
+
+    @Test
+    void asignarReferente_recordsReassignmentAndPassesTheAdminActorToTheEventLog() {
+        Organizacion org = new org.example.domain.Organizacion();
+        org.setId(10L);
+        org.setReferente(referente);
+        Referente nuevo = new Referente(3L, "Nuevo", "nuevo@test.com", "encoded", true);
+        when(organizacionRepository.findById(10L)).thenReturn(Optional.of(org));
+        when(usuarioRepository.findById(3L)).thenReturn(Optional.of(nuevo));
+        when(usuarioRepository.findById(2L)).thenReturn(Optional.of(administrador));
+        when(organizacionRepository.save(any(Organizacion.class))).thenAnswer(inv -> inv.getArgument(0));
+        SecurityContextHolder.getContext().setAuthentication(
+                new UsernamePasswordAuthenticationToken(
+                        2L, null, List.of(new SimpleGrantedAuthority("ROLE_ADMINISTRADOR"))));
+        try {
+            organizacionService.asignarReferente(10L,
+                    new org.example.organizacion.dto.AsignarReferenteRequest(3L));
+        } finally {
+            SecurityContextHolder.clearContext();
+        }
+
+        verify(acreditacionService).registrarReasignacionReferente(org, 1L, 3L, administrador);
+        ArgumentCaptor<ActividadService.Registro> captor =
+                ArgumentCaptor.forClass(ActividadService.Registro.class);
+        verify(actividadService).registrar(captor.capture());
+        assertThat(captor.getValue().accion())
+                .isEqualTo(TipoActividad.ORGANIZACION_REFERENTE_REASIGNADO);
+        assertThat(captor.getValue().antes()).isEqualTo("1");
+        assertThat(captor.getValue().despues()).isEqualTo("3");
+    }
+
+    @Test
+    void crear_passesTheReferenteAsActorOfTheRegistrationEvent() {
+        CrearOrganizacionRequest request = new CrearOrganizacionRequest(
+                "Org Test", TipoOrganizacion.COMEDOR, "Una descripcion", "Calle 123", -34.0, -58.0,
+                null, null, null);
+        when(usuarioRepository.findById(1L)).thenReturn(Optional.of(referente));
+        when(organizacionRepository.save(any(Organizacion.class))).thenAnswer(inv -> {
+            Organizacion o = inv.getArgument(0);
+            o.setId(10L);
+            return o;
+        });
+
+        organizacionService.crear(request, 1L);
+
+        verify(acreditacionService).registrarRegistroOrganizacion(any(Organizacion.class), eq(referente));
+        ArgumentCaptor<ActividadService.Registro> captor =
+                ArgumentCaptor.forClass(ActividadService.Registro.class);
+        verify(actividadService).registrar(captor.capture());
+        assertThat(captor.getValue().accion())
+                .isEqualTo(TipoActividad.ORGANIZACION_CREADA);
+        assertThat(captor.getValue().entidadId()).isEqualTo(10L);
     }
 }

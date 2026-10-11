@@ -1,6 +1,9 @@
 package org.example.donacion;
 
 import lombok.RequiredArgsConstructor;
+import org.example.actividad.ActividadService;
+import org.example.actividad.ActividadService.Registro;
+import org.example.actividad.TipoActividad;
 import org.example.auth.VerificacionService;
 import org.example.config.EsquemaVerificador;
 import org.example.domain.Articulo;
@@ -13,8 +16,10 @@ import org.example.domain.DonacionLinea;
 import org.example.domain.DonacionRepository;
 import org.example.domain.EstadoAsignacion;
 import org.example.domain.EstadoDonacion;
+import org.example.domain.EstadoNecesidad;
 import org.example.domain.ModalidadDonacion;
 import org.example.domain.Necesidad;
+import org.example.domain.NivelAcreditacion;
 import org.example.domain.NecesidadRepository;
 import org.example.domain.Organizacion;
 import org.example.domain.OrganizacionRepository;
@@ -29,6 +34,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -42,6 +48,9 @@ import java.util.stream.Collectors;
 @Transactional(readOnly = true)
 public class DonacionService {
 
+    private static final Set<EstadoNecesidad> ESTADOS_ABIERTOS =
+            EnumSet.of(EstadoNecesidad.ABIERTA, EstadoNecesidad.EN_PROGRESO);
+
     private final DonacionRepository donacionRepository;
     private final NecesidadRepository necesidadRepository;
     private final UsuarioRepository usuarioRepository;
@@ -50,15 +59,20 @@ public class DonacionService {
     private final EsquemaVerificador esquemaVerificador;
     private final AsignacionRepository asignacionRepository;
     private final ArticuloRepository articuloRepository;
+    private final DonanteVisibilidad donanteVisibilidad;
+    private final Clock clock;
+    private final ActividadService actividadService;
 
     public Page<DonacionResponse> findAll(Pageable pageable) {
         return donacionRepository.findAllWithDonante(pageable)
-                .map(this::toResponse);
+                .map(this::toResponse)
+                .map(donanteVisibilidad.paraLlamadaActual());
     }
 
     public Page<DonacionResponse> findByOrganizacion(Long orgId, Pageable pageable) {
         return donacionRepository.findByOrganizacionId(orgId, pageable)
-                .map(this::toResponse);
+                .map(this::toResponse)
+                .map(donanteVisibilidad.paraLlamadaActual());
     }
 
     @Transactional
@@ -117,6 +131,22 @@ public class DonacionService {
         } else {
             Necesidad necesidad = necesidadRepository.findById(dto.getNecesidadId())
                     .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Necesidad not found"));
+            // D1: donors can only donate to an approved organization (nivel >= N1). A null nivel
+            // is a not-yet-backfilled row and reads as N0. Checked before any write.
+            NivelAcreditacion nivel = necesidad.getOrganizacion().getNivel();
+            if (nivel == null || nivel == NivelAcreditacion.N0) {
+                throw new ResponseStatusException(HttpStatus.CONFLICT,
+                        "ORGANIZACION_NO_APROBADA: la organización aún no está aprobada para recibir donaciones");
+            }
+            // D2/N3: only an open, unexpired necesidad accepts donations. The date check is
+            // independent of the daily expiry job, so a necesidad is closed to donors from the
+            // first day past its fechaVencimiento even if the job has not run yet.
+            LocalDate hoy = LocalDate.now(clock);
+            if (!ESTADOS_ABIERTOS.contains(necesidad.getEstado())
+                    || (necesidad.getFechaVencimiento() != null && necesidad.getFechaVencimiento().isBefore(hoy))) {
+                throw new ResponseStatusException(HttpStatus.CONFLICT,
+                        "NECESIDAD_NO_DISPONIBLE: la necesidad está cerrada o vencida");
+            }
             d.setNecesidad(necesidad);
         }
 
@@ -155,12 +185,17 @@ public class DonacionService {
             }
         }
 
-        return toResponse(donacionRepository.save(d));
+        Donacion guardada = donacionRepository.save(d);
+        actividadService.registrar(Registro.de(TipoActividad.DONACION_CREADA)
+                .entidad("DONACION", guardada.getId())
+                .cambio(null, EstadoDonacion.OFRECIDA)
+                .detalle("modalidad " + modalidad));
+        return toResponse(guardada);
     }
 
     public DonacionResponse findById(Long id) {
-        return toResponse(donacionRepository.findByIdWithRelations(id)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Donacion not found")));
+        return donanteVisibilidad.paraLlamadaActual().apply(toResponse(donacionRepository.findByIdWithRelations(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Donacion not found"))));
     }
 
     public Page<DonacionResponse> findMias(Long donanteId, Pageable pageable) {
@@ -225,12 +260,18 @@ public class DonacionService {
             d.setNecesidad(null);
             DonacionResponse response = toResponse(donacionRepository.save(d));
             resolverAsignacionVigente(id, EstadoAsignacion.RECHAZADA);
+            actividadService.registrar(Registro.de(TipoActividad.DONACION_DECISION)
+                    .entidad("DONACION", id).cambio(d.getEstado(), d.getEstado())
+                    .detalle("rechazada por la organización, devuelta al fondo común"));
             return response;
         }
 
         TransicionesDonacion.validar(d.getEstado(), nuevoEstado);
+        EstadoDonacion estadoAntes = d.getEstado();
         d.setEstado(nuevoEstado);
         DonacionResponse response = toResponse(donacionRepository.save(d));
+        actividadService.registrar(Registro.de(TipoActividad.DONACION_DECISION)
+                .entidad("DONACION", id).cambio(estadoAntes, nuevoEstado));
         if (nuevoEstado == EstadoDonacion.ACEPTADA) {
             resolverAsignacionVigente(id, EstadoAsignacion.ACEPTADA);
         }
@@ -249,8 +290,13 @@ public class DonacionService {
                     "Invalid state transition: " + nuevoEstado);
         }
         TransicionesDonacion.validar(d.getEstado(), nuevoEstado);
+        EstadoDonacion estadoAntes = d.getEstado();
         d.setEstado(nuevoEstado);
         DonacionResponse response = toResponse(donacionRepository.save(d));
+        actividadService.registrar(Registro.de(
+                        nuevoEstado == EstadoDonacion.CANCELADA
+                                ? TipoActividad.DONACION_CANCELADA : TipoActividad.DONACION_ESTADO_ACTUALIZADO)
+                .entidad("DONACION", id).cambio(estadoAntes, nuevoEstado));
         if (nuevoEstado == EstadoDonacion.CANCELADA) {
             resolverAsignacionVigente(id, EstadoAsignacion.CANCELADA);
         }
@@ -289,12 +335,15 @@ public class DonacionService {
             d.setConfirmadaReferenteEn(null);
         }
 
+        EstadoDonacion estadoAntes = d.getEstado();
         d.setEstado(nuevoEstado);
         d.setOverrideMotivo(motivo);
         d.setOverrideAdminId(adminId);
         d.setOverrideEn(Instant.now());
 
         DonacionResponse response = toResponse(donacionRepository.save(d));
+        actividadService.registrar(Registro.de(TipoActividad.DONACION_OVERRIDE)
+                .entidad("DONACION", id).cambio(estadoAntes, nuevoEstado).motivo(motivo));
         if (nuevoEstado == EstadoDonacion.ACEPTADA
                 || nuevoEstado == EstadoDonacion.RECHAZADA
                 || nuevoEstado == EstadoDonacion.CANCELADA) {
@@ -336,6 +385,8 @@ public class DonacionService {
                     "Cannot delete a donation that is not in OFRECIDA state");
         }
         donacionRepository.delete(d);
+        actividadService.registrar(Registro.de(TipoActividad.DONACION_ELIMINADA)
+                .entidad("DONACION", id).cambio(d.getEstado(), null));
     }
 
     private DonacionResponse toResponse(Donacion d) {

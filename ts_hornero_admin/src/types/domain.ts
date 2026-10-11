@@ -184,8 +184,9 @@ export interface Donacion {
   fechaEntrega?: string;
   estado: EstadoDonacion;
   observaciones?: string;
-  donanteName?: string;
-  donanteId?: number;
+  /** Null when the viewer may not see the donor (D5: only admin, the donor and the receiving referente). */
+  donanteName?: string | null;
+  donanteId?: number | null;
   /** Null for a `FONDO_COMUN` donación — it has no necesidad until the solver assigns it. */
   necesidadId: number | null;
   organizacionId?: number | null;
@@ -250,9 +251,11 @@ export interface RondaResponse {
   id: number;
   ejecutadaEn: string;
   finalizadaEn: string | null;
-  ejecutadaPor: number;
+  /** `null` for a scheduled (AUTOMATICA) ronda, which has no executing user (N7). */
+  ejecutadaPor: number | null;
   /** Resolved server-side from `usuarios` (T6); `null` when the executor account no longer exists. */
   ejecutadaPorNombre: string | null;
+  origen: 'MANUAL' | 'AUTOMATICA';
   estado: 'COMPLETADA' | 'FALLIDA';
   error: string | null;
   versionContrato: number;
@@ -303,6 +306,11 @@ export interface CrearNecesidadInput {
   prioridad: PrioridadNecesidad;
   fechaVencimiento?: string;
   articuloIds: number[];
+}
+
+/** Relaunch of an expired necesidad: the new expiry date must be after today. */
+export interface RelanzarNecesidadInput {
+  fechaVencimiento: string;
 }
 
 export interface ActualizarNecesidadInput {
@@ -540,4 +548,22 @@ export interface DonacionActiva {
   modalidad?: ModalidadDonacion;
   fase?: FaseDonacion;
   lineas?: DonacionLinea[];
+}
+
+/** Mirrors `ActividadResponse` (MS) — one row of the append-only activity log (N10). */
+export interface Actividad {
+  id: number;
+  ocurridoEn: string;
+  actorUsuarioId: number | null;
+  actorTipo: string;
+  accion: string;
+  resultado: string;
+  entidadTipo: string | null;
+  entidadId: number | null;
+  detalle: string | null;
+  antes: string | null;
+  despues: string | null;
+  motivo: string | null;
+  ip: string | null;
+  emailIntento: string | null;
 }

@@ -28,12 +28,15 @@ app:
   mail:
     resend-api-key: ""
     otp-from-email: ""
+    log-only: true
   otp:
     ttl-minutes: 15
     max-attempts: 5
     resend-max: 3
     resend-window-minutes: 15
     resend-cooldown-seconds: 60
+  donaciones:
+    donante-publico: false
   entrega:
     ttl-minutes: 10
     max-attempts: 5

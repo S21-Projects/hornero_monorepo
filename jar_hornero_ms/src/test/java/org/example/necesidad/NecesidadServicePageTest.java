@@ -1,5 +1,6 @@
 package org.example.necesidad;
 
+import org.example.actividad.ActividadService;
 import org.example.domain.EstadoNecesidad;
 import org.example.domain.Necesidad;
 import org.example.domain.NecesidadRepository;
@@ -36,6 +37,12 @@ class NecesidadServicePageTest {
     @Mock
     private OrganizacionRepository organizacionRepository;
 
+    @org.mockito.Spy
+    private java.time.Clock clock = java.time.Clock.system(java.time.ZoneId.of("America/Argentina/Buenos_Aires"));
+
+    @Mock
+    private ActividadService actividadService;
+
     @InjectMocks
     private NecesidadService necesidadService;
 
@@ -66,7 +73,7 @@ class NecesidadServicePageTest {
                 buildNecesidad(4L), buildNecesidad(5L));
         Page<Necesidad> repoPage = new PageImpl<>(content, pageable, 15L);
 
-        when(necesidadRepository.findAll(pageable)).thenReturn(repoPage);
+        when(necesidadRepository.findByEstadoNot(EstadoNecesidad.VENCIDA, pageable)).thenReturn(repoPage);
 
         Page<NecesidadResponse> result = necesidadService.findAll(pageable);
 
@@ -84,7 +91,7 @@ class NecesidadServicePageTest {
         List<Necesidad> content = List.of(buildNecesidad(10L));
         Page<Necesidad> repoPage = new PageImpl<>(content, pageable, 7L);
 
-        when(necesidadRepository.findByOrganizacion_Id(1L, pageable)).thenReturn(repoPage);
+        when(necesidadRepository.findByOrganizacion_IdAndEstadoNot(1L, EstadoNecesidad.VENCIDA, pageable)).thenReturn(repoPage);
 
         Page<NecesidadResponse> result = necesidadService.findByOrganizacion(1L, pageable);
 

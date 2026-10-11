@@ -45,3 +45,23 @@ export function formatLineas(lineas?: DonacionLinea[]): string {
     })
     .join(', ');
 }
+
+const FECHA_HORA = new Intl.DateTimeFormat('es-AR', {
+  timeZone: 'America/Argentina/Buenos_Aires',
+  day: '2-digit',
+  month: '2-digit',
+  year: 'numeric',
+  hour: '2-digit',
+  minute: '2-digit',
+  second: '2-digit',
+  hourCycle: 'h23',
+});
+
+/** Formats an ISO instant (UTC) as `DD/MM/YYYY HH:mm:ss` in Argentina time; "—" if missing/invalid. */
+export function formatFechaHora(iso?: string): string {
+  if (!iso) return '—';
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return '—';
+  const p = Object.fromEntries(FECHA_HORA.formatToParts(date).map((x) => [x.type, x.value]));
+  return `${p.day}/${p.month}/${p.year} ${p.hour}:${p.minute}:${p.second}`;
+}

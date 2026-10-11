@@ -1,0 +1,64 @@
+package org.example.actividad;
+
+/**
+ * Explicit, closed list of recorded activity kinds (N10/D10). Adding a value is a deliberate code
+ * change; nothing outside this list can be written to the activity log. Persisted by name
+ * ({@code EnumType.STRING}), so values must never be renamed once released.
+ *
+ * <p>Auth events carry their outcome in {@link ResultadoActividad} (e.g. {@code LOGIN} +
+ * {@code FALLO}); the ones that only ever represent a refusal have no separate success twin.
+ * Reads, 403 and 429 responses are intentionally NOT recorded (technical log only).
+ */
+public enum TipoActividad {
+    // Authentication (ASVS 16.3.1) and control-bypass attempts (16.3.3)
+    LOGIN,
+    LOGOUT,
+    REGISTRO,
+    REFRESH_TOKEN,
+    REFRESH_TOKEN_REUTILIZADO,
+    OTP_VERIFICACION,
+    OTP_BLOQUEO,
+    ENTREGA_CODIGO_GENERADO,
+    ENTREGA_CODIGO_VERIFICACION,
+    ENTREGA_CODIGO_BLOQUEO,
+
+    // Users
+    USUARIO_ACTIVADO,
+    USUARIO_DESACTIVADO,
+
+    // Organizaciones (accreditation level/evidence stay in OrganizacionEvento, not duplicated)
+    ORGANIZACION_CREADA,
+    ORGANIZACION_VALIDADA,
+    ORGANIZACION_RECHAZADA,
+    ORGANIZACION_ACTUALIZADA,
+    ORGANIZACION_REFERENTE_REASIGNADO,
+    ORGANIZACION_INFO_PUBLICA_EDITADA,
+    ORGANIZACION_INFO_PUBLICA_APROBADA,
+    ORGANIZACION_INFO_PUBLICA_RECHAZADA,
+
+    // Necesidades
+    NECESIDAD_CREADA,
+    NECESIDAD_ACTUALIZADA,
+    NECESIDAD_ELIMINADA,
+    NECESIDAD_RELANZADA,
+    NECESIDADES_VENCIDAS,
+
+    // Donaciones
+    DONACION_CREADA,
+    DONACION_DECISION,
+    DONACION_ESTADO_ACTUALIZADO,
+    DONACION_CANCELADA,
+    DONACION_ELIMINADA,
+    DONACION_OVERRIDE,
+
+    // Rondas and catalog
+    RONDA_EJECUTADA,
+    ARTICULO_CREADO,
+    ARTICULO_ACTUALIZADO,
+    ARTICULO_DESACTIVADO,
+    ARTICULO_REACTIVADO,
+
+    // System housekeeping that deletes data
+    TOKENS_PURGADOS,
+    ACTIVIDAD_PURGADA
+}

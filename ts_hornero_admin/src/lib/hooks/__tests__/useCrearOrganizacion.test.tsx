@@ -41,7 +41,9 @@ describe('useCrearOrganizacion', () => {
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
 
-    expect(api.post).toHaveBeenCalledWith('/organizaciones', input);
+    expect(api.post).toHaveBeenCalledWith('/organizaciones', input, {
+      headers: { 'Idempotency-Key': expect.any(String) },
+    });
     expect(result.current.data).toEqual(created);
   });
 

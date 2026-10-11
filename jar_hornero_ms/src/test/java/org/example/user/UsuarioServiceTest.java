@@ -1,5 +1,7 @@
 package org.example.user;
 
+import org.example.actividad.ActividadService;
+import org.example.actividad.TipoActividad;
 import org.example.domain.Organizacion;
 import org.example.domain.OrganizacionRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -24,6 +26,12 @@ class UsuarioServiceTest {
 
     @Mock
     private OrganizacionRepository organizacionRepository;
+
+    @Mock
+    private org.example.auth.RefreshTokenService refreshTokenService;
+
+    @Mock
+    private ActividadService actividadService;
 
     @InjectMocks
     private UsuarioService usuarioService;
@@ -74,5 +82,63 @@ class UsuarioServiceTest {
         usuarioService.toggleActivo(1L, true);
 
         verify(organizacionRepository, never()).findByReferente_Id(anyLong());
+    }
+
+    @Test
+    void toggleActivo_deactivating_revokesTheUsersRefreshTokens() {
+        Donante donante = new Donante(7L, "Don", "don@test.com", "encoded", true);
+        when(usuarioRepository.findById(7L)).thenReturn(Optional.of(donante));
+        when(usuarioRepository.save(any(Usuario.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        usuarioService.toggleActivo(7L, false);
+
+        verify(refreshTokenService).revokeAllFor(7L);
+    }
+
+    @Test
+    void toggleActivo_activating_doesNotRevokeTokens() {
+        Donante donante = new Donante(7L, "Don", "don@test.com", "encoded", false);
+        when(usuarioRepository.findById(7L)).thenReturn(Optional.of(donante));
+        when(usuarioRepository.save(any(Usuario.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        usuarioService.toggleActivo(7L, true);
+
+        verify(refreshTokenService, never()).revokeAllFor(any());
+    }
+
+    @Test
+    void toggleActivo_deactivating_recordsActorlessEntryInSameTransactionWithBeforeAfterAndReason() {
+        Donante donante = new Donante(7L, "Don", "don@test.com", "encoded", true);
+        when(usuarioRepository.findById(7L)).thenReturn(Optional.of(donante));
+        when(usuarioRepository.save(any(Usuario.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        usuarioService.toggleActivo(7L, false, "abuso reiterado");
+
+        org.mockito.ArgumentCaptor<ActividadService.Registro> captor =
+                org.mockito.ArgumentCaptor.forClass(ActividadService.Registro.class);
+        verify(actividadService).registrar(captor.capture());
+        ActividadService.Registro r = captor.getValue();
+        assertThat(r.accion()).isEqualTo(TipoActividad.USUARIO_DESACTIVADO);
+        assertThat(r.entidadTipo()).isEqualTo("USUARIO");
+        assertThat(r.entidadId()).isEqualTo(7L);
+        assertThat(r.antes()).isEqualTo("activo");
+        assertThat(r.despues()).isEqualTo("inactivo");
+        assertThat(r.motivo()).isEqualTo("abuso reiterado");
+        verify(actividadService, never()).registrarAislado(any());
+    }
+
+    @Test
+    void toggleActivo_activating_recordsUsuarioActivado() {
+        Donante donante = new Donante(7L, "Don", "don@test.com", "encoded", false);
+        when(usuarioRepository.findById(7L)).thenReturn(Optional.of(donante));
+        when(usuarioRepository.save(any(Usuario.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        usuarioService.toggleActivo(7L, true);
+
+        org.mockito.ArgumentCaptor<ActividadService.Registro> captor =
+                org.mockito.ArgumentCaptor.forClass(ActividadService.Registro.class);
+        verify(actividadService).registrar(captor.capture());
+        assertThat(captor.getValue().accion()).isEqualTo(TipoActividad.USUARIO_ACTIVADO);
+        assertThat(captor.getValue().antes()).isEqualTo("inactivo");
     }
 }

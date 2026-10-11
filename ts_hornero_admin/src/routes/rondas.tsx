@@ -66,7 +66,9 @@ export default function RondasPage() {
       key: 'ejecutadaPor',
       header: 'Ejecutada por',
       render: (r) => (
-        <Text variant="body-sm" color="ink-3">{r.ejecutadaPorNombre ?? `Admin #${r.ejecutadaPor}`}</Text>
+        <Text variant="body-sm" color="ink-3">
+          {r.origen === 'AUTOMATICA' ? 'Automática' : (r.ejecutadaPorNombre ?? `Admin #${r.ejecutadaPor}`)}
+        </Text>
       ),
     },
   ];

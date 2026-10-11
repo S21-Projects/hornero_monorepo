@@ -42,8 +42,15 @@ public class AuthController {
 
     @Operation(summary = "Refresh access token using a valid refresh token")
     @PostMapping("/refresh")
-    public AuthResponse refresh(@RequestBody RefreshRequest request) {
+    public AuthResponse refresh(@Valid @RequestBody RefreshRequest request) {
         return authService.refresh(request.getRefreshToken());
+    }
+
+    @Operation(summary = "Revoke the session of a refresh token (always 204, no oracle)")
+    @PostMapping("/logout")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void logout(@Valid @RequestBody RefreshRequest request) {
+        authService.logout(request.getRefreshToken());
     }
 
     @Operation(summary = "Confirm an OTP and mark the account as email-verified")
@@ -61,9 +68,13 @@ public class AuthController {
 
     @Operation(summary = "Get the currently authenticated user's profile")
     @GetMapping("/me")
-    public UserResponse me() {
+    public UserResponse me(jakarta.servlet.http.HttpServletRequest request) {
+        if (org.example.config.UsuarioInactivo.isMarked(request)) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, org.example.config.UsuarioInactivo.CODE);
+        }
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null || !authentication.isAuthenticated()) {
+        if (authentication == null || !authentication.isAuthenticated()
+                || !(authentication.getPrincipal() instanceof Long)) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Not authenticated");
         }
 

@@ -5,7 +5,9 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { HttpModule } from '@nestjs/axios';
 import { AuthService } from './auth.service.js';
 import { AuthController } from './auth.controller.js';
+import { ThrottlerModule } from '@nestjs/throttler';
 import { JwtStrategy } from './strategies/jwt.strategy.js';
+import { AUTH_THROTTLER_OPTIONS } from './auth-throttler.config.js';
 
 @Module({
   imports: [
@@ -19,9 +21,10 @@ import { JwtStrategy } from './strategies/jwt.strategy.js';
       }),
     }),
     HttpModule,
+    ThrottlerModule.forRoot(AUTH_THROTTLER_OPTIONS),
   ],
   providers: [AuthService, JwtStrategy],
   controllers: [AuthController],
-  exports: [JwtModule],
+  exports: [JwtModule, AuthService],
 })
 export class AuthModule {}
