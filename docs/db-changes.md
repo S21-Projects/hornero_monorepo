@@ -10,6 +10,24 @@ production DB) — check the "Applied to" line before running anything twice.
 
 ---
 
+## 2026-10-10 — `version` columns for optimistic locking on `donaciones`, `necesidades`, `organizaciones` (N11)
+
+**Reason**: `@Version` on `Donacion`, `Necesidad` and `Organizacion` makes two concurrent operations on the same row safe: the first commit wins, the second answers 409 `CONFLICTO_CONCURRENTE`. `ddl-auto=update` adds the column as nullable and leaves existing rows NULL, which would make every later update of those rows fail the version check.
+
+**Before**: no `version` column.
+
+**Migration**: `scripts/sql/V003__optimistic_version_columns.sql` (run `make migrate`). Adds the column if missing, sets `0` where NULL, then `DEFAULT 0 NOT NULL`. Safe before or after deploying the new MS image. At boot `EsquemaVerificador` logs `ESQUEMA_PENDIENTE` if NULL versions remain (PostgreSQL only). The new `idempotency_keys` table is created by `ddl-auto=update` (no script needed).
+
+**After**: `version BIGINT NOT NULL DEFAULT 0` on the three tables.
+
+**Rollback**: `ALTER TABLE donaciones ALTER COLUMN version DROP NOT NULL;` (same for the other two); the column can stay, the old code ignores it.
+
+**Applied to**:
+- [ ] Local dev DB
+- [ ] Pi production DB (run `make migrate` right after deploying, before traffic)
+
+---
+
 ## 2026-10-10 — `rondas.ejecutada_por`: drop NOT NULL for scheduled rondas (N7)
 
 **Reason**: the optional scheduled ronda (`RONDAS_AUTO_ENABLED=true`) has no executing user.

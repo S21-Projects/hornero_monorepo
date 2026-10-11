@@ -55,6 +55,12 @@ app:
   actividad:
     # N10: activity-log retention. Provisional default until D12 (PII retention) is decided.
     retencion-dias: ${ACTIVIDAD_RETENCION_DIAS:365}
+  idempotencia:
+    # N11: Idempotency-Key retention. A repeated key within the TTL replays the original response;
+    # after it the key is a new operation. An EN_PROCESO key older than en-proceso-max-minutos is
+    # treated as abandoned (crashed request) and can be taken over.
+    ttl-horas: ${IDEMPOTENCIA_TTL_HORAS:24}
+    en-proceso-max-minutos: 2
   rondas:
     # N7/D7: optional scheduled ronda. Off by default (rondas are manual).
     auto:

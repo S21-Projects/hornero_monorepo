@@ -1,5 +1,6 @@
 package org.example.acreditacion;
 
+import org.example.idempotencia.Idempotente;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -60,6 +61,7 @@ public class AcreditacionController {
 
     @Operation(summary = "Submit evidence for a requisito (owning referente only)")
     @PostMapping("/acreditacion/evidencias")
+    @Idempotente
     @ResponseStatus(HttpStatus.CREATED)
     @PreAuthorize("hasRole('REFERENTE')")
     public EvidenciaResponse cargarEvidencia(@PathVariable Long id,

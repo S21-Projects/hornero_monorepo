@@ -10,8 +10,24 @@ import type { NextFunction, Request, Response } from 'express';
  */
 export const CLIENT_IP_HEADER = 'X-Client-IP';
 
+/**
+ * N11: mandatory idempotency on business POSTs. The BFF is a transparent carrier: it forwards the
+ * client's key to the MS (which owns the semantics) and relays the MS's replay marker back.
+ */
+export const IDEMPOTENCY_KEY_HEADER = 'Idempotency-Key';
+export const IDEMPOTENT_REPLAYED_HEADER = 'Idempotent-Replayed';
+
 const IP_LITERAL = /^[0-9a-fA-F:.]{2,45}$/;
-const store = new AsyncLocalStorage<{ ip?: string }>();
+// Shape check only (the MS validates that it is a UUID): keeps anything header-unsafe out.
+const KEY_SHAPE = /^[A-Za-z0-9-]{1,64}$/;
+
+interface RequestContext {
+  ip?: string;
+  idempotencyKey?: string;
+  res?: Pick<Response, 'headersSent' | 'setHeader'>;
+}
+
+const store = new AsyncLocalStorage<RequestContext>();
 
 /**
  * Real client IP: `cf-connecting-ip` behind the Cloudflare Tunnel (same trust assumption as
@@ -30,13 +46,42 @@ export function resolveClientIp(req: {
   return undefined;
 }
 
-/** Express middleware: keeps the client IP available to outbound calls for this request. */
+function resolveIdempotencyKey(req: {
+  headers?: Record<string, string | string[] | undefined>;
+}): string | undefined {
+  const header = req.headers?.['idempotency-key'];
+  // A repeated header arrives as an array: ambiguous, so no key is forwarded and the MS answers 400.
+  const value = typeof header === 'string' ? header.trim() : undefined;
+  return value && KEY_SHAPE.test(value) ? value : undefined;
+}
+
+/**
+ * Express middleware: keeps the client IP, the Idempotency-Key and the response object available
+ * to outbound calls for this request.
+ */
 export function clientIpMiddleware(
   req: Request,
-  _res: Response,
+  res: Response,
   next: NextFunction,
 ) {
-  store.run({ ip: resolveClientIp(req) }, next);
+  store.run(
+    {
+      ip: resolveClientIp(req),
+      idempotencyKey: resolveIdempotencyKey(req),
+      res,
+    },
+    next,
+  );
+}
+
+function relayReplayMarker(headers: unknown): void {
+  const getter = (headers as { get?: (name: string) => unknown } | undefined)
+    ?.get;
+  const replayed = getter?.call(headers, IDEMPOTENT_REPLAYED_HEADER);
+  const res = store.getStore()?.res;
+  if (replayed === 'true' && res && !res.headersSent) {
+    res.setHeader(IDEMPOTENT_REPLAYED_HEADER, 'true');
+  }
 }
 
 const installed = new WeakSet<AxiosInstance>();
@@ -55,9 +100,24 @@ export function installClientIpForwarding(
     const ip = store.getStore()?.ip;
     const ms = process.env.JAVA_MS_URL;
     const target = `${config.baseURL ?? ''}${config.url ?? ''}`;
-    if (ip && ms && target.startsWith(ms)) {
+    const toMs = !!ms && target.startsWith(ms);
+    if (ip && toMs) {
       config.headers.set(CLIENT_IP_HEADER, ip);
+    }
+    const key = store.getStore()?.idempotencyKey;
+    if (key && toMs && config.method?.toLowerCase() === 'post') {
+      config.headers.set(IDEMPOTENCY_KEY_HEADER, key);
     }
     return config;
   });
+  instance.interceptors.response.use(
+    (response) => {
+      relayReplayMarker(response.headers);
+      return response;
+    },
+    (error) => {
+      relayReplayMarker(error?.response?.headers);
+      return Promise.reject(error);
+    },
+  );
 }

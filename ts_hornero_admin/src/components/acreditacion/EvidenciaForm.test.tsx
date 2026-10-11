@@ -80,6 +80,8 @@ describe('EvidenciaForm', () => {
         tipoEvidencia: 'FOTO',
         objectKey: 'org-evidencia/5/123.jpg',
       }),
+   
+      expect.objectContaining({ headers: { 'Idempotency-Key': expect.any(String) } }),
     );
   });
 
@@ -101,6 +103,8 @@ describe('EvidenciaForm', () => {
         tipoEvidencia: 'DECLARACION',
         declaracion: 'No discriminamos por ningún motivo',
       }),
+   
+      expect.objectContaining({ headers: { 'Idempotency-Key': expect.any(String) } }),
     );
   });
 

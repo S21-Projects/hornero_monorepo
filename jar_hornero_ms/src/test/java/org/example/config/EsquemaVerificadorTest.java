@@ -88,4 +88,35 @@ class EsquemaVerificadorTest {
         org.mockito.Mockito.verify(jdbcTemplate, org.mockito.Mockito.never())
                 .queryForObject(org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.eq(String.class));
     }
+
+    @Test
+    void postgres_rowsWithNullVersion_flagsV003Pending() throws Exception {
+        mockDatabaseProduct("PostgreSQL");
+        when(jdbcTemplate.queryForObject(org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.eq(String.class)))
+                .thenReturn("YES");
+        when(jdbcTemplate.queryForList(org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.eq(String.class)))
+                .thenReturn(java.util.List.of("donaciones"));
+
+        esquemaVerificador.run(new DefaultApplicationArguments());
+
+        assertThat(esquemaVerificador.versionesInicializadas()).isFalse();
+    }
+
+    @Test
+    void postgres_noNullVersions_v003NotPending() throws Exception {
+        mockDatabaseProduct("PostgreSQL");
+        when(jdbcTemplate.queryForObject(org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.eq(String.class)))
+                .thenReturn("YES");
+        when(jdbcTemplate.queryForList(org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.eq(String.class)))
+                .thenReturn(java.util.List.of());
+
+        esquemaVerificador.run(new DefaultApplicationArguments());
+
+        assertThat(esquemaVerificador.versionesInicializadas()).isTrue();
+    }
+
+    @Test
+    void defaultState_versionsAssumedInitialized() {
+        assertThat(esquemaVerificador.versionesInicializadas()).isTrue();
+    }
 }

@@ -23,6 +23,8 @@ const ADMIN_PASSWORD = 'Admin123!';
 // not common, no email local part / name / "hornero").
 const REFERENTE_PASSWORD = 'comedor-solidario-cordoba';
 
+const MAX_429_RETRIES = 5;
+
 interface JsonResponse<T> {
   data: T;
   setCookieHeader: string | null;
@@ -30,13 +32,22 @@ interface JsonResponse<T> {
 
 async function fetchJson<T>(url: string, init?: RequestInit): Promise<JsonResponse<T>> {
   let res: Response;
-  try {
-    res = await fetch(url, init);
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
-    console.error(`[seed] Network error reaching ${url}: ${msg}`);
-    console.error(`[seed] Is BFF running at ${BFF_URL}?`);
-    process.exit(1);
+  // The BFF rate-limits auth routes (e.g. register 3/min per IP). Wait out a 429 and retry the
+  // same request — same init, so the same Idempotency-Key — instead of aborting the seed.
+  for (let attempt = 0; ; attempt++) {
+    try {
+      res = await fetch(url, init);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      console.error(`[seed] Network error reaching ${url}: ${msg}`);
+      console.error(`[seed] Is BFF running at ${BFF_URL}?`);
+      process.exit(1);
+    }
+    if (res.status !== 429 || attempt >= MAX_429_RETRIES) break;
+    const retryAfter = Number(res.headers.get('retry-after'));
+    const waitSeconds = Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter + 1 : 61;
+    console.log(`[seed] Rate limited on ${url}, retrying in ${waitSeconds}s...`);
+    await new Promise((resolve) => setTimeout(resolve, waitSeconds * 1000));
   }
 
   if (!res.ok) {
@@ -44,7 +55,13 @@ async function fetchJson<T>(url: string, init?: RequestInit): Promise<JsonRespon
     throw new Error(`HTTP ${res.status} ${res.statusText} — ${url}\n${body}`);
   }
 
-  const data = (await res.json()) as T;
+  // The BFF wraps every response in { status, message, data }; hand callers the payload.
+  const body = (await res.json()) as unknown;
+  const data = (
+    body !== null && typeof body === 'object' && 'status' in body && 'data' in body
+      ? (body as { data: unknown }).data
+      : body
+  ) as T;
   const setCookieHeader = res.headers.get('set-cookie');
   return { data, setCookieHeader };
 }
@@ -186,11 +203,33 @@ async function main() {
       }
     }
 
+    // Re-runs: a referente that already owns this org must not create it again (the MS would
+    // otherwise mint a duplicate), so reuse it for the validation phase.
+    try {
+      const { data: owned } = await fetchJson<Array<{ nombre: string }>>(
+        `${BFF_URL}/organizaciones/mia`,
+        { headers: authHeader(token) }
+      );
+      if (Array.isArray(owned) && owned.some((o) => o.nombre === slot.org.nombre)) {
+        console.log(`  [~] ${slot.user.email} already owns "${slot.org.nombre}" — skipping create`);
+        continue;
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error(`[seed] Failed to list orgs of ${slot.user.email}: ${msg}`);
+      process.exit(1);
+    }
+
     // Create organization
     try {
       await fetchJson<unknown>(`${BFF_URL}/organizaciones`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...authHeader(token) },
+        // N11: creating an organizacion requires an Idempotency-Key.
+        headers: {
+          'Content-Type': 'application/json',
+          'Idempotency-Key': crypto.randomUUID(),
+          ...authHeader(token),
+        },
         body: JSON.stringify(slot.org),
       });
       console.log(`  [+] Created org "${slot.org.nombre}" for ${slot.user.email}`);
@@ -219,12 +258,13 @@ async function main() {
   console.log(`  [+] Admin logged in`);
 
   console.log('[seed] Phase 3: fetching pending orgs...');
-  const { data: pendingOrgs } = await fetchJson<Array<{ id: number; nombre: string }>>(
-    `${BFF_URL}/organizaciones/pendientes`,
+  const { data: pendingPage } = await fetchJson<{ content: Array<{ id: number; nombre: string }> }>(
+    `${BFF_URL}/organizaciones/pendientes?size=100`,
     {
       headers: authHeader(adminToken),
     }
   );
+  const pendingOrgs = pendingPage.content;
   console.log(`  [+] Found ${pendingOrgs.length} pending org(s)`);
 
   console.log('[seed] Phase 4: validating pending orgs...');

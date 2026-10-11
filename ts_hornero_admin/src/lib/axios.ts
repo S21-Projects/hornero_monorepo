@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { isApiEnvelope } from '../types/api';
+import { IDEMPOTENCY_KEY_HEADER, newIdempotencyKey } from './idempotency';
 
 // BFF base URL — NO /api prefix (gotcha #252: BFF routes have no /api prefix,
 // only the MS does).
@@ -7,6 +8,24 @@ export const api = axios.create({
   baseURL: import.meta.env.VITE_BFF_URL,
   withCredentials: true,
   timeout: 10000,
+});
+
+// N11 fallback: the mutation hooks set a stable per-submission key themselves. Any other business
+// POST that did not (a future endpoint, a one-off call) still gets a fresh key so the MS never
+// answers 400 IDEMPOTENCY_KEY_REQUERIDA. A key added here protects only this one request object
+// (the 401-refresh retry reuses it), not a re-issued submission. /auth/** has its own semantics and
+// uploads never reach a business POST in the MS.
+const SIN_CLAVE = /^\/(auth|upload)\//;
+
+api.interceptors.request.use((config) => {
+  if (
+    config.method?.toLowerCase() === 'post' &&
+    !SIN_CLAVE.test(config.url ?? '') &&
+    !config.headers.has(IDEMPOTENCY_KEY_HEADER)
+  ) {
+    config.headers.set(IDEMPOTENCY_KEY_HEADER, newIdempotencyKey());
+  }
+  return config;
 });
 
 let isRefreshing = false;

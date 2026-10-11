@@ -1,5 +1,6 @@
 package org.example.donacion.entrega;
 
+import org.example.idempotencia.Idempotente;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -34,6 +35,7 @@ public class EntregaController {
 
     @Operation(summary = "Generate this party's own delivery code (donante or referente)")
     @PostMapping("/codigo")
+    @Idempotente
     @ResponseStatus(HttpStatus.CREATED)
     @PreAuthorize("hasAnyRole('DONANTE', 'REFERENTE')")
     public CodigoEntregaResponse generar(@PathVariable Long id) {
@@ -43,6 +45,7 @@ public class EntregaController {
 
     @Operation(summary = "Verify the counterpart's delivery code")
     @PostMapping("/verificar")
+    @Idempotente
     @PreAuthorize("hasAnyRole('DONANTE', 'REFERENTE')")
     public EntregaEstadoResponse verificar(@PathVariable Long id, @Valid @RequestBody VerificarCodigoRequest request) {
         Long actorId = actorId();
