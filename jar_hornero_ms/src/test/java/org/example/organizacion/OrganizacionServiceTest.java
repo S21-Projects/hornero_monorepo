@@ -92,6 +92,33 @@ class OrganizacionServiceTest {
     }
 
     @Test
+    void crear_appendsSuffixWhenSlugAlreadyExists() {
+        CrearOrganizacionRequest request = new CrearOrganizacionRequest(
+                "Org Test", TipoOrganizacion.COMEDOR, "d", "Calle 123", -34.0, -58.0, null, null, null);
+        when(usuarioRepository.findById(1L)).thenReturn(Optional.of(referente));
+        when(organizacionRepository.existsBySlug("org-test")).thenReturn(true);
+        when(organizacionRepository.save(any(Organizacion.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        OrganizacionResponse response = organizacionService.crear(request, 1L);
+
+        assertThat(response.getSlug()).isEqualTo("org-test-2");
+    }
+
+    @Test
+    void crear_keepsCountingUntilSlugIsFree() {
+        CrearOrganizacionRequest request = new CrearOrganizacionRequest(
+                "Org Test", TipoOrganizacion.COMEDOR, "d", "Calle 123", -34.0, -58.0, null, null, null);
+        when(usuarioRepository.findById(1L)).thenReturn(Optional.of(referente));
+        when(organizacionRepository.existsBySlug("org-test")).thenReturn(true);
+        when(organizacionRepository.existsBySlug("org-test-2")).thenReturn(true);
+        when(organizacionRepository.save(any(Organizacion.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        OrganizacionResponse response = organizacionService.crear(request, 1L);
+
+        assertThat(response.getSlug()).isEqualTo("org-test-3");
+    }
+
+    @Test
     void crear_throwsForbiddenWhenUserIsNotReferente() {
         when(usuarioRepository.findById(2L)).thenReturn(Optional.of(administrador));
 
