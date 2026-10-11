@@ -60,7 +60,7 @@ public class OrganizacionService {
 
         Organizacion organizacion = new Organizacion();
         organizacion.setNombre(request.getNombre());
-        organizacion.setSlug(generateSlug(request.getNombre()));
+        organizacion.setSlug(slugUnico(request.getNombre()));
         organizacion.setTipo(request.getTipo());
         organizacion.setDescripcion(request.getDescripcion());
         organizacion.setDireccion(request.getDireccion());
@@ -437,6 +437,19 @@ public class OrganizacionService {
         response.setDonacionDirectaUrlPendiente(organizacion.getDonacionDirectaUrlPendiente());
         response.setInfoPublicaPendienteEn(organizacion.getInfoPublicaPendienteEn());
         return response;
+    }
+
+    /**
+     * Two organizations may legitimately share a name (e.g. in different cities), so a taken slug
+     * gets a numeric suffix. A concurrent race still hits the unique constraint, which the global
+     * handler answers as 409.
+     */
+    private String slugUnico(String nombre) {
+        String base = generateSlug(nombre);
+        if (base == null || !organizacionRepository.existsBySlug(base)) return base;
+        int n = 2;
+        while (organizacionRepository.existsBySlug(base + "-" + n)) n++;
+        return base + "-" + n;
     }
 
     private String generateSlug(String nombre) {

@@ -24,4 +24,6 @@ public interface OrganizacionRepository extends JpaRepository<Organizacion, Long
     List<Organizacion> findByReferenteIsNull();
 
     Optional<Organizacion> findBySlug(String slug);
+
+    boolean existsBySlug(String slug);
 }
