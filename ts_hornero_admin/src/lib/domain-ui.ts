@@ -50,6 +50,8 @@ export const ESTADO_ORGANIZACION: Record<string, BadgeConfig> = {
   PENDIENTE: { tone: 'sky',     label: 'Pendiente' },
   APROBADA:  { tone: 'ok',      label: 'Aprobada' },
   RECHAZADA: { tone: 'danger',  label: 'Rechazada' },
+  SIN_RECLAMAR: { tone: 'neutral', label: 'Sin reclamar' },
+  INACTIVA:  { tone: 'neutral', label: 'Inactiva' },
 };
 
 export const TIPO_ORGANIZACION: Record<string, BadgeConfig> = {

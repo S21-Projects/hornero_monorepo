@@ -49,6 +49,22 @@ public class EsquemaVerificador implements ApplicationRunner {
             UNION ALL SELECT 'organizaciones' WHERE EXISTS (SELECT 1 FROM organizaciones WHERE version IS NULL)
             """;
 
+    /**
+     * V007: Hibernate-generated CHECK constraints on the STRING enum columns are never widened by
+     * ddl-auto=update. Lists the ones that still reject SIN_RECLAMAR / IMPORTADA_RENACOM.
+     */
+    private static final String CHECK_ORIGEN_CHECKS_PENDIENTES_SQL = """
+            SELECT conname FROM pg_constraint
+            WHERE contype = 'c'
+              AND ((conrelid = to_regclass('organizaciones')
+                    AND pg_get_constraintdef(oid) ~ '\\mestado\\M'
+                    AND pg_get_constraintdef(oid) NOT LIKE '%SIN_RECLAMAR%')
+                OR (conrelid = to_regclass('organizacion_evento')
+                    AND pg_get_constraintdef(oid) ~ '\\mtipo\\M'
+                    AND pg_get_constraintdef(oid) NOT LIKE '%IMPORTADA_RENACOM%'))
+            """;
+
+
     /** V004 (M6): the immutability trigger on {@code actividad}; absent trigger = script pending. */
     private static final String CHECK_ACTIVIDAD_TRIGGER_SQL = """
             SELECT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'actividad_inmutable' AND NOT tgisinternal)
@@ -72,6 +88,7 @@ public class EsquemaVerificador implements ApplicationRunner {
     private final AtomicBoolean actividadInmutable = new AtomicBoolean(true);
     private final AtomicBoolean necesidadIdNullable = new AtomicBoolean(true);
     private final AtomicBoolean versionesInicializadas = new AtomicBoolean(true);
+    private final AtomicBoolean origenOrganizacionMigrado = new AtomicBoolean(true);
 
     @Override
     public void run(ApplicationArguments args) throws Exception {
@@ -91,6 +108,7 @@ public class EsquemaVerificador implements ApplicationRunner {
         verificarActividadInmutable();
         verificarEstadoDesde();
         verificarPurgaEmailIntento();
+        verificarOrigenOrganizacion();
     }
 
     private void verificarPurgaEmailIntento() {
@@ -154,6 +172,24 @@ public class EsquemaVerificador implements ApplicationRunner {
         } else {
             versionesInicializadas.set(true);
         }
+    }
+
+    private void verificarOrigenOrganizacion() {
+        java.util.List<String> pendientes =
+                jdbcTemplate.queryForList(CHECK_ORIGEN_CHECKS_PENDIENTES_SQL, String.class);
+        if (pendientes != null && !pendientes.isEmpty()) {
+            origenOrganizacionMigrado.set(false);
+            log.error("ESQUEMA_PENDIENTE: CHECK constraints {} reject the SIN_RECLAMAR / IMPORTADA_RENACOM "
+                    + "values. Run scripts/sql/V007__organizacion_origen.sql (make migrate) before importing "
+                    + "ReNaCoM organizaciones.", pendientes);
+        } else {
+            origenOrganizacionMigrado.set(true);
+        }
+    }
+
+    /** False when V007 has not widened the organizaciones/evento CHECKs. Informational; PostgreSQL only. */
+    public boolean origenOrganizacionMigrado() {
+        return origenOrganizacionMigrado.get();
     }
 
     /** False when V003 has not been applied (NULL version rows exist). Informational; PostgreSQL only. */

@@ -151,6 +151,8 @@ export interface Organizacion extends InfoPublica, InfoPublicaPendiente {
   nombre: string;
   validada: boolean;
   estado: EstadoOrganizacion;
+  origen?: OrigenOrganizacion;
+  asistentesDeclarados?: number | null;
   referenteId?: number | null;
   profileImageKey?: string | null;
   bannerKey?: string | null;
@@ -333,8 +335,17 @@ export const EstadoOrganizacion = {
   PENDIENTE: 'PENDIENTE',
   APROBADA:  'APROBADA',
   RECHAZADA: 'RECHAZADA',
+  SIN_RECLAMAR: 'SIN_RECLAMAR',
+  INACTIVA:  'INACTIVA',
 } as const;
 export type EstadoOrganizacion = typeof EstadoOrganizacion[keyof typeof EstadoOrganizacion];
+
+/** Mirrors MS `OrigenOrganizacion`: where an organizacion row came from. */
+export const OrigenOrganizacion = {
+  PLATAFORMA: 'PLATAFORMA',
+  RENACOM:    'RENACOM',
+} as const;
+export type OrigenOrganizacion = typeof OrigenOrganizacion[keyof typeof OrigenOrganizacion];
 
 export const TipoOrganizacion = {
   COMEDOR:   'COMEDOR',

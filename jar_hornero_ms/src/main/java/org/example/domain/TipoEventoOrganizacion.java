@@ -35,5 +35,8 @@ public enum TipoEventoOrganizacion {
     NIVEL_REDUCIDO,
 
     /** An organizacion's referente was reassigned. Never alters nivel/estado/validada. */
-    REFERENTE_REASIGNADO
+    REFERENTE_REASIGNADO,
+
+    /** Written once by the ReNaCoM import for every organizacion it creates (actor SISTEMA). */
+    IMPORTADA_RENACOM
 }

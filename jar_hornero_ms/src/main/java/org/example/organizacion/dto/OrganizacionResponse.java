@@ -6,6 +6,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.example.domain.EstadoOrganizacion;
 import org.example.domain.NivelAcreditacion;
+import org.example.domain.OrigenOrganizacion;
 import org.example.domain.TipoOrganizacion;
 
 @Getter
@@ -42,6 +43,10 @@ public class OrganizacionResponse {
     private String sitioWebUrlPendiente;
     private String donacionDirectaUrlPendiente;
     private java.time.LocalDateTime infoPublicaPendienteEn;
+
+    /** Provenance (never null on the wire: a null column reads PLATAFORMA). */
+    private OrigenOrganizacion origen;
+    private Integer asistentesDeclarados;
 
     public boolean isValidada() {
         return EstadoOrganizacion.APROBADA.equals(this.estado);

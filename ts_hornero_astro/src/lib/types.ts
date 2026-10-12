@@ -11,7 +11,9 @@ export interface Org {
   direccion?: string;
   latitud?: number | null;
   longitud?: number | null;
-  estado: 'PENDIENTE' | 'APROBADA' | 'RECHAZADA';
+  estado: 'PENDIENTE' | 'APROBADA' | 'RECHAZADA' | 'SIN_RECLAMAR' | 'INACTIVA';
+  origen?: 'PLATAFORMA' | 'RENACOM';
+  asistentesDeclarados?: number | null;
   validada: boolean;
   referenteNombre?: string;
   referenteEmail?: string;

@@ -10,6 +10,7 @@ import org.example.organizacion.dto.ActualizarInfoPublicaRequest;
 import org.example.organizacion.dto.ActualizarOrganizacionRequest;
 import org.example.organizacion.dto.AsignarReferenteRequest;
 import org.example.organizacion.dto.CrearOrganizacionRequest;
+import org.example.organizacion.dto.OrganizacionMapaResponse;
 import org.example.organizacion.dto.OrganizacionResponse;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
@@ -57,6 +58,14 @@ public class OrganizacionController {
     public PageData<OrganizacionResponse> listarValidadas(
             @PageableDefault(size = 20, sort = "id") Pageable pageable) {
         return PageData.from(organizacionService.listarValidadas(pageable));
+    }
+
+    @Operation(summary = "Lightweight list for the public map: approved and unclaimed organizations with coordinates")
+    @GetMapping("/mapa")
+    public ResponseEntity<List<OrganizacionMapaResponse>> mapa() {
+        return ResponseEntity.ok()
+                .cacheControl(org.springframework.http.CacheControl.maxAge(java.time.Duration.ofMinutes(5)).cachePublic())
+                .body(organizacionService.listarMapa());
     }
 
     @Operation(summary = "List pending organizations (admin only)")
