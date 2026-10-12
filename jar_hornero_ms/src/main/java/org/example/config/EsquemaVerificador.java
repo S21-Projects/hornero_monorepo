@@ -49,6 +49,12 @@ public class EsquemaVerificador implements ApplicationRunner {
             UNION ALL SELECT 'organizaciones' WHERE EXISTS (SELECT 1 FROM organizaciones WHERE version IS NULL)
             """;
 
+    /** V004 (M6): the immutability trigger on {@code actividad}; absent trigger = script pending. */
+    private static final String CHECK_ACTIVIDAD_TRIGGER_SQL = """
+            SELECT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'actividad_inmutable' AND NOT tgisinternal)
+            """;
+
+    private final AtomicBoolean actividadInmutable = new AtomicBoolean(true);
     private final AtomicBoolean necesidadIdNullable = new AtomicBoolean(true);
     private final AtomicBoolean versionesInicializadas = new AtomicBoolean(true);
 
@@ -67,6 +73,24 @@ public class EsquemaVerificador implements ApplicationRunner {
             necesidadIdNullable.set(true);
         }
         verificarVersiones();
+        verificarActividadInmutable();
+    }
+
+    private void verificarActividadInmutable() {
+        Boolean presente = jdbcTemplate.queryForObject(CHECK_ACTIVIDAD_TRIGGER_SQL, Boolean.class);
+        if (Boolean.FALSE.equals(presente)) {
+            actividadInmutable.set(false);
+            log.error("ESQUEMA_PENDIENTE: the actividad table has no immutability trigger. Run "
+                    + "scripts/sql/V004__actividad_inmutable.sql (make migrate); until then the activity log is "
+                    + "immutable only at the application level.");
+        } else {
+            actividadInmutable.set(true);
+        }
+    }
+
+    /** False when V004 has not been applied. Informational; PostgreSQL only. */
+    public boolean actividadInmutable() {
+        return actividadInmutable.get();
     }
 
     private void verificarVersiones() {
