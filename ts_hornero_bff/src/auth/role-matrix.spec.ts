@@ -104,6 +104,8 @@ const EXPECTED_ACCESS: Record<string, Access> = {
   'POST /articulos': [Role.ADMINISTRADOR],
   'POST /auth/login': 'public',
   'POST /auth/logout': 'public',
+  'POST /auth/password/olvido': 'public',
+  'POST /auth/password/restablecer': 'public',
   'POST /auth/refresh': 'public',
   'POST /auth/register': 'public',
   'POST /auth/resend-otp': 'public',

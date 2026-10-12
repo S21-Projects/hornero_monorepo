@@ -9,6 +9,8 @@ export const AUTH_LIMITS = {
   refresh: 20,
   verifyOtp: 5,
   resendOtp: 3,
+  passwordOlvido: 3,
+  passwordRestablecer: 5,
 } as const;
 
 /** Window of every auth limit; the default limit is only a safety net for unannotated auth routes. */

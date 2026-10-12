@@ -9,6 +9,10 @@ public final class OtpEmailTemplate {
     private OtpEmailTemplate() {
     }
 
+    public static MensajeCorreo mensaje(String to, String codigo) {
+        return new MensajeCorreo(to, subject(), htmlBody(codigo), textBody(codigo));
+    }
+
     public static String subject() {
         return "Tu código de verificación de Hornero";
     }

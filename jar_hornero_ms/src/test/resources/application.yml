@@ -27,8 +27,9 @@ app:
     expiration-refresh: 604800000
   mail:
     resend-api-key: ""
-    otp-from-email: ""
+    from-email: ""
     log-only: true
+    async: false
   otp:
     ttl-minutes: 15
     max-attempts: 5

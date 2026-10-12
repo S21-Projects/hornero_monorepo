@@ -62,8 +62,10 @@ Lista cerrada de acciones: `TipoActividad` en el MS. Las etiquetas en español e
 Además de ids, la tabla guarda dos datos personales, ambos justificados:
 
 - `ip`: el cliente que originó la acción (clave para investigar un incidente).
-- `emailIntento`: únicamente en inicios de sesión fallidos. Sin él no se puede distinguir un ataque
-  dirigido a una cuenta del ruido general. No se guarda en ningún otro evento.
+- `emailIntento`: únicamente en inicios de sesión fallidos y en pedidos de restablecimiento de
+  contraseña (`PASSWORD_RESET_SOLICITADO`) de un email desconocido o inactivo. Sin él no se puede
+  distinguir un ataque dirigido a una cuenta del ruido general. No se guarda en ningún otro evento.
+  Nunca se guarda el token del enlace de restablecimiento.
 
 ## Cómo se garantiza
 
