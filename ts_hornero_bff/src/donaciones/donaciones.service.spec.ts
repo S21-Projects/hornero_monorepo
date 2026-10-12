@@ -183,6 +183,27 @@ describe('DonacionesService', () => {
     });
   });
 
+  describe('findActivas estancadas (N12)', () => {
+    it('forwards the estancadas filter to the MS', async () => {
+      httpService.axiosRef.get.mockResolvedValue({ data: {} });
+
+      await service.findActivas(
+        'token-123',
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        'true',
+      );
+
+      expect(httpService.axiosRef.get).toHaveBeenCalledWith(
+        'http://ms:8081/api/donaciones/activas?estancadas=true',
+        { headers: { Authorization: 'Bearer token-123' } },
+      );
+    });
+  });
+
   describe('generarCodigoEntrega', () => {
     it('POSTs the MS /entrega/codigo endpoint with a Bearer header', async () => {
       const data = { codigo: '482913', expiraEn: '2026-09-30T12:10:00Z' };

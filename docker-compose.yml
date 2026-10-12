@@ -59,6 +59,12 @@ services:
       RONDAS_AUTO_CRON: "${RONDAS_AUTO_CRON:-0 0 6 * * *}"
       # N10: activity log retention in days (provisional default pending D12)
       ACTIVIDAD_RETENCION_DIAS: "${ACTIVIDAD_RETENCION_DIAS:-365}"
+      # N12/D4: stale-donations job windows (days) and cron. Needs scripts/sql/V005 for old rows.
+      DONACIONES_OFERTA_SIN_RESPUESTA_DIAS: "${DONACIONES_OFERTA_SIN_RESPUESTA_DIAS:-7}"
+      DONACIONES_PROPUESTA_SIN_RESPUESTA_DIAS: "${DONACIONES_PROPUESTA_SIN_RESPUESTA_DIAS:-3}"
+      DONACIONES_EN_CURSO_ESTANCADA_DIAS: "${DONACIONES_EN_CURSO_ESTANCADA_DIAS:-14}"
+      DONACIONES_CONFIRMACION_ESTANCADA_DIAS: "${DONACIONES_CONFIRMACION_ESTANCADA_DIAS:-7}"
+      DONACIONES_ESTANCADAS_CRON: "${DONACIONES_ESTANCADAS_CRON:-0 15 0 * * *}"
     depends_on:
       postgres:
         condition: service_healthy

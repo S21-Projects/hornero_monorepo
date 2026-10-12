@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
 import type { ReactNode } from 'react';
@@ -101,5 +102,49 @@ describe('ControlDonacionesPage — T5 (modalidad + fase)', () => {
     render(<ControlDonacionesPage />, { wrapper: Wrapper });
 
     expect(screen.getByText('5 kg Arroz, 6 paquetes Fideos')).toBeInTheDocument();
+  });
+
+  it('shows an "Estancada (N días)" badge only for stale donations (N12)', () => {
+    vi.mocked(useDonacionesActivas).mockReturnValue(
+      donacionActivaPage([
+        { id: 4, estado: 'ACEPTADA', necesidadId: 1, estancada: true, diasEnEstado: 20 } as DonacionActiva,
+        { id: 5, estado: 'ACEPTADA', necesidadId: 1, estancada: false, diasEnEstado: 2 } as DonacionActiva,
+      ]) as ReturnType<typeof useDonacionesActivas>,
+    );
+
+    render(<ControlDonacionesPage />, { wrapper: Wrapper });
+
+    expect(screen.getAllByText('Estancada (20 días)')).toHaveLength(1);
+    expect(screen.queryByText(/Estancada \(2 días\)/)).not.toBeInTheDocument();
+  });
+
+  it('uses the singular for a single day', () => {
+    vi.mocked(useDonacionesActivas).mockReturnValue(
+      donacionActivaPage([
+        { id: 6, estado: 'PENDIENTE_CONFIRMACION', necesidadId: 1, estancada: true, diasEnEstado: 1 } as DonacionActiva,
+      ]) as ReturnType<typeof useDonacionesActivas>,
+    );
+
+    render(<ControlDonacionesPage />, { wrapper: Wrapper });
+
+    expect(screen.getByText('Estancada (1 día)')).toBeInTheDocument();
+  });
+
+  it('the "Solo estancadas" toggle asks the server for estancadas=true', async () => {
+    vi.mocked(useDonacionesActivas).mockReturnValue(
+      donacionActivaPage([]) as ReturnType<typeof useDonacionesActivas>,
+    );
+
+    render(<ControlDonacionesPage />, { wrapper: Wrapper });
+    expect(vi.mocked(useDonacionesActivas)).toHaveBeenLastCalledWith(
+      expect.objectContaining({ estancadas: undefined }),
+    );
+
+    await userEvent.click(screen.getByRole('button', { name: /solo estancadas/i }));
+
+    expect(vi.mocked(useDonacionesActivas)).toHaveBeenLastCalledWith(
+      expect.objectContaining({ estancadas: true, page: 0 }),
+    );
+    expect(screen.getByRole('button', { name: /solo estancadas/i })).toHaveAttribute('aria-pressed', 'true');
   });
 });
