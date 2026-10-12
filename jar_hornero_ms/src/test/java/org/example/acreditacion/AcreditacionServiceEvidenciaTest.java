@@ -21,6 +21,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
 import org.springframework.context.annotation.Import;
+import org.springframework.test.context.event.ApplicationEvents;
+import org.springframework.test.context.event.RecordApplicationEvents;
+import org.example.notificacion.NotificacionEvento;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDate;
@@ -35,6 +38,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  */
 @DataJpaTest
 @Import(AcreditacionService.class)
+@RecordApplicationEvents
 class AcreditacionServiceEvidenciaTest {
 
     @Autowired
@@ -55,6 +59,9 @@ class AcreditacionServiceEvidenciaTest {
     private Organizacion organizacion;
     private Referente referente;
     private Administrador administrador;
+
+    @Autowired
+    private ApplicationEvents events;
 
     @BeforeEach
     void setUp() {
@@ -157,6 +164,30 @@ class AcreditacionServiceEvidenciaTest {
                         organizacion.getId(), List.of(TipoEventoOrganizacion.REQUISITO_OBSERVADO));
         assertThat(eventos).hasSize(1);
         assertThat(eventos.get(0).getMotivo()).isEqualTo("foto poco clara");
+    }
+
+    @Test
+    void observing_publishesEvidenciaObservadaWithTheObservation() {
+        OrganizacionEvidencia evidencia = acreditacionService.cargarEvidencia(
+                organizacion, RequisitoAcreditacion.RADIO_50KM_BANCO_ALIMENTOS, TipoEvidencia.DECLARACION,
+                "declaración", LocalDate.now(), null, referente.getId());
+
+        acreditacionService.observarEvidencia(evidencia.getId(), "foto poco clara", administrador.getId());
+
+        assertThat(events.stream(org.example.notificacion.NotificacionEvento.class)).containsExactly(
+                new org.example.notificacion.NotificacionEvento.EvidenciaObservada(organizacion.getId(),
+                        RequisitoAcreditacion.RADIO_50KM_BANCO_ALIMENTOS, "foto poco clara"));
+    }
+
+    @Test
+    void approving_publishesNothing() {
+        OrganizacionEvidencia evidencia = acreditacionService.cargarEvidencia(
+                organizacion, RequisitoAcreditacion.RADIO_50KM_BANCO_ALIMENTOS, TipoEvidencia.DECLARACION,
+                "declaración", LocalDate.now(), null, referente.getId());
+
+        acreditacionService.aprobarEvidencia(evidencia.getId(), administrador.getId());
+
+        assertThat(events.stream(org.example.notificacion.NotificacionEvento.class)).isEmpty();
     }
 
     // --- Task 4b.1 (D-02): audit-queue read — GET .../acreditacion/evidencias ---

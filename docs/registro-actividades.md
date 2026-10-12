@@ -67,6 +67,13 @@ Además de ids, la tabla guarda dos datos personales, ambos justificados:
   distinguir un ataque dirigido a una cuenta del ruido general. No se guarda en ningún otro evento.
   Nunca se guarda el token del enlace de restablecimiento.
 
+### Notificaciones por email (N13)
+
+`NOTIFICACION_FALLIDA` (resultado `FALLO`, actor `SISTEMA`) registra un correo que no se pudo
+armar o enviar. El detalle lleva el nombre de la plantilla, el destinatario enmascarado
+(`a***@dominio`) y la clase de la excepción; nunca el mensaje del proveedor ni el contenido. Los
+envíos exitosos no se registran (volumen sin valor de auditoría). Ver `docs/notificaciones-email.md`.
+
 ## Cómo se garantiza
 
 | ASVS | Medida |

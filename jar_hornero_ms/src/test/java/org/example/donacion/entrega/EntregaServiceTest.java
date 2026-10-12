@@ -61,6 +61,9 @@ class EntregaServiceTest {
     @Mock
     private ActividadService actividadService;
 
+    @Mock
+    private org.springframework.context.ApplicationEventPublisher eventPublisher;
+
     private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 
     private Instant now;
@@ -70,7 +73,7 @@ class EntregaServiceTest {
     void setUp() {
         now = Instant.parse("2026-01-01T00:00:00Z");
         Clock clock = Clock.fixed(now, ZoneOffset.UTC);
-        entregaService = new EntregaService(donacionRepository, codigoEntregaRepository, throttle, passwordEncoder, clock, actividadService);
+        entregaService = new EntregaService(donacionRepository, codigoEntregaRepository, throttle, passwordEncoder, clock, actividadService, eventPublisher);
         ReflectionTestUtils.setField(entregaService, "ttlMinutes", 10L);
         ReflectionTestUtils.setField(entregaService, "maxAttempts", 5);
     }
@@ -310,6 +313,51 @@ class EntregaServiceTest {
         assertThat(d.getEstado()).isEqualTo(EstadoDonacion.ENTREGADA);
         assertThat(d.getFechaEntrega()).isNotNull();
         assertThat(response.estado()).isEqualTo(EstadoDonacion.ENTREGADA.name());
+    }
+
+    @Test
+    void verificar_secondVerification_publishesEntregaConfirmada() {
+        Donacion d = donacionActiva(EstadoDonacion.PENDIENTE_CONFIRMACION);
+        d.setConfirmadaReferenteEn(now.minusSeconds(120));
+        CodigoEntrega delReferente = codigo("654321", ParticipantesDonacion.Parte.REFERENTE, REFERENTE_ID,
+                now.plusSeconds(300), 0);
+        when(donacionRepository.findByIdForUpdate(DONACION_ID)).thenReturn(Optional.of(d));
+        when(codigoEntregaRepository.findTopByDonacion_IdAndEmisorParteAndUsadoFalseOrderByCreadoEnDesc(
+                DONACION_ID, ParticipantesDonacion.Parte.REFERENTE)).thenReturn(Optional.of(delReferente));
+
+        entregaService.verificar(DONACION_ID, DONANTE_ID, "654321");
+
+        verify(eventPublisher).publishEvent(new org.example.notificacion.NotificacionEvento.EntregaConfirmada(DONACION_ID));
+    }
+
+    @Test
+    void verificar_firstVerification_doesNotPublish() {
+        Donacion d = donacionActiva(EstadoDonacion.EN_CAMINO);
+        CodigoEntrega delReferente = codigo("654321", ParticipantesDonacion.Parte.REFERENTE, REFERENTE_ID,
+                now.plusSeconds(300), 0);
+        when(donacionRepository.findByIdForUpdate(DONACION_ID)).thenReturn(Optional.of(d));
+        when(codigoEntregaRepository.findTopByDonacion_IdAndEmisorParteAndUsadoFalseOrderByCreadoEnDesc(
+                DONACION_ID, ParticipantesDonacion.Parte.REFERENTE)).thenReturn(Optional.of(delReferente));
+
+        entregaService.verificar(DONACION_ID, DONANTE_ID, "654321");
+
+        org.mockito.Mockito.verifyNoInteractions(eventPublisher);
+    }
+
+    @Test
+    void verificar_wrongCode_doesNotPublish() {
+        Donacion d = donacionActiva(EstadoDonacion.PENDIENTE_CONFIRMACION);
+        d.setConfirmadaReferenteEn(now.minusSeconds(120));
+        CodigoEntrega delReferente = codigo("654321", ParticipantesDonacion.Parte.REFERENTE, REFERENTE_ID,
+                now.plusSeconds(300), 0);
+        when(donacionRepository.findByIdForUpdate(DONACION_ID)).thenReturn(Optional.of(d));
+        when(codigoEntregaRepository.findTopByDonacion_IdAndEmisorParteAndUsadoFalseOrderByCreadoEnDesc(
+                DONACION_ID, ParticipantesDonacion.Parte.REFERENTE)).thenReturn(Optional.of(delReferente));
+
+        assertThatThrownBy(() -> entregaService.verificar(DONACION_ID, DONANTE_ID, "000000"))
+                .isInstanceOf(ResponseStatusException.class);
+
+        org.mockito.Mockito.verifyNoInteractions(eventPublisher);
     }
 
     @Test

@@ -1,6 +1,8 @@
 package org.example.acreditacion;
 
 import lombok.RequiredArgsConstructor;
+import org.example.notificacion.NotificacionEvento;
+import org.springframework.context.ApplicationEventPublisher;
 import org.example.acreditacion.dto.AcreditacionResponse;
 import org.example.acreditacion.dto.ColaAuditoriaFiltro;
 import org.example.acreditacion.dto.EventoResponse;
@@ -68,6 +70,7 @@ public class AcreditacionService {
     private final OrganizacionEvidenciaRepository evidenciaRepository;
     private final UsuarioRepository usuarioRepository;
     private final OrganizacionRepository organizacionRepository;
+    private final ApplicationEventPublisher eventPublisher;
 
     private void validateTransition(NivelAcreditacion actual, NivelAcreditacion siguiente) {
         boolean valid = TRANSICIONES_PERMITIDAS.getOrDefault(actual, Set.of()).contains(siguiente);
@@ -257,6 +260,8 @@ public class AcreditacionService {
         eventoRepository.save(OrganizacionEvento.deEvidencia(evidencia.getOrganizacion(),
                 TipoEventoOrganizacion.REQUISITO_OBSERVADO, admin, observacion,
                 evidencia.getRequisito(), evidenciaId));
+        eventPublisher.publishEvent(new NotificacionEvento.EvidenciaObservada(
+                evidencia.getOrganizacion().getId(), evidencia.getRequisito(), observacion));
 
         return guardada;
     }
@@ -302,6 +307,10 @@ public class AcreditacionService {
             }
             aplicarTransicion(org, destino, admin, motivo, TipoEventoOrganizacion.NIVEL_REDUCIDO);
         }
+        // N13: only the ladder action notifies; the legacy approve/reject buttons announce
+        // themselves through OrganizacionResuelta instead (one email, not two).
+        eventPublisher.publishEvent(new NotificacionEvento.NivelAcreditacionCambiado(
+                org.getId(), antes, destino, motivo));
 
         return org;
     }

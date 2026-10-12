@@ -54,6 +54,9 @@ class OrganizacionServiceTest {
     @Mock
     private ActividadService actividadService;
 
+    @Mock
+    private org.springframework.context.ApplicationEventPublisher eventPublisher;
+
     @InjectMocks
     private OrganizacionService organizacionService;
 

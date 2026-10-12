@@ -30,6 +30,8 @@ import org.example.domain.Ronda;
 import org.example.domain.RondaRepository;
 import org.example.user.Usuario;
 import org.example.user.UsuarioRepository;
+import org.example.notificacion.NotificacionEvento;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
@@ -72,6 +74,7 @@ public class RondaService {
     private final Clock clock;
     private final TransactionTemplate transactionTemplate;
     private final ActividadService actividadService;
+    private final ApplicationEventPublisher eventPublisher;
     private final ReentrantLock lock = new ReentrantLock();
 
     public RondaService(DonacionRepository donacionRepository,
@@ -83,7 +86,8 @@ public class RondaService {
                          UsuarioRepository usuarioRepository,
                          Clock clock,
                          PlatformTransactionManager transactionManager,
-                         ActividadService actividadService) {
+                         ActividadService actividadService,
+                         ApplicationEventPublisher eventPublisher) {
         this.donacionRepository = donacionRepository;
         this.necesidadRepository = necesidadRepository;
         this.asignacionRepository = asignacionRepository;
@@ -94,6 +98,7 @@ public class RondaService {
         this.clock = clock;
         this.transactionTemplate = new TransactionTemplate(transactionManager);
         this.actividadService = actividadService;
+        this.eventPublisher = eventPublisher;
     }
 
     /** Manual trigger ({@code POST /api/rondas}). */
@@ -301,6 +306,7 @@ public class RondaService {
 
         int asignadas = 0;
         int descartadas = 0;
+        List<Long> propuestas = new ArrayList<>();
         List<AsignacionSalidaV1> asignacionesSalida = salida.getAsignaciones() != null ? salida.getAsignaciones() : List.of();
         for (AsignacionSalidaV1 a : asignacionesSalida) {
             Donacion donacion = donacionRepository.findByIdForUpdate(a.getDonacionId()).orElse(null);
@@ -319,9 +325,15 @@ public class RondaService {
             donacionRepository.save(donacion);
 
             asignacionRepository.save(nuevaAsignacion(rondaGuardada, donacion, necesidad, a));
+            propuestas.add(donacion.getId());
             asignadas++;
         }
 
+        if (!propuestas.isEmpty()) {
+            // N13: published inside this transaction, delivered only if it commits (one summary
+            // email per referente, built by the handler).
+            eventPublisher.publishEvent(new NotificacionEvento.PropuestasAsignadas(List.copyOf(propuestas)));
+        }
         rondaGuardada.setAsignadas(asignadas);
         rondaGuardada.setSinAsignar(salida.getSinAsignar() != null ? salida.getSinAsignar().size() : 0);
         rondaGuardada.setDescartadas(descartadas);

@@ -36,6 +36,10 @@ app:
   # N14: base URL of the admin SPA (where /restablecer lives); the reset link is built from it,
   # never from request headers.
   panel-url: ${APP_PANEL_URL:http://localhost:5173}
+  # N13/D6: event emails (after commit, async) and the admin daily digest. The switch turns both off.
+  notificaciones:
+    enabled: ${NOTIFICACIONES_ENABLED:true}
+    digest-cron: ${NOTIFICACIONES_DIGEST_CRON:0 0 8 * * *}
   password-reset:
     ttl-minutos: ${PASSWORD_RESET_TTL_MINUTOS:30}
   otp:

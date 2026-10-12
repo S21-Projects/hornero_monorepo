@@ -30,6 +30,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.example.notificacion.NotificacionEvento;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -79,6 +80,9 @@ class DonacionServiceTest {
     @Mock
     private ActividadService actividadService;
 
+    @Mock
+    private org.springframework.context.ApplicationEventPublisher eventPublisher;
+
     private DonacionService donacionService;
 
     /** 2026-10-10 in Argentina; the service reads "today" from this clock (D2/N3). */
@@ -94,7 +98,8 @@ class DonacionServiceTest {
     void setUp() {
         donacionService = new DonacionService(donacionRepository, necesidadRepository, usuarioRepository,
                 organizacionRepository, verificacionService, esquemaVerificador, asignacionRepository,
-                articuloRepository, donanteVisibilidad, clock, actividadService, VentanasDonacion.POR_DEFECTO);
+                articuloRepository, donanteVisibilidad, clock, actividadService, VentanasDonacion.POR_DEFECTO,
+                eventPublisher);
         referente = new Referente(1L, "Ref Test", "ref@test.com", "encoded", true);
         donante = new Donante(2L, "Donante Test", "donante@test.com", "encoded", true);
 
@@ -215,6 +220,117 @@ class DonacionServiceTest {
         List<DonacionResponse> result = donacionService.findDeMisOrganizaciones(1L, null);
 
         assertThat(result).isEmpty();
+    }
+
+    // --- N13: notification events (published inside the transaction, handled after commit) ---
+
+    @Test
+    void crear_directa_publishesDonacionOfrecida() {
+        Necesidad necesidad = new Necesidad();
+        necesidad.setEstado(EstadoNecesidad.ABIERTA);
+        necesidad.setId(100L);
+        necesidad.setOrganizacion(miOrganizacion);
+        conArticuloSolicitado(necesidad, 1L, CategoriaAlimento.NO_PERECEDERO);
+        CreateDonacionRequest dto = new CreateDonacionRequest();
+        dto.setNecesidadId(100L);
+        dto.setLineas(unaLineaNoPerecedero());
+        when(necesidadRepository.findById(100L)).thenReturn(Optional.of(necesidad));
+        when(usuarioRepository.findById(2L)).thenReturn(Optional.of(donante));
+        when(donacionRepository.save(any(Donacion.class))).thenAnswer(inv -> {
+            Donacion x = inv.getArgument(0);
+            x.setId(55L);
+            return x;
+        });
+
+        donacionService.crear(dto, 2L);
+
+        verify(eventPublisher).publishEvent(new NotificacionEvento.DonacionOfrecida(55L));
+    }
+
+    @Test
+    void crear_fondoComun_publishesNothing_theReferenteIsToldWhenARondaProposesIt() {
+        CreateDonacionRequest dto = new CreateDonacionRequest();
+        dto.setModalidad(ModalidadDonacion.FONDO_COMUN);
+        dto.setLineas(unaLineaNoPerecedero());
+        dto.setLatitud(-34.6);
+        dto.setLongitud(-58.4);
+        when(usuarioRepository.findById(2L)).thenReturn(Optional.of(donante));
+        when(donacionRepository.save(any(Donacion.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        donacionService.crear(dto, 2L);
+
+        verifyNoInteractions(eventPublisher);
+    }
+
+    @Test
+    void decidir_aceptada_publishesDonacionDecidida() {
+        Donacion d = donacionFor(1L, miOrganizacion);
+        when(donacionRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(d));
+        when(donacionRepository.save(any(Donacion.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        donacionService.decidir(1L, EstadoDonacion.ACEPTADA, 1L);
+
+        verify(eventPublisher).publishEvent(new NotificacionEvento.DonacionDecidida(1L, true));
+    }
+
+    @Test
+    void decidir_directaRechazada_publishesDonacionDecidida() {
+        Donacion d = donacionFor(1L, miOrganizacion);
+        when(donacionRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(d));
+        when(donacionRepository.save(any(Donacion.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        donacionService.decidir(1L, EstadoDonacion.RECHAZADA, 1L);
+
+        verify(eventPublisher).publishEvent(new NotificacionEvento.DonacionDecidida(1L, false));
+    }
+
+    @Test
+    void decidir_fondoComunRechazada_returnsToThePoolAndTellsNobody() {
+        Donacion d = donacionFor(1L, miOrganizacion);
+        d.setModalidad(ModalidadDonacion.FONDO_COMUN);
+        d.getNecesidad().getDonaciones().add(d);
+        when(donacionRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(d));
+        when(donacionRepository.save(any(Donacion.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        donacionService.decidir(1L, EstadoDonacion.RECHAZADA, 1L);
+
+        verifyNoInteractions(eventPublisher);
+    }
+
+    @Test
+    void decidir_forbidden_publishesNothing() {
+        Donacion d = donacionFor(1L, miOrganizacion);
+        when(donacionRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(d));
+
+        assertThatThrownBy(() -> donacionService.decidir(1L, EstadoDonacion.ACEPTADA, 999L))
+                .isInstanceOf(ResponseStatusException.class);
+
+        verifyNoInteractions(eventPublisher);
+    }
+
+    @Test
+    void cancelarOfertaSinRespuesta_publishesDonacionVencida() {
+        Donacion d = donacionFor(1L, miOrganizacion);
+        d.setEstadoDesde(java.time.Instant.parse("2026-09-01T00:00:00Z"));
+        when(donacionRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(d));
+        when(donacionRepository.save(any(Donacion.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        boolean cancelo = donacionService.cancelarOfertaSinRespuesta(1L, java.time.Instant.parse("2026-10-03T00:00:00Z"));
+
+        assertThat(cancelo).isTrue();
+        verify(eventPublisher).publishEvent(new NotificacionEvento.DonacionVencida(1L));
+    }
+
+    @Test
+    void cancelarOfertaSinRespuesta_noOp_publishesNothing() {
+        Donacion d = donacionFor(1L, miOrganizacion);
+        d.setEstadoDesde(java.time.Instant.parse("2026-10-09T00:00:00Z"));
+        when(donacionRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(d));
+
+        boolean cancelo = donacionService.cancelarOfertaSinRespuesta(1L, java.time.Instant.parse("2026-10-03T00:00:00Z"));
+
+        assertThat(cancelo).isFalse();
+        verifyNoInteractions(eventPublisher);
     }
 
     // --- crear ---
