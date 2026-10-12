@@ -548,6 +548,9 @@ export interface DonacionActiva {
   modalidad?: ModalidadDonacion;
   fase?: FaseDonacion;
   lineas?: DonacionLinea[];
+  /** N12/D4: computed server-side from `estadoDesde` and the configured windows. */
+  estancada?: boolean;
+  diasEnEstado?: number;
 }
 
 /** Mirrors `ActividadResponse` (MS) — one row of the append-only activity log (N10). */

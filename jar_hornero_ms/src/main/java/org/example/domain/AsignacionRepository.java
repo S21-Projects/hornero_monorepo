@@ -5,6 +5,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 
@@ -27,4 +28,9 @@ public interface AsignacionRepository extends JpaRepository<Asignacion, Long> {
      * ACEPTADA/RECHAZADA/CANCELADA by {@code DonacionService} (slice 5c-ii, AD-3).
      */
     Optional<Asignacion> findFirstByDonacion_IdAndEstadoOrderByCreadaEnDesc(Long donacionId, EstadoAsignacion estado);
+
+    /** N12: donations whose vigente (still-PROPUESTA) assignment was created before {@code corte}. */
+    @Query("SELECT DISTINCT a.donacion.id FROM Asignacion a WHERE a.estado = org.example.domain.EstadoAsignacion.PROPUESTA "
+            + "AND a.creadaEn < :corte")
+    List<Long> findDonacionIdsConPropuestaAnteriorA(@Param("corte") Instant corte);
 }

@@ -63,6 +63,21 @@ describe('useDonacionesActivas', () => {
     });
   });
 
+  it('forwards the estancadas filter (N12)', async () => {
+    const page = { content: [], number: 0, size: 20, totalElements: 0, totalPages: 0 };
+    vi.mocked(api.get).mockResolvedValue({ data: page });
+
+    const { result } = renderHook(() => useDonacionesActivas({ page: 0, size: 20, estancadas: true }), {
+      wrapper: createWrapper(),
+    });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+    expect(api.get).toHaveBeenCalledWith('/donaciones/activas', {
+      params: { page: 0, size: 20, estancadas: true },
+    });
+  });
+
   it('surfaces the error when the request fails', async () => {
     vi.mocked(api.get).mockRejectedValue(new Error('network error'));
 

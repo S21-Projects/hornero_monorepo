@@ -54,6 +54,12 @@ public class EsquemaVerificador implements ApplicationRunner {
             SELECT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'actividad_inmutable' AND NOT tgisinternal)
             """;
 
+    /** V005 (N12): rows that predate {@code donaciones.estado_desde} (column added by ddl-auto, NULL). */
+    private static final String CHECK_ESTADO_DESDE_PENDIENTE_SQL = """
+            SELECT EXISTS (SELECT 1 FROM donaciones WHERE estado_desde IS NULL AND fecha_oferta IS NOT NULL)
+            """;
+
+    private final AtomicBoolean estadoDesdeCompleto = new AtomicBoolean(true);
     private final AtomicBoolean actividadInmutable = new AtomicBoolean(true);
     private final AtomicBoolean necesidadIdNullable = new AtomicBoolean(true);
     private final AtomicBoolean versionesInicializadas = new AtomicBoolean(true);
@@ -74,6 +80,24 @@ public class EsquemaVerificador implements ApplicationRunner {
         }
         verificarVersiones();
         verificarActividadInmutable();
+        verificarEstadoDesde();
+    }
+
+    private void verificarEstadoDesde() {
+        Boolean pendiente = jdbcTemplate.queryForObject(CHECK_ESTADO_DESDE_PENDIENTE_SQL, Boolean.class);
+        if (Boolean.TRUE.equals(pendiente)) {
+            estadoDesdeCompleto.set(false);
+            log.error("ESQUEMA_PENDIENTE: donaciones with a NULL estado_desde. Run "
+                    + "scripts/sql/V005__donaciones_estado_desde_backfill.sql (make migrate); until then the "
+                    + "stale-donations job and the 'estancada' flag fall back to fecha_oferta.");
+        } else {
+            estadoDesdeCompleto.set(true);
+        }
+    }
+
+    /** False when V005 has not been applied (NULL estado_desde rows exist). Informational; PostgreSQL only. */
+    public boolean estadoDesdeCompleto() {
+        return estadoDesdeCompleto.get();
     }
 
     private void verificarActividadInmutable() {

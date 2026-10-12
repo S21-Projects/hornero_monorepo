@@ -40,7 +40,7 @@ public final class ConfirmacionEntrega {
 
         if (nuevo != actual) {
             TransicionesDonacion.validar(actual, nuevo);
-            donacion.setEstado(nuevo);
+            donacion.cambiarEstado(nuevo, clock);
         }
         if (nuevo == EstadoDonacion.ENTREGADA && donacion.getFechaEntrega() == null) {
             donacion.setFechaEntrega(LocalDate.now(clock));

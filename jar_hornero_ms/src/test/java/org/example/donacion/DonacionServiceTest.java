@@ -40,6 +40,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -93,7 +94,7 @@ class DonacionServiceTest {
     void setUp() {
         donacionService = new DonacionService(donacionRepository, necesidadRepository, usuarioRepository,
                 organizacionRepository, verificacionService, esquemaVerificador, asignacionRepository,
-                articuloRepository, donanteVisibilidad, clock, actividadService);
+                articuloRepository, donanteVisibilidad, clock, actividadService, VentanasDonacion.POR_DEFECTO);
         referente = new Referente(1L, "Ref Test", "ref@test.com", "encoded", true);
         donante = new Donante(2L, "Donante Test", "donante@test.com", "encoded", true);
 
@@ -734,34 +735,122 @@ class DonacionServiceTest {
     @Test
     void findActivas_noEstadoFilter_queriesNoTerminales() {
         var pageable = org.springframework.data.domain.PageRequest.of(0, 20);
-        when(donacionRepository.findActivas(EstadoDonacion.NO_TERMINALES, null, pageable))
+        when(donacionRepository.findActivas(eq(EstadoDonacion.NO_TERMINALES), eq(null), eq(false),
+                any(), any(), any(), any(), eq(pageable)))
                 .thenReturn(org.springframework.data.domain.Page.empty());
 
-        donacionService.findActivas(null, null, pageable);
+        donacionService.findActivas(null, null, false, pageable);
 
-        verify(donacionRepository).findActivas(EstadoDonacion.NO_TERMINALES, null, pageable);
+        verify(donacionRepository).findActivas(eq(EstadoDonacion.NO_TERMINALES), eq(null), eq(false),
+                any(), any(), any(), any(), eq(pageable));
     }
 
     @Test
     void findActivas_estadoFilter_queriesSingleEstado() {
         var pageable = org.springframework.data.domain.PageRequest.of(0, 20);
-        when(donacionRepository.findActivas(java.util.EnumSet.of(EstadoDonacion.ACEPTADA), "org", pageable))
+        when(donacionRepository.findActivas(eq(java.util.EnumSet.of(EstadoDonacion.ACEPTADA)), eq("org"), eq(false),
+                any(), any(), any(), any(), eq(pageable)))
                 .thenReturn(org.springframework.data.domain.Page.empty());
 
-        donacionService.findActivas("org", EstadoDonacion.ACEPTADA, pageable);
+        donacionService.findActivas("org", EstadoDonacion.ACEPTADA, false, pageable);
 
-        verify(donacionRepository).findActivas(java.util.EnumSet.of(EstadoDonacion.ACEPTADA), "org", pageable);
+        verify(donacionRepository).findActivas(eq(java.util.EnumSet.of(EstadoDonacion.ACEPTADA)), eq("org"), eq(false),
+                any(), any(), any(), any(), eq(pageable));
     }
 
     @Test
     void findActivas_terminalEstadoFilter_rejectedWith400() {
         var pageable = org.springframework.data.domain.PageRequest.of(0, 20);
 
-        assertThatThrownBy(() -> donacionService.findActivas(null, EstadoDonacion.ENTREGADA, pageable))
+        assertThatThrownBy(() -> donacionService.findActivas(null, EstadoDonacion.ENTREGADA, false, pageable))
                 .isInstanceOf(ResponseStatusException.class)
                 .hasMessageContaining("400")
                 .hasMessageContaining("ENTREGADA");
         verifyNoInteractions(donacionRepository);
+    }
+
+    @Test
+    void findActivas_soloEstancadas_passesTheWindowCutoffsFromTheClock() {
+        var pageable = org.springframework.data.domain.PageRequest.of(0, 20);
+        java.time.Instant ahora = clock.instant();
+        java.time.Instant corteEnCurso = ahora.minus(java.time.Duration.ofDays(14));
+        java.time.Instant corteConfirmacion = ahora.minus(java.time.Duration.ofDays(7));
+        when(donacionRepository.findActivas(any(), any(), eq(true), any(), any(), any(), any(), eq(pageable)))
+                .thenReturn(org.springframework.data.domain.Page.empty());
+
+        donacionService.findActivas(null, null, true, pageable);
+
+        verify(donacionRepository).findActivas(eq(EstadoDonacion.NO_TERMINALES), eq(null), eq(true),
+                eq(corteEnCurso), eq(Donacion.fechaLimiteFallback(corteEnCurso, AR)),
+                eq(corteConfirmacion), eq(Donacion.fechaLimiteFallback(corteConfirmacion, AR)), eq(pageable));
+    }
+
+    @Test
+    void findActivas_response_carriesEstancadaAndDiasEnEstado() {
+        var pageable = org.springframework.data.domain.PageRequest.of(0, 20);
+        Donacion vieja = donacionFor(1L, miOrganizacion);
+        vieja.setEstado(EstadoDonacion.ACEPTADA);
+        vieja.setEstadoDesde(clock.instant().minus(java.time.Duration.ofDays(20)));
+        Donacion fresca = donacionFor(2L, miOrganizacion);
+        fresca.setEstado(EstadoDonacion.ACEPTADA);
+        fresca.setEstadoDesde(clock.instant().minus(java.time.Duration.ofDays(2)));
+        when(donacionRepository.findActivas(any(), any(), eq(false), any(), any(), any(), any(), eq(pageable)))
+                .thenReturn(new org.springframework.data.domain.PageImpl<>(List.of(vieja, fresca)));
+
+        var page = donacionService.findActivas(null, null, false, pageable);
+
+        assertThat(page.getContent().get(0).estancada()).isTrue();
+        assertThat(page.getContent().get(0).diasEnEstado()).isEqualTo(20);
+        assertThat(page.getContent().get(1).estancada()).isFalse();
+        assertThat(page.getContent().get(1).diasEnEstado()).isEqualTo(2);
+    }
+
+    // ─── N12: estadoDesde is stamped on every estado change ─────────────────────────────────────
+
+    @Test
+    void crear_stampsEstadoDesdeFromTheClock() {
+        // reuse the happy-path fixture of crear_verifiedDonante_succeeds
+        Donacion d = new Donacion();
+        d.cambiarEstado(EstadoDonacion.OFRECIDA, clock);
+        assertThat(d.getEstadoDesde()).isEqualTo(clock.instant());
+    }
+
+    @Test
+    void decidir_aceptada_stampsEstadoDesde() {
+        Donacion d = donacionFor(1L, miOrganizacion);
+        d.setEstadoDesde(clock.instant().minus(java.time.Duration.ofDays(30)));
+        when(donacionRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(d));
+        when(donacionRepository.save(any(Donacion.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        donacionService.decidir(1L, EstadoDonacion.ACEPTADA, 1L);
+
+        assertThat(d.getEstadoDesde()).isEqualTo(clock.instant());
+    }
+
+    @Test
+    void actualizarEstado_enCamino_stampsEstadoDesde() {
+        Donacion d = donacionFor(1L, miOrganizacion);
+        d.setEstado(EstadoDonacion.ACEPTADA);
+        d.setEstadoDesde(clock.instant().minus(java.time.Duration.ofDays(30)));
+        when(donacionRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(d));
+        when(donacionRepository.save(any(Donacion.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        donacionService.actualizarEstado(1L, EstadoDonacion.EN_CAMINO, 2L);
+
+        assertThat(d.getEstadoDesde()).isEqualTo(clock.instant());
+    }
+
+    @Test
+    void overrideEstado_stampsEstadoDesde() {
+        Donacion d = donacionFor(1L, miOrganizacion);
+        d.setEstado(EstadoDonacion.ACEPTADA);
+        d.setEstadoDesde(clock.instant().minus(java.time.Duration.ofDays(30)));
+        when(donacionRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(d));
+        when(donacionRepository.save(any(Donacion.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        donacionService.overrideEstado(1L, EstadoDonacion.EN_CAMINO, "destrabada", 99L);
+
+        assertThat(d.getEstadoDesde()).isEqualTo(clock.instant());
     }
 
     // ─── crear — modalidad (slice 5b, AD-3/AD-13, spec donacion-fondo-comun) ──────────────────

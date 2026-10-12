@@ -120,6 +120,17 @@ describe('Authorization, validation and admin override', () => {
       expect(row.overrideMotivo).toBe(motivo);
       expect(row.overrideAdminId).toBeTruthy();
       expect(row.overrideEn).toBeTruthy();
+      // N12: fresh data is never "estancada" (aging data through the API is impossible; the
+      // windows are covered by the MS integration tests), but the fields exist.
+      expect(row.estancada).toBe(false);
+      expect(row.diasEnEstado).toBe(0);
+    });
+
+    it('N12: /donaciones/activas?estancadas=true is accepted and excludes fresh donations', async () => {
+      const res = await a.admin.get(`/donaciones/activas?estancadas=true&size=100`);
+      expect(res.status).toBe(200);
+      expect((res.data.content as any[]).find((d) => d.id === donacionId)).toBeUndefined();
+      expect((res.data.content as any[]).every((d) => d.estancada === true)).toBe(true);
     });
 
     it('overriding to the same state is refused; cleanup by cancelling', async () => {

@@ -7,7 +7,10 @@ import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 
+import java.time.Duration;
+import java.time.Instant;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.EnumSet;
 import java.util.List;
 
@@ -22,6 +25,14 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 @DataJpaTest
 class DonacionRepositoryTest {
+
+    private static final ZoneId AR = ZoneId.of("America/Argentina/Buenos_Aires");
+    private static final Instant AHORA = Instant.parse("2026-10-12T15:00:00Z");
+    private static final Instant CORTE = AHORA;
+    private static final LocalDate FECHA = LocalDate.of(2000, 1, 1);
+
+    @Autowired
+    private org.springframework.jdbc.core.JdbcTemplate jdbcTemplate;
 
     @Autowired
     private DonacionRepository donacionRepository;
@@ -70,8 +81,7 @@ class DonacionRepositoryTest {
         crearDonacion("Caritas Norte", "Juan Perez", "Alimentos", EstadoDonacion.OFRECIDA);
         crearDonacion("Otra Fundacion", "Maria Lopez", "Ropa", EstadoDonacion.ACEPTADA);
 
-        Page<Donacion> page = donacionRepository.findActivas(
-                EstadoDonacion.NO_TERMINALES, "caritas", PageRequest.of(0, 20));
+        Page<Donacion> page = donacionRepository.findActivas(EstadoDonacion.NO_TERMINALES, "caritas", false, CORTE, FECHA, CORTE, FECHA, PageRequest.of(0, 20));
 
         assertThat(page.getTotalElements()).isEqualTo(1);
         assertThat(page.getContent()).hasSize(1);
@@ -84,8 +94,7 @@ class DonacionRepositoryTest {
         crearDonacion("Org A", "Juan Perez", "Alimentos", EstadoDonacion.OFRECIDA);
         crearDonacion("Org B", "Maria Lopez", "Ropa", EstadoDonacion.ACEPTADA);
 
-        Page<Donacion> page = donacionRepository.findActivas(
-                EstadoDonacion.NO_TERMINALES, "maria", PageRequest.of(0, 20));
+        Page<Donacion> page = donacionRepository.findActivas(EstadoDonacion.NO_TERMINALES, "maria", false, CORTE, FECHA, CORTE, FECHA, PageRequest.of(0, 20));
 
         assertThat(page.getTotalElements()).isEqualTo(1);
         assertThat(page.getContent().get(0).getDonante().getNombre()).isEqualTo("Maria Lopez");
@@ -96,8 +105,7 @@ class DonacionRepositoryTest {
         crearDonacion("Org A", "Juan Perez", "Alimentos no perecederos", EstadoDonacion.OFRECIDA);
         crearDonacion("Org B", "Maria Lopez", "Ropa de invierno", EstadoDonacion.ACEPTADA);
 
-        Page<Donacion> page = donacionRepository.findActivas(
-                EstadoDonacion.NO_TERMINALES, "invierno", PageRequest.of(0, 20));
+        Page<Donacion> page = donacionRepository.findActivas(EstadoDonacion.NO_TERMINALES, "invierno", false, CORTE, FECHA, CORTE, FECHA, PageRequest.of(0, 20));
 
         assertThat(page.getTotalElements()).isEqualTo(1);
         assertThat(page.getContent().get(0).getNecesidad().getDescripcion()).isEqualTo("Ropa de invierno");
@@ -108,8 +116,7 @@ class DonacionRepositoryTest {
         Donacion d1 = crearDonacion("Org A", "Juan Perez", "Alimentos", EstadoDonacion.OFRECIDA);
         crearDonacion("Org B", "Maria Lopez", "Ropa", EstadoDonacion.ACEPTADA);
 
-        Page<Donacion> page = donacionRepository.findActivas(
-                EstadoDonacion.NO_TERMINALES, String.valueOf(d1.getId()), PageRequest.of(0, 20));
+        Page<Donacion> page = donacionRepository.findActivas(EstadoDonacion.NO_TERMINALES, String.valueOf(d1.getId()), false, CORTE, FECHA, CORTE, FECHA, PageRequest.of(0, 20));
 
         assertThat(page.getTotalElements()).isEqualTo(1);
         assertThat(page.getContent().get(0).getId()).isEqualTo(d1.getId());
@@ -121,8 +128,7 @@ class DonacionRepositoryTest {
         crearDonacion("Org B", "Maria Lopez", "Ropa", EstadoDonacion.ACEPTADA);
         crearDonacion("Org C", "Pedro Gomez", "Agua", EstadoDonacion.ENTREGADA);
 
-        Page<Donacion> page = donacionRepository.findActivas(
-                EstadoDonacion.NO_TERMINALES, null, PageRequest.of(0, 20));
+        Page<Donacion> page = donacionRepository.findActivas(EstadoDonacion.NO_TERMINALES, null, false, CORTE, FECHA, CORTE, FECHA, PageRequest.of(0, 20));
 
         // Only the two non-terminal donations should be returned; the ENTREGADA one is excluded.
         assertThat(page.getTotalElements()).isEqualTo(2);
@@ -134,8 +140,7 @@ class DonacionRepositoryTest {
         crearDonacion("Org A", "Juan Perez", "Alimentos", EstadoDonacion.OFRECIDA);
         crearDonacion("Org B", "Maria Lopez", "Ropa", EstadoDonacion.ACEPTADA);
 
-        Page<Donacion> page = donacionRepository.findActivas(
-                EnumSet.of(EstadoDonacion.ACEPTADA), null, PageRequest.of(0, 20));
+        Page<Donacion> page = donacionRepository.findActivas(EnumSet.of(EstadoDonacion.ACEPTADA), null, false, CORTE, FECHA, CORTE, FECHA, PageRequest.of(0, 20));
 
         assertThat(page.getTotalElements()).isEqualTo(1);
         assertThat(page.getContent().get(0).getEstado()).isEqualTo(EstadoDonacion.ACEPTADA);
@@ -222,8 +227,7 @@ class DonacionRepositoryTest {
         crearDonacionSinNecesidad(donante);
         crearDonacion("Org A", "Juan Perez", "Alimentos", EstadoDonacion.OFRECIDA);
 
-        Page<Donacion> page = donacionRepository.findActivas(
-                EstadoDonacion.NO_TERMINALES, null, PageRequest.of(0, 20));
+        Page<Donacion> page = donacionRepository.findActivas(EstadoDonacion.NO_TERMINALES, null, false, CORTE, FECHA, CORTE, FECHA, PageRequest.of(0, 20));
 
         assertThat(page.getTotalElements()).isEqualTo(2);
         assertThat(page.getContent()).hasSize(2);
@@ -243,4 +247,70 @@ class DonacionRepositoryTest {
         assertThat(page.getContent()).extracting(Donacion::getId).containsExactly(assigned.getId());
     }
 
+
+    // ── N12: estancadas filter ──────────────────────────────────────────────────────────────
+
+    private Donacion conEstadoDesde(EstadoDonacion estado, Duration hace) {
+        Donacion d = crearDonacion("Org " + estado + hace, "Don " + estado + hace.toHours(), "n", estado);
+        d.setEstadoDesde(AHORA.minus(hace));
+        return donacionRepository.saveAndFlush(d);
+    }
+
+    private List<Long> estancadas() {
+        Instant corteEnCurso = AHORA.minus(Duration.ofDays(14));
+        Instant corteConfirmacion = AHORA.minus(Duration.ofDays(7));
+        return donacionRepository.findActivas(EstadoDonacion.NO_TERMINALES, null, true,
+                        corteEnCurso, Donacion.fechaLimiteFallback(corteEnCurso, AR),
+                        corteConfirmacion, Donacion.fechaLimiteFallback(corteConfirmacion, AR),
+                        PageRequest.of(0, 50))
+                .map(Donacion::getId).getContent();
+    }
+
+    @Test
+    void findActivas_soloEstancadas_returnsOnlyStaleOnesPerStateWindow() {
+        Donacion aceptadaVieja = conEstadoDesde(EstadoDonacion.ACEPTADA, Duration.ofDays(15));
+        Donacion enCaminoVieja = conEstadoDesde(EstadoDonacion.EN_CAMINO, Duration.ofDays(20));
+        Donacion aceptadaFresca = conEstadoDesde(EstadoDonacion.ACEPTADA, Duration.ofDays(10));
+        Donacion pendienteVieja = conEstadoDesde(EstadoDonacion.PENDIENTE_CONFIRMACION, Duration.ofDays(8));
+        Donacion pendienteFresca = conEstadoDesde(EstadoDonacion.PENDIENTE_CONFIRMACION, Duration.ofDays(6));
+        Donacion ofrecidaVieja = conEstadoDesde(EstadoDonacion.OFRECIDA, Duration.ofDays(100));
+
+        List<Long> ids = estancadas();
+
+        assertThat(ids).contains(aceptadaVieja.getId(), enCaminoVieja.getId(), pendienteVieja.getId());
+        assertThat(ids).doesNotContain(aceptadaFresca.getId(), pendienteFresca.getId(), ofrecidaVieja.getId());
+    }
+
+    @Test
+    void findActivas_soloEstancadas_exactBoundaryIsNotYetStale() {
+        Donacion enElLimite = conEstadoDesde(EstadoDonacion.ACEPTADA, Duration.ofDays(14));
+
+        assertThat(estancadas()).doesNotContain(enElLimite.getId());
+    }
+
+    @Test
+    void findActivas_soloEstancadas_nullEstadoDesdeFallsBackToFechaOferta() {
+        Donacion legacy = crearDonacion("Org legacy", "Don legacy", "n", EstadoDonacion.ACEPTADA);
+        legacy.setFechaOferta(LocalDate.of(2026, 9, 1));
+        donacionRepository.saveAndFlush(legacy);
+        jdbcTemplate.update("UPDATE donaciones SET estado_desde = NULL WHERE id = ?", legacy.getId());
+        Donacion legacyFresca = crearDonacion("Org legacy2", "Don legacy2", "n", EstadoDonacion.ACEPTADA);
+        legacyFresca.setFechaOferta(LocalDate.of(2026, 10, 10));
+        donacionRepository.saveAndFlush(legacyFresca);
+        jdbcTemplate.update("UPDATE donaciones SET estado_desde = NULL WHERE id = ?", legacyFresca.getId());
+
+        List<Long> ids = estancadas();
+
+        assertThat(ids).contains(legacy.getId()).doesNotContain(legacyFresca.getId());
+    }
+
+    @Test
+    void findActivas_withoutTheFlag_ignoresTheWindows() {
+        Donacion fresca = conEstadoDesde(EstadoDonacion.ACEPTADA, Duration.ofDays(1));
+
+        Page<Donacion> page = donacionRepository.findActivas(EstadoDonacion.NO_TERMINALES, null, false,
+                AHORA, FECHA, AHORA, FECHA, PageRequest.of(0, 50));
+
+        assertThat(page.getContent()).extracting(Donacion::getId).contains(fresca.getId());
+    }
 }
