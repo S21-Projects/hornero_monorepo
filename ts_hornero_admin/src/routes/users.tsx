@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { AsyncSection } from '../components/AsyncSection';
 import { Badge } from '../components/Badge';
 import { Text } from '../components/ui/Typography';
+import { Input } from '../components/ui/Input';
 import { Button } from '../components/ui/Button';
 import { PaginatedTable } from '../components/ui/PaginatedTable';
 import type { Column } from '../components/ui/PaginatedTable';
@@ -24,6 +25,8 @@ const PAGE_SIZE = 20;
 export default function UsersPage() {
   const [page, setPage] = useState(0);
   const [search, setSearch] = useState('');
+  const [pendiente, setPendiente] = useState<{ id: number; activo: boolean } | null>(null);
+  const [motivo, setMotivo] = useState('');
   const { data, isLoading, isError, isFetching } = useUsuarios({ page, size: PAGE_SIZE });
   usePageClamp(page, setPage, data?.totalPages);
   const toggleActivo = useToggleActivo();
@@ -84,6 +87,37 @@ export default function UsersPage() {
             isFetching={isFetching}
             search={{ value: search, onChange: setSearch, placeholder: 'Buscar por nombre o email' }}
             emptyLabel="No hay usuarios que coincidan con la búsqueda"
+            expandedKeys={pendiente ? new Set([pendiente.id]) : new Set<number>()}
+            renderRowDetail={(u) =>
+              pendiente?.id === u.id ? (
+                <div style={{ display: 'flex', gap: 12, alignItems: 'flex-end', flexWrap: 'wrap', padding: '8px 4px' }}>
+                  <Input
+                    id={`usuario-motivo-${u.id}`}
+                    label="Motivo (opcional)"
+                    maxLength={500}
+                    value={motivo}
+                    onChange={(e) => { setMotivo(e.target.value); }}
+                    style={{ minWidth: 280 }}
+                  />
+                  <Button
+                    variant={pendiente.activo ? 'ok' : 'danger'}
+                    size="sm"
+                    onClick={() => {
+                      const m = motivo.trim();
+                      toggleActivo.mutate(
+                        m ? { id: u.id, activo: pendiente.activo, motivo: m } : { id: u.id, activo: pendiente.activo },
+                      );
+                      setPendiente(null);
+                    }}
+                  >
+                    Confirmar
+                  </Button>
+                  <Button variant="secondary" size="sm" onClick={() => { setPendiente(null); }}>
+                    Cancelar
+                  </Button>
+                </div>
+              ) : null
+            }
             rowActions={(u) => {
               const isSelf = u.id === myId;
               const isMutatingThis = toggleActivo.isPending && toggleActivo.variables?.id === u.id;
@@ -93,7 +127,7 @@ export default function UsersPage() {
                   size="sm"
                   disabled={isSelf || isMutatingThis}
                   title={isSelf ? 'No podés desactivar tu propia cuenta' : undefined}
-                  onClick={() => { toggleActivo.mutate({ id: u.id, activo: !u.activo }); }}
+                  onClick={() => { setMotivo(''); setPendiente({ id: u.id, activo: !u.activo }); }}
                 >
                   {u.activo ? 'Desactivar' : 'Activar'}
                 </Button>

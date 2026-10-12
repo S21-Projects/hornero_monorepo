@@ -5,9 +5,9 @@ import type { Usuario } from '../../types/domain';
 export function useToggleActivo() {
   const qc = useQueryClient();
 
-  return useMutation<Usuario, Error, { id: number; activo: boolean }, { prev?: Usuario[] }>({
-    mutationFn: ({ id, activo }) =>
-      api.patch<Usuario>(`/usuarios/${id}/activo`, { activo }).then((r) => r.data),
+  return useMutation<Usuario, Error, { id: number; activo: boolean; motivo?: string }, { prev?: Usuario[] }>({
+    mutationFn: ({ id, activo, motivo }) =>
+      api.patch<Usuario>(`/usuarios/${id}/activo`, motivo ? { activo, motivo } : { activo }).then((r) => r.data),
     onMutate: async ({ id, activo }) => {
       await qc.cancelQueries({ queryKey: ['usuarios'] });
       const prev = qc.getQueryData<Usuario[]>(['usuarios']);
