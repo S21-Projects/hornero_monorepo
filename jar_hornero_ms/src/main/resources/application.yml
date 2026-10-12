@@ -29,8 +29,15 @@ app:
     expiration-refresh: 604800000
   mail:
     resend-api-key: ${RESEND_API_KEY:}
-    otp-from-email: ${OTP_FROM_EMAIL:}
+    # MAIL_FROM_EMAIL wins; OTP_FROM_EMAIL is the pre-N14 name, kept so existing deploys keep working.
+    from-email: ${MAIL_FROM_EMAIL:${OTP_FROM_EMAIL:}}
     log-only: ${MAIL_LOG_ONLY:false}
+    async: true
+  # N14: base URL of the admin SPA (where /restablecer lives); the reset link is built from it,
+  # never from request headers.
+  panel-url: ${APP_PANEL_URL:http://localhost:5173}
+  password-reset:
+    ttl-minutos: ${PASSWORD_RESET_TTL_MINUTOS:30}
   otp:
     ttl-minutes: 15
     max-attempts: 5

@@ -13,6 +13,7 @@ export default function LoginPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const cuentaDesactivada = searchParams.get('motivo') === 'cuenta-desactivada';
+  const passwordRestablecida = searchParams.get('motivo') === 'password-restablecida';
   const login = useAuthStore((s) => s.login);
 
   const [email, setEmail] = useState('');
@@ -108,6 +109,22 @@ export default function LoginPage() {
             </div>
           )}
 
+          {passwordRestablecida && (
+            <div
+              role="status"
+              style={{
+                background: '#DCFCE7',
+                border: '1px solid #86EFAC',
+                borderRadius: 10,
+                padding: '10px 14px',
+              }}
+            >
+              <Text variant="label" style={{ color: '#166534' }}>
+                Cambiaste tu contraseña. Ingresá con la nueva.
+              </Text>
+            </div>
+          )}
+
           {error && (
             <div
               style={{
@@ -130,6 +147,10 @@ export default function LoginPage() {
           >
             Ingresar
           </Button>
+
+          <Link to="/olvide-contrasena" style={{ textAlign: 'center' }}>
+            ¿Olvidaste tu contraseña?
+          </Link>
 
           <Link to="/register" style={{ textDecoration: 'none' }}>
             <Button type="button" variant="secondary" block>

@@ -94,6 +94,43 @@ describe('AuthService', () => {
     });
   });
 
+  describe('password reset', () => {
+    it('olvidoPassword proxies to the MS and relays its generic body, no cookies', async () => {
+      httpService.axiosRef.post.mockResolvedValue({
+        data: { mensaje: 'Si el email está registrado, te enviamos un enlace' },
+      });
+
+      const out = await service.olvidoPassword({ email: 'ana@example.com' });
+
+      expect(httpService.axiosRef.post).toHaveBeenCalledWith(
+        'http://ms:8081/api/auth/password/olvido',
+        { email: 'ana@example.com' },
+      );
+      expect(out).toEqual({
+        mensaje: 'Si el email está registrado, te enviamos un enlace',
+      });
+      expect(res.cookie).not.toHaveBeenCalled();
+    });
+
+    it('restablecerPassword proxies token and password to the MS without cookies', async () => {
+      httpService.axiosRef.post.mockResolvedValue({
+        data: { mensaje: 'Contraseña actualizada' },
+      });
+
+      const out = await service.restablecerPassword({
+        token: 'tok',
+        password: 'la cafetera azul canta fuerte',
+      });
+
+      expect(httpService.axiosRef.post).toHaveBeenCalledWith(
+        'http://ms:8081/api/auth/password/restablecer',
+        { token: 'tok', password: 'la cafetera azul canta fuerte' },
+      );
+      expect(out).toEqual({ mensaje: 'Contraseña actualizada' });
+      expect(res.cookie).not.toHaveBeenCalled();
+    });
+  });
+
   describe('logout', () => {
     it('revokes the refresh token at the MS and clears the cookies', async () => {
       httpService.axiosRef.post.mockResolvedValue({ data: undefined });

@@ -277,6 +277,23 @@ The guide requires measures "related to the identified risks", so a risk matrix 
     `make e2e` 79/79. Local DB: first boot cancelled 3 old DIRECTA offers and expired 2 proposals.
   - **Deploy warning:** on the Pi, the first boot of this MS runs the catch-up job on real data.
 
+- [x] **N14** Generalize `Mailer` (template per message) + password reset: generic response,
+  random single-use token (hashed, 30 min), auth rate limits, NIST policy on the new password,
+  revoke all refresh families on reset, actividad records. Branch `feat/mails-reset`.
+  - Done: `Mailer.enviar(MensajeCorreo)` + templates, async `mailExecutor`, `MAIL_FROM_EMAIL`
+    (falls back to `OTP_FROM_EMAIL`), `APP_PANEL_URL`; `POST /auth/password/olvido` (always 202,
+    generic) and `/restablecer` (SHA-256-hashed 256-bit token, 30 min, atomic single use, N8
+    policy before consuming, revokes refresh families, marks email verified, "password changed"
+    mail); throttles 3/min and 5/min; admin pages; daily token purge 03:45.
+  - Fix after review (inline): `/restablecer` was wrapped in PublicOnlyRoute, so a browser with a
+    session lost the token on redirect; now unguarded (router test RED → GREEN).
+  - Residual: an access token issued before the reset stays valid until it expires (≤ 15 min);
+    refresh families are revoked.
+  - Evidence: `mvn test` 795/795; BFF 359/359 + tsc; admin 501/501 + build + lint; `make e2e`
+    85/85 (happy path covered by MS integration test with a capturing Mailer; no prod backdoor).
+- [ ] **N13** Event notifications per D6 (after-commit async, failures to actividad) + admin daily
+  digest.
+
 ## Business definitions pending (list 2)
 
 Each item needs a team decision before related work starts. Record the decision and date here.
@@ -304,7 +321,14 @@ Each item needs a team decision before related work starts. Record the decision 
   - Decided 2026-10-10 (user): donor identity is visible only to the receiving organization (plus
     the donor and admins). Public display stays possible behind a feature flag, **off** by
     default. Implementation: task **N2**.
-- [ ] **D6** Which events send email, and to whom? (offered, accepted, delivered, org approved…)
+- [x] **D6** Which events send email, and to whom? (offered, accepted, delivered, org approved…)
+  - Decided 2026-10-12 (user approved proposal): donante — donation accepted/rejected,
+    auto-cancelled (N12), delivery confirmed; referente — new direct donation, new pool proposal,
+    org approved/rejected, level changed, evidence observed; admin — one daily digest (pending
+    orgs + stale donations). Sent after commit, async; failures recorded in actividad, no retries;
+    no subscription preferences. Password reset approved too (OWASP Forgot Password Cheat Sheet).
+    Tasks **N14** (Mailer + reset) then **N13** (notifications). Resend domain verification in
+    progress by the user.
   Note: `Mailer` only exposes `enviarOtp`; needs generalizing.
 - [x] **D7** Rondas: manual only, or also scheduled?
   - Decided 2026-10-10 (user): manual stays the default; an optional scheduled job can be

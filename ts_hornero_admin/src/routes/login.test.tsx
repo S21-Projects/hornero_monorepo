@@ -102,3 +102,26 @@ describe('LoginPage — deactivated account notice (N9)', () => {
     expect(screen.queryByText(/Tu cuenta fue desactivada/)).not.toBeInTheDocument();
   });
 });
+
+describe('LoginPage — password reset entry points (N14)', () => {
+  it('links to the forgot-password page', () => {
+    const router = createMemoryRouter([{ path: '/login', element: <LoginPage /> }], {
+      initialEntries: ['/login'],
+    });
+    render(<RouterProvider router={router} />);
+
+    expect(screen.getByRole('link', { name: '¿Olvidaste tu contraseña?' })).toHaveAttribute(
+      'href',
+      '/olvide-contrasena',
+    );
+  });
+
+  it('shows the success notice after a completed reset', () => {
+    const router = createMemoryRouter([{ path: '/login', element: <LoginPage /> }], {
+      initialEntries: ['/login?motivo=password-restablecida'],
+    });
+    render(<RouterProvider router={router} />);
+
+    expect(screen.getByRole('status')).toHaveTextContent('Cambiaste tu contraseña');
+  });
+});
