@@ -127,6 +127,7 @@ export default function ControlDonacionesPage() {
   const [qInput, setQInput] = useState('');
   const [q, setQ] = useState('');
   const [estado, setEstado] = useState('');
+  const [soloEstancadas, setSoloEstancadas] = useState(false);
   const [expanded, setExpanded] = useState<Set<number>>(new Set());
 
   // Debounce the free-text search into the server `q` param; reset to page 0
@@ -144,6 +145,11 @@ export default function ControlDonacionesPage() {
     setPage(0);
   }
 
+  function toggleEstancadas() {
+    setSoloEstancadas((prev) => !prev);
+    setPage(0);
+  }
+
   function toggle(id: number) {
     setExpanded((prev) => {
       const next = new Set(prev);
@@ -158,6 +164,7 @@ export default function ControlDonacionesPage() {
     size: PAGE_SIZE,
     q: q || undefined,
     estado: estado || undefined,
+    estancadas: soloEstancadas || undefined,
   });
   usePageClamp(page, setPage, data?.totalPages);
 
@@ -199,6 +206,9 @@ export default function ControlDonacionesPage() {
             <Badge tone={cfg.tone} label={cfg.label} />
             {faseCfg && <Badge tone={faseCfg.tone} label={faseCfg.label} />}
             {d.overrideEn && <Badge tone="danger" label="Forzada" />}
+            {d.estancada && (
+              <Badge tone="danger" label={`Estancada (${d.diasEnEstado ?? 0} ${d.diasEnEstado === 1 ? 'día' : 'días'})`} />
+            )}
           </div>
         );
       },
@@ -235,14 +245,24 @@ export default function ControlDonacionesPage() {
             isFetching={isFetching}
             search={{ value: qInput, onChange: setQInput, placeholder: 'Buscar por org, donante, necesidad o #id' }}
             toolbar={
-              <Dropdown
-                value={estado}
-                onChange={handleEstadoChange}
-                options={ESTADO_FILTER_OPTIONS}
-                style={{ minWidth: 200 }}
-              />
+              <>
+                <Dropdown
+                  value={estado}
+                  onChange={handleEstadoChange}
+                  options={ESTADO_FILTER_OPTIONS}
+                  style={{ minWidth: 200 }}
+                />
+                <Button
+                  variant={soloEstancadas ? 'danger' : 'secondary'}
+                  size="sm"
+                  aria-pressed={soloEstancadas}
+                  onClick={toggleEstancadas}
+                >
+                  Solo estancadas
+                </Button>
+              </>
             }
-            emptyLabel={q || estado ? 'No hay donaciones que coincidan con la búsqueda' : 'No hay donaciones activas'}
+            emptyLabel={q || estado || soloEstancadas ? 'No hay donaciones que coincidan con la búsqueda' : 'No hay donaciones activas'}
             rowActions={(d) => (
               <Button variant="secondary" size="sm" onClick={() => toggle(d.id)}>
                 {expanded.has(d.id) ? 'Cerrar' : 'Forzar estado'}

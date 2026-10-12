@@ -266,6 +266,17 @@ The guide requires measures "related to the identified risks", so a risk matrix 
   (rolled back), real retention job purged a probe row. **USER ACTION (Pi):** `make migrate`
   applies V004 (start the MS once first so `actividad` exists).
 
+- [x] **N12** (from D4) Stale donations job + `estadoDesde` + admin "estancada" flag (branch
+  `feat/donaciones-estancadas`).
+  - Done: `Donacion.cambiarEstado` keeps `estadoDesde`; `DonacionesEstancadasJob` (00:15 BA + startup
+    catch-up, per-row tx + lock, conflicts skipped); asignacion expiry reuses RECHAZADA via shared
+    `devolverAlFondo`; actividad types `DONACION_VENCIDA`, `DONACION_PROPUESTA_VENCIDA`,
+    `DONACIONES_ESTANCADAS_PROCESADAS`; `/donaciones/activas` exposes `estancada`, `diasEnEstado`,
+    `estancadas=true` filter; admin badge + toggle; V005 backfills `estado_desde`.
+  - Evidence: RED per layer; `mvn test` 762/762, BFF 343/343 + tsc, admin 479/479 + build + lint,
+    `make e2e` 79/79. Local DB: first boot cancelled 3 old DIRECTA offers and expired 2 proposals.
+  - **Deploy warning:** on the Pi, the first boot of this MS runs the catch-up job on real data.
+
 ## Business definitions pending (list 2)
 
 Each item needs a team decision before related work starts. Record the decision and date here.
@@ -282,7 +293,13 @@ Each item needs a team decision before related work starts. Record the decision 
 - [x] **D3** Quantity ceiling: can a donation exceed what the necesidad requests?
   - Closed 2026-10-10 (user): not applicable — necesidades select articulos without quantities
     (catalog decision 6), so there is nothing to cap against.
-- [ ] **D4** Stale donations: do `OFRECIDA`/`EN_CAMINO` donations expire after some time?
+- [x] **D4** Stale donations: do `OFRECIDA`/`EN_CAMINO` donations expire after some time?
+  - Decided 2026-10-12 (user approved proposal): reassignment stays out of scope (decision
+    2026-09-20). Daily job, configurable windows: DIRECTA `OFRECIDA` without answer 7 d → auto
+    `CANCELADA` (SISTEMA, motivo "sin respuesta"); pool asignacion `PROPUESTA` unanswered 3 d →
+    treated as rejected (existing return-to-pool path); `ACEPTADA`/`EN_CAMINO` 14 d and
+    `PENDIENTE_CONFIRMACION` 7 d → flagged "estancada" for the admin (no auto-cancel). Needs an
+    `estadoDesde` timestamp. Task **N12**.
 - [x] **D5** Which donor data is public? (today `GET /donaciones/{id}` exposes donor name)
   - Decided 2026-10-10 (user): donor identity is visible only to the receiving organization (plus
     the donor and admins). Public display stays possible behind a feature flag, **off** by

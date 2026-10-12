@@ -41,6 +41,13 @@ app:
     # D5: donor identity on public donation reads. Off = only admin, the donor and the
     # receiving organization's referente see it.
     donante-publico: ${DONANTE_PUBLICO:false}
+    # N12/D4: stale-donations job. Unanswered DIRECTA offers / pool proposals are auto-resolved
+    # after their window; accepted/en-camino and pending-confirmation donations are only flagged.
+    oferta-sin-respuesta-dias: ${DONACIONES_OFERTA_SIN_RESPUESTA_DIAS:7}
+    propuesta-sin-respuesta-dias: ${DONACIONES_PROPUESTA_SIN_RESPUESTA_DIAS:3}
+    en-curso-estancada-dias: ${DONACIONES_EN_CURSO_ESTANCADA_DIAS:14}
+    confirmacion-estancada-dias: ${DONACIONES_CONFIRMACION_ESTANCADA_DIAS:7}
+    estancadas-cron: ${DONACIONES_ESTANCADAS_CRON:0 15 0 * * *}
   acreditacion:
     cap-n0: 0
     cap-n1: 3

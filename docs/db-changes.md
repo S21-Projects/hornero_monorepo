@@ -10,6 +10,24 @@ production DB) — check the "Applied to" line before running anything twice.
 
 ---
 
+## 2026-10-12 — Backfill `donaciones.estado_desde` (N12, D4)
+
+**Reason**: the stale-donations job and the admin "estancada" flag need to know when a donation entered its current estado. `Donacion.estadoDesde` is stamped on every transition from now on; `ddl-auto=update` adds the column as nullable, so existing rows are NULL.
+
+**Before**: no `estado_desde` column.
+
+**Migration**: `scripts/sql/V005__donaciones_estado_desde_backfill.sql` (run `make migrate`, then restart the MS). Sets `estado_desde` to the start of `fecha_oferta` (Buenos Aires) where it is NULL; best available value, since the real moment of the last transition was never recorded. Optional for correctness: while rows are NULL the job and the flag use that same fallback at read time. At boot `EsquemaVerificador` logs `ESQUEMA_PENDIENTE` if NULL rows remain (PostgreSQL only). Idempotent.
+
+**After**: `donaciones.estado_desde TIMESTAMP` populated for every row with a `fecha_oferta`.
+
+**Rollback**: nothing to undo for correctness; `UPDATE donaciones SET estado_desde = NULL;` restores the pre-script state (the fallback keeps working). The column can stay, the old code ignores it.
+
+**Applied to**:
+- [ ] Local dev DB
+- [ ] Pi production DB (`make migrate` after deploying)
+
+---
+
 ## 2026-10-12 — Immutability trigger on `actividad` (M6, N10)
 
 **Reason**: the activity log is append-only for the application (immutable entity, insert-only repository) but nothing stopped ad-hoc SQL from editing or deleting rows. A trigger now enforces it inside PostgreSQL.

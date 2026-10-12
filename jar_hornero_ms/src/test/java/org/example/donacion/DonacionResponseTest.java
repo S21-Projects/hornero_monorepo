@@ -58,12 +58,14 @@ class DonacionResponseTest {
                 1L, LocalDate.now(), null, "OFRECIDA", "obs", 2L, "Donante",
                 null, "", null, "", (Instant) null, (Instant) null,
                 null, null, (Instant) null,
-                "FONDO_COMUN", "NO_PERECEDERO", "EN_FONDO", java.util.List.of()
+                "FONDO_COMUN", "NO_PERECEDERO", "EN_FONDO", java.util.List.of(), false, 0
         );
 
         Map<?, ?> json = MAPPER.readValue(MAPPER.writeValueAsString(response), Map.class);
 
         assertThat(json.keySet()).noneMatch(k -> k.toString().toLowerCase().contains("latitud"));
         assertThat(json.keySet()).noneMatch(k -> k.toString().toLowerCase().contains("longitud"));
+        assertThat(json.get("estancada")).isEqualTo(false);
+        assertThat(((Number) json.get("diasEnEstado")).longValue()).isZero();
     }
 }
