@@ -300,7 +300,12 @@ The guide requires measures "related to the identified risks", so a risk matrix 
     Doc: `docs/notificaciones-email.md`. Evidence: `mvn test` 867/867 (AFTER_COMMIT RED proven by
     swapping to @EventListener), `make e2e` 85/85.
   - Found: with a Resend key present, `MAIL_LOG_ONLY=true` is ignored, so the local stack sends
-    real mail — including to seeded demo addresses on `@hornero.ar`.
+    real mail — including to seeded demo addresses on `@hornero.ar` (confirmed in the Resend
+    dashboard 2026-10-12: e2e + manual runs mailed donante/referente/admin@hornero.ar).
+  - Fixed: `MAIL_LOG_ONLY=true` now always wins over a configured key (RED: test hit Resend with
+    401; GREEN: `mvn test` 868/868); local MS rebuilt and logs log-only mode.
+  - Open: demo accounts on `@hornero.ar` are seeded in production too → move to a reserved
+    domain (user decision pending).
 
 ## Business definitions pending (list 2)
 
