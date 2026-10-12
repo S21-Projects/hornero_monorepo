@@ -243,4 +243,77 @@ describe('Authorization, validation and admin override', () => {
       }
     });
   });
+
+  describe('M3/M4. N0 organizations and the open-necesidades cap', () => {
+    const newOrg = async (label: string) => {
+      const org = await a.referente3.post('/organizaciones', {
+        nombre: marker(label), tipo: 'OTRO', latitud: -31.4, longitud: -64.19,
+      });
+      expect(org.status).toBe(201);
+      expect((await a.admin.patch(`/organizaciones/${org.data.id}/validar`)).status).toBe(200);
+      return org.data.id as number;
+    };
+
+    it('M3: necesidades of an organization lowered to N0 disappear from public listings; owner and admin still see them', async () => {
+      const articulo = (await openNecesidades()).flatMap((n) => n.articulos).find((x) => x.categoria === 'NO_PERECEDERO');
+      const orgId = await newOrg('org-m3');
+      try {
+        const nec = await a.referente3.post('/necesidades', {
+          descripcion: marker('necesidad-m3'), prioridad: 'NORMAL', organizacionId: orgId, articuloIds: [articulo!.id],
+        });
+        expect(nec.status).toBe(201);
+        const necId = nec.data.id as number;
+        const ids = async (actor: { get: (u: string) => Promise<any> }, path: string) =>
+          ((await actor.get(path)).data.content as any[]).map((n) => n.id);
+        const byOrg = `/necesidades?organizacionId=${orgId}&size=100`;
+        const all = '/necesidades?size=200&sort=id,desc';
+
+        expect(await ids(anonymous(), byOrg)).toContain(necId);
+        expect(await ids(anonymous(), all)).toContain(necId);
+
+        expect((await a.admin.patch(`/organizaciones/${orgId}/acreditacion/nivel`, {
+          destino: 'N0', motivo: marker('lower to N0 (M3)'),
+        })).status).toBe(200);
+
+        expect(await ids(anonymous(), byOrg)).not.toContain(necId);
+        expect(await ids(anonymous(), all)).not.toContain(necId);
+        expect(await ids(a.donante, byOrg)).not.toContain(necId);
+        expect(await ids(a.referente3, byOrg)).toContain(necId);
+        expect(await ids(a.referente3, all)).toContain(necId);
+        expect(await ids(a.admin, byOrg)).toContain(necId);
+      } finally {
+        await retireOrg(a.admin, orgId);
+      }
+    });
+
+    it('M4: reopening CUMPLIDA -> ABIERTA via PATCH respects the level cap (409), and works once a slot frees up', async () => {
+      const articulo = (await openNecesidades()).flatMap((n) => n.articulos).find((x) => x.categoria === 'NO_PERECEDERO');
+      const orgId = await newOrg('org-m4');
+      try {
+        const crear = (label: string) => a.referente3.post('/necesidades', {
+          descripcion: marker(label), prioridad: 'NORMAL', organizacionId: orgId, articuloIds: [articulo!.id],
+        });
+        const first = await crear('m4-first');
+        expect(first.status).toBe(201);
+        expect((await a.referente3.patch(`/necesidades/${first.data.id}`, { estado: 'CUMPLIDA' })).status).toBe(200);
+        const open: number[] = [];
+        for (const label of ['m4-b', 'm4-c', 'm4-d']) {
+          const r = await crear(label);
+          expect(r.status).toBe(201);
+          open.push(r.data.id);
+        }
+
+        const blocked = await a.referente3.patch(`/necesidades/${first.data.id}`, { estado: 'ABIERTA' });
+        expect(blocked.status).toBe(409);
+        expect(JSON.stringify(blocked.body)).toContain('necesidades abiertas');
+
+        expect((await a.referente3.patch(`/necesidades/${open[0]}`, { estado: 'CUMPLIDA' })).status).toBe(200);
+        const reopened = await a.referente3.patch(`/necesidades/${first.data.id}`, { estado: 'ABIERTA' });
+        expect(reopened.status).toBe(200);
+        expect(reopened.data.estado).toBe('ABIERTA');
+      } finally {
+        await retireOrg(a.admin, orgId);
+      }
+    });
+  });
 });
