@@ -39,6 +39,9 @@ class ActividadControllerTest {
     private ActividadService actividadService;
 
     @MockBean
+    private ActorResolver actorResolver;
+
+    @MockBean
     private JwtService jwtService;
 
     @MockBean
@@ -82,6 +85,23 @@ class ActividadControllerTest {
         org.assertj.core.api.Assertions.assertThat(captor.getValue().accion()).isEqualTo(TipoActividad.LOGIN);
         org.assertj.core.api.Assertions.assertThat(captor.getValue().resultado()).isEqualTo(ResultadoActividad.FALLO);
         org.assertj.core.api.Assertions.assertThat(captor.getValue().actorUsuarioId()).isEqualTo(3L);
+    }
+
+    @Test
+    void admin_listing_includesResolvedActorNameAndEmail_forUserRowsOnly() throws Exception {
+        Actividad conActor = new Actividad(Instant.parse("2026-10-01T00:00:00Z"), 7L, TipoActor.ADMINISTRADOR,
+                TipoActividad.LOGIN, ResultadoActividad.EXITO, null, null, null, null, null, null, null, null);
+        Actividad sistema = new Actividad(Instant.parse("2026-10-01T00:00:00Z"), null, TipoActor.SISTEMA,
+                TipoActividad.ACTIVIDAD_PURGADA, ResultadoActividad.EXITO, null, null, null, null, null, null, null, null);
+        when(actividadService.buscar(any(), any())).thenReturn(new PageImpl<>(List.of(conActor, sistema), PageRequest.of(0, 20), 2));
+        when(actorResolver.resolver(any())).thenReturn(java.util.Map.of(7L, new ActorResolver.Actor("Ada Admin", "ada@test.com")));
+
+        mockMvc.perform(get("/api/actividad").with(authentication(auth(2L, "ADMINISTRADOR"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content[0].actorNombre").value("Ada Admin"))
+                .andExpect(jsonPath("$.data.content[0].actorEmail").value("ada@test.com"))
+                .andExpect(jsonPath("$.data.content[1].actorNombre").doesNotExist());
+        verify(actorResolver, org.mockito.Mockito.times(1)).resolver(any());
     }
 
     @Test

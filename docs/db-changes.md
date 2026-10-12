@@ -10,6 +10,22 @@ production DB) — check the "Applied to" line before running anything twice.
 
 ---
 
+## 2026-10-12 — Immutability trigger on `actividad` (M6, N10)
+
+**Reason**: the activity log is append-only for the application (immutable entity, insert-only repository) but nothing stopped ad-hoc SQL from editing or deleting rows. A trigger now enforces it inside PostgreSQL.
+
+**Before**: no trigger on `actividad`.
+
+**Migration**: `scripts/sql/V004__actividad_inmutable.sql` (run `make migrate`; needs the `actividad` table, i.e. the MS must have booted once). Creates `actividad_inmutable()` plus a row-level `BEFORE UPDATE OR DELETE` and a statement-level `BEFORE TRUNCATE` trigger. UPDATE is always rejected; DELETE/TRUNCATE are rejected unless the transaction set `hornero.purga_actividad = 'on'`, which `ActividadRetencionJob` does with `set_config(..., true)` (= `SET LOCAL`) as the first statement of its transaction. Safe to run before or after deploying the new MS image (the old image's purge job would fail until the new image is up, which only delays retention). At boot `EsquemaVerificador` logs `ESQUEMA_PENDIENTE` if the trigger is missing (PostgreSQL only). Limit: the table owner or a superuser can still drop the trigger.
+
+**After**: triggers `actividad_inmutable` and `actividad_inmutable_truncate` on `actividad`.
+
+**Rollback**: `DROP TRIGGER actividad_inmutable ON actividad; DROP TRIGGER actividad_inmutable_truncate ON actividad; DROP FUNCTION actividad_inmutable();`
+
+**Applied to**: local dev DB (2026-10-12). Pi production: pending (`make migrate` after deploy).
+
+---
+
 ## 2026-10-10 — `version` columns for optimistic locking on `donaciones`, `necesidades`, `organizaciones` (N11)
 
 **Reason**: `@Version` on `Donacion`, `Necesidad` and `Organizacion` makes two concurrent operations on the same row safe: the first commit wins, the second answers 409 `CONFLICTO_CONCURRENTE`. `ddl-auto=update` adds the column as nullable and leaves existing rows NULL, which would make every later update of those rows fail the version check.

@@ -119,4 +119,35 @@ class EsquemaVerificadorTest {
     void defaultState_versionsAssumedInitialized() {
         assertThat(esquemaVerificador.versionesInicializadas()).isTrue();
     }
+
+    @Test
+    void postgres_actividadTriggerMissing_flagsV004Pending() throws Exception {
+        mockDatabaseProduct("PostgreSQL");
+        when(jdbcTemplate.queryForObject(org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.eq(String.class)))
+                .thenReturn("YES");
+        when(jdbcTemplate.queryForObject(org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.eq(Boolean.class)))
+                .thenReturn(false);
+
+        esquemaVerificador.run(new DefaultApplicationArguments());
+
+        assertThat(esquemaVerificador.actividadInmutable()).isFalse();
+    }
+
+    @Test
+    void postgres_actividadTriggerPresent_v004NotPending() throws Exception {
+        mockDatabaseProduct("PostgreSQL");
+        when(jdbcTemplate.queryForObject(org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.eq(String.class)))
+                .thenReturn("YES");
+        when(jdbcTemplate.queryForObject(org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.eq(Boolean.class)))
+                .thenReturn(true);
+
+        esquemaVerificador.run(new DefaultApplicationArguments());
+
+        assertThat(esquemaVerificador.actividadInmutable()).isTrue();
+    }
+
+    @Test
+    void defaultState_actividadAssumedImmutable() {
+        assertThat(esquemaVerificador.actividadInmutable()).isTrue();
+    }
 }

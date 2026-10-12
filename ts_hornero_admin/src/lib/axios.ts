@@ -1,6 +1,7 @@
 import axios from 'axios';
 import { isApiEnvelope } from '../types/api';
 import { IDEMPOTENCY_KEY_HEADER, newIdempotencyKey } from './idempotency';
+import { REPLAY_NOTICE, useNoticeStore } from '../store/notice.store';
 
 // BFF base URL — NO /api prefix (gotcha #252: BFF routes have no /api prefix,
 // only the MS does).
@@ -38,6 +39,11 @@ const processQueue = (error: unknown) => {
 
 api.interceptors.response.use(
   (res) => {
+    // N11/M7: the BFF relays (and CORS exposes) Idempotent-Replayed when the MS answered from its
+    // idempotency record. One central notice instead of per-form handling.
+    if (String(res.headers?.['idempotent-replayed']).toLowerCase() === 'true') {
+      useNoticeStore.getState().push(REPLAY_NOTICE);
+    }
     // Unwrap the MS `{status,message,timestamp,data,errors}` envelope so
     // domain code never sees it. `/api/auth/**` responses fail the shape
     // guard (no `status`/`timestamp` fields) and pass through raw.
