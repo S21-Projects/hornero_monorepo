@@ -40,6 +40,14 @@ class MailerConfigTest {
     }
 
     @Test
+    void fullConfig_logOnlyTrue_neverSends(CapturedOutput output) {
+        // MAIL_LOG_ONLY wins over a configured key: a local stack holding a real key must not mail.
+        Mailer mailer = config.mailer("re_key", "no-reply@x.org", true);
+        assertDoesNotThrow(() -> mailer.enviarOtp("someone@example.org", "123456"));
+        assertTrue(output.getOut().contains("s***@example.org"));
+    }
+
+    @Test
     void fullConfig_returnsMailerWithoutSending() {
         assertNotNull(config.mailer("re_key", "no-reply@x.org", false));
     }

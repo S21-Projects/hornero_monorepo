@@ -20,15 +20,15 @@ public class MailerConfig {
             @Value("${app.mail.resend-api-key:}") String resendApiKey,
             @Value("${app.mail.from-email:}") String fromEmail,
             @Value("${app.mail.log-only:false}") boolean logOnly) {
-        if (resendApiKey.isBlank() || fromEmail.isBlank()) {
-            if (!logOnly) {
-                throw new IllegalStateException(
-                        "RESEND_API_KEY and MAIL_FROM_EMAIL (or the legacy OTP_FROM_EMAIL) must be set to send emails. " +
-                        "Set MAIL_LOG_ONLY=true to skip sending and only log that a message was generated (local dev only).");
-            }
-            log.warn("[mail] MAIL_LOG_ONLY activo y RESEND_API_KEY / MAIL_FROM_EMAIL no configurados. " +
-                    "Los correos no se envían: sólo se registra el destinatario enmascarado.");
+        // MAIL_LOG_ONLY always wins: a local stack that happens to hold a real key must never send.
+        if (logOnly) {
+            log.warn("[mail] MAIL_LOG_ONLY activo: los correos no se envían, sólo se registra el destinatario enmascarado.");
             return logMailer();
+        }
+        if (resendApiKey.isBlank() || fromEmail.isBlank()) {
+            throw new IllegalStateException(
+                    "RESEND_API_KEY and MAIL_FROM_EMAIL (or the legacy OTP_FROM_EMAIL) must be set to send emails. " +
+                    "Set MAIL_LOG_ONLY=true to skip sending and only log that a message was generated (local dev only).");
         }
         return resendMailer(resendApiKey, fromEmail);
     }
