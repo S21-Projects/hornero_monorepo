@@ -286,8 +286,33 @@ describe('DonacionesController', () => {
         'fechaOferta,desc',
         'org',
         'OFRECIDA',
+        undefined,
       );
       expect(result).toBe(page);
+    });
+
+    it('forwards the estancadas filter as the last argument (N12)', async () => {
+      service.findActivas.mockResolvedValue({ content: [] });
+
+      await controller.findActivas(
+        requestWithToken('token-123'),
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        'true',
+      );
+
+      expect(service.findActivas).toHaveBeenCalledWith(
+        'token-123',
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        'true',
+      );
     });
 
     it('is restricted to ADMINISTRADOR, matching the MS @PreAuthorize', () => {

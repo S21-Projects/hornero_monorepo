@@ -81,14 +81,15 @@ public class DonacionController {
         return donacionService.findDeMisOrganizaciones(referenteId, organizacionId);
     }
 
-    @Operation(summary = "List active (non-terminal) donations for admin oversight, paginated and searchable")
+    @Operation(summary = "List active (non-terminal) donations for admin oversight, paginated, searchable and filterable by stale (estancadas=true)")
     @GetMapping("/activas")
     @PreAuthorize("hasRole('ADMINISTRADOR')")
     public PageData<DonacionActivaResponse> findActivas(
             @RequestParam(required = false) String q,
             @RequestParam(required = false) EstadoDonacion estado,
+            @RequestParam(required = false, defaultValue = "false") boolean estancadas,
             @PageableDefault(size = 20, sort = {"fechaOferta", "id"}, direction = Sort.Direction.DESC) Pageable pageable) {
-        return PageData.from(donacionService.findActivas(q, estado, pageable));
+        return PageData.from(donacionService.findActivas(q, estado, estancadas, pageable));
     }
 
     @Operation(summary = "Get a donation by ID")

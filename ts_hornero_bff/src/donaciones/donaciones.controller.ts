@@ -117,6 +117,7 @@ export class DonacionesController {
     @Query('sort') sort?: string,
     @Query('q') q?: string,
     @Query('estado') estado?: string,
+    @Query('estancadas') estancadas?: string,
   ) {
     return this.donacionesService.findActivas(
       this.getToken(req),
@@ -125,6 +126,7 @@ export class DonacionesController {
       sort,
       q,
       estado,
+      estancadas,
     );
   }
 

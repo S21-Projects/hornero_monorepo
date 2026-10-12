@@ -157,12 +157,24 @@ class DonacionControllerTest {
     void getActivas_sizeAboveMaxPageSize_clampsTo100() throws Exception {
         ArgumentCaptor<Pageable> captor = ArgumentCaptor.forClass(Pageable.class);
         var emptyPage = new PageImpl<org.example.donacion.DonacionActivaResponse>(List.of());
-        when(donacionService.findActivas(any(), any(), captor.capture())).thenReturn(emptyPage);
+        when(donacionService.findActivas(any(), any(), org.mockito.ArgumentMatchers.anyBoolean(), captor.capture())).thenReturn(emptyPage);
 
         mockMvc.perform(get("/api/donaciones/activas").param("size", "9999"))
                 .andExpect(status().isOk());
 
         assertThat(captor.getValue().getPageSize()).isEqualTo(100);
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMINISTRADOR")
+    void getActivas_estancadasParam_isForwardedToTheService() throws Exception {
+        var emptyPage = new PageImpl<org.example.donacion.DonacionActivaResponse>(List.of());
+        when(donacionService.findActivas(any(), any(), org.mockito.ArgumentMatchers.eq(true), any())).thenReturn(emptyPage);
+
+        mockMvc.perform(get("/api/donaciones/activas").param("estancadas", "true"))
+                .andExpect(status().isOk());
+
+        org.mockito.Mockito.verify(donacionService).findActivas(any(), any(), org.mockito.ArgumentMatchers.eq(true), any());
     }
 
     // ─── Retirement: the plain confirm-entrega endpoint no longer exists ─────

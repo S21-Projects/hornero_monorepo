@@ -50,6 +50,10 @@ public enum TipoActividad {
     DONACION_CANCELADA,
     DONACION_ELIMINADA,
     DONACION_OVERRIDE,
+    // N12/D4: automatic, system-actor transitions of the stale-donations job
+    DONACION_VENCIDA,
+    DONACION_PROPUESTA_VENCIDA,
+    DONACIONES_ESTANCADAS_PROCESADAS,
 
     // Rondas and catalog
     RONDA_EJECUTADA,

@@ -37,6 +37,7 @@ import org.springframework.web.server.ResponseStatusException;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
@@ -62,6 +63,7 @@ public class DonacionService {
     private final DonanteVisibilidad donanteVisibilidad;
     private final Clock clock;
     private final ActividadService actividadService;
+    private final VentanasDonacion ventanas;
 
     public Page<DonacionResponse> findAll(Pageable pageable) {
         return donacionRepository.findAllWithDonante(pageable)
@@ -120,7 +122,7 @@ public class DonacionService {
         Donacion d = new Donacion();
         d.setDonante(donante);
         d.setObservaciones(dto.getObservaciones());
-        d.setEstado(EstadoDonacion.OFRECIDA);
+        d.cambiarEstado(EstadoDonacion.OFRECIDA, clock);
         d.setFechaOferta(LocalDate.now());
         d.setModalidad(modalidad);
 
@@ -203,7 +205,8 @@ public class DonacionService {
                 .map(this::toResponse);
     }
 
-    public Page<DonacionActivaResponse> findActivas(String q, EstadoDonacion estado, Pageable pageable) {
+    public Page<DonacionActivaResponse> findActivas(String q, EstadoDonacion estado, boolean soloEstancadas,
+                                                    Pageable pageable) {
         Set<EstadoDonacion> estados;
         if (estado == null) {
             estados = EstadoDonacion.NO_TERMINALES;
@@ -213,7 +216,13 @@ public class DonacionService {
         } else {
             estados = EnumSet.of(estado);
         }
-        return donacionRepository.findActivas(estados, q, pageable)
+        ZoneId zona = clock.getZone();
+        Instant ahora = clock.instant();
+        Instant corteEnCurso = ahora.minus(ventanas.enCursoEstancada());
+        Instant corteConfirmacion = ahora.minus(ventanas.confirmacionEstancada());
+        return donacionRepository.findActivas(estados, q, soloEstancadas,
+                        corteEnCurso, Donacion.fechaLimiteFallback(corteEnCurso, zona),
+                        corteConfirmacion, Donacion.fechaLimiteFallback(corteConfirmacion, zona), pageable)
                 .map(this::toActivaResponse);
     }
 
@@ -254,21 +263,14 @@ public class DonacionService {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                         "Invalid state transition: " + d.getEstado() + " -> " + nuevoEstado);
             }
-            // Gotcha pinned by AD-3: only null the owning side. Do NOT remove `d` from
-            // `necesidad.getDonaciones()` — that collection is `orphanRemoval = true` and doing so
-            // would delete this donación row on flush.
-            d.setNecesidad(null);
-            DonacionResponse response = toResponse(donacionRepository.save(d));
-            resolverAsignacionVigente(id, EstadoAsignacion.RECHAZADA);
-            actividadService.registrar(Registro.de(TipoActividad.DONACION_DECISION)
-                    .entidad("DONACION", id).cambio(d.getEstado(), d.getEstado())
+            devolverAlFondo(d, Registro.de(TipoActividad.DONACION_DECISION)
                     .detalle("rechazada por la organización, devuelta al fondo común"));
-            return response;
+            return toResponse(d);
         }
 
         TransicionesDonacion.validar(d.getEstado(), nuevoEstado);
         EstadoDonacion estadoAntes = d.getEstado();
-        d.setEstado(nuevoEstado);
+        d.cambiarEstado(nuevoEstado, clock);
         DonacionResponse response = toResponse(donacionRepository.save(d));
         actividadService.registrar(Registro.de(TipoActividad.DONACION_DECISION)
                 .entidad("DONACION", id).cambio(estadoAntes, nuevoEstado));
@@ -291,7 +293,7 @@ public class DonacionService {
         }
         TransicionesDonacion.validar(d.getEstado(), nuevoEstado);
         EstadoDonacion estadoAntes = d.getEstado();
-        d.setEstado(nuevoEstado);
+        d.cambiarEstado(nuevoEstado, clock);
         DonacionResponse response = toResponse(donacionRepository.save(d));
         actividadService.registrar(Registro.de(
                         nuevoEstado == EstadoDonacion.CANCELADA
@@ -336,7 +338,7 @@ public class DonacionService {
         }
 
         EstadoDonacion estadoAntes = d.getEstado();
-        d.setEstado(nuevoEstado);
+        d.cambiarEstado(nuevoEstado, clock);
         d.setOverrideMotivo(motivo);
         d.setOverrideAdminId(adminId);
         d.setOverrideEn(Instant.now());
@@ -352,6 +354,73 @@ public class DonacionService {
         return response;
     }
 
+    private static final String MOTIVO_SIN_RESPUESTA = "sin respuesta del referente";
+
+    /**
+     * Shared "return to the pool" path (AD-3): a FONDO_COMUN donación whose assignment was
+     * rejected, by the referente or by the stale-proposal job, goes back to the pool and the
+     * vigente asignación resolves to {@code RECHAZADA}. {@code registro} is the caller's activity
+     * entry (type, actor, detail); the entity and state change are recorded here.
+     */
+    private void devolverAlFondo(Donacion d, Registro registro) {
+        // Gotcha pinned by AD-3: only null the owning side. Do NOT remove `d` from
+        // `necesidad.getDonaciones()` — that collection is `orphanRemoval = true` and doing so
+        // would delete this donación row on flush.
+        d.setNecesidad(null);
+        donacionRepository.save(d);
+        resolverAsignacionVigente(d.getId(), EstadoAsignacion.RECHAZADA);
+        actividadService.registrar(registro.entidad("DONACION", d.getId()).cambio(d.getEstado(), d.getEstado()));
+    }
+
+    /**
+     * N12/D4 job step: auto-cancels a {@code DIRECTA} offer nobody answered. Runs in its own
+     * transaction under the row lock and re-checks everything, so a user action that committed
+     * first wins and this becomes a no-op. Returns whether it cancelled.
+     */
+    @Transactional
+    public boolean cancelarOfertaSinRespuesta(Long id, Instant limite) {
+        Donacion d = donacionRepository.findByIdForUpdate(id).orElse(null);
+        if (d == null || d.getEstado() != EstadoDonacion.OFRECIDA
+                || d.getModalidadEfectiva() != ModalidadDonacion.DIRECTA) {
+            return false;
+        }
+        Instant desde = d.getEstadoDesdeEfectivo(clock.getZone());
+        if (desde == null || !desde.isBefore(limite)) {
+            return false;
+        }
+        d.cambiarEstado(EstadoDonacion.CANCELADA, clock);
+        donacionRepository.save(d);
+        actividadService.registrar(Registro.de(TipoActividad.DONACION_VENCIDA).sistema()
+                .entidad("DONACION", id).cambio(EstadoDonacion.OFRECIDA, EstadoDonacion.CANCELADA)
+                .motivo(MOTIVO_SIN_RESPUESTA));
+        resolverAsignacionVigente(id, EstadoAsignacion.CANCELADA);
+        return true;
+    }
+
+    /**
+     * N12/D4 job step: a pool proposal the referente never answered is treated exactly as a
+     * rejection (same {@link #devolverAlFondo} path). Same locking/re-check contract as
+     * {@link #cancelarOfertaSinRespuesta}. Returns whether it expired the proposal.
+     */
+    @Transactional
+    public boolean expirarPropuesta(Long donacionId, Instant limite) {
+        Donacion d = donacionRepository.findByIdForUpdate(donacionId).orElse(null);
+        if (d == null || d.getEstado() != EstadoDonacion.OFRECIDA || d.getNecesidad() == null
+                || d.getModalidadEfectiva() != ModalidadDonacion.FONDO_COMUN) {
+            return false;
+        }
+        boolean vencida = asignacionRepository
+                .findFirstByDonacion_IdAndEstadoOrderByCreadaEnDesc(donacionId, EstadoAsignacion.PROPUESTA)
+                .filter(a -> a.getCreadaEn() != null && a.getCreadaEn().isBefore(limite))
+                .isPresent();
+        if (!vencida) {
+            return false;
+        }
+        devolverAlFondo(d, Registro.de(TipoActividad.DONACION_PROPUESTA_VENCIDA).sistema()
+                .motivo(MOTIVO_SIN_RESPUESTA));
+        return true;
+    }
+
     /**
      * Resolves the vigente (still-{@code PROPUESTA}) {@link Asignacion} for a donación to the
      * matching terminal {@link EstadoAsignacion} — AD-3/AD-9, slice 5c-ii. A no-op for a
@@ -362,7 +431,7 @@ public class DonacionService {
                 .findFirstByDonacion_IdAndEstadoOrderByCreadaEnDesc(donacionId, EstadoAsignacion.PROPUESTA)
                 .ifPresent(asignacion -> {
                     asignacion.setEstado(destino);
-                    asignacion.setResueltaEn(Instant.now());
+                    asignacion.setResueltaEn(clock.instant());
                     asignacionRepository.save(asignacion);
                 });
     }
@@ -452,7 +521,9 @@ public class DonacionService {
                 d.getModalidadEfectiva().name(),
                 d.getCategoria() != null ? d.getCategoria().name() : null,
                 FaseDonacion.de(d).name(),
-                toLineaResponses(d)
+                toLineaResponses(d),
+                EstancamientoDonacion.estaEstancada(d, clock.instant(), clock.getZone(), ventanas),
+                EstancamientoDonacion.diasEnEstado(d, clock.instant(), clock.getZone())
         );
     }
 }

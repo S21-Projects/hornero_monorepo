@@ -9,6 +9,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.Collection;
 import java.util.List;
@@ -87,6 +88,13 @@ public interface DonacionRepository extends JpaRepository<Donacion, Long> {
                     OR LOWER(dn.nombre)      LIKE LOWER(CONCAT('%', :q, '%'))
                     OR LOWER(n.descripcion)  LIKE LOWER(CONCAT('%', :q, '%'))
                     OR CAST(d.id AS string) = :q)
+                  AND (:soloEstancadas = false
+                    OR (d.estado IN (org.example.domain.EstadoDonacion.ACEPTADA, org.example.domain.EstadoDonacion.EN_CAMINO)
+                        AND (d.estadoDesde < :corteEnCurso
+                             OR (d.estadoDesde IS NULL AND d.fechaOferta <= :fechaEnCurso)))
+                    OR (d.estado = org.example.domain.EstadoDonacion.PENDIENTE_CONFIRMACION
+                        AND (d.estadoDesde < :corteConfirmacion
+                             OR (d.estadoDesde IS NULL AND d.fechaOferta <= :fechaConfirmacion))))
                 """,
             countQuery = """
                 SELECT COUNT(d) FROM Donacion d
@@ -98,10 +106,33 @@ public interface DonacionRepository extends JpaRepository<Donacion, Long> {
                     OR LOWER(d.donante.nombre) LIKE LOWER(CONCAT('%', :q, '%'))
                     OR LOWER(n.descripcion)   LIKE LOWER(CONCAT('%', :q, '%'))
                     OR CAST(d.id AS string) = :q)
+                  AND (:soloEstancadas = false
+                    OR (d.estado IN (org.example.domain.EstadoDonacion.ACEPTADA, org.example.domain.EstadoDonacion.EN_CAMINO)
+                        AND (d.estadoDesde < :corteEnCurso
+                             OR (d.estadoDesde IS NULL AND d.fechaOferta <= :fechaEnCurso)))
+                    OR (d.estado = org.example.domain.EstadoDonacion.PENDIENTE_CONFIRMACION
+                        AND (d.estadoDesde < :corteConfirmacion
+                             OR (d.estadoDesde IS NULL AND d.fechaOferta <= :fechaConfirmacion))))
                 """
     )
     Page<Donacion> findActivas(@Param("estados") Collection<EstadoDonacion> estados,
-                                @Param("q") String q, Pageable pageable);
+                                @Param("q") String q,
+                                @Param("soloEstancadas") boolean soloEstancadas,
+                                @Param("corteEnCurso") Instant corteEnCurso,
+                                @Param("fechaEnCurso") LocalDate fechaEnCurso,
+                                @Param("corteConfirmacion") Instant corteConfirmacion,
+                                @Param("fechaConfirmacion") LocalDate fechaConfirmacion,
+                                Pageable pageable);
+
+    /**
+     * N12: ids of {@code DIRECTA} (or legacy null-modalidad) donations still {@code OFRECIDA} since
+     * before {@code corte}. A null {@code estadoDesde} (row predating the column) falls back to
+     * {@code fechaOferta <= fechaCorte}; the caller re-checks exactly under the row lock.
+     */
+    @Query("SELECT d.id FROM Donacion d WHERE d.estado = org.example.domain.EstadoDonacion.OFRECIDA "
+            + "AND (d.modalidad IS NULL OR d.modalidad = org.example.domain.ModalidadDonacion.DIRECTA) "
+            + "AND (d.estadoDesde < :corte OR (d.estadoDesde IS NULL AND d.fechaOferta <= :fechaCorte))")
+    List<Long> findIdsOfrecidasDirectasDesde(@Param("corte") Instant corte, @Param("fechaCorte") LocalDate fechaCorte);
 
     /**
      * Row-locks the donación for the duration of the transaction (AD-6/AD-9). Required by

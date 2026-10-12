@@ -150,4 +150,36 @@ class EsquemaVerificadorTest {
     void defaultState_actividadAssumedImmutable() {
         assertThat(esquemaVerificador.actividadInmutable()).isTrue();
     }
+
+    @Test
+    void postgres_rowsWithNullEstadoDesde_flagsV005Pending() throws Exception {
+        mockDatabaseProduct("PostgreSQL");
+        when(jdbcTemplate.queryForObject(org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.eq(String.class)))
+                .thenReturn("YES");
+        // 1st Boolean query = actividad trigger present, 2nd = rows with NULL estado_desde exist
+        when(jdbcTemplate.queryForObject(org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.eq(Boolean.class)))
+                .thenReturn(true, true);
+
+        esquemaVerificador.run(new DefaultApplicationArguments());
+
+        assertThat(esquemaVerificador.estadoDesdeCompleto()).isFalse();
+    }
+
+    @Test
+    void postgres_noNullEstadoDesde_v005NotPending() throws Exception {
+        mockDatabaseProduct("PostgreSQL");
+        when(jdbcTemplate.queryForObject(org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.eq(String.class)))
+                .thenReturn("YES");
+        when(jdbcTemplate.queryForObject(org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.eq(Boolean.class)))
+                .thenReturn(true, false);
+
+        esquemaVerificador.run(new DefaultApplicationArguments());
+
+        assertThat(esquemaVerificador.estadoDesdeCompleto()).isTrue();
+    }
+
+    @Test
+    void defaultState_estadoDesdeAssumedComplete() {
+        assertThat(esquemaVerificador.estadoDesdeCompleto()).isTrue();
+    }
 }

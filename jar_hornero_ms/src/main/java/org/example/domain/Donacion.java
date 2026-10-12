@@ -4,10 +4,15 @@ import jakarta.persistence.*;
 import lombok.*;
 import org.example.user.Donante;
 
+import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalTime;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 @Entity
 @Table(name = "donaciones")
@@ -36,6 +41,24 @@ public class Donacion {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private EstadoDonacion estado;
+
+    /**
+     * N12/D4: when the donación entered its current {@link #estado}. Nullable only for rows that
+     * predate the column (see {@link #getEstadoDesdeEfectivo}); every estado change refreshes it
+     * ({@link #cambiarEstado}, backed by a {@code @PreUpdate} safety net).
+     */
+    @Column(name = "estado_desde")
+    private Instant estadoDesde;
+
+    @Transient
+    @Getter(AccessLevel.NONE)
+    @Setter(AccessLevel.NONE)
+    private EstadoDonacion estadoCargado;
+
+    @Transient
+    @Getter(AccessLevel.NONE)
+    @Setter(AccessLevel.NONE)
+    private Instant estadoDesdeCargado;
 
     @Column(length = 1000)
     private String observaciones;
@@ -102,5 +125,56 @@ public class Donacion {
      */
     public ModalidadDonacion getModalidadEfectiva() {
         return modalidad != null ? modalidad : ModalidadDonacion.DIRECTA;
+    }
+
+    /** The one way production code changes the estado: it also stamps {@link #estadoDesde}. */
+    public void cambiarEstado(EstadoDonacion nuevo, Clock clock) {
+        this.estado = nuevo;
+        this.estadoDesde = clock.instant();
+    }
+
+    /**
+     * {@link #estadoDesde}, or for a row that predates the column the start of {@code fechaOferta}
+     * in the given zone (the best lower bound available). {@code null} when neither is known.
+     */
+    public Instant getEstadoDesdeEfectivo(ZoneId zona) {
+        if (estadoDesde != null) {
+            return estadoDesde;
+        }
+        return fechaOferta != null ? fechaOferta.atStartOfDay(zona).toInstant() : null;
+    }
+
+    /**
+     * Last {@code fechaOferta} whose start of day is strictly before {@code corte}: lets a query
+     * apply the null-{@code estadoDesde} fallback with a plain date comparison.
+     */
+    public static LocalDate fechaLimiteFallback(Instant corte, ZoneId zona) {
+        ZonedDateTime local = corte.atZone(zona);
+        LocalDate fecha = local.toLocalDate();
+        return local.toLocalTime().equals(LocalTime.MIDNIGHT) ? fecha.minusDays(1) : fecha;
+    }
+
+    @PrePersist
+    void alPersistir() {
+        if (estadoDesde == null) {
+            estadoDesde = Instant.now();
+        }
+    }
+
+    /** Safety net: an estado change through the plain setter still refreshes {@code estadoDesde}. */
+    @PreUpdate
+    void alActualizar() {
+        if (estadoCargado != null && estado != estadoCargado
+                && Objects.equals(estadoDesde, estadoDesdeCargado)) {
+            estadoDesde = Instant.now();
+        }
+    }
+
+    @PostLoad
+    @PostPersist
+    @PostUpdate
+    void recordarEstadoPersistido() {
+        estadoCargado = estado;
+        estadoDesdeCargado = estadoDesde;
     }
 }

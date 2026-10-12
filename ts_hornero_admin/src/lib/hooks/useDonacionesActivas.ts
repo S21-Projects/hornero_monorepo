@@ -6,6 +6,8 @@ import type { PageData, PageParams } from '../../types/api';
 export interface DonacionesActivasParams extends PageParams {
   q?: string;
   estado?: string;
+  /** N12: only donations flagged "estancada" (server-side filter). */
+  estancadas?: boolean;
 }
 
 /** ADMINISTRADOR-only: paginated non-terminal donations for `/control-donaciones`. */
