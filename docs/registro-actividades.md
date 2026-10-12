@@ -76,7 +76,19 @@ Además de ids, la tabla guarda dos datos personales, ambos justificados:
 | 16.3.2 | 403 y 429 quedan solo en el registro técnico (decisión D10) |
 | 16.3.3 | Reutilización de refresh token y bloqueos de OTP/entrega se registran como `FALLO` |
 | 16.4.1 | `TextoSeguro` reemplaza CR/LF, caracteres de control, separadores Unicode y caracteres de formato (bidi, ancho cero) por un espacio y trunca al tamaño de columna; la IP debe ser un literal IP válido |
-| 16.4.2 | Entidad `@Immutable` sin setters; el repositorio solo expone insertar y buscar; la API solo tiene `GET /api/actividad` (ADMINISTRADOR); la única operación que borra es la purga por retención, en una interfaz aparte |
+| 16.4.2 | Entidad `@Immutable` sin setters; el repositorio solo expone insertar y buscar; la API solo tiene `GET /api/actividad` (ADMINISTRADOR); la única operación que borra es la purga por retención, en una interfaz aparte; en PostgreSQL, un trigger (`scripts/sql/V004`) rechaza todo `UPDATE` y todo `DELETE`/`TRUNCATE` fuera de la purga (ver "Inmutabilidad en la base") |
+
+### Inmutabilidad en la base
+
+`scripts/sql/V004__actividad_inmutable.sql` crea un trigger en `actividad`: `UPDATE` siempre falla y
+`DELETE`/`TRUNCATE` fallan salvo que la transacción haya fijado `hornero.purga_actividad = 'on'`.
+Solo `ActividadRetencionJob` lo hace, con `set_config(..., true)` (equivalente a `SET LOCAL`) como
+primera sentencia de su propia transacción, así que el permiso desaparece al confirmar o revertir y
+no puede quedar en una conexión del pool. Verificado contra PostgreSQL real: `UPDATE`, `DELETE` y
+`TRUNCATE` sueltos fallan; `DELETE` con el parámetro funciona; `UPDATE` con el parámetro sigue
+fallando; y el job borró una fila de prueba de 800 días. Si falta el trigger, `EsquemaVerificador`
+lo avisa al arrancar (`ESQUEMA_PENDIENTE`). H2 (tests) no tiene el trigger: allí la garantía sigue
+siendo la de la aplicación.
 
 ### Transacciones
 
@@ -107,16 +119,17 @@ un literal IP antes de guardarlo. Si el MS se expusiera directamente, el campo p
   provisorio hasta definir D12.
 - **Rotación de logs técnicos:** `docker-compose.yml` limita cada servicio a 5 archivos de 10 MB
   para no llenar la microSD de la Raspberry Pi.
-- **Esquema:** la tabla `actividad` la crea `ddl-auto=update`; no hace falta un script en
-  `scripts/sql`. Las columnas `accion` y `actor_tipo` se guardan como texto sin `CHECK`, para que
+- **Esquema:** la tabla `actividad` la crea `ddl-auto=update`; el trigger de inmutabilidad lo
+  instala `scripts/sql/V004` (`make migrate`). Las columnas `accion` y `actor_tipo` se guardan como texto sin `CHECK`, para que
   agregar un valor a `TipoActividad` no requiera migración.
 
 ## Límites conocidos
 
-- La inmutabilidad es de la aplicación. Quien tenga credenciales de la base de datos puede
-  modificar filas; para exigirlo también ahí haría falta un rol de solo inserción o un trigger,
-  que no se implementó.
+- El trigger frena el SQL ad hoc, pero el dueño de la tabla o un superusuario puede quitarlo
+  (`DROP TRIGGER`) o fijar el parámetro de purga. Cerrar ese resto exigiría que la aplicación se
+  conecte con un rol de solo inserción/lectura, distinto del dueño de la tabla; no se implementó.
 - La acción `REFRESH_TOKEN` genera una fila por cada renovación de sesión (cada 15 minutos por
   sesión activa). Es el costo de registrar todas las operaciones de autenticación; la retención lo
   acota.
-- La pantalla muestra el id del usuario, no su nombre.
+- La pantalla muestra el nombre y el email del actor (resueltos por el MS en una sola consulta por
+  página) y deja el tipo y el id como texto secundario; si el usuario ya no existe, solo el id.
