@@ -1,4 +1,4 @@
-.PHONY: up down up-local seed backup restore-check migrate e2e coverage
+.PHONY: up down up-local seed backup restore-check migrate e2e coverage mapa-datos
 
 ## Docker only — two modes, both full-stack including Postgres.
 ## The Pi runs docker compose directly, not through this Makefile
@@ -68,3 +68,12 @@ migrate: backup
 		echo "applying $$f"; \
 		$(PSQL) < $$f || exit 1; \
 	done
+
+## Map data
+# Regenerate go_algorithms_worker/data/{poblacion-radios,renacom-radio-2022}.csv from the
+# Censo 2022 radios parquet (cached, downloaded once). Needs the duckdb CLI.
+# See scripts/mapa/README.md.
+mapa-datos:
+	@command -v duckdb >/dev/null || { echo "duckdb not found: install it (e.g. 'brew install duckdb')" >&2; exit 1; }
+	scripts/mapa/fetch.sh
+	duckdb < scripts/mapa/build.sql
