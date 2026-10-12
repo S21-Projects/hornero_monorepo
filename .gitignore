@@ -33,3 +33,6 @@ backups/
 # Coverage outputs (make coverage)
 coverage/
 coverage.out
+
+# Census parquet cache (make mapa-datos)
+scripts/mapa/.cache/
