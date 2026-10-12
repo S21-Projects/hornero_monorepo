@@ -566,4 +566,7 @@ export interface Actividad {
   motivo: string | null;
   ip: string | null;
   emailIntento: string | null;
+  /** Resolved by the MS from actorUsuarioId; null for SISTEMA/ANONIMO rows or deleted users. */
+  actorNombre: string | null;
+  actorEmail: string | null;
 }

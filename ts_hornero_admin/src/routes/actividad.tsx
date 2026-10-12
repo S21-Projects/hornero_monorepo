@@ -86,19 +86,32 @@ export default function ActividadPage() {
     {
       key: 'actor',
       header: 'Usuario',
-      render: (a) => (
-        <div>
-          <Text variant="body-sm">
-            {ACTOR_ACTIVIDAD[a.actorTipo] ?? a.actorTipo}
-            {a.actorUsuarioId != null ? ` #${a.actorUsuarioId}` : ''}
-          </Text>
+      render: (a) => {
+        const tipo = ACTOR_ACTIVIDAD[a.actorTipo] ?? a.actorTipo;
+        const idSufijo = a.actorUsuarioId != null ? ` #${a.actorUsuarioId}` : '';
+        return (
+          <div>
+            {a.actorNombre ? (
+              <>
+                <Text variant="body-sm" style={{ display: 'block' }}>{a.actorNombre}</Text>
+                {a.actorEmail && (
+                  <Text variant="micro" color="ink-3" style={{ display: 'block' }}>{a.actorEmail}</Text>
+                )}
+                <Text variant="micro" color="ink-3" style={{ display: 'block' }}>
+                  {tipo}{idSufijo}
+                </Text>
+              </>
+            ) : (
+              <Text variant="body-sm">{tipo}{idSufijo}</Text>
+            )}
           {a.emailIntento && (
             <Text variant="micro" color="ink-3" style={{ display: 'block' }}>
               Intento con {a.emailIntento}
             </Text>
           )}
-        </div>
-      ),
+          </div>
+        );
+      },
     },
     {
       key: 'entidad',

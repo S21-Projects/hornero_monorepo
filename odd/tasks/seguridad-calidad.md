@@ -248,6 +248,24 @@ The guide requires measures "related to the identified risks", so a risk matrix 
     `DataIntegrityViolationException` → 409 `CONFLICTO_DATOS`; seed skips orgs already owned).
   - **USER ACTION (Pi):** `make migrate` (V002 + V003) right after deploy; reload open admin tabs.
 
+### Follow-ups (2026-10-12, branch `feat/seguridad-mejoras`)
+
+- [x] **M1** `/actividad`: show actor name/email instead of the user id.
+- [x] **M2** Admin: optional `motivo` field when activating/deactivating a user (API accepts it).
+- [x] **M3** Public necesidad listings hide necesidades of organizations at N0.
+- [x] **M4** `CUMPLIDA` → `ABIERTA` via PATCH enforces the open-necesidades cap of the level.
+- [x] **M5** Admin donation form maps `ORGANIZACION_NO_APROBADA` (and other donation 409 codes) to
+  friendly Spanish messages.
+- [x] **M6** `actividad` immutable at DB level (trigger rejecting UPDATE/DELETE except the retention
+  purge), via `scripts/sql/V004`.
+- [x] **M7** Admin surfaces `Idempotent-Replayed: true` (e.g. "Esta operación ya se había
+  registrado").
+- Evidence 2026-10-12: `mvn test` 721/721; admin 475/475 + build + lint; `make e2e` 78/78 (M3/M4
+  e2e cases, no e2e RED observed; unit RED for M3/M4, admin RED for M5). M6 verified on local
+  Postgres: UPDATE/DELETE/TRUNCATE rejected, DELETE with `hornero.purga_actividad` allowed
+  (rolled back), real retention job purged a probe row. **USER ACTION (Pi):** `make migrate`
+  applies V004 (start the MS once first so `actividad` exists).
+
 ## Business definitions pending (list 2)
 
 Each item needs a team decision before related work starts. Record the decision and date here.

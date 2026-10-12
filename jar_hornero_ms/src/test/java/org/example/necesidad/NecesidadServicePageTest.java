@@ -73,7 +73,7 @@ class NecesidadServicePageTest {
                 buildNecesidad(4L), buildNecesidad(5L));
         Page<Necesidad> repoPage = new PageImpl<>(content, pageable, 15L);
 
-        when(necesidadRepository.findByEstadoNot(EstadoNecesidad.VENCIDA, pageable)).thenReturn(repoPage);
+        when(necesidadRepository.findPublicas(null, pageable)).thenReturn(repoPage);
 
         Page<NecesidadResponse> result = necesidadService.findAll(pageable);
 

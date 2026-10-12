@@ -144,7 +144,7 @@ class NecesidadServiceTest {
         List<Necesidad> content = List.of(buildNecesidad(1L), buildNecesidad(2L), buildNecesidad(3L));
         Page<Necesidad> repoPage = new PageImpl<>(content, defaultPageable, 3L);
 
-        when(necesidadRepository.findByEstadoNot(EstadoNecesidad.VENCIDA, defaultPageable)).thenReturn(repoPage);
+        when(necesidadRepository.findPublicas(null, defaultPageable)).thenReturn(repoPage);
 
         Page<NecesidadResponse> result = necesidadService.findAll(defaultPageable);
 
@@ -154,7 +154,7 @@ class NecesidadServiceTest {
     @Test
     void findAll_repoReturnsEmpty_returnsEmptyPage() {
         Page<Necesidad> emptyPage = new PageImpl<>(List.of(), defaultPageable, 0L);
-        when(necesidadRepository.findByEstadoNot(EstadoNecesidad.VENCIDA, defaultPageable)).thenReturn(emptyPage);
+        when(necesidadRepository.findPublicas(null, defaultPageable)).thenReturn(emptyPage);
 
         Page<NecesidadResponse> result = necesidadService.findAll(defaultPageable);
 

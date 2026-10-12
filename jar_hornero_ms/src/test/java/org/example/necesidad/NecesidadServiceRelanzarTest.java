@@ -296,10 +296,128 @@ class NecesidadServiceRelanzarTest {
     @Test
     void findAll_excludesVencida() {
         Page<Necesidad> page = new PageImpl<>(List.of(necesidad(EstadoNecesidad.ABIERTA, HOY.plusDays(3))), pageable, 1);
-        when(necesidadRepository.findByEstadoNot(EstadoNecesidad.VENCIDA, pageable)).thenReturn(page);
+        when(necesidadRepository.findPublicas(null, pageable)).thenReturn(page);
 
         assertThat(service.findAll(pageable).getContent()).hasSize(1);
         verify(necesidadRepository, never()).findAll(any(Pageable.class));
+    }
+
+    // --- M3: organizations at N0 are not listed publicly ---
+
+    @Test
+    void findAll_referente_passesOwnUserIdSoOwnN0NecesidadesStayVisible() {
+        login(1L, "ROLE_REFERENTE");
+        when(necesidadRepository.findPublicas(1L, pageable)).thenReturn(new PageImpl<>(
+                List.of(necesidad(EstadoNecesidad.ABIERTA, HOY.plusDays(3))), pageable, 1));
+
+        assertThat(service.findAll(pageable).getContent()).hasSize(1);
+    }
+
+    @Test
+    void findAll_admin_seesEverythingNotExpired() {
+        login(5L, "ROLE_ADMINISTRADOR");
+        when(necesidadRepository.findByEstadoNot(EstadoNecesidad.VENCIDA, pageable))
+                .thenReturn(new PageImpl<>(List.of(), pageable, 0));
+
+        service.findAll(pageable);
+
+        verify(necesidadRepository).findByEstadoNot(EstadoNecesidad.VENCIDA, pageable);
+        verify(necesidadRepository, never()).findPublicas(any(), any());
+    }
+
+    @Test
+    void findByOrganizacion_anonymous_n0Organization_isEmpty() {
+        org.setNivel(NivelAcreditacion.N0);
+        when(organizacionRepository.findById(1L)).thenReturn(Optional.of(org));
+
+        assertThat(service.findByOrganizacion(1L, pageable).getContent()).isEmpty();
+        verify(necesidadRepository, never()).findByOrganizacion_IdAndEstadoNot(anyLong(), any(), any());
+    }
+
+    @Test
+    void findByOrganizacion_anonymous_nullNivelCountsAsN0() {
+        org.setNivel(null);
+        when(organizacionRepository.findById(1L)).thenReturn(Optional.of(org));
+
+        assertThat(service.findByOrganizacion(1L, pageable).getContent()).isEmpty();
+    }
+
+    @Test
+    void findByOrganizacion_owningReferente_n0Organization_stillSeesNecesidades() {
+        org.setNivel(NivelAcreditacion.N0);
+        login(1L, "ROLE_REFERENTE");
+        when(organizacionRepository.findByIdAndReferente_Id(1L, 1L)).thenReturn(Optional.of(org));
+        when(necesidadRepository.findByOrganizacion_Id(1L, pageable)).thenReturn(
+                new PageImpl<>(List.of(necesidad(EstadoNecesidad.ABIERTA, HOY.plusDays(3))), pageable, 1));
+
+        assertThat(service.findByOrganizacion(1L, pageable).getContent()).hasSize(1);
+    }
+
+    @Test
+    void findByOrganizacion_otherReferente_n0Organization_isEmpty() {
+        org.setNivel(NivelAcreditacion.N0);
+        login(2L, "ROLE_REFERENTE");
+        when(organizacionRepository.findByIdAndReferente_Id(1L, 2L)).thenReturn(Optional.empty());
+        when(organizacionRepository.findById(1L)).thenReturn(Optional.of(org));
+
+        assertThat(service.findByOrganizacion(1L, pageable).getContent()).isEmpty();
+    }
+
+    @Test
+    void findByOrganizacion_anonymous_n1Organization_isListed() {
+        when(organizacionRepository.findById(1L)).thenReturn(Optional.of(org));
+        when(necesidadRepository.findByOrganizacion_IdAndEstadoNot(1L, EstadoNecesidad.VENCIDA, pageable))
+                .thenReturn(new PageImpl<>(List.of(necesidad(EstadoNecesidad.ABIERTA, HOY.plusDays(3))), pageable, 1));
+
+        assertThat(service.findByOrganizacion(1L, pageable).getContent()).hasSize(1);
+    }
+
+    // --- M4: reopening from a non-open state counts against the cap ---
+
+    @Test
+    void actualizar_cumplidaToAbierta_overCap_conflict() {
+        Necesidad n = necesidad(EstadoNecesidad.CUMPLIDA, null);
+        when(necesidadRepository.findById(10L)).thenReturn(Optional.of(n));
+        when(necesidadRepository.countByOrganizacion_IdAndEstadoIn(eq(1L), any())).thenReturn(3L);
+        ActualizarNecesidadRequest dto = new ActualizarNecesidadRequest();
+        dto.setEstado(EstadoNecesidad.ABIERTA);
+
+        expectStatus(() -> service.actualizar(10L, dto, 1L), HttpStatus.CONFLICT, "máximo de 3 necesidades abiertas");
+        assertThat(n.getEstado()).isEqualTo(EstadoNecesidad.CUMPLIDA);
+        verify(necesidadRepository, never()).save(any());
+    }
+
+    @Test
+    void actualizar_cumplidaToEnProgreso_overCap_conflict() {
+        when(necesidadRepository.findById(10L))
+                .thenReturn(Optional.of(necesidad(EstadoNecesidad.CUMPLIDA, null)));
+        when(necesidadRepository.countByOrganizacion_IdAndEstadoIn(eq(1L), any())).thenReturn(3L);
+        ActualizarNecesidadRequest dto = new ActualizarNecesidadRequest();
+        dto.setEstado(EstadoNecesidad.EN_PROGRESO);
+
+        expectStatus(() -> service.actualizar(10L, dto, 1L), HttpStatus.CONFLICT, "máximo de 3 necesidades abiertas");
+    }
+
+    @Test
+    void actualizar_cumplidaToAbierta_underCap_isAllowed() {
+        when(necesidadRepository.findById(10L))
+                .thenReturn(Optional.of(necesidad(EstadoNecesidad.CUMPLIDA, null)));
+        when(necesidadRepository.countByOrganizacion_IdAndEstadoIn(eq(1L), any())).thenReturn(2L);
+        ActualizarNecesidadRequest dto = new ActualizarNecesidadRequest();
+        dto.setEstado(EstadoNecesidad.ABIERTA);
+
+        assertThat(service.actualizar(10L, dto, 1L).estado()).isEqualTo("ABIERTA");
+    }
+
+    @Test
+    void actualizar_abiertaToEnProgreso_overCap_isNotRecounted() {
+        when(necesidadRepository.findById(10L))
+                .thenReturn(Optional.of(necesidad(EstadoNecesidad.ABIERTA, HOY.plusDays(3))));
+        ActualizarNecesidadRequest dto = new ActualizarNecesidadRequest();
+        dto.setEstado(EstadoNecesidad.EN_PROGRESO);
+
+        assertThat(service.actualizar(10L, dto, 1L).estado()).isEqualTo("EN_PROGRESO");
+        verify(necesidadRepository, never()).countByOrganizacion_IdAndEstadoIn(anyLong(), any());
     }
 
     @Test

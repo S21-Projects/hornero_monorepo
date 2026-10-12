@@ -7,6 +7,7 @@ import { AppErrorFallback } from './AppErrorFallback';
 import { Avatar } from '../components/ui/Avatar';
 import { Badge } from '../components/Badge';
 import { Text } from '../components/ui/Typography';
+import { NoticeHost } from '../components/ui/NoticeHost';
 import { roleHome } from '../lib/roleHome';
 import { ROLE_LABELS } from '../lib/metricas';
 import type { BadgeTone } from '../lib/domain-ui';
@@ -166,6 +167,7 @@ export default function AppShell() {
           <Outlet />
         </ErrorBoundary>
       </main>
+      <NoticeHost />
     </div>
   );
 }

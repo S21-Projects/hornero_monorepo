@@ -7,6 +7,8 @@ import type { AxiosError } from 'axios';
  *   (feature catalogo-articulos, DIRECTA-compatibility gap, decision 6).
  * - 400 "inactivo": one of the chosen articulos was deactivated after being listed
  *   (feature catalogo-articulos, decision 3).
+ * - 409 `ORGANIZACION_NO_APROBADA` (N1), `CONFLICTO_CONCURRENTE` (N11 optimistic lock),
+ *   `IDEMPOTENCIA_EN_PROCESO` and 422 `IDEMPOTENCIA_PAYLOAD_DISTINTO` (N11).
  * - anything else 400: generic validation fallback; anything else: generic fallback.
  */
 export function mapDonacionError(error: unknown): string {
@@ -25,6 +27,18 @@ export function mapDonacionError(error: unknown): string {
   }
   if (status === 409 && message.includes('NECESIDAD_NO_DISPONIBLE')) {
     return 'Esta necesidad ya no recibe donaciones (está cerrada o vencida).';
+  }
+  if (status === 409 && message.includes('ORGANIZACION_NO_APROBADA')) {
+    return 'La organización todavía no está aprobada para recibir donaciones.';
+  }
+  if (status === 409 && message.includes('CONFLICTO_CONCURRENTE')) {
+    return 'Otra operación modificó estos datos al mismo tiempo. Volvé a intentar.';
+  }
+  if (status === 409 && message.includes('IDEMPOTENCIA_EN_PROCESO')) {
+    return 'Esta operación todavía se está procesando. Esperá unos segundos antes de reintentar.';
+  }
+  if (status === 422 && message.includes('IDEMPOTENCIA_PAYLOAD_DISTINTO')) {
+    return 'Esta solicitud cambió desde el primer envío. Recargá la página y volvé a intentar.';
   }
   if (status === 400) {
     return 'Revisá los artículos y cantidades ingresados.';
