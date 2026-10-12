@@ -34,6 +34,8 @@ const fila = (over: Partial<Actividad>): Actividad => ({
   motivo: 'abuso reiterado',
   ip: '190.12.3.4',
   emailIntento: null,
+  actorNombre: null,
+  actorEmail: null,
   ...over,
 });
 
@@ -64,6 +66,29 @@ describe('ActividadPage', () => {
     expect(within(row).getByText(/activo → inactivo/)).toBeInTheDocument();
     expect(within(row).getByText(/abuso reiterado/)).toBeInTheDocument();
     expect(within(row).getByText('190.12.3.4')).toBeInTheDocument();
+  });
+
+  it('shows the actor name and email, keeping the id as secondary text', () => {
+    vi.mocked(useActividad).mockReturnValue(
+      pagina([fila({ actorNombre: 'Ada Admin', actorEmail: 'ada@hornero.org' })]),
+    );
+
+    render(<ActividadPage />, { wrapper: Wrapper });
+
+    const row = screen.getByText('Usuario desactivado', { selector: 'td *' }).closest('tr')!;
+    expect(within(row).getByText('Ada Admin')).toBeInTheDocument();
+    expect(within(row).getByText('ada@hornero.org')).toBeInTheDocument();
+    expect(within(row).getByText(/Administrador #2/)).toBeInTheDocument();
+  });
+
+  it('labels system rows as Sistema', () => {
+    vi.mocked(useActividad).mockReturnValue(
+      pagina([fila({ actorUsuarioId: null, actorTipo: 'SISTEMA', accion: 'ACTIVIDAD_PURGADA' })]),
+    );
+
+    render(<ActividadPage />, { wrapper: Wrapper });
+
+    expect(screen.getByText('Sistema')).toBeInTheDocument();
   });
 
   it('shows the attempted email for a failed login and no actor id', () => {
