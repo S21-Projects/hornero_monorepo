@@ -27,6 +27,8 @@ import org.example.donacion.dto.CreateDonacionRequest;
 import org.example.donacion.dto.DonacionLineaRequest;
 import org.example.user.Donante;
 import org.example.user.UsuarioRepository;
+import org.example.notificacion.NotificacionEvento;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
@@ -64,6 +66,7 @@ public class DonacionService {
     private final Clock clock;
     private final ActividadService actividadService;
     private final VentanasDonacion ventanas;
+    private final ApplicationEventPublisher eventPublisher;
 
     public Page<DonacionResponse> findAll(Pageable pageable) {
         return donacionRepository.findAllWithDonante(pageable)
@@ -192,6 +195,11 @@ public class DonacionService {
                 .entidad("DONACION", guardada.getId())
                 .cambio(null, EstadoDonacion.OFRECIDA)
                 .detalle("modalidad " + modalidad));
+        if (modalidad != ModalidadDonacion.FONDO_COMUN) {
+            // N13: a pool donation has no organization yet; its referente hears about it when a
+            // ronda proposes it.
+            eventPublisher.publishEvent(new NotificacionEvento.DonacionOfrecida(guardada.getId()));
+        }
         return toResponse(guardada);
     }
 
@@ -277,6 +285,7 @@ public class DonacionService {
         if (nuevoEstado == EstadoDonacion.ACEPTADA) {
             resolverAsignacionVigente(id, EstadoAsignacion.ACEPTADA);
         }
+        eventPublisher.publishEvent(new NotificacionEvento.DonacionDecidida(id, nuevoEstado == EstadoDonacion.ACEPTADA));
         return response;
     }
 
@@ -394,6 +403,7 @@ public class DonacionService {
                 .entidad("DONACION", id).cambio(EstadoDonacion.OFRECIDA, EstadoDonacion.CANCELADA)
                 .motivo(MOTIVO_SIN_RESPUESTA));
         resolverAsignacionVigente(id, EstadoAsignacion.CANCELADA);
+        eventPublisher.publishEvent(new NotificacionEvento.DonacionVencida(id));
         return true;
     }
 

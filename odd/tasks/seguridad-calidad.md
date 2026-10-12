@@ -291,8 +291,16 @@ The guide requires measures "related to the identified risks", so a risk matrix 
     refresh families are revoked.
   - Evidence: `mvn test` 795/795; BFF 359/359 + tsc; admin 501/501 + build + lint; `make e2e`
     85/85 (happy path covered by MS integration test with a capturing Mailer; no prod backdoor).
-- [ ] **N13** Event notifications per D6 (after-commit async, failures to actividad) + admin daily
+- [x] **N13** Event notifications per D6 (after-commit async, failures to actividad) + admin daily
   digest.
+  - Done: domain events + `@TransactionalEventListener(AFTER_COMMIT)` on `mailExecutor`, 10
+    templates (`NotificacionesEmailTemplates`), verified + active recipients only, failures →
+    `NOTIFICACION_FALLIDA` (masked), successes not recorded, ronda proposals summarized per
+    referente, admin digest 08:00 BA (skipped when empty), kill switch `NOTIFICACIONES_ENABLED`.
+    Doc: `docs/notificaciones-email.md`. Evidence: `mvn test` 867/867 (AFTER_COMMIT RED proven by
+    swapping to @EventListener), `make e2e` 85/85.
+  - Found: with a Resend key present, `MAIL_LOG_ONLY=true` is ignored, so the local stack sends
+    real mail — including to seeded demo addresses on `@hornero.ar`.
 
 ## Business definitions pending (list 2)
 

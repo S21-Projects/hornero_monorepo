@@ -14,6 +14,9 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.example.domain.EstadoDonacion;
+import org.example.notificacion.NotificacionEvento;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -41,6 +44,7 @@ public class EntregaService {
     private final BCryptPasswordEncoder passwordEncoder;
     private final Clock clock;
     private final ActividadService actividadService;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Value("${app.entrega.ttl-minutes}")
     private long ttlMinutes;
@@ -141,11 +145,15 @@ public class EntregaService {
         vigente.setUsado(true);
         codigoEntregaRepository.save(vigente);
 
+        EstadoDonacion estadoAntes = d.getEstado();
         ConfirmacionEntrega.registrar(d, parte, clock);
         donacionRepository.save(d);
         // Success commits with the confirmation itself (same transaction).
         actividadService.registrar(Registro.de(TipoActividad.ENTREGA_CODIGO_VERIFICACION)
                 .entidad("DONACION", donacionId).detalle("parte " + parte));
+        if (d.getEstado() == EstadoDonacion.ENTREGADA && estadoAntes != EstadoDonacion.ENTREGADA) {
+            eventPublisher.publishEvent(new NotificacionEvento.EntregaConfirmada(donacionId));
+        }
 
         return toEstadoResponse(d);
     }

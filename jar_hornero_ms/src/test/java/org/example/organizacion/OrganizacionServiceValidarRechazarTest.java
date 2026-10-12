@@ -13,6 +13,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
 import org.springframework.context.annotation.Import;
+import org.springframework.test.context.event.ApplicationEvents;
+import org.springframework.test.context.event.RecordApplicationEvents;
+import org.example.notificacion.NotificacionEvento;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
@@ -30,6 +33,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 @DataJpaTest
 @Import({OrganizacionService.class, AcreditacionService.class})
 @org.springframework.boot.test.mock.mockito.MockBean(org.example.actividad.ActividadService.class)
+@RecordApplicationEvents
 class OrganizacionServiceValidarRechazarTest {
 
     @Autowired
@@ -45,6 +49,9 @@ class OrganizacionServiceValidarRechazarTest {
     private UsuarioRepository usuarioRepository;
 
     private Administrador administrador;
+
+    @Autowired
+    private ApplicationEvents events;
 
     @BeforeEach
     void setUp() {
@@ -73,6 +80,38 @@ class OrganizacionServiceValidarRechazarTest {
 
         List<?> eventos = eventoRepository.findByOrganizacion_IdOrderByOcurridoEnAscIdAsc(organizacion.getId());
         assertThat(eventos).hasSize(1);
+    }
+
+    @Test
+    void validar_publishesOrganizacionResueltaAprobada_andNoSeparateLevelEvent() {
+        Organizacion organizacion = persistPendiente();
+
+        organizacionService.validar(organizacion.getId(), administrador.getId());
+
+        assertThat(events.stream(NotificacionEvento.class))
+                .containsExactly(new NotificacionEvento.OrganizacionResuelta(organizacion.getId(), true));
+    }
+
+    @Test
+    void rechazar_publishesOrganizacionResueltaRechazada() {
+        Organizacion organizacion = persistPendiente();
+
+        organizacionService.rechazar(organizacion.getId(), administrador.getId());
+
+        assertThat(events.stream(NotificacionEvento.class))
+                .containsExactly(new NotificacionEvento.OrganizacionResuelta(organizacion.getId(), false));
+    }
+
+    @Test
+    void validar_ofAnAlreadyApprovedOrganization_publishesNothing() {
+        Organizacion organizacion = persistPendiente();
+        organizacionService.validar(organizacion.getId(), administrador.getId());
+        events.clear();
+
+        assertThatThrownBy(() -> organizacionService.validar(organizacion.getId(), administrador.getId()))
+                .isInstanceOf(ResponseStatusException.class);
+
+        assertThat(events.stream(NotificacionEvento.class)).isEmpty();
     }
 
     @Test

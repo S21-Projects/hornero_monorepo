@@ -108,6 +108,9 @@ class RondaServiceTest {
     @Mock
     private ActividadService actividadService;
 
+    @Mock
+    private org.springframework.context.ApplicationEventPublisher eventPublisher;
+
     private RondaService rondaService;
     private EntradaRondaFactory entradaRondaFactory;
 
@@ -117,7 +120,7 @@ class RondaServiceTest {
         entradaRondaFactory = new EntradaRondaFactory(acreditacionService, cumplimientoCalculator);
         lenient().when(cumplimientoCalculator.calcular()).thenReturn(java.util.Map.of());
         rondaService = new RondaService(donacionRepository, necesidadRepository, asignacionRepository,
-                rondaRepository, entradaRondaFactory, asignadorClient, usuarioRepository, clock, transactionManager, actividadService);
+                rondaRepository, entradaRondaFactory, asignadorClient, usuarioRepository, clock, transactionManager, actividadService, eventPublisher);
 
         // Runs the transactional callback synchronously against the mocked collaborators. `lenient`
         // because the toResponse-only tests (T6) exercise `rondaService` without ever calling
@@ -477,6 +480,7 @@ class RondaServiceTest {
         assertThat(ronda.getAsignadas()).isEqualTo(0);
         assertThat(ronda.getDescartadas()).isEqualTo(1);
         verify(asignacionRepository, never()).save(any());
+        org.mockito.Mockito.verifyNoInteractions(eventPublisher);
     }
 
     @Test
@@ -574,6 +578,62 @@ class RondaServiceTest {
         assertThat(asignacion.getTerminoDeficit()).isEqualTo(0.33);
         assertThat(asignacion.getTerminoCumplimiento()).isEqualTo(0.8888888888888889);
         assertThat(asignacion.getDeficitFuente()).isEqualTo("NEUTRAL");
+    }
+
+    // --- N13: one event per ronda, carrying only the donations actually proposed ---
+
+    @Test
+    void happyPath_publishesOnePropuestasAsignadasEventWithTheProposedDonations() {
+        Organizacion org = organizacion(20L, NivelAcreditacion.N1, true, true);
+        Necesidad necesidad = necesidad(200L, org, EstadoNecesidad.ABIERTA, null);
+        Donacion propuesta = donacionPool(50L);
+        Donacion cancelada = donacionPool(51L);
+        Donacion canceladaAlEscribir = donacionPool(51L);
+        canceladaAlEscribir.setEstado(EstadoDonacion.CANCELADA);
+
+        when(donacionRepository.findByModalidadAndEstadoAndNecesidadIsNull(ModalidadDonacion.FONDO_COMUN, EstadoDonacion.OFRECIDA))
+                .thenReturn(List.of(propuesta, cancelada));
+        when(necesidadRepository.findByEstadoInWithOrganizacion(any())).thenReturn(List.of(necesidad));
+        when(necesidadRepository.findById(200L)).thenReturn(java.util.Optional.of(necesidad));
+        when(donacionRepository.findUltimaFechaOfertaPorOrganizacion(anyLong(), any())).thenReturn(java.util.Optional.empty());
+        when(asignacionRepository.findOrganizacionIdsByDonacionIdAndEstado(anyLong(), eq(EstadoAsignacion.RECHAZADA)))
+                .thenReturn(List.of());
+        when(acreditacionService.categoriasPermitidas(any())).thenReturn(Set.of(CategoriaAlimento.NO_PERECEDERO));
+        when(donacionRepository.findByIdForUpdate(50L)).thenReturn(java.util.Optional.of(propuesta));
+        when(donacionRepository.findByIdForUpdate(51L)).thenReturn(java.util.Optional.of(canceladaAlEscribir));
+
+        SalidaRondaV1 salida = new SalidaRondaV1();
+        salida.setVersion(1);
+        AsignacionSalidaV1 a1 = new AsignacionSalidaV1();
+        a1.setDonacionId(50L);
+        a1.setNecesidadId(200L);
+        a1.setOrganizacionId(20L);
+        a1.setDesglose(new DesgloseV1());
+        AsignacionSalidaV1 a2 = new AsignacionSalidaV1();
+        a2.setDonacionId(51L);
+        a2.setNecesidadId(200L);
+        a2.setOrganizacionId(20L);
+        a2.setDesglose(new DesgloseV1());
+        salida.setAsignaciones(List.of(a1, a2));
+        salida.setSinAsignar(List.of());
+        when(asignadorClient.ejecutar(any())).thenReturn(salida);
+
+        rondaService.ejecutar(ADMIN_ID);
+
+        verify(eventPublisher).publishEvent(new org.example.notificacion.NotificacionEvento.PropuestasAsignadas(List.of(50L)));
+    }
+
+    @Test
+    void workerFailure_publishesNothing() {
+        when(donacionRepository.findByModalidadAndEstadoAndNecesidadIsNull(ModalidadDonacion.FONDO_COMUN, EstadoDonacion.OFRECIDA))
+                .thenReturn(List.of());
+        when(necesidadRepository.findByEstadoInWithOrganizacion(any())).thenReturn(List.of());
+        when(asignadorClient.ejecutar(any()))
+                .thenThrow(new AsignadorNoDisponibleException("down"));
+
+        assertThatThrownBy(() -> rondaService.ejecutar(ADMIN_ID)).isInstanceOf(ResponseStatusException.class);
+
+        org.mockito.Mockito.verifyNoInteractions(eventPublisher);
     }
 
     // --- T6: toResponse resolves the executor's name ---

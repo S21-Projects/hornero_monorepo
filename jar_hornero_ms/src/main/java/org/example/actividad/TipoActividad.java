@@ -66,6 +66,9 @@ public enum TipoActividad {
     ARTICULO_DESACTIVADO,
     ARTICULO_REACTIVADO,
 
+    // N13: a notification email that could not be sent (successful sends are not recorded)
+    NOTIFICACION_FALLIDA,
+
     // System housekeeping that deletes data
     TOKENS_PURGADOS,
     ACTIVIDAD_PURGADA
