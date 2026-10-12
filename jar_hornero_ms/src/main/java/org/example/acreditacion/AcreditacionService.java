@@ -116,6 +116,10 @@ public class AcreditacionService {
     @Transactional
     void aplicarTransicion(Organizacion org, NivelAcreditacion destino, Administrador actor,
                             String motivo, TipoEventoOrganizacion tipo) {
+        if (org.getEstado() != null && org.getEstado().esDeRegistroExterno()) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "La organización importada sin reclamar no admite cambios de nivel hasta ser reclamada");
+        }
         NivelAcreditacion antes = nivelActual(org);
         validateTransition(antes, destino);
         org.setNivel(destino);

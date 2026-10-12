@@ -1,4 +1,4 @@
-.PHONY: up down up-local seed backup restore-check migrate e2e coverage mapa-datos
+.PHONY: up down up-local seed backup restore-check migrate e2e coverage mapa-datos importar-renacom
 
 ## Docker only — two modes, both full-stack including Postgres.
 ## The Pi runs docker compose directly, not through this Makefile
@@ -77,3 +77,13 @@ mapa-datos:
 	@command -v duckdb >/dev/null || { echo "duckdb not found: install it (e.g. 'brew install duckdb')" >&2; exit 1; }
 	scripts/mapa/fetch.sh
 	duckdb < scripts/mapa/build.sql
+
+# Load the ReNaCoM comedores/merenderos into the DB as unclaimed organizaciones
+# (estado SIN_RECLAMAR, origen RENACOM). Needs V007 applied first (`make migrate`) and
+# renacom-radio-2022.csv (`make mapa-datos`). Backs up first; idempotent (a re-run inserts 0 rows).
+# Local stack: make importar-renacom ENV_FILE=.env.local. See scripts/mapa/README.md.
+importar-renacom: backup
+	@command -v duckdb >/dev/null || { echo "duckdb not found: install it (e.g. 'brew install duckdb')" >&2; exit 1; }
+	mkdir -p scripts/mapa/out
+	duckdb < scripts/mapa/importar-renacom.sql
+	$(PSQL) < scripts/mapa/out/importar-renacom.sql

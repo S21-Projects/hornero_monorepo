@@ -10,6 +10,24 @@ production DB) — check the "Applied to" line before running anything twice.
 
 ---
 
+## 2026-10-12 — `organizaciones`: provenance columns + widened `estado` / event `tipo` checks (mapa-vulnerabilidad, task A)
+
+**Reason**: ReNaCoM comedores are imported as unclaimed organizaciones. That adds `EstadoOrganizacion.SIN_RECLAMAR` / `INACTIVA`, `TipoEventoOrganizacion.IMPORTADA_RENACOM`, the `OrigenOrganizacion` enum and four columns. `ddl-auto=update` adds columns but never widens the CHECK constraints it generated for STRING enums, so inserting the new values would fail.
+
+**Before**: `organizaciones_estado_check` allows PENDIENTE/APROBADA/RECHAZADA; `organizacion_evento_tipo_check` lacks `IMPORTADA_RENACOM`; no `origen`, `origen_id`, `asistentes_declarados`, `codigo_radio`.
+
+**Migration**: `scripts/sql/V007__organizacion_origen.sql` (run `make migrate`). Adds the columns if missing, drops any CHECK on those columns that lacks the new values and recreates it, creates the partial unique index `ux_organizaciones_origen_id`. Safe before or after deploying the new MS image. At boot `EsquemaVerificador` logs `ESQUEMA_PENDIENTE` while a stale CHECK remains (PostgreSQL only). The rows themselves come from `make importar-renacom` (see `scripts/mapa/README.md`), a separate step.
+
+**After**: `organizaciones.estado` accepts SIN_RECLAMAR/INACTIVA; `organizacion_evento.tipo` accepts IMPORTADA_RENACOM; `origen` is NULL/`PLATAFORMA` for existing rows (read as PLATAFORMA).
+
+**Rollback**: delete imported rows first (`DELETE FROM organizacion_evento WHERE tipo = 'IMPORTADA_RENACOM'; DELETE FROM organizaciones WHERE origen = 'RENACOM';`), then `DROP INDEX ux_organizaciones_origen_id;` and recreate the narrower checks if wanted. The columns can stay; the old code ignores them.
+
+**Applied to**:
+- [ ] Local dev DB
+- [ ] Pi production DB
+
+---
+
 ## 2026-10-13 — `actividad` trigger lets the retention job clear `email_intento` (N15, D12)
 
 **Reason**: the data-protection policy (`docs/politica-datos-y-respaldo.md`, 1.5) limits the email typed in failed logins to 90 days, but V004 rejected every UPDATE on `actividad`. The row (who, when, what, IP) stays until the 365-day retention; only the email is erased.

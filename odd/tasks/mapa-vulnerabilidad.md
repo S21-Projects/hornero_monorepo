@@ -42,6 +42,16 @@ assignment algorithm.
   necesidad; its knowledge is what organizaciones declare. Accepted consequence: zones with
   higher-accredited orgs (larger caps) can show more demand; document this in the map legend.
 
+- 2026-10-12 — Scope expanded (user): ReNaCoM comedores are imported into the MS DB as
+  unclaimed organizaciones (`origen=RENACOM`, new estados `SIN_RECLAMAR`/`INACTIVA`), with a
+  claim flow (admin-approved) and a report flow. Proposed order: A model+import+map endpoint,
+  B claim, C report, D map. Visual mockup: https://claude.ai/artifact/AnDKRdd2UXLSdkpZcC6eKN
+  (pending user sign-off). Not yet re-planned into tasks.
+- 2026-10-12 — Finding (mockup data prep, DuckDB dissolve of 2022 radios): 528 departamentos
+  (excluding Antártida), only **155 have at least one ReNaCoM comedor**; 373 have none, so
+  their deficit is undefined. Median habitantes/comedor across deptos with data: 16,655.
+  The map must show "no comedores in the registry" as its own class, never as low need.
+
 ## Open decisions
 
 - D1 — Median: city vs all radios with known population (code uses the latter). Pending user.
@@ -70,7 +80,7 @@ assignment algorithm.
     override by Identificador, falls back to the declared code. Evidence: `go test ./...` ok
     (3 new tests), `go vet` clean, `metrics --top 10` deficit non-zero (top: La Matanza 3.29).
     No comma-decimal coordinates in renacom.csv (no rows dropped). RDD off (default).
-    Departamento geometry deferred to T3 (dissolve radios).
+    Departamento geometry deferred to T3 (dissolve radios). Commit: `8a8f452`.
   (route: inline, DuckDB 1.5.6 + spatial in scratchpad, nothing written to the repo yet)
   - `radios.parquet` alone suffices: 66,502 radios, `COD_2022` 9 chars, `POB_TOT_P` total
     45,618,784, `VIV_TOT_P`, geometry (CRS84). No hogares.
@@ -88,11 +98,39 @@ assignment algorithm.
     (`go test ./...`, `go vet ./...`, `make mapa-datos`). No commits without user permission.
   - Hornero data (orgs + open necesidades) enters as an optional input CSV in T2; fetching it
     from the MS is T4.
-- [ ] T2 — Worker: per-departamento aggregation in `metrics` (with tests)
-- [ ] T3 — Worker: GeoJSON + heat JSON output (`--geojson`), exclude georef precision >= 6
-- [ ] T4 — `make mapa-datos` target + publish location (D2)
-- [ ] T5 — Astro island: layers, legend, tooltips, disclaimer, national default view
-- [ ] T6 — Docs: update design doc + worker README
+Re-planned 2026-10-12 after the scope expansion (unclaimed ReNaCoM organizaciones):
+
+- [ ] A — Model + import + map endpoint (route: delegated writer; trigger: MS + BFF + admin
+  types + SQL + DuckDB, 2+ non-trivial files)
+  - MS: `Organizacion.origen` (`PLATAFORMA` default | `RENACOM`), `origenId` (unique),
+    `asistentesDeclarados`, `codigoRadio`; `EstadoOrganizacion` += `SIN_RECLAMAR`, `INACTIVA`;
+    `TipoEventoOrganizacion` += `IMPORTADA_RENACOM`.
+  - `scripts/sql/V007__organizacion_origen.sql` (+ `docs/db-changes.md`, `EsquemaVerificador`).
+  - `make importar-renacom`: DuckDB generates idempotent SQL (N0, no referente,
+    `aceptaDonaciones=false`, one event per inserted row), applied via psql like `migrate`.
+  - Public `GET /api/organizaciones/mapa` (APROBADA + SIN_RECLAMAR with coordinates) + BFF
+    proxy; public slug lookup also serves SIN_RECLAMAR.
+  - 2026-10-12 writer done (uncommitted): mvn test 709/0 fail; BFF 342/342 + build; admin
+    build ok, vitest 460/460 with --testTimeout=30000 (2 register.test.tsx timeouts under load
+    at default 5s, pass alone); astro build ok; ephemeral postgres: V007 x2 ok, import x2 →
+    2,730 orgs + 2,730 events, second run +0. Extra guard: aplicarTransicion refuses
+    SIN_RECLAMAR/INACTIVA. `gentle-ai review assess` returned nothing → treated high →
+    independent reviewer: 0 severe, 4 medium (asignarReferente/infoPublica unguarded,
+    authenticated slug 403s SIN_RECLAMAR, import identificador escaping, /mapa unprojected and
+    uncached). One scoped correction round sent to the writer. Deferred to B: Astro slug page
+    shows "Pendiente" pill + donate CTA for SIN_RECLAMAR.
+  - Correction round done: asignarReferente/infoPublica 409 for SIN_RECLAMAR/INACTIVA,
+    authenticated slug serves SIN_RECLAMAR, import restricted to numeric identificador +
+    escaped + deduped + 0,0 → null, /mapa DTO projection + Cache-Control max-age=300 (MS+BFF).
+    Evidence: mvn test 712/0 fail; BFF 342/342 (parent re-ran: 43/43 suites); import x2 → 2,730
+    then +0. Awaiting commit permission.
+- [ ] B — Claim flow: MS reclamo aggregate + endpoints, BFF, admin queue, Astro ficha + modal
+- [ ] C — Report flow: MS reporte aggregate + endpoints, BFF, admin queue, Astro modal
+- [ ] D — Map: depto aggregation + GeoJSON from DB data (former T2-T3), `make mapa-datos`
+  publish (D2), Astro Leaflet island (former T5), docs (former T6)
+
+Delivery: user rule — no PRs, commit only with permission, never push. Work-unit commits per
+task on `feat/mapa-vulnerabilidad`.
 
 ## Acceptance criteria
 

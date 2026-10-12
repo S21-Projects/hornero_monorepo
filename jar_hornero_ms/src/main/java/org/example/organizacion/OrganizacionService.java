@@ -16,6 +16,7 @@ import org.example.organizacion.dto.ActualizarInfoPublicaRequest;
 import org.example.organizacion.dto.ActualizarOrganizacionRequest;
 import org.example.organizacion.dto.AsignarReferenteRequest;
 import org.example.organizacion.dto.CrearOrganizacionRequest;
+import org.example.organizacion.dto.OrganizacionMapaResponse;
 import org.example.organizacion.dto.OrganizacionResponse;
 import org.example.user.Administrador;
 import org.example.user.Referente;
@@ -40,6 +41,8 @@ import java.util.stream.Collectors;
 public class OrganizacionService {
 
     private static final int CAP_ORGANIZACIONES = 3;
+    private static final List<EstadoOrganizacion> ESTADOS_EN_MAPA =
+            List.of(EstadoOrganizacion.APROBADA, EstadoOrganizacion.SIN_RECLAMAR);
 
     private final OrganizacionRepository organizacionRepository;
     private final UsuarioRepository usuarioRepository;
@@ -92,6 +95,12 @@ public class OrganizacionService {
                 .map(this::toResponse);
     }
 
+    /** Public, non-paged map payload: validated and unclaimed organizaciones that have coordinates. */
+    @Transactional(readOnly = true)
+    public List<OrganizacionMapaResponse> listarMapa() {
+        return organizacionRepository.findMapa(ESTADOS_EN_MAPA);
+    }
+
     @Transactional(readOnly = true)
     public Page<OrganizacionResponse> listarPendientes(Pageable pageable) {
         return organizacionRepository.findByEstado(EstadoOrganizacion.PENDIENTE, pageable)
@@ -105,6 +114,10 @@ public class OrganizacionService {
 
         if (EstadoOrganizacion.APROBADA.equals(organizacion.getEstado())) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "La organización ya fue validada");
+        }
+        if (organizacion.getEstado() != null && organizacion.getEstado().esDeRegistroExterno()) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Una organización importada sin reclamar solo cambia de estado mediante el flujo de reclamo");
         }
 
         Usuario usuario = usuarioRepository.findById(adminUserId)
@@ -155,7 +168,8 @@ public class OrganizacionService {
     @Transactional(readOnly = true)
     public OrganizacionResponse findBySlugPublic(String slug) {
         return organizacionRepository.findBySlug(slug)
-                .filter(o -> EstadoOrganizacion.APROBADA.equals(o.getEstado()))
+                .filter(o -> EstadoOrganizacion.APROBADA.equals(o.getEstado())
+                        || EstadoOrganizacion.SIN_RECLAMAR.equals(o.getEstado()))
                 .map(this::toResponse)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Organización no encontrada"));
     }
@@ -176,6 +190,15 @@ public class OrganizacionService {
                 .collect(Collectors.toList());
     }
 
+
+    /** Unclaimed/inactive imports change only through the claim/report flows (task B/C). */
+    private static void rechazarSiRegistroExterno(Organizacion o, String accion) {
+        if (o.getEstado() != null && o.getEstado().esDeRegistroExterno()) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Una organización importada sin reclamar no admite " + accion + " hasta ser reclamada");
+        }
+    }
+
     @Transactional
     public OrganizacionResponse asignarReferente(Long orgId, AsignarReferenteRequest request) {
         Organizacion organizacion = organizacionRepository.findById(orgId)
@@ -184,6 +207,7 @@ public class OrganizacionService {
         Long referenteAnteriorId = organizacion.getReferente() != null ? organizacion.getReferente().getId() : null;
 
         Long referenteId = request.getReferenteId();
+        if (referenteId != null) rechazarSiRegistroExterno(organizacion, "asignar un referente");
         if (referenteId == null) {
             organizacion.setReferente(null);
             registrarReasignacion(organizacion, referenteAnteriorId, null);
@@ -224,7 +248,8 @@ public class OrganizacionService {
         boolean isAdmin = "ROLE_ADMINISTRADOR".equals(requestingRole);
         boolean isOwner = org.getReferente() != null && org.getReferente().getId().equals(requestingUserId);
 
-        if (EstadoOrganizacion.APROBADA.equals(org.getEstado())) {
+        if (EstadoOrganizacion.APROBADA.equals(org.getEstado())
+                || EstadoOrganizacion.SIN_RECLAMAR.equals(org.getEstado())) {
             // D6: pending info-pública fields must not leave the MS on a path an
             // arbitrary authenticated user (e.g. a donante) can reach — only the
             // owning referente or an admin gets the pending snapshot here.
@@ -304,6 +329,7 @@ public class OrganizacionService {
     public OrganizacionResponse actualizarInfoPublica(Long orgId, ActualizarInfoPublicaRequest request) {
         Organizacion organizacion = organizacionRepository.findById(orgId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Organización no encontrada"));
+        rechazarSiRegistroExterno(organizacion, "cambios de información pública");
 
         if (request.getAceptaDonaciones() != null) organizacion.setAceptaDonaciones(request.getAceptaDonaciones());
         if (request.getSitioWebUrl() != null) organizacion.setSitioWebUrl(normalizarUrl(request.getSitioWebUrl()));
@@ -326,6 +352,7 @@ public class OrganizacionService {
     public OrganizacionResponse aprobarInfoPublica(Long orgId) {
         Organizacion organizacion = organizacionRepository.findById(orgId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Organización no encontrada"));
+        rechazarSiRegistroExterno(organizacion, "cambios de información pública");
 
         if (organizacion.getInfoPublicaPendienteEn() == null) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "No hay cambios pendientes de aprobación");
@@ -430,7 +457,9 @@ public class OrganizacionService {
                 null,
                 null,
                 null,
-                null
+                null,
+                organizacion.origenEfectivo(),
+                organizacion.getAsistentesDeclarados()
         );
     }
 

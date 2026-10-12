@@ -77,6 +77,13 @@ export class OrganizacionesService {
     return data;
   }
 
+  async mapa() {
+    const { data } = await this.httpService.axiosRef.get(
+      `${this.msUrl}/api/organizaciones/mapa`,
+    );
+    return data;
+  }
+
   async findBySlug(slug: string) {
     const { data } = await this.httpService.axiosRef.get(
       `${this.msUrl}/api/organizaciones/${slug}`,

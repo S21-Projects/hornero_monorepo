@@ -73,6 +73,7 @@ const EXPECTED_ACCESS: Record<string, Access> = {
   'GET /organizaciones/:id/acreditacion/evidencias': [Role.ADMINISTRADOR],
   'GET /organizaciones/:id/legajo': [Role.ADMINISTRADOR, Role.REFERENTE],
   'GET /organizaciones/:slug': 'public',
+  'GET /organizaciones/mapa': 'public',
   'GET /organizaciones/mia': [Role.REFERENTE],
   'GET /organizaciones/pendientes': [Role.ADMINISTRADOR],
   'GET /organizaciones/todas': [Role.ADMINISTRADOR],
