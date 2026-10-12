@@ -113,16 +113,30 @@ public class NecesidadService {
     public Page<NecesidadResponse> findByOrganizacion(Long organizacionId, Pageable pageable) {
         // D2/N4: expired necesidades are taken down publicly; only the owning referente and
         // admins still see them (the referente needs them to relaunch).
-        Page<Necesidad> page = puedeVerVencidas(organizacionId)
-                ? necesidadRepository.findByOrganizacion_Id(organizacionId, pageable)
-                : necesidadRepository.findByOrganizacion_IdAndEstadoNot(
-                        organizacionId, EstadoNecesidad.VENCIDA, pageable);
-        return page.map(this::toResponse);
+        if (puedeVerVencidas(organizacionId)) {
+            return necesidadRepository.findByOrganizacion_Id(organizacionId, pageable).map(this::toResponse);
+        }
+        // M3: an organization at N0 (or without level) is not publicly listed.
+        boolean n0 = organizacionRepository.findById(organizacionId)
+                .map(o -> o.getNivel() == null || o.getNivel() == NivelAcreditacion.N0)
+                .orElse(false);
+        if (n0) {
+            return Page.empty(pageable);
+        }
+        return necesidadRepository.findByOrganizacion_IdAndEstadoNot(
+                organizacionId, EstadoNecesidad.VENCIDA, pageable).map(this::toResponse);
     }
 
     public Page<NecesidadResponse> findAll(Pageable pageable) {
-        return necesidadRepository.findByEstadoNot(EstadoNecesidad.VENCIDA, pageable)
-                .map(this::toResponse);
+        // M3: N0 organizations are hidden except from their own referente; admins see everything
+        // that is not expired.
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (esAdmin(auth)) {
+            return necesidadRepository.findByEstadoNot(EstadoNecesidad.VENCIDA, pageable)
+                    .map(this::toResponse);
+        }
+        Long userId = auth != null && auth.isAuthenticated() && auth.getPrincipal() instanceof Long id ? id : null;
+        return necesidadRepository.findPublicas(userId, pageable).map(this::toResponse);
     }
 
     public NecesidadResponse findById(Long id) {
@@ -144,6 +158,13 @@ public class NecesidadService {
                 && dto.getEstado() != null && dto.getEstado() != EstadoNecesidad.VENCIDA) {
             throw new ResponseStatusException(HttpStatus.CONFLICT,
                     "NECESIDAD_VENCIDA_USAR_RELANZAR: una necesidad vencida solo se reabre relanzándola");
+        }
+        // M4: reopening (CUMPLIDA -> ABIERTA/EN_PROGRESO) takes a slot like crear/relanzar. Checked
+        // before the in-memory change so the count query's auto-flush doesn't count this row.
+        if (dto.getEstado() != null && ESTADOS_ABIERTOS.contains(dto.getEstado())
+                && !ESTADOS_ABIERTOS.contains(n.getEstado())) {
+            Organizacion org = n.getOrganizacion();
+            verificarCupo(org, org.getNivel() == null ? NivelAcreditacion.N0 : org.getNivel());
         }
         if (dto.getEstado() != null) n.setEstado(dto.getEstado());
         if (dto.getFechaVencimiento() != null) n.setFechaVencimiento(dto.getFechaVencimiento());
@@ -241,12 +262,22 @@ public class NecesidadService {
         if (auth == null || !auth.isAuthenticated() || !(auth.getPrincipal() instanceof Long userId)) {
             return false;
         }
+        if (esAdmin(auth)) {
+            return true;
+        }
+        return organizacionRepository.findByIdAndReferente_Id(organizacionId, userId).isPresent();
+    }
+
+    private static boolean esAdmin(Authentication auth) {
+        if (auth == null || !auth.isAuthenticated()) {
+            return false;
+        }
         for (GrantedAuthority a : auth.getAuthorities()) {
             if ("ROLE_ADMINISTRADOR".equals(a.getAuthority())) {
                 return true;
             }
         }
-        return organizacionRepository.findByIdAndReferente_Id(organizacionId, userId).isPresent();
+        return false;
     }
 
     private void checkOwnership(Necesidad n, Long referenteId) {

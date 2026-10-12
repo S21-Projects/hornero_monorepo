@@ -22,6 +22,19 @@ public interface NecesidadRepository extends JpaRepository<Necesidad, Long> {
     /** D2/N4: public listings skip expired necesidades. */
     Page<Necesidad> findByEstadoNot(EstadoNecesidad estado, Pageable pageable);
 
+    /**
+     * M3: public listing for callers who are not admins. Hides expired necesidades and those of
+     * organizations at N0 (a null level counts as N0), except the necesidades of organizations
+     * whose referente is {@code usuarioId} (null for anonymous callers matches nothing).
+     */
+    @Query(value = "SELECT n FROM Necesidad n JOIN n.organizacion o LEFT JOIN o.referente r "
+            + "WHERE n.estado <> org.example.domain.EstadoNecesidad.VENCIDA "
+            + "AND ((o.nivel IS NOT NULL AND o.nivel <> org.example.domain.NivelAcreditacion.N0) OR r.id = :usuarioId)",
+            countQuery = "SELECT COUNT(n) FROM Necesidad n JOIN n.organizacion o LEFT JOIN o.referente r "
+            + "WHERE n.estado <> org.example.domain.EstadoNecesidad.VENCIDA "
+            + "AND ((o.nivel IS NOT NULL AND o.nivel <> org.example.domain.NivelAcreditacion.N0) OR r.id = :usuarioId)")
+    Page<Necesidad> findPublicas(@Param("usuarioId") Long usuarioId, Pageable pageable);
+
     Page<Necesidad> findByOrganizacion_IdAndEstadoNot(Long organizacionId, EstadoNecesidad estado, Pageable pageable);
 
     /** `specs/organizacion-acreditacion/spec.md` "Level-Driven Concurrency Caps". */
