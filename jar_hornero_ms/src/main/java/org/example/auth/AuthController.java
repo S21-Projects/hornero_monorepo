@@ -6,11 +6,14 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.example.auth.dto.AuthResponse;
 import org.example.auth.dto.LoginRequest;
+import org.example.auth.dto.PasswordOlvidoRequest;
+import org.example.auth.dto.PasswordRestablecerRequest;
 import org.example.auth.dto.RefreshRequest;
 import org.example.auth.dto.RegisterRequest;
 import org.example.auth.dto.ResendOtpRequest;
 import org.example.auth.dto.UserResponse;
 import org.example.auth.dto.VerifyOtpRequest;
+import org.example.auth.reset.PasswordResetService;
 import org.example.user.Usuario;
 import org.example.user.UsuarioRepository;
 import org.springframework.http.HttpStatus;
@@ -27,6 +30,7 @@ public class AuthController {
 
     private final AuthService authService;
     private final UsuarioRepository usuarioRepository;
+    private final PasswordResetService passwordResetService;
 
     @Operation(summary = "Register a new referente or donante account")
     @PostMapping("/register")
@@ -64,6 +68,21 @@ public class AuthController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void resendOtp(@Valid @RequestBody ResendOtpRequest request) {
         authService.resendOtp(request);
+    }
+
+    @Operation(summary = "Request a password reset link (always 202 with the same body, no enumeration oracle)")
+    @PostMapping("/password/olvido")
+    @ResponseStatus(HttpStatus.ACCEPTED)
+    public java.util.Map<String, String> passwordOlvido(@Valid @RequestBody PasswordOlvidoRequest request) {
+        passwordResetService.solicitar(request.getEmail());
+        return java.util.Map.of("mensaje", "Si el email está registrado, te enviamos un enlace");
+    }
+
+    @Operation(summary = "Set a new password with a single-use reset token (400 TOKEN_INVALIDO otherwise)")
+    @PostMapping("/password/restablecer")
+    public java.util.Map<String, String> passwordRestablecer(@Valid @RequestBody PasswordRestablecerRequest request) {
+        passwordResetService.restablecer(request.getToken(), request.getPassword());
+        return java.util.Map.of("mensaje", "Contraseña actualizada");
     }
 
     @Operation(summary = "Get the currently authenticated user's profile")

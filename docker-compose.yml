@@ -46,14 +46,28 @@ services:
       DB_USERNAME: "${DB_USERNAME:-hornero}"
       DB_PASSWORD: "${DB_PASSWORD:-hornero}"
       RESEND_API_KEY: "${RESEND_API_KEY:-}"
-      OTP_FROM_EMAIL: "${OTP_FROM_EMAIL:-}"
+      # N14: sender of every MS email. Falls back to the pre-N14 OTP_FROM_EMAIL so existing
+      # deploys keep working. (An empty MAIL_FROM_EMAIL would otherwise shadow the fallback.)
+      MAIL_FROM_EMAIL: "${MAIL_FROM_EMAIL:-${OTP_FROM_EMAIL:-}}"
       MAIL_LOG_ONLY: "${MAIL_LOG_ONLY:-false}"
+      # Production creates no demo data. `make up-local` sets SEED_DEMO_DATA=true. With it off the MS
+      # refuses to start unless SUPER_ADMIN_EMAIL/SUPER_ADMIN_PASSWORD are set (empty = missing).
+      SEED_DEMO_DATA: "${SEED_DEMO_DATA:-false}"
+      SUPER_ADMIN_EMAIL: "${SUPER_ADMIN_EMAIL:-}"
+      SUPER_ADMIN_PASSWORD: "${SUPER_ADMIN_PASSWORD:-}"
+      # N14: public URL of the admin SPA; the password-reset link is built from it (never from
+      # request headers). Local default matches the admin container's host port.
+      APP_PANEL_URL: "${APP_PANEL_URL:-http://localhost:5173}"
+      PASSWORD_RESET_TTL_MINUTOS: "${PASSWORD_RESET_TTL_MINUTOS:-30}"
       # AD-1: the ronda allocation worker's internal URL. The MS does NOT
       # depends_on the worker service (see the `worker` service comment below) —
       # it boots fine without it; only POST /api/rondas answers 503 if blank/down.
       WORKER_URL: "http://worker:8090"
       # D5: show the donor identity on public donation reads. Off by default.
       DONANTE_PUBLICO: "${DONANTE_PUBLICO:-false}"
+      # N13: event emails + admin daily digest. NOTIFICACIONES_ENABLED=false silences all of them.
+      NOTIFICACIONES_ENABLED: "${NOTIFICACIONES_ENABLED:-true}"
+      NOTIFICACIONES_DIGEST_CRON: "${NOTIFICACIONES_DIGEST_CRON:-0 0 8 * * *}"
       # N7/D7: optional scheduled ronda (needs scripts/sql/V002 applied). Off by default.
       RONDAS_AUTO_ENABLED: "${RONDAS_AUTO_ENABLED:-false}"
       RONDAS_AUTO_CRON: "${RONDAS_AUTO_CRON:-0 0 6 * * *}"

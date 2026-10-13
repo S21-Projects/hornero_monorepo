@@ -21,6 +21,7 @@ class MailerConfigTest {
     void missingConfig_logOnlyFalse_failsStartupNamingTheVariables() {
         IllegalStateException ex = assertThrows(IllegalStateException.class, () -> config.mailer("", "", false));
         assertTrue(ex.getMessage().contains("RESEND_API_KEY"));
+        assertTrue(ex.getMessage().contains("MAIL_FROM_EMAIL"));
         assertTrue(ex.getMessage().contains("OTP_FROM_EMAIL"));
         assertTrue(ex.getMessage().contains("MAIL_LOG_ONLY"));
     }
@@ -39,6 +40,14 @@ class MailerConfigTest {
     }
 
     @Test
+    void fullConfig_logOnlyTrue_neverSends(CapturedOutput output) {
+        // MAIL_LOG_ONLY wins over a configured key: a local stack holding a real key must not mail.
+        Mailer mailer = config.mailer("re_key", "no-reply@x.org", true);
+        assertDoesNotThrow(() -> mailer.enviarOtp("someone@example.org", "123456"));
+        assertTrue(output.getOut().contains("s***@example.org"));
+    }
+
+    @Test
     void fullConfig_returnsMailerWithoutSending() {
         assertNotNull(config.mailer("re_key", "no-reply@x.org", false));
     }
@@ -54,6 +63,28 @@ class MailerConfigTest {
         assertTrue(output.getAll().contains("j***@example.com"));
         assertFalse(output.getAll().contains("482913"));
         assertFalse(output.getAll().contains("juan.perez"));
+    }
+
+    // N14: the seam is generic now. A log-only mailer must never print what makes a message
+    // actionable (reset link, token, code), only who it was for.
+    @Test
+    void logOnlyMailer_genericMessage_neverWritesBodyOrLinks(CapturedOutput output) {
+        Mailer mailer = config.mailer("", "", true);
+
+        mailer.enviar(new MensajeCorreo("juan.perez@example.com", "Asunto",
+                "<a href=\"https://panel.example/restablecer?token=SECRETTOKEN\">x</a>",
+                "https://panel.example/restablecer?token=SECRETTOKEN"));
+
+        assertTrue(output.getAll().contains("j***@example.com"));
+        assertFalse(output.getAll().contains("SECRETTOKEN"));
+        assertFalse(output.getAll().contains("restablecer"));
+        assertFalse(output.getAll().contains("juan.perez"));
+    }
+
+    @Test
+    void mensajeCorreo_toStringNeverExposesBody() {
+        MensajeCorreo m = new MensajeCorreo("a@b.com", "Asunto", "<p>SECRETTOKEN</p>", "SECRETTOKEN");
+        assertFalse(m.toString().contains("SECRETTOKEN"));
     }
 
     @Test

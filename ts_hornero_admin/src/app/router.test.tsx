@@ -105,4 +105,23 @@ describe('router.tsx — real route wiring', () => {
       requireVerified: true,
     });
   });
+
+  // N14 — requesting a reset is for people without a session: PublicOnlyRoute.
+  it('/olvide-contrasena is public-only', () => {
+    const route = router.routes.find((r) => r.path === '/olvide-contrasena');
+
+    expect(route).toBeDefined();
+    expect(((route!.element as React.ReactElement).type as { name?: string }).name).toBe('PublicOnlyRoute');
+  });
+
+  // The emailed link must work even if the browser still holds a session: a PublicOnlyRoute
+  // would redirect home and drop the token. Completing the reset revokes every session anyway.
+  it('/restablecer is not guarded', () => {
+    const route = router.routes.find((r) => r.path === '/restablecer');
+
+    expect(route).toBeDefined();
+    const name = ((route!.element as React.ReactElement).type as { name?: string }).name;
+    expect(name).not.toBe('PublicOnlyRoute');
+    expect(name).not.toBe('ProtectedRoute');
+  });
 });

@@ -5,6 +5,8 @@ import { NotFound } from './NotFound';
 import AppShell from './AppShell';
 import LoginPage from '../routes/login';
 import RegisterPage from '../routes/register';
+import OlvideContrasenaPage from '../routes/olvide-contrasena';
+import RestablecerPage from '../routes/restablecer';
 import DashboardPage from '../routes/dashboard';
 import NeedsPage from '../routes/needs';
 import PrefsPage from '../routes/prefs';
@@ -47,6 +49,17 @@ export const router = createBrowserRouter([
       </PublicOnlyRoute>
     ),
   },
+  {
+    path: '/olvide-contrasena',
+    element: (
+      <PublicOnlyRoute>
+        <OlvideContrasenaPage />
+      </PublicOnlyRoute>
+    ),
+  },
+  // Not guarded: the emailed link must work even if this browser still holds a session
+  // (PublicOnlyRoute would redirect home and lose the token). The reset revokes all sessions.
+  { path: '/restablecer', element: <RestablecerPage /> },
 
   // ── /verify-email — any authenticated role, no gates of its own ────────
   // First of the two independent, sequential gates. requireValidated routes

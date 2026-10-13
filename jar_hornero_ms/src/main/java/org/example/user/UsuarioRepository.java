@@ -17,6 +17,10 @@ public interface UsuarioRepository extends JpaRepository<Usuario, Long> {
     /** N9: one PK-index probe per authenticated request; no entity is loaded. */
     boolean existsByIdAndActivoTrue(Long id);
 
+    /** N13: recipients of the daily digest (the caller also requires a verified email). */
+    @Query("select a from Administrador a where a.activo = true")
+    List<Administrador> findAdministradoresActivos();
+
     /** M1: id/name/email of several users in one query (no entity loaded). */
     @Query("select u.id as id, u.nombre as nombre, u.email as email from Usuario u where u.id in :ids")
     List<UsuarioResumen> findResumenByIdIn(@Param("ids") Collection<Long> ids);

@@ -8,7 +8,8 @@ import org.springframework.context.annotation.Configuration;
 /**
  * Provides the {@link Mailer} bean. Missing Resend configuration fails startup
  * unless {@code MAIL_LOG_ONLY=true} explicitly opts into the log-only mailer
- * (local dev / tests), so production can never silently drop OTP emails.
+ * (local dev / tests), so production can never silently drop emails. The sender is
+ * {@code MAIL_FROM_EMAIL}, falling back to the legacy {@code OTP_FROM_EMAIL} (see application.yml).
  */
 @Configuration
 @Slf4j
@@ -17,30 +18,30 @@ public class MailerConfig {
     @Bean
     public Mailer mailer(
             @Value("${app.mail.resend-api-key:}") String resendApiKey,
-            @Value("${app.mail.otp-from-email:}") String otpFromEmail,
+            @Value("${app.mail.from-email:}") String fromEmail,
             @Value("${app.mail.log-only:false}") boolean logOnly) {
-        if (resendApiKey.isBlank() || otpFromEmail.isBlank()) {
-            if (!logOnly) {
-                throw new IllegalStateException(
-                        "RESEND_API_KEY and OTP_FROM_EMAIL must be set to send OTP emails. " +
-                        "Set MAIL_LOG_ONLY=true to log verification codes instead (local dev only).");
-            }
-            log.warn("[otp-mail] MAIL_LOG_ONLY activo y RESEND_API_KEY / OTP_FROM_EMAIL no configurados. " +
-                    "Los códigos de verificación sólo se escriben en el log.");
+        // MAIL_LOG_ONLY always wins: a local stack that happens to hold a real key must never send.
+        if (logOnly) {
+            log.warn("[mail] MAIL_LOG_ONLY activo: los correos no se envían, sólo se registra el destinatario enmascarado.");
             return logMailer();
         }
-        return resendMailer(resendApiKey, otpFromEmail);
+        if (resendApiKey.isBlank() || fromEmail.isBlank()) {
+            throw new IllegalStateException(
+                    "RESEND_API_KEY and MAIL_FROM_EMAIL (or the legacy OTP_FROM_EMAIL) must be set to send emails. " +
+                    "Set MAIL_LOG_ONLY=true to skip sending and only log that a message was generated (local dev only).");
+        }
+        return resendMailer(resendApiKey, fromEmail);
     }
 
     private Mailer logMailer() {
-        // Never log the code itself (ASVS 16.2.5): anyone with log access could take over the
-        // account. Local dev reads the code from the database / test hooks instead.
-        return (email, codigo) -> log.info("[otp-mail] Código de verificación generado para {} (no se registra)",
-                enmascarar(email));
+        // Never log the body (ASVS 16.2.5): it carries one-time codes and reset links, so anyone
+        // with log access could take over an account. Local dev reads the code from the database.
+        return mensaje -> log.info("[mail] Mensaje '{}' generado para {} (contenido no se registra)",
+                mensaje.subject(), enmascarar(mensaje.to()));
     }
 
     /** {@code juan.perez@example.com} -> {@code j***@example.com}; also strips control characters. */
-    static String enmascarar(String email) {
+    public static String enmascarar(String email) {
         if (email == null || email.isBlank()) {
             return "(sin email)";
         }
@@ -57,14 +58,6 @@ public class MailerConfig {
 
     private Mailer resendMailer(String apiKey, String from) {
         ResendClient client = new ResendClient(apiKey);
-        return (email, codigo) -> {
-            client.send(
-                    from,
-                    email,
-                    OtpEmailTemplate.subject(),
-                    OtpEmailTemplate.htmlBody(codigo),
-                    OtpEmailTemplate.textBody(codigo)
-            );
-        };
+        return mensaje -> client.send(from, mensaje.to(), mensaje.subject(), mensaje.html(), mensaje.text());
     }
 }

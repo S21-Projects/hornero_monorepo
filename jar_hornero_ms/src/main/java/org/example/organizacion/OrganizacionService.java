@@ -1,6 +1,8 @@
 package org.example.organizacion;
 
 import lombok.RequiredArgsConstructor;
+import org.example.notificacion.NotificacionEvento;
+import org.springframework.context.ApplicationEventPublisher;
 import org.example.acreditacion.AcreditacionService;
 import org.example.actividad.ActividadService;
 import org.example.actividad.ActividadService.Registro;
@@ -43,6 +45,7 @@ public class OrganizacionService {
     private final UsuarioRepository usuarioRepository;
     private final AcreditacionService acreditacionService;
     private final ActividadService actividadService;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
     public OrganizacionResponse crear(CrearOrganizacionRequest request, Long referenteUserId) {
@@ -121,6 +124,7 @@ public class OrganizacionService {
         Organizacion saved = organizacionRepository.save(organizacion);
         actividadService.registrar(Registro.de(TipoActividad.ORGANIZACION_VALIDADA)
                 .entidad("ORGANIZACION", orgId).cambio(estadoAntes, saved.getEstado()));
+        eventPublisher.publishEvent(new NotificacionEvento.OrganizacionResuelta(orgId, true));
         return toResponseAutenticado(saved);
     }
 
@@ -144,6 +148,7 @@ public class OrganizacionService {
         Organizacion saved = organizacionRepository.save(organizacion);
         actividadService.registrar(Registro.de(TipoActividad.ORGANIZACION_RECHAZADA)
                 .entidad("ORGANIZACION", orgId).cambio(estadoAntes, saved.getEstado()));
+        eventPublisher.publishEvent(new NotificacionEvento.OrganizacionResuelta(orgId, false));
         return toResponseAutenticado(saved);
     }
 

@@ -15,6 +15,8 @@ describe('AuthController rate limiting', () => {
     refresh: jest.fn().mockResolvedValue({ ok: true }),
     verifyOtp: jest.fn().mockResolvedValue({ ok: true }),
     resendOtp: jest.fn().mockResolvedValue(undefined),
+    olvidoPassword: jest.fn().mockResolvedValue({ mensaje: 'ok' }),
+    restablecerPassword: jest.fn().mockResolvedValue({ mensaje: 'ok' }),
     logout: jest.fn(),
   };
 
@@ -46,6 +48,12 @@ describe('AuthController rate limiting', () => {
     ['/auth/refresh', 20, {}],
     ['/auth/verify-otp', 5, { email: 'a@b.ar', codigo: '123456' }],
     ['/auth/resend-otp', 3, { email: 'a@b.ar' }],
+    ['/auth/password/olvido', 3, { email: 'a@b.ar' }],
+    [
+      '/auth/password/restablecer',
+      5,
+      { token: 't', password: 'la cafetera azul canta fuerte' },
+    ],
   ])(
     '%s answers 429 with the error envelope after %i requests',
     async (path, limit, payload) => {
@@ -69,6 +77,13 @@ describe('AuthController rate limiting', () => {
     for (let i = 0; i < 5; i += 1) await post('/auth/login', '203.0.113.7');
     expect((await post('/auth/login', '203.0.113.7')).status).toBe(429);
     expect((await post('/auth/login', '198.51.100.9')).status).not.toBe(429);
+  });
+
+  it('answers 202 for olvido and 200 for restablecer', async () => {
+    expect((await post('/auth/password/olvido', '198.51.100.1', { email: 'a@b.ar' })).status).toBe(202);
+    expect(
+      (await post('/auth/password/restablecer', '198.51.100.2', { token: 't', password: 'x' })).status,
+    ).toBe(200);
   });
 
   it('does not throttle logout', async () => {
