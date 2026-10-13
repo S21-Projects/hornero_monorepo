@@ -70,6 +70,9 @@ app:
     pendientes-max: 5
     diario-max: 5
     window-hours: 24
+  # Server-side TTL cache of the public GET /organizaciones/mapa payload.
+  mapa:
+    cache-ttl-seconds: ${APP_MAPA_CACHE_TTL_SECONDS:300}
   reporte:
     diario-max: 20
     window-hours: 24
