@@ -29,3 +29,7 @@ target/
 
 # Local database dumps (make backup / make migrate) — contain user data
 backups/
+
+# Coverage outputs (make coverage)
+coverage/
+coverage.out

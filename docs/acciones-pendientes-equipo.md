@@ -109,3 +109,5 @@ completarlo, con fecha. El seguimiento técnico completo está en `odd/tasks/seg
 - [ ] Citar como evidencia: `docs/seguridad-matriz-riesgos.md`, `docs/registro-actividades.md`,
   `docs/notificaciones-email.md` y los resultados de las pruebas (`mvn test`, `npm test`,
   `make e2e`).
+- [ ] Incorporar `docs/validacion-calidad.md` (estrategia de pruebas, cobertura y defectos hallados) al
+  documento.
