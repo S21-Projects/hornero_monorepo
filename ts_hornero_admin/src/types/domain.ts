@@ -584,3 +584,54 @@ export interface Actividad {
   actorNombre: string | null;
   actorEmail: string | null;
 }
+
+// ---------------------------------------------------------------------------
+// Claim flow for unclaimed (ReNaCoM) organizaciones — mirrors jar_hornero_ms's
+// `reclamo/dto/*.java` and ts_hornero_bff's `reclamos/dto/*.ts`.
+// ---------------------------------------------------------------------------
+
+export const RolReclamo = {
+  RESPONSABLE: 'RESPONSABLE',
+  VOLUNTARIO: 'VOLUNTARIO',
+  INTEGRANTE: 'INTEGRANTE',
+} as const;
+export type RolReclamo = typeof RolReclamo[keyof typeof RolReclamo];
+
+export const EstadoReclamo = {
+  PENDIENTE: 'PENDIENTE',
+  APROBADO: 'APROBADO',
+  RECHAZADO: 'RECHAZADO',
+} as const;
+export type EstadoReclamo = typeof EstadoReclamo[keyof typeof EstadoReclamo];
+
+export interface Reclamo {
+  id: number;
+  organizacionId: number;
+  organizacionNombre: string;
+  organizacionSlug: string;
+  organizacionDireccion?: string | null;
+  solicitanteId: number;
+  solicitanteNombre: string;
+  solicitanteEmail: string;
+  rol: RolReclamo;
+  telefono: string;
+  mensaje?: string | null;
+  /** Keys under `reclamo-evidencia/{orgId}/{solicitanteId}/`; read through `reclamo-files`. */
+  evidenciaKeys: string[];
+  estado: EstadoReclamo;
+  motivoRechazo?: string | null;
+  resueltoPorNombre?: string | null;
+  creadoEn: string;
+  resueltoEn?: string | null;
+  /** Admin detail only: the claimant's organizaciones a cargo and the cap (the "n/3"). */
+  organizacionesACargo?: number | null;
+  capOrganizaciones?: number | null;
+}
+
+export interface CrearReclamoInput {
+  organizacionId: number;
+  rol: RolReclamo;
+  telefono: string;
+  mensaje?: string;
+  evidenciaKeys: string[];
+}
