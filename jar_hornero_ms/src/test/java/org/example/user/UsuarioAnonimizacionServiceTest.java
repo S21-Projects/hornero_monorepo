@@ -13,6 +13,8 @@ import org.example.domain.ReclamoOrganizacionRepository;
 import org.example.domain.ReporteOrganizacion;
 import org.example.domain.ReporteOrganizacionRepository;
 import org.example.idempotencia.IdempotenciaRepository;
+import org.example.reclamo.ReclamoService;
+import org.example.reporte.ReporteCierre;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -59,15 +61,21 @@ class UsuarioAnonimizacionServiceTest {
     private ReclamoOrganizacionRepository reclamoRepository;
     @Mock
     private ReporteOrganizacionRepository reporteRepository;
+    @Mock
+    private ReclamoService reclamoService;
+    @Mock
+    private ReporteCierre reporteCierre;
 
     private final BCryptPasswordEncoder encoder = new BCryptPasswordEncoder(4);
+    private final Administrador admin = new Administrador(ADMIN_ID, "Admin", "admin@test.com", "x", true);
     private UsuarioAnonimizacionService service;
 
     @BeforeEach
     void setUp() {
         service = new UsuarioAnonimizacionService(usuarioRepository, organizacionRepository, refreshTokenService,
                 actividadService, encoder, codigoVerificacionRepository, passwordResetTokenRepository,
-                idempotenciaRepository, reclamoRepository, reporteRepository);
+                idempotenciaRepository, reclamoRepository, reporteRepository, reclamoService, reporteCierre);
+        org.mockito.Mockito.lenient().when(usuarioRepository.findById(ADMIN_ID)).thenReturn(Optional.of(admin));
     }
 
     private Donante donante() {
@@ -128,6 +136,16 @@ class UsuarioAnonimizacionServiceTest {
         verify(codigoVerificacionRepository).deleteByEmailIgnoreCase("dora@test.com");
         verify(passwordResetTokenRepository).deleteByUsuarioId(7L);
         verify(idempotenciaRepository).deleteByUsuarioId(7L);
+    }
+
+    @Test
+    void closesPendingClaimsAndReportsOfTheUser_withTheAnonymizingAdminAsActor() {
+        donante();
+
+        service.anonimizar(7L, ADMIN_ID);
+
+        verify(reclamoService).rechazarPendientesDeReferente(7L, admin, "El solicitante dio de baja su cuenta");
+        verify(reporteCierre).descartarPendientesDeReportante(7L, admin, "El reportante dio de baja su cuenta");
     }
 
     @Test

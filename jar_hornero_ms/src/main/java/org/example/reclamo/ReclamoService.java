@@ -199,6 +199,15 @@ public class ReclamoService {
         }
     }
 
+    /** Rejects every PENDIENTE claim filed by a referente whose account was anonymized. */
+    @Transactional
+    public void rechazarPendientesDeReferente(Long referenteId, Administrador admin, String motivo) {
+        for (ReclamoOrganizacion r : reclamoRepository
+                .findByReferente_IdAndEstado(referenteId, EstadoReclamo.PENDIENTE)) {
+            cerrarComoRechazado(r, admin, motivo);
+        }
+    }
+
     @Transactional
     public ReclamoResponse rechazar(Long id, String motivo, Long adminUserId) {
         Administrador admin = requireAdministrador(adminUserId);

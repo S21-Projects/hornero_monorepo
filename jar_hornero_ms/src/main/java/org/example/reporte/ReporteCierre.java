@@ -53,4 +53,13 @@ public class ReporteCierre {
             descartar(r, admin, nota);
         }
     }
+
+    /** Discards every PENDIENTE report filed by a reportante whose account was anonymized. */
+    @Transactional
+    public void descartarPendientesDeReportante(Long reportanteId, Administrador admin, String nota) {
+        for (ReporteOrganizacion r : reporteRepository
+                .findByReportante_IdAndEstado(reportanteId, EstadoReporte.PENDIENTE)) {
+            descartar(r, admin, nota);
+        }
+    }
 }
