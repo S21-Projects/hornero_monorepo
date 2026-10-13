@@ -83,6 +83,17 @@ services:
       DONACIONES_EN_CURSO_ESTANCADA_DIAS: "${DONACIONES_EN_CURSO_ESTANCADA_DIAS:-14}"
       DONACIONES_CONFIRMACION_ESTANCADA_DIAS: "${DONACIONES_CONFIRMACION_ESTANCADA_DIAS:-7}"
       DONACIONES_ESTANCADAS_CRON: "${DONACIONES_ESTANCADAS_CRON:-0 15 0 * * *}"
+      # Claim evidence deletion (anonymization + nightly sweep). Same bucket and credentials as
+      # the bff; only reclamo-evidencia/ is ever listed or deleted. Blank keys = no-op store.
+      AWS_ENDPOINT_URL: "${AWS_ENDPOINT_URL:-http://minio:9000}"
+      AWS_S3_BUCKET_NAME: "${AWS_S3_BUCKET_NAME:-hornero-images}"
+      AWS_ACCESS_KEY_ID: "${AWS_ACCESS_KEY_ID:-${MINIO_ROOT_USER:-hornero}}"
+      AWS_SECRET_ACCESS_KEY: "${AWS_SECRET_ACCESS_KEY:-${MINIO_ROOT_PASSWORD:-hornero-minio-secret}}"
+      AWS_DEFAULT_REGION: "${AWS_DEFAULT_REGION:-auto}"
+      EVIDENCIA_BARRIDO_ENABLED: "${EVIDENCIA_BARRIDO_ENABLED:-true}"
+      EVIDENCIA_BARRIDO_GRACIA_DIAS: "${EVIDENCIA_BARRIDO_GRACIA_DIAS:-7}"
+      EVIDENCIA_BARRIDO_MAX: "${EVIDENCIA_BARRIDO_MAX:-500}"
+      EVIDENCIA_BARRIDO_CRON: "${EVIDENCIA_BARRIDO_CRON:-0 50 3 * * *}"
     depends_on:
       postgres:
         condition: service_healthy

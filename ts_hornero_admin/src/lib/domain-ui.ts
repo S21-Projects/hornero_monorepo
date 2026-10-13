@@ -181,6 +181,8 @@ export const ACCION_ACTIVIDAD: Record<string, string> = {
   USUARIO_ANONIMIZADO: 'Usuario anonimizado',
   EMAIL_INTENTO_PURGADO: 'Correos de intentos fallidos borrados (automático)',
   COORDENADAS_MINIMIZADAS: 'Coordenadas de donaciones reducidas (automático)',
+  EVIDENCIA_RECLAMO_BORRADA: 'Evidencia de reclamos borrada',
+  EVIDENCIA_HUERFANA_BORRADA: 'Evidencia huérfana borrada (automático)',
 };
 
 export function labelAccion(codigo: string): string {

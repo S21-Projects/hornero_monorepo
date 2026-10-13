@@ -56,11 +56,11 @@ Strict TDD. All MS tests use the in-memory fake.
 
 ## Phase 3: Wiring and admin labels (unit 3)
 
-- [ ] 3.1 RED: add the two new types to `MS_TIPOS` in `ts_hornero_admin/src/lib/domain-ui.actividad.test.ts`; run `npm test -- domain-ui.actividad` in `ts_hornero_admin` and observe failure.
-- [ ] 3.2 GREEN: add labels `'Evidencia de reclamos borrada'` and `'Evidencia huérfana borrada (automático)'` in `ts_hornero_admin/src/lib/domain-ui.ts`. Run `npm test` and `npm run build` (tsc -b catches what vitest does not).
-- [ ] 3.3 Modify `docker-compose.yml`: add the `ms` environment block from the design (5 `AWS_*` lines with bff defaults, 4 `EVIDENCIA_BARRIDO_*` lines). Do not touch `.env*` files.
-- [ ] 3.4 Update the Object storage section of `CLAUDE.md`: the MS now deletes claim evidence (`reclamo-evidencia/` only).
-- [ ] 3.5 Commit (unit 3): `feat(evidencia): wire object storage into ms and label new actividad types`.
+- [x] 3.1 RED: add the two new types to `MS_TIPOS` in `ts_hornero_admin/src/lib/domain-ui.actividad.test.ts`; run `npm test -- domain-ui.actividad` in `ts_hornero_admin` and observe failure.
+- [x] 3.2 GREEN: add labels `'Evidencia de reclamos borrada'` and `'Evidencia huérfana borrada (automático)'` in `ts_hornero_admin/src/lib/domain-ui.ts`. Run `npm test` and `npm run build` (tsc -b catches what vitest does not).
+- [x] 3.3 Modify `docker-compose.yml`: add the `ms` environment block from the design (5 `AWS_*` lines with bff defaults, 4 `EVIDENCIA_BARRIDO_*` lines). Do not touch `.env*` files.
+- [x] 3.4 Update the Object storage section of `CLAUDE.md`: the MS now deletes claim evidence (`reclamo-evidencia/` only).
+- [x] 3.5 Commit (unit 3): `feat(evidencia): wire object storage into ms and label new actividad types`.
 
 ## Phase 4: Manual verification and docs (unit 4)
 
