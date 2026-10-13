@@ -31,6 +31,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.time.Clock;
 import java.time.Instant;
 import java.util.Comparator;
 import java.util.List;
@@ -50,6 +51,7 @@ public class ReporteService {
     /** Most reports one user may have PENDIENTE at the same time. */
     public static final int MAX_PENDIENTES_POR_USUARIO = 10;
     static final String LIMITE_REPORTES_PENDIENTES = "LIMITE_REPORTES_PENDIENTES";
+    static final String DEMASIADOS_REPORTES = "DEMASIADOS_REPORTES";
     static final String INDICE_PENDIENTE = "ux_reporte_pendiente";
     static final String MOTIVO_INACTIVA = "La organización fue marcada inactiva";
     static final String MSG_REPORTE_PENDIENTE = "Ya tenés un reporte pendiente para este comedor";
@@ -63,9 +65,10 @@ public class ReporteService {
     private final AcreditacionService acreditacionService;
     private final ActividadService actividadService;
     private final VerificacionService verificacionService;
-    private final ReporteThrottle reporteThrottle;
     private final ReporteCierre reporteCierre;
     private final ReclamoService reclamoService;
+    private final Clock clock;
+    private final LimitesReporte limites;
 
     @Transactional
     public ReporteResponse crear(CrearReporteRequest request, Long userId) {
@@ -82,8 +85,13 @@ public class ReporteService {
             throw new ResponseStatusException(HttpStatus.CONFLICT, LIMITE_REPORTES_PENDIENTES);
         }
         Organizacion duplicada = resolverDuplicada(request, organizacion);
-        // Last check: only well-formed submissions count against the daily cap.
-        reporteThrottle.checkAndRecord(userId);
+        // Last check: only well-formed submissions count against the daily cap. It reads persisted rows,
+        // so it survives restarts; check-then-insert without a lock, so simultaneous requests may overshoot
+        // the cap by a few rows.
+        Instant desde = clock.instant().minus(limites.ventana());
+        if (reporteRepository.countByReportante_IdAndCreadoEnGreaterThanEqual(userId, desde) >= limites.diarioMax()) {
+            throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS, DEMASIADOS_REPORTES);
+        }
 
         ReporteOrganizacion reporte = new ReporteOrganizacion();
         reporte.setOrganizacion(organizacion);

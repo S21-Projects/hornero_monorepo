@@ -7,6 +7,7 @@ import org.example.domain.ReclamoOrganizacion;
 import org.example.domain.ReclamoOrganizacionRepository;
 import org.example.domain.RolReclamo;
 import org.example.organizacion.OrganizacionService;
+import org.example.reclamo.LimitesReclamo;
 import org.example.reclamo.ReclamoService;
 import org.example.user.Usuario;
 import org.springframework.web.server.ResponseStatusException;
@@ -52,8 +53,8 @@ import static org.mockito.Mockito.verify;
 /** Report-flow rules against real repositories (H2); only the activity log is mocked. */
 @DataJpaTest
 @Import({ReporteService.class, AcreditacionService.class, VerificacionService.class, ReporteCierre.class,
-        ReclamoService.class, OrganizacionService.class})
-@MockBean({ActividadService.class, ReporteThrottle.class})
+        ReclamoService.class, OrganizacionService.class, LimitesReclamo.class, LimitesReporte.class})
+@MockBean(ActividadService.class)
 class ReporteServiceTest {
 
     private static final double LAT = -31.4200;
@@ -65,7 +66,6 @@ class ReporteServiceTest {
     @Autowired private OrganizacionEventoRepository eventoRepository;
     @Autowired private UsuarioRepository usuarioRepository;
     @Autowired private ActividadService actividadService;
-    @Autowired private ReporteThrottle reporteThrottle;
     @Autowired private ReclamoOrganizacionRepository reclamoRepository;
 
     private Administrador admin;
@@ -394,25 +394,25 @@ class ReporteServiceTest {
     }
 
     @Test
-    void crear_countsAgainstTheDailyThrottleOnlyOnceTheSubmissionIsValid() {
-        Organizacion o = sinReclamar();
-        reporteService.crear(inactivo(o), dona.getId());
-        verify(reporteThrottle).checkAndRecord(dona.getId());
+    void crear_withTheDailyLimitReachedByPersistedRows_is429DemasiadosReportes_andNothingIsSaved() {
+        // Resolved reports still count: the window reads rows, so it needs no in-memory state to survive a restart.
+        for (int i = 0; i < 20; i++) {
+            ReporteOrganizacion r = new ReporteOrganizacion();
+            r.setOrganizacion(sinReclamar());
+            r.setReportante(dona);
+            r.setMotivo(MotivoReporte.INACTIVO);
+            r.setEstado(EstadoReporte.DESCARTADO);
+            em.persist(r);
+        }
+        em.flush();
+        Organizacion nueva = sinReclamar();
 
-        // Duplicate pending, bad reference: rejected before the throttle is touched.
-        assertStatus(() -> reporteService.crear(inactivo(o), dona.getId()), HttpStatus.CONFLICT);
-        assertStatus(() -> reporteService.crear(
-                new CrearReporteRequest(o.getId(), MotivoReporte.DUPLICADO, null, null), ana.getId()), HttpStatus.BAD_REQUEST);
-        org.mockito.Mockito.verifyNoMoreInteractions(reporteThrottle);
-    }
-
-    @Test
-    void crear_whenTheDailyThrottleTrips_is429_andNothingIsSaved() {
-        org.mockito.Mockito.doThrow(new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS, "DEMASIADOS_REPORTES"))
-                .when(reporteThrottle).checkAndRecord(dona.getId());
-
-        assertStatus(() -> reporteService.crear(inactivo(sinReclamar()), dona.getId()), HttpStatus.TOO_MANY_REQUESTS);
-        assertThat(reporteRepository.count()).isZero();
+        assertThatThrownBy(() -> reporteService.crear(inactivo(nueva), dona.getId()))
+                .isInstanceOfSatisfying(ResponseStatusException.class, e -> {
+                    assertThat(e.getStatusCode()).isEqualTo(HttpStatus.TOO_MANY_REQUESTS);
+                    assertThat(e.getReason()).isEqualTo("DEMASIADOS_REPORTES");
+                });
+        assertThat(reporteRepository.count()).isEqualTo(20);
     }
 
     // --- cross-flow closure ---

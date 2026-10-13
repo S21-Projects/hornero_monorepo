@@ -12,6 +12,15 @@ describe('mapReclamoError', () => {
     expect(mapReclamoError(err(409, 'CONFLICTO_CONCURRENTE'))).toMatch(/al mismo tiempo/);
   });
 
+  it('shows dedicated messages for the claim limits instead of the generic pending-claim one', () => {
+    const pendientes = mapReclamoError(err(409, 'LIMITE_RECLAMOS_PENDIENTES'));
+    expect(pendientes).toBe('Ya tenés muchos reclamos en revisión. Esperá a que un administrador resuelva alguno.');
+    expect(pendientes).not.toMatch(/un reclamo pendiente/);
+    expect(mapReclamoError(err(429, 'DEMASIADOS_RECLAMOS'))).toBe(
+      'Enviaste demasiados reclamos hoy. Intentá de nuevo mañana.',
+    );
+  });
+
   it('speaks to the admin about the claimant when the cap or inactivity blocks an approval', () => {
     expect(mapReclamoError(err(409, 'El referente ya alcanzó el máximo de 3 organizaciones'), 'admin')).toMatch(/su cargo/);
     expect(mapReclamoError(err(409, 'El referente está inactivo'), 'admin')).toMatch(/inactivo/);

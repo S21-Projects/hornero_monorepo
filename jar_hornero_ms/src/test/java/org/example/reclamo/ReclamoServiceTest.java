@@ -38,6 +38,8 @@ import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.time.Duration;
+import java.time.Instant;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -48,7 +50,7 @@ import static org.mockito.Mockito.verify;
 /** Claim-flow rules against real repositories (H2); only the activity log is mocked. */
 @DataJpaTest
 @Import({ReclamoService.class, OrganizacionService.class, AcreditacionService.class, VerificacionService.class,
-        ReporteCierre.class})
+        ReporteCierre.class, LimitesReclamo.class})
 @MockBean(ActividadService.class)
 class ReclamoServiceTest {
 
@@ -189,6 +191,64 @@ class ReclamoServiceTest {
 
         assertThat(reclamoService.listarMios(ana.getId())).extracting(ReclamoResponse::solicitanteId)
                 .containsExactly(ana.getId());
+    }
+
+    // --- spam caps ---
+
+    private void sembrarReclamos(Referente quien, EstadoReclamo estado, Instant creadoEn, int cantidad) {
+        for (int i = 0; i < cantidad; i++) {
+            ReclamoOrganizacion r = new ReclamoOrganizacion();
+            r.setOrganizacion(org(EstadoOrganizacion.SIN_RECLAMAR, null));
+            r.setReferente(quien);
+            r.setRol(RolReclamo.RESPONSABLE);
+            r.setTelefono("351 555 1234");
+            r.setEstado(estado);
+            r.setCreadoEn(creadoEn);
+            em.persist(r);
+        }
+        em.flush();
+    }
+
+    private static void assertRazon(Runnable action, HttpStatus status, String razon) {
+        assertThatThrownBy(action::run)
+                .isInstanceOfSatisfying(ResponseStatusException.class, e -> {
+                    assertThat(e.getStatusCode()).isEqualTo(status);
+                    assertThat(e.getReason()).isEqualTo(razon);
+                });
+    }
+
+    @Test
+    void crearAndVerificarReclamable_withFivePendingClaims_are409LimiteReclamosPendientes_andNothingIsSaved() {
+        sembrarReclamos(ana, EstadoReclamo.PENDIENTE, Instant.now(), 5);
+        Organizacion nueva = org(EstadoOrganizacion.SIN_RECLAMAR, null);
+
+        assertRazon(() -> reclamoService.crear(request(nueva, ana), ana.getId()),
+                HttpStatus.CONFLICT, ReclamoService.LIMITE_RECLAMOS_PENDIENTES);
+        assertRazon(() -> reclamoService.verificarReclamable(nueva.getId(), ana.getId()),
+                HttpStatus.CONFLICT, ReclamoService.LIMITE_RECLAMOS_PENDIENTES);
+        assertThat(reclamoRepository.count()).isEqualTo(5);
+    }
+
+    @Test
+    void crear_withFiveClaimsInTheWindowNoneOfThemPending_is429DemasiadosReclamos_butThePreflightPasses() {
+        sembrarReclamos(ana, EstadoReclamo.RECHAZADO, Instant.now().minus(Duration.ofHours(1)), 5);
+        Organizacion nueva = org(EstadoOrganizacion.SIN_RECLAMAR, null);
+
+        reclamoService.verificarReclamable(nueva.getId(), ana.getId()); // the window is not part of the preflight
+        assertRazon(() -> reclamoService.crear(request(nueva, ana), ana.getId()),
+                HttpStatus.TOO_MANY_REQUESTS, ReclamoService.DEMASIADOS_RECLAMOS);
+        assertThat(reclamoRepository.count()).isEqualTo(5);
+    }
+
+    @Test
+    void crear_withFiveClaimsOlderThanTheWindow_succeeds() {
+        sembrarReclamos(ana, EstadoReclamo.RECHAZADO, Instant.now().minus(Duration.ofHours(25)), 5);
+        Organizacion nueva = org(EstadoOrganizacion.SIN_RECLAMAR, null);
+
+        ReclamoResponse r = reclamoService.crear(request(nueva, ana), ana.getId());
+
+        assertThat(r.estado()).isEqualTo(EstadoReclamo.PENDIENTE);
+        assertThat(reclamoRepository.count()).isEqualTo(6);
     }
 
     // --- aprobar ---

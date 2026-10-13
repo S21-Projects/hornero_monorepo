@@ -19,6 +19,10 @@ export function mapReclamoError(error: unknown, contexto: 'referente' | 'admin' 
     if (message === 'CONFLICTO_CONCURRENTE') {
       return 'Otro administrador resolvió este reclamo al mismo tiempo. Actualizá la lista.';
     }
+    // Matched by code before /pendiente/i below, which would swallow it (case-insensitive).
+    if (message === 'LIMITE_RECLAMOS_PENDIENTES') {
+      return 'Ya tenés muchos reclamos en revisión. Esperá a que un administrador resuelva alguno.';
+    }
     if (/ya fue resuelto/i.test(message)) return 'Este reclamo ya fue resuelto.';
     if (/pendiente/i.test(message)) return 'Ya tenés un reclamo pendiente para este comedor.';
     if (/máximo/i.test(message)) {
@@ -33,6 +37,7 @@ export function mapReclamoError(error: unknown, contexto: 'referente' | 'admin' 
     if (message === 'EVIDENCIA_CLAVE_INVALIDA') return 'La evidencia adjunta no es válida. Subila de nuevo.';
     return admin ? 'Revisá el motivo del rechazo.' : 'Revisá los datos del reclamo.';
   }
+  if (status === 429) return 'Enviaste demasiados reclamos hoy. Intentá de nuevo mañana.';
   if (status === 403) return 'No tenés permiso para esta acción.';
   if (status === 404) return 'No encontramos el comedor o el reclamo.';
   return 'Ocurrió un error. Intentá de nuevo más tarde.';

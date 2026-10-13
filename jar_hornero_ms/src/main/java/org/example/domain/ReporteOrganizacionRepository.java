@@ -5,6 +5,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
+import java.time.Instant;
 import java.util.List;
 
 @Repository
@@ -20,6 +21,9 @@ public interface ReporteOrganizacionRepository extends JpaRepository<ReporteOrga
     List<ReporteOrganizacion> findByReportante_Id(Long reportanteId);
 
     long countByReportante_IdAndEstado(Long reportanteId, EstadoReporte estado);
+
+    /** Reports a user created at or after {@code desde}, any state: the rolling-window rate limit. */
+    long countByReportante_IdAndCreadoEnGreaterThanEqual(Long reportanteId, Instant desde);
 
     boolean existsByOrganizacion_IdAndReportante_IdAndEstado(Long organizacionId, Long reportanteId, EstadoReporte estado);
 }
