@@ -32,6 +32,7 @@ import java.util.List;
 public class OrganizacionController {
 
     private final OrganizacionService organizacionService;
+    private final MapaOrganizacionesCache mapaCache;
 
     @Operation(summary = "Propose a new organization (referente only)")
     @PostMapping
@@ -65,7 +66,7 @@ public class OrganizacionController {
     public ResponseEntity<List<OrganizacionMapaResponse>> mapa() {
         return ResponseEntity.ok()
                 .cacheControl(org.springframework.http.CacheControl.maxAge(java.time.Duration.ofMinutes(5)).cachePublic())
-                .body(organizacionService.listarMapa());
+                .body(mapaCache.obtener(organizacionService::listarMapa));
     }
 
     @Operation(summary = "List pending organizations (admin only)")

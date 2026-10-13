@@ -75,8 +75,11 @@ public class Organizacion {
     @Column(name = "origen", nullable = true)
     private OrigenOrganizacion origen = OrigenOrganizacion.PLATAFORMA;
 
-    /** Identifier in the source registry (ReNaCoM "Identificador"); unique when present. */
-    @Column(name = "origen_id", unique = true)
+    /**
+     * Identifier in the source registry (ReNaCoM "Identificador"); unique when present. Uniqueness lives
+     * only in the partial index ux_organizaciones_origen_id (V007), so no unique = true here (V010).
+     */
+    @Column(name = "origen_id")
     private String origenId;
 
     @Column(name = "asistentes_declarados")
