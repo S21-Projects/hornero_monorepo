@@ -163,4 +163,18 @@ describe('NecesidadDetallePage — closed necesidad', () => {
     expect(screen.queryByRole('button', { name: /ofrecer donación/i })).not.toBeInTheDocument();
     expect(screen.getByText(/ya no recibe donaciones/i)).toBeInTheDocument();
   });
+
+  // N17: the MS answers 404 for a necesidad of an N0 organization the caller may not see.
+  it('shows the "not available" message when the MS answers 404', () => {
+    vi.mocked(useNecesidad).mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      isError: true,
+      error: { response: { status: 404 } },
+    } as unknown as ReturnType<typeof useNecesidad>);
+    renderPage();
+
+    expect(screen.getByText(/no existe o ya no está disponible/i)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /ofrecer donación/i })).not.toBeInTheDocument();
+  });
 });

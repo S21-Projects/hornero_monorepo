@@ -46,9 +46,12 @@ export class NecesidadesService {
     return data;
   }
 
-  async findById(id: number) {
+  // Public route, but the session token rides along when there is one: the MS hides the
+  // necesidades of N0 organizations from everyone except the owning referente and admins (N17).
+  async findById(id: number, accessToken?: string) {
     const { data } = await this.httpService.axiosRef.get(
       `${this.msUrl}/api/necesidades/${id}`,
+      { headers: accessToken ? this.authHeaders(accessToken) : {} },
     );
     return data;
   }

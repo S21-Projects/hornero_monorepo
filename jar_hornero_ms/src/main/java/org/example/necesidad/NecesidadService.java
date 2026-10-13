@@ -140,8 +140,17 @@ public class NecesidadService {
     }
 
     public NecesidadResponse findById(Long id) {
-        return toResponse(necesidadRepository.findById(id)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Necesidad not found")));
+        Necesidad n = necesidadRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Necesidad not found"));
+        // N17 (closes the M3 gap): a necesidad of an organization at N0 (or without level) is
+        // hidden from everyone but its owning referente and admins. 404, not 403, so its
+        // existence is not revealed. Expired (VENCIDA) detail stays readable (N4 decision).
+        Organizacion org = n.getOrganizacion();
+        boolean n0 = org != null && (org.getNivel() == null || org.getNivel() == NivelAcreditacion.N0);
+        if (n0 && !puedeVerVencidas(org.getId())) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Necesidad not found");
+        }
+        return toResponse(n);
     }
 
     @Transactional

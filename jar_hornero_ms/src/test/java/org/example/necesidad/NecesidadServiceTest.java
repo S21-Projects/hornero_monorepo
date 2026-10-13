@@ -109,6 +109,77 @@ class NecesidadServiceTest {
         return n;
     }
 
+    // --- findById — N17: necesidades of an N0 organization are hidden from non-owners ---
+
+    @org.junit.jupiter.api.AfterEach
+    void clearSecurityContext() {
+        org.springframework.security.core.context.SecurityContextHolder.clearContext();
+    }
+
+    private void authenticate(Long userId, String role) {
+        org.springframework.security.core.context.SecurityContextHolder.getContext().setAuthentication(
+                new org.springframework.security.authentication.UsernamePasswordAuthenticationToken(
+                        userId, null,
+                        List.of(new org.springframework.security.core.authority.SimpleGrantedAuthority(role))));
+    }
+
+    @Test
+    void findById_n0Organization_anonymous_throwsNotFound() {
+        organizacion.setNivel(NivelAcreditacion.N0);
+        when(necesidadRepository.findById(1L)).thenReturn(Optional.of(buildNecesidad(1L)));
+
+        assertThatThrownBy(() -> necesidadService.findById(1L))
+                .isInstanceOfSatisfying(ResponseStatusException.class,
+                        e -> assertThat(e.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND));
+    }
+
+    @Test
+    void findById_nullNivelOrganization_anonymous_throwsNotFound() {
+        organizacion.setNivel(null);
+        when(necesidadRepository.findById(1L)).thenReturn(Optional.of(buildNecesidad(1L)));
+
+        assertThatThrownBy(() -> necesidadService.findById(1L))
+                .isInstanceOfSatisfying(ResponseStatusException.class,
+                        e -> assertThat(e.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND));
+    }
+
+    @Test
+    void findById_n0Organization_otherUser_throwsNotFound() {
+        organizacion.setNivel(NivelAcreditacion.N0);
+        authenticate(99L, "ROLE_DONANTE");
+        when(necesidadRepository.findById(1L)).thenReturn(Optional.of(buildNecesidad(1L)));
+
+        assertThatThrownBy(() -> necesidadService.findById(1L))
+                .isInstanceOfSatisfying(ResponseStatusException.class,
+                        e -> assertThat(e.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND));
+    }
+
+    @Test
+    void findById_n0Organization_owningReferente_returnsNecesidad() {
+        organizacion.setNivel(NivelAcreditacion.N0);
+        authenticate(1L, "ROLE_REFERENTE");
+        when(organizacionRepository.findByIdAndReferente_Id(1L, 1L)).thenReturn(Optional.of(organizacion));
+        when(necesidadRepository.findById(1L)).thenReturn(Optional.of(buildNecesidad(1L)));
+
+        assertThat(necesidadService.findById(1L).id()).isEqualTo(1L);
+    }
+
+    @Test
+    void findById_n0Organization_admin_returnsNecesidad() {
+        organizacion.setNivel(NivelAcreditacion.N0);
+        authenticate(500L, "ROLE_ADMINISTRADOR");
+        when(necesidadRepository.findById(1L)).thenReturn(Optional.of(buildNecesidad(1L)));
+
+        assertThat(necesidadService.findById(1L).id()).isEqualTo(1L);
+    }
+
+    @Test
+    void findById_n1Organization_anonymous_returnsNecesidad() {
+        when(necesidadRepository.findById(1L)).thenReturn(Optional.of(buildNecesidad(1L)));
+
+        assertThat(necesidadService.findById(1L).id()).isEqualTo(1L);
+    }
+
     // --- findByOrganizacion ---
 
     @Test
