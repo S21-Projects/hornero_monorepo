@@ -312,6 +312,9 @@ The guide requires measures "related to the identified risks", so a risk matrix 
     refused to boot. **USER ACTION (Pi):** set SUPER_ADMIN_*, deploy, deactivate legacy
     `@hornero.ar` accounts; test with Gmail plus-addressing.
 
+- [ ] **N15** (from D12) Admin anonymization of a user; coordinate coarsening job; 90-day purge of
+  `emailIntento`; D11 values in the runbook.
+
 ## Business definitions pending (list 2)
 
 Each item needs a team decision before related work starts. Record the decision and date here.
@@ -367,8 +370,13 @@ Each item needs a team decision before related work starts. Record the decision 
     429 stay log-only; admin screen with filters; Docker log rotation; retention tied to D12.
     Never store passwords, tokens, OTP/delivery codes. Reference: OWASP ASVS 5.0 V16
     (16.2.1, 16.2.5, 16.3.1–16.3.3, 16.4.1–16.4.2). Task **N10** (after N8, N9, N7).
-- [ ] **D11** Backup policy: RPO, RTO, retention, offsite destination, who has access/restores.
-- [ ] **D12** PII retention and deletion (Ley 25.326); encryption of donor addresses/coordinates.
+- [x] **D11** Backup policy: RPO, RTO, retention, offsite destination, who has access/restores.
+  - Decided 2026-10-13: RPO 24 h, RTO 4 h, retention 14 d local / 30 d R2, restore drill once per
+    term; people for each role still to be named by the team. Doc: `docs/politica-datos-y-respaldo.md`.
+- [x] **D12** PII retention and deletion (Ley 25.326); encryption of donor addresses/coordinates.
+  - Decided 2026-10-13: right to erasure by admin-run anonymization (keep donations/actividad
+    without identifying data); no field encryption — coarsen terminal donations' coordinates to
+    2 decimals after 30 d; actividad 365 d; failed-login `emailIntento` 90 d. Task **N15**.
 
 ## Progress log
 
