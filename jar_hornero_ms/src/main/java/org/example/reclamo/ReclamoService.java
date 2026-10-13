@@ -30,6 +30,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.time.Clock;
 import java.time.Instant;
 import java.util.HashSet;
 import java.util.List;
@@ -48,6 +49,8 @@ import java.util.regex.Pattern;
 public class ReclamoService {
 
     static final String MSG_RECLAMO_PENDIENTE = "Ya tenés un reclamo pendiente para este comedor";
+    static final String LIMITE_RECLAMOS_PENDIENTES = "LIMITE_RECLAMOS_PENDIENTES";
+    static final String DEMASIADOS_RECLAMOS = "DEMASIADOS_RECLAMOS";
     static final String INDICE_PENDIENTE = "ux_reclamo_pendiente";
     static final String MOTIVO_OTRO_RECLAMO_APROBADO = "Se aprobó otro reclamo para este comedor";
     private static final Pattern OBJECT_KEY_PATTERN = Pattern.compile("^reclamo-evidencia/(\\d+)/(\\d+)/[^/]+$");
@@ -60,6 +63,8 @@ public class ReclamoService {
     private final ActividadService actividadService;
     private final VerificacionService verificacionService;
     private final ReporteCierre reporteCierre;
+    private final Clock clock;
+    private final LimitesReclamo limites;
 
     @Transactional
     public ReclamoResponse crear(CrearReclamoRequest request, Long userId) {
@@ -74,6 +79,13 @@ public class ReclamoService {
 
         exigirReclamable(organizacion, referente);
         validarEvidencias(request.evidenciaKeys(), organizacion.getId(), referente.getId());
+        // Last check, and creation only (never the preflight): only well-formed submissions count.
+        // Check-then-insert without a lock: simultaneous requests may overshoot the cap by a few rows.
+        Instant desde = clock.instant().minus(limites.ventana());
+        if (reclamoRepository.countByReferente_IdAndCreadoEnGreaterThanEqual(referente.getId(), desde)
+                >= limites.diarioMax()) {
+            throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS, DEMASIADOS_RECLAMOS);
+        }
 
         ReclamoOrganizacion reclamo = new ReclamoOrganizacion();
         reclamo.setOrganizacion(organizacion);
@@ -128,6 +140,11 @@ public class ReclamoService {
         if (organizacionService.contarACargo(referente.getId()) >= OrganizacionService.CAP_ORGANIZACIONES) {
             throw new ResponseStatusException(HttpStatus.CONFLICT,
                     "Alcanzaste el máximo de " + OrganizacionService.CAP_ORGANIZACIONES + " organizaciones");
+        }
+        // Volume cap, kept last so the more specific errors above win. Same accepted overshoot under concurrency.
+        if (reclamoRepository.countByReferente_IdAndEstado(referente.getId(), EstadoReclamo.PENDIENTE)
+                >= limites.pendientesMax()) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, LIMITE_RECLAMOS_PENDIENTES);
         }
     }
 
