@@ -4,7 +4,7 @@ Tareas que **no puede hacer el código ni un agente**: requieren acceso a la Ras
 cuentas externas (Resend, Cloudflare R2) o una decisión de negocio. Marcar cada ítem al
 completarlo, con fecha. El seguimiento técnico completo está en `odd/tasks/seguridad-calidad.md`.
 
-Última actualización: 2026-10-13 (`develop` con el mapa de vulnerabilidad integrado).
+Última actualización: 2026-10-13 (límites de reclamos, e2e de reclamos/reportes y atribución de `/mapa`).
 
 ## 1. Antes del próximo deploy
 
@@ -24,7 +24,7 @@ completarlo, con fecha. El seguimiento técnico completo está en `odd/tasks/seg
 
 - [ ] **Confirmar que el puerto 3001 del BFF no está expuesto** fuera del túnel de Cloudflare
   (si lo estuviera, se puede falsear la IP y evadir el límite de intentos).
-- [ ] **Commitear `.env.example`** con las variables nuevas, comentadas (todas tienen valor por
+- [x] **Commitear `.env.example`** (hecho 2026-10-13, `cba757d`) con las variables nuevas, comentadas (todas tienen valor por
   defecto; documentarlas evita que queden "invisibles"):
 
   ```
@@ -110,6 +110,11 @@ completarlo, con fecha. El seguimiento técnico completo está en `odd/tasks/seg
 - [ ] **Evidencias de reclamos tras anonimizar:** la anonimización borra las referencias, pero las
   imágenes (posibles fotos de documentos) quedan en R2. Decidir: regla de ciclo de vida en R2 o
   borrado explícito. Bloquea la primera anonimización real de alguien con reclamos.
+- [ ] **Licencia de ReNaCoM:** abrir https://ri.conicet.gov.ar/handle/11336/278030, copiar la
+  licencia y la cita recomendada en `docs/mapa-vulnerabilidad.md` ("Attribution and licenses").
+  Si no es CC-BY, revisar el texto de fuentes de `/mapa`. Cierra la tarea P5.
+- [ ] **Mails de reclamos y reportes (P1):** decidir si se avisa por mail al decidir un reclamo o
+  un reporte.
 - [ ] **Organización con reclamo aprobado:** pasa a PENDIENTE y desaparece de `/mapa` hasta que un
   admin la valida. ¿Es el comportamiento buscado?
 
