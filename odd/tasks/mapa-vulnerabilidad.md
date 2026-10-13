@@ -198,6 +198,8 @@ Re-planned 2026-10-12 after the scope expansion (unclaimed ReNaCoM organizacione
       CSP allows OSM tiles. Not browser-tested (render, clicks, toggles, phone layout).
       Density = translucent circleMarkers (no leaflet.heat); null deptos = muted gray dashed.
       Docs Rendering section updated by parent.
+  - Commits: D-data `1defc09`, D-front `f7b9831`. Local preview: Astro dev against a fixture
+    stub BFF (develop's BFF has no `/organizaciones/mapa` → 404 → pins notice, expected).
 - [ ] D — Map (original line kept for history): depto aggregation + GeoJSON from DB data (former T2-T3), `make mapa-datos`
   publish (D2), Astro Leaflet island (former T5), docs (former T6)
 
