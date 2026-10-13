@@ -61,8 +61,9 @@ completarlo, con fecha. El seguimiento técnico completo está en `odd/tasks/seg
 
 - [ ] `git pull` en `develop` y `docker compose up --build -d`.
 - [ ] Esperar a que el MS esté sano (crea las tablas y columnas nuevas al arrancar).
-- [ ] **`make migrate`**: hace backup y aplica V002–V009 (rondas, versiones, inmutabilidad de
-  `actividad`, `estado_desde` de donaciones). Reiniciar el MS después.
+- [ ] **`make migrate`**: hace backup y aplica V002–V010 (rondas, versiones, inmutabilidad de
+  `actividad`, `estado_desde` de donaciones). Reiniciar el MS después. V010 solo elimina un unique
+  duplicado sobre `organizaciones.origen_id` (limpieza; el índice parcial de V007 queda).
 - [ ] Tener en cuenta que, al arrancar, el job de donaciones estancadas **cancela las ofertas
   directas sin respuesta hace más de 7 días** y devuelve al pozo las propuestas de más de 3 días.
   Si hay datos que no se quieren afectar, levantar antes con
@@ -94,7 +95,7 @@ completarlo, con fecha. El seguimiento técnico completo está en `odd/tasks/seg
   3. Repetir el recorrido. **Rollback**: poner `CSP_MODE=report-only` (o quitar la línea) y
      volver a correr el mismo `up -d`. Cualquier valor distinto de `enforce` queda en Report-Only.
 - [ ] Opcional: activar HSTS en Cloudflare.
-- [ ] Marcar "Applied to" en `docs/db-changes.md` para V002–V009.
+- [ ] Marcar "Applied to" en `docs/db-changes.md` para V002–V010.
 
 ## 4. Backups (runbook: `docs/deploy-rpi-cloudflare.md`, Parte C)
 
@@ -115,8 +116,10 @@ completarlo, con fecha. El seguimiento técnico completo está en `odd/tasks/seg
   Si no es CC-BY, revisar el texto de fuentes de `/mapa`. Cierra la tarea P5.
 - [ ] **Mails de reclamos y reportes (P1):** decidir si se avisa por mail al decidir un reclamo o
   un reporte.
-- [ ] **Organización con reclamo aprobado:** pasa a PENDIENTE y desaparece de `/mapa` hasta que un
-  admin la valida. ¿Es el comportamiento buscado?
+- [ ] **Organización con reclamo aprobado (en evaluación):** hoy pasa a PENDIENTE y desaparece de
+  `/mapa` hasta que un admin la valida (`ESTADOS_EN_MAPA` = APROBADA y SIN_RECLAMAR). Se decidió
+  dejarlo así por ahora (2026-10-13). Alternativa a evaluar: mostrar las PENDIENTE con una etiqueta
+  "pendiente de validación"; implica mostrar en el sitio público organizaciones aún no validadas.
 
 - [x] **D11 — Backups:** valores decididos el 2026-10-13 (RPO 24 h, RTO 4 h, retención 14 d local /
   30 d R2, simulacro una vez por cuatrimestre). Ver `docs/politica-datos-y-respaldo.md`.
