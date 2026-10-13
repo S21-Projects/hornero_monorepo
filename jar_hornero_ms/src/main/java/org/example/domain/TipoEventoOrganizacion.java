@@ -44,5 +44,11 @@ public enum TipoEventoOrganizacion {
     RECLAMO_APROBADO,
 
     /** A claim on the organizacion was rejected (by an admin, or automatically when another won). */
-    RECLAMO_RECHAZADO
+    RECLAMO_RECHAZADO,
+
+    /** An admin confirmed a report on the organizacion (it was marked INACTIVA). */
+    REPORTE_CONFIRMADO,
+
+    /** An admin discarded a report on the organizacion (it did not change). */
+    REPORTE_DESCARTADO
 }

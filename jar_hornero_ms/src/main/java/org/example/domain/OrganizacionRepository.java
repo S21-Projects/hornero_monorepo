@@ -27,6 +27,23 @@ public interface OrganizacionRepository extends JpaRepository<Organizacion, Long
     List<org.example.organizacion.dto.OrganizacionMapaResponse> findMapa(
             @org.springframework.data.repository.query.Param("estados") java.util.Collection<EstadoOrganizacion> estados);
 
+    /**
+     * Platform (non-imported) approved organizaciones inside a lat/lng box, the coarse pre-filter of the
+     * "already on Hornero" picker; the exact distance is computed in Java (no PostGIS).
+     */
+    @org.springframework.data.jpa.repository.Query("""
+            select o from Organizacion o
+            where o.estado = org.example.domain.EstadoOrganizacion.APROBADA
+              and coalesce(o.origen, org.example.domain.OrigenOrganizacion.PLATAFORMA)
+                  = org.example.domain.OrigenOrganizacion.PLATAFORMA
+              and o.latitud between :minLat and :maxLat and o.longitud between :minLng and :maxLng
+            """)
+    List<Organizacion> findPlataformaAprobadasEnCaja(
+            @org.springframework.data.repository.query.Param("minLat") double minLat,
+            @org.springframework.data.repository.query.Param("maxLat") double maxLat,
+            @org.springframework.data.repository.query.Param("minLng") double minLng,
+            @org.springframework.data.repository.query.Param("maxLng") double maxLng);
+
     List<Organizacion> findByReferente_Id(Long referenteId);
 
     Optional<Organizacion> findByIdAndReferente_Id(Long id, Long referenteId);

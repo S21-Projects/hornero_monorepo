@@ -114,6 +114,8 @@ public class SecurityConfig {
                         // (REFERENTE submits, ADMINISTRADOR resolves) is @PreAuthorize on ReclamoController.
                         // Declared before the permitAll GET blocks below like every other private matcher.
                         .requestMatchers("/api/reclamos", "/api/reclamos/**").authenticated()
+                        // Report flow: any authenticated user submits; ADMINISTRADOR resolves (@PreAuthorize).
+                        .requestMatchers("/api/reportes", "/api/reportes/**").authenticated()
                         // Public read-only endpoints — no account required
                         .requestMatchers(org.springframework.http.HttpMethod.GET,
                                 "/api/organizaciones",

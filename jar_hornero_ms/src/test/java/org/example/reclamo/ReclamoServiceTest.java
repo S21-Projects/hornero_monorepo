@@ -1,6 +1,13 @@
 package org.example.reclamo;
 
 import org.example.acreditacion.AcreditacionService;
+import org.example.auth.VerificacionService;
+import org.example.domain.EstadoReporte;
+import org.example.domain.MotivoReporte;
+import org.example.domain.ReporteOrganizacion;
+import org.example.domain.ReporteOrganizacionRepository;
+import org.example.reporte.ReporteCierre;
+import org.example.user.Usuario;
 import org.example.actividad.ActividadService;
 import org.example.actividad.TipoActividad;
 import org.example.domain.EstadoOrganizacion;
@@ -40,7 +47,8 @@ import static org.mockito.Mockito.verify;
 
 /** Claim-flow rules against real repositories (H2); only the activity log is mocked. */
 @DataJpaTest
-@Import({ReclamoService.class, OrganizacionService.class, AcreditacionService.class})
+@Import({ReclamoService.class, OrganizacionService.class, AcreditacionService.class, VerificacionService.class,
+        ReporteCierre.class})
 @MockBean(ActividadService.class)
 class ReclamoServiceTest {
 
@@ -50,6 +58,7 @@ class ReclamoServiceTest {
     @Autowired private OrganizacionEventoRepository eventoRepository;
     @Autowired private UsuarioRepository usuarioRepository;
     @Autowired private ActividadService actividadService;
+    @Autowired private ReporteOrganizacionRepository reporteRepository;
 
     private Administrador admin;
     private Referente ana;
@@ -57,9 +66,14 @@ class ReclamoServiceTest {
 
     @BeforeEach
     void setUp() {
-        admin = usuarioRepository.save(new Administrador(null, "Admin", "admin@test.com", "x", true));
-        ana = usuarioRepository.save(new Referente(null, "Ana", "ana@test.com", "x", true));
-        beto = usuarioRepository.save(new Referente(null, "Beto", "beto@test.com", "x", true));
+        admin = usuarioRepository.save(verificado(new Administrador(null, "Admin", "admin@test.com", "x", true)));
+        ana = usuarioRepository.save(verificado(new Referente(null, "Ana", "ana@test.com", "x", true)));
+        beto = usuarioRepository.save(verificado(new Referente(null, "Beto", "beto@test.com", "x", true)));
+    }
+
+    private static <U extends Usuario> U verificado(U u) {
+        u.setEmailVerificado(true);
+        return u;
     }
 
     private Organizacion org(EstadoOrganizacion estado, Referente referente) {
@@ -109,7 +123,7 @@ class ReclamoServiceTest {
 
     @Test
     void crear_byNonReferente_is403() {
-        Donante donante = usuarioRepository.save(new Donante(null, "Don", "don@test.com", "x", true));
+        Donante donante = usuarioRepository.save(verificado(new Donante(null, "Don", "don@test.com", "x", true)));
         Organizacion o = org(EstadoOrganizacion.SIN_RECLAMAR, null);
 
         assertStatus(() -> reclamoService.crear(request(o, ana), donante.getId()), HttpStatus.FORBIDDEN);
@@ -371,5 +385,60 @@ class ReclamoServiceTest {
                 HttpStatus.BAD_REQUEST);
         assertStatus(() -> reclamoService.verificarArchivo(o.getId(), beto.getId(), k, admin.getId(), true),
                 HttpStatus.BAD_REQUEST);
+    }
+
+    // --- verified-account gate ---
+
+    @Test
+    void crear_andDisponibilidad_byAnUnverifiedReferente_are403EmailNoVerificado() {
+        Referente sinVerificar = usuarioRepository.save(new Referente(null, "Cris", "cris@test.com", "x", true));
+        Organizacion o = org(EstadoOrganizacion.SIN_RECLAMAR, null);
+
+        assertThatThrownBy(() -> reclamoService.crear(request(o, sinVerificar), sinVerificar.getId()))
+                .isInstanceOfSatisfying(ResponseStatusException.class, e -> {
+                    assertThat(e.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+                    assertThat(e.getReason()).isEqualTo("EMAIL_NO_VERIFICADO");
+                });
+        assertStatus(() -> reclamoService.verificarReclamable(o.getId(), sinVerificar.getId()), HttpStatus.FORBIDDEN);
+        assertThat(reclamoRepository.count()).isZero();
+    }
+
+    // --- cross-flow closure ---
+
+    @Test
+    void aprobar_autoDiscardsThePendingReportsOnTheOrganizacion_withTheSameEventsAndActivityAsAManualDiscard() {
+        Organizacion o = org(EstadoOrganizacion.SIN_RECLAMAR, null);
+        Organizacion otra = org(EstadoOrganizacion.SIN_RECLAMAR, null);
+        Long reclamo = reclamoService.crear(request(o, ana), ana.getId()).id();
+        ReporteOrganizacion r1 = reporte(o, beto);
+        ReporteOrganizacion r2 = reporte(o, ana);
+        ReporteOrganizacion ajeno = reporte(otra, beto);
+
+        reclamoService.aprobar(reclamo, admin.getId());
+        em.flush();
+        em.clear();
+
+        for (Long id : List.of(r1.getId(), r2.getId())) {
+            ReporteOrganizacion r = reporteRepository.findById(id).orElseThrow();
+            assertThat(r.getEstado()).isEqualTo(EstadoReporte.DESCARTADO);
+            assertThat(r.getNotaResolucion()).isEqualTo("La organización fue reclamada");
+            assertThat(r.getResueltoPor().getId()).isEqualTo(admin.getId());
+        }
+        assertThat(reporteRepository.findById(ajeno.getId()).orElseThrow().getEstado()).isEqualTo(EstadoReporte.PENDIENTE);
+        assertThat(eventoRepository.findByOrganizacion_IdOrderByOcurridoEnAscIdAsc(o.getId()))
+                .extracting(OrganizacionEvento::getTipo)
+                .filteredOn(t -> t == TipoEventoOrganizacion.REPORTE_DESCARTADO).hasSize(2);
+        ArgumentCaptor<ActividadService.Registro> captor = ArgumentCaptor.forClass(ActividadService.Registro.class);
+        verify(actividadService, atLeastOnce()).registrar(captor.capture());
+        assertThat(captor.getAllValues()).filteredOn(g -> g.accion() == TipoActividad.REPORTE_DESCARTADO)
+                .hasSize(2).allSatisfy(g -> assertThat(g.motivo()).isEqualTo("La organización fue reclamada"));
+    }
+
+    private ReporteOrganizacion reporte(Organizacion o, Referente quien) {
+        ReporteOrganizacion r = new ReporteOrganizacion();
+        r.setOrganizacion(o);
+        r.setReportante(quien);
+        r.setMotivo(MotivoReporte.INACTIVO);
+        return reporteRepository.saveAndFlush(r);
     }
 }
