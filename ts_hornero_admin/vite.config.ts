@@ -15,5 +15,13 @@ export default defineConfig({
     environment: 'jsdom',
     globals: true,
     setupFiles: ['./src/test/setup.ts'],
+    // Report-only (npm run test:cov); no thresholds.
+    coverage: {
+      provider: 'v8',
+      include: ['src/**/*.{ts,tsx}'],
+      exclude: ['src/**/*.test.{ts,tsx}', 'src/test/**'],
+      reporter: ['text-summary', 'html', 'json-summary'],
+      reportsDirectory: './coverage',
+    },
   },
 })

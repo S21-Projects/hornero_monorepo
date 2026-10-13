@@ -66,3 +66,5 @@ Los riesgos marcados en negrita dependen de definiciones de negocio todavía abi
 | Unitario e integración MS | `mvn test` (en `jar_hornero_ms`) | Reglas de negocio, tokens, bloqueos, seguridad por endpoint |
 | Unitario BFF | `npm test` (en `ts_hornero_bff`) | Guards reales, matriz de roles, validación, headers, CSRF, límites |
 | End-to-end | `make up-local` y luego `make e2e` | Flujo completo de donación y escenarios excepcionales contra el stack real |
+
+Estrategia, escenarios normales y excepcionales, cobertura y defectos hallados: `docs/validacion-calidad.md`.
