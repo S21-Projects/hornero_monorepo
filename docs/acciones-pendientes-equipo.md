@@ -4,7 +4,7 @@ Tareas que **no puede hacer el código ni un agente**: requieren acceso a la Ras
 cuentas externas (Resend, Cloudflare R2) o una decisión de negocio. Marcar cada ítem al
 completarlo, con fecha. El seguimiento técnico completo está en `odd/tasks/seguridad-calidad.md`.
 
-Última actualización: 2026-10-13 (`develop` en `40978ab`).
+Última actualización: 2026-10-13 (`develop` con el mapa de vulnerabilidad integrado).
 
 ## 1. Antes del próximo deploy
 
@@ -61,12 +61,17 @@ completarlo, con fecha. El seguimiento técnico completo está en `odd/tasks/seg
 
 - [ ] `git pull` en `develop` y `docker compose up --build -d`.
 - [ ] Esperar a que el MS esté sano (crea las tablas y columnas nuevas al arrancar).
-- [ ] **`make migrate`**: hace backup y aplica V002–V006 (rondas, versiones, inmutabilidad de
+- [ ] **`make migrate`**: hace backup y aplica V002–V009 (rondas, versiones, inmutabilidad de
   `actividad`, `estado_desde` de donaciones). Reiniciar el MS después.
 - [ ] Tener en cuenta que, al arrancar, el job de donaciones estancadas **cancela las ofertas
   directas sin respuesta hace más de 7 días** y devuelve al pozo las propuestas de más de 3 días.
   Si hay datos que no se quieren afectar, levantar antes con
   `DONACIONES_OFERTA_SIN_RESPUESTA_DIAS=3650` y bajarlo después.
+
+- [ ] **Correr `make migrate` una segunda vez** después de que el MS nuevo arranque: V008 y V009
+  crean índices sobre las tablas de reclamos y reportes, que recién existen cuando el MS las crea.
+  `EsquemaVerificador` avisa en el log si quedó algo pendiente.
+- [ ] Opcional: importar las organizaciones de ReNaCoM con `make importar-renacom` (paso manual).
 
 ## 3. Después del deploy
 
@@ -89,7 +94,7 @@ completarlo, con fecha. El seguimiento técnico completo está en `odd/tasks/seg
   3. Repetir el recorrido. **Rollback**: poner `CSP_MODE=report-only` (o quitar la línea) y
      volver a correr el mismo `up -d`. Cualquier valor distinto de `enforce` queda en Report-Only.
 - [ ] Opcional: activar HSTS en Cloudflare.
-- [ ] Marcar "Applied to" en `docs/db-changes.md` para V002–V006.
+- [ ] Marcar "Applied to" en `docs/db-changes.md` para V002–V009.
 
 ## 4. Backups (runbook: `docs/deploy-rpi-cloudflare.md`, Parte C)
 
@@ -101,6 +106,12 @@ completarlo, con fecha. El seguimiento técnico completo está en `odd/tasks/seg
 - [ ] Correr `make restore-check` en la Pi, también sobre un `.enc` descargado del bucket.
 
 ## 5. Decisiones de negocio pendientes
+
+- [ ] **Evidencias de reclamos tras anonimizar:** la anonimización borra las referencias, pero las
+  imágenes (posibles fotos de documentos) quedan en R2. Decidir: regla de ciclo de vida en R2 o
+  borrado explícito. Bloquea la primera anonimización real de alguien con reclamos.
+- [ ] **Organización con reclamo aprobado:** pasa a PENDIENTE y desaparece de `/mapa` hasta que un
+  admin la valida. ¿Es el comportamiento buscado?
 
 - [x] **D11 — Backups:** valores decididos el 2026-10-13 (RPO 24 h, RTO 4 h, retención 14 d local /
   30 d R2, simulacro una vez por cuatrimestre). Ver `docs/politica-datos-y-respaldo.md`.

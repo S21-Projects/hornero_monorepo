@@ -362,6 +362,22 @@ The guide requires measures "related to the identified risks", so a risk matrix 
     fields. Clean console in both time zones; page shows padded dates (01/11/2026).
   - Evidence: admin 534/534 + build + lint, astro build, `make e2e` 95/95.
 
+### Map branch integration (2026-10-13)
+
+`feat/mapa-vulnerabilidad` (0603b6e, rebased on 9e0bd51 by the other agent; conflicts in
+ProtectedRoute/login resolved in favour of develop's `safeRedirectPath`) reviewed read-only and
+merged `--no-ff` (72e18a7). Merged tree == branch tip; re-run on it: MS 1040/1040, BFF 415/415,
+admin 596/596, Go ok, `make e2e` 95/95. Review verdict: merge with follow-ups:
+
+- [ ] **P1** Claim outcome notifications (approved/rejected) via N13 domain events.
+- [ ] **P2** R2 evidence files of claims survive anonymization (pending user decision).
+- [ ] **P3** Claims spam limits: cap of pending claims per user; persistent (not in-memory) throttle.
+- [ ] **P4** e2e coverage for claims, reports, cascades, anonymization of claims/reports, public map.
+- [ ] **P5** CC-BY attribution (INDEC; Rodriguez & de Grande / CONICET) on `/mapa`; record the
+  ReNaCoM data license.
+- [ ] **P6** Nits: in-memory TTL cache for `/organizaciones/mapa`; redundant unique on `origen_id`;
+  approved-claim org leaves the map until validated (user question).
+
 ## Business definitions pending (list 2)
 
 Each item needs a team decision before related work starts. Record the decision and date here.
