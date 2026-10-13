@@ -46,6 +46,21 @@ describe('ImagesController — org-evidencia deny-list', () => {
     expect(getObjectMock).not.toHaveBeenCalled();
   });
 
+  it('also denies the claim-evidence prefix, including bypass attempts', async () => {
+    for (const key of [
+      'reclamo-evidencia/1/7/x.jpg',
+      '/reclamo-evidencia/1/7/x.jpg',
+      'org-profile/../reclamo-evidencia/1/7/x.jpg',
+      'Reclamo-Evidencia/1/7/x.jpg',
+    ]) {
+      await request(app.getHttpServer())
+        .get('/images')
+        .query({ key })
+        .expect(403);
+    }
+    expect(getObjectMock).not.toHaveBeenCalled();
+  });
+
   it('rejects a leading-slash bypass attempt', async () => {
     await request(app.getHttpServer())
       .get('/images')

@@ -175,6 +175,6 @@ R2 (it only has a microSD, so images stay off-device).
   make (relaxing NOT NULL, widening enum CHECK constraints). Applied with `make migrate`; see
   `scripts/sql/README.md`. The MS `EsquemaVerificador` reports a pending script at startup.
 - `.env.example` — template for the root `.env` (prod-parity, `make up`), the single source of
-  truth for every service. `.env.local.example` — template for `.env.local` (`make up-local`,
-  dummy secrets + local MinIO, never touches the real bucket).
+  truth for every service. `.env.local` (`make up-local`) is a copy of it with
+  `MAIL_LOG_ONLY=true` and empty `AWS_*` (falls back to local MinIO); there is no separate template.
 - `docs/deploy-rpi-cloudflare.md` — production deploy runbook (Raspberry Pi + Cloudflare Tunnel).

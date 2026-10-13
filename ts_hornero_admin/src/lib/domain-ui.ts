@@ -50,6 +50,38 @@ export const ESTADO_ORGANIZACION: Record<string, BadgeConfig> = {
   PENDIENTE: { tone: 'sky',     label: 'Pendiente' },
   APROBADA:  { tone: 'ok',      label: 'Aprobada' },
   RECHAZADA: { tone: 'danger',  label: 'Rechazada' },
+  SIN_RECLAMAR: { tone: 'neutral', label: 'Sin reclamar' },
+  INACTIVA:  { tone: 'neutral', label: 'Inactiva' },
+};
+
+/** Claim flow: the claimant's declared relationship with the comedor (MS `RolReclamo`). */
+export const ROL_RECLAMO: Record<string, string> = {
+  RESPONSABLE: 'Responsable / coordinador/a',
+  VOLUNTARIO: 'Voluntario/a',
+  INTEGRANTE: 'Integrante de la organización que lo sostiene',
+};
+
+export const ESTADO_RECLAMO: Record<string, BadgeConfig> = {
+  PENDIENTE: { tone: 'sky',    label: 'En revisión' },
+  APROBADO:  { tone: 'ok',     label: 'Aprobado' },
+  RECHAZADO: { tone: 'danger', label: 'Rechazado' },
+};
+
+/** Report flow: why a visitor reports an unclaimed comedor (MS `MotivoReporte`). */
+export const MOTIVO_REPORTE: Record<string, { label: string; hint: string }> = {
+  INACTIVO: { label: 'Ya no funciona', hint: 'Cerró o dejó de dar comidas' },
+  DATOS_INCORRECTOS: { label: 'Los datos son incorrectos', hint: 'Dirección, nombre o tipo equivocados' },
+  DUPLICADO: {
+    label: 'Ya está en Hornero con otro nombre',
+    hint: 'Es la misma organización que otra de la plataforma',
+  },
+  OTRO: { label: 'Otro motivo', hint: 'Contanos en el detalle' },
+};
+
+export const ESTADO_REPORTE: Record<string, BadgeConfig> = {
+  PENDIENTE: { tone: 'sky',    label: 'En revisión' },
+  CONFIRMADO: { tone: 'ok',    label: 'Confirmado' },
+  DESCARTADO: { tone: 'neutral', label: 'Descartado' },
 };
 
 export const TIPO_ORGANIZACION: Record<string, BadgeConfig> = {
@@ -122,6 +154,12 @@ export const ACCION_ACTIVIDAD: Record<string, string> = {
   ORGANIZACION_INFO_PUBLICA_EDITADA: 'Información pública editada',
   ORGANIZACION_INFO_PUBLICA_APROBADA: 'Información pública aprobada',
   ORGANIZACION_INFO_PUBLICA_RECHAZADA: 'Información pública rechazada',
+  RECLAMO_CREADO: 'Reclamo de comedor presentado',
+  RECLAMO_APROBADO: 'Reclamo de comedor aprobado',
+  RECLAMO_RECHAZADO: 'Reclamo de comedor rechazado',
+  REPORTE_CREADO: 'Reporte de comedor presentado',
+  REPORTE_CONFIRMADO: 'Reporte de comedor confirmado',
+  REPORTE_DESCARTADO: 'Reporte de comedor descartado',
   NECESIDAD_CREADA: 'Necesidad creada',
   NECESIDAD_ACTUALIZADA: 'Necesidad actualizada',
   NECESIDAD_ELIMINADA: 'Necesidad eliminada',
@@ -165,6 +203,8 @@ export const ACTOR_ACTIVIDAD: Record<string, string> = {
 export const ENTIDAD_ACTIVIDAD: Record<string, string> = {
   USUARIO: 'Usuario',
   ORGANIZACION: 'Organización',
+  RECLAMO: 'Reclamo',
+  REPORTE: 'Reporte',
   NECESIDAD: 'Necesidad',
   DONACION: 'Donación',
   ARTICULO: 'Artículo',

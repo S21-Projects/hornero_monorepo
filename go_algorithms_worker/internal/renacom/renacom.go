@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 )
@@ -45,8 +46,9 @@ type Comedor struct {
 	Departamento       string
 	Localidad          string
 	// CodigoRadio is the 9-digit INDEC census radio code (PP DDD FF RR:
-	// province, department, fraction, radio). It is the join key to census
-	// population, which is why this dataset needs no point-in-polygon pass.
+	// province, department, fraction, radio), the join key to census population.
+	// The declared code is not Censo 2022 vintage; when data/renacom-radio-2022.csv
+	// exists (make mapa-datos) Cargar replaces it with the point-in-polygon radio.
 	CodigoRadio string
 }
 
@@ -68,7 +70,80 @@ func Cargar(path string) ([]Comedor, error) {
 		return nil, fmt.Errorf("renacom: %w", err)
 	}
 	defer f.Close()
-	return Leer(f)
+	cs, err := Leer(f)
+	if err != nil {
+		return nil, err
+	}
+
+	// Optional sibling override with the Censo 2022 radio per Identificador.
+	override := filepath.Join(filepath.Dir(path), ArchivoRadio2022)
+	if _, err := os.Stat(override); err == nil {
+		if err := AplicarRadio2022(cs, override); err != nil {
+			return nil, err
+		}
+	}
+	return cs, nil
+}
+
+// ArchivoRadio2022 is the file name, next to renacom.csv, that maps each
+// Identificador to its Censo 2022 radio (columns identificador,codigo_radio_2022).
+const ArchivoRadio2022 = "renacom-radio-2022.csv"
+
+// AplicarRadio2022 overwrites CodigoRadio, matching by Identificador, with the
+// codes in the CSV at path. Comedores absent from the file keep their declared code.
+func AplicarRadio2022(cs []Comedor, path string) error {
+	f, err := os.Open(path)
+	if err != nil {
+		return fmt.Errorf("renacom: %w", err)
+	}
+	defer f.Close()
+
+	cr := csv.NewReader(f)
+	cr.FieldsPerRecord = -1
+	header, err := cr.Read()
+	if err != nil {
+		return fmt.Errorf("renacom: reading %s header: %w", path, err)
+	}
+	colID, colRadio := -1, -1
+	for i, h := range header {
+		switch strings.ToLower(strings.TrimSpace(strings.TrimPrefix(h, bom))) {
+		case "identificador":
+			colID = i
+		case "codigo_radio_2022":
+			colRadio = i
+		}
+	}
+	if colID < 0 || colRadio < 0 {
+		return fmt.Errorf("renacom: %s needs columns identificador,codigo_radio_2022", path)
+	}
+
+	radios := make(map[int64]string)
+	for {
+		rec, err := cr.Read()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return fmt.Errorf("renacom: %s: %w", path, err)
+		}
+		if colID >= len(rec) || colRadio >= len(rec) {
+			continue
+		}
+		id, err := strconv.ParseInt(strings.TrimSpace(rec[colID]), 10, 64)
+		if err != nil {
+			continue
+		}
+		if codigo := strings.TrimSpace(rec[colRadio]); codigo != "" {
+			radios[id] = codigo
+		}
+	}
+
+	for i := range cs {
+		if codigo, ok := radios[cs[i].Identificador]; ok {
+			cs[i].CodigoRadio = codigo
+		}
+	}
+	return nil
 }
 
 // Leer parses the ReNaCoM CSV from r.

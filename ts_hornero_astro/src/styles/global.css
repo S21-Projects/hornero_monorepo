@@ -155,3 +155,6 @@ p {
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
+
+/* ── /mapa: mute OSM tiles so the choropleth reads first ───── */
+.mapa-tiles-muted { filter: grayscale(0.7) contrast(0.9); }

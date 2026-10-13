@@ -56,6 +56,20 @@ describe('OrganizacionesService', () => {
     });
   });
 
+  describe('mapa', () => {
+    it('proxies the public MS map endpoint without credentials', async () => {
+      const data = { data: [{ id: 1, slug: 'a', estado: 'SIN_RECLAMAR', necesidadesAbiertas: 2 }] };
+      httpService.axiosRef.get.mockResolvedValue({ data });
+
+      const result = await service.mapa();
+
+      expect(httpService.axiosRef.get).toHaveBeenCalledWith(
+        'http://ms:8081/api/organizaciones/mapa',
+      );
+      expect(result).toEqual(data);
+    });
+  });
+
   describe('misOrganizaciones', () => {
     it('forwards the Bearer header to the MS mia endpoint', async () => {
       const data = [{ id: 1 }, { id: 2 }];

@@ -35,5 +35,20 @@ public enum TipoEventoOrganizacion {
     NIVEL_REDUCIDO,
 
     /** An organizacion's referente was reassigned. Never alters nivel/estado/validada. */
-    REFERENTE_REASIGNADO
+    REFERENTE_REASIGNADO,
+
+    /** Written once by the ReNaCoM import for every organizacion it creates (actor SISTEMA). */
+    IMPORTADA_RENACOM,
+
+    /** An admin approved a claim: the claimant became the organizacion's referente. */
+    RECLAMO_APROBADO,
+
+    /** A claim on the organizacion was rejected (by an admin, or automatically when another won). */
+    RECLAMO_RECHAZADO,
+
+    /** An admin confirmed a report on the organizacion (it was marked INACTIVA). */
+    REPORTE_CONFIRMADO,
+
+    /** An admin discarded a report on the organizacion (it did not change). */
+    REPORTE_DESCARTADO
 }

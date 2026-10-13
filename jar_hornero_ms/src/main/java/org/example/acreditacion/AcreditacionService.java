@@ -116,6 +116,10 @@ public class AcreditacionService {
     @Transactional
     void aplicarTransicion(Organizacion org, NivelAcreditacion destino, Administrador actor,
                             String motivo, TipoEventoOrganizacion tipo) {
+        if (org.getEstado() != null && org.getEstado().esDeRegistroExterno()) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "La organización importada sin reclamar no admite cambios de nivel hasta ser reclamada");
+        }
         NivelAcreditacion antes = nivelActual(org);
         validateTransition(antes, destino);
         org.setNivel(destino);
@@ -172,6 +176,17 @@ public class AcreditacionService {
         String motivo = "Referente reasignado: " + antesId + " -> " + despuesId;
         eventoRepository.save(OrganizacionEvento.de(
                 org, TipoEventoOrganizacion.REFERENTE_REASIGNADO, actor, motivo, null, null));
+    }
+
+    /**
+     * Claim-flow facts ({@code RECLAMO_APROBADO} / {@code RECLAMO_RECHAZADO}). Never changes
+     * {@code nivel}: an approved claim leaves the organizacion at its current level (N0) so the
+     * normal validation ladder still applies.
+     */
+    @Transactional
+    public void registrarResolucionReclamo(Organizacion org, TipoEventoOrganizacion tipo, Usuario actor,
+                                           String motivo) {
+        eventoRepository.save(OrganizacionEvento.de(org, tipo, actor, motivo, null, null));
     }
 
     /**

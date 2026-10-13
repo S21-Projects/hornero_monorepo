@@ -33,3 +33,9 @@ backups/
 # Coverage outputs (make coverage)
 coverage/
 coverage.out
+
+# Census parquet cache (make mapa-datos)
+scripts/mapa/.cache/
+
+# ReNaCoM import output (make importar-renacom)
+scripts/mapa/out/

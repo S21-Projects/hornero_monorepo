@@ -5,6 +5,8 @@ package geo
 
 import (
 	"math"
+	"os"
+	"path/filepath"
 
 	"algorithms/internal/metrics"
 	"algorithms/internal/renacom"
@@ -59,6 +61,10 @@ func NuevoResolvedor(porRadio map[string]float64, puntos []Punto, radioResolucio
 // CSV, the way the worker's `serve` command does at startup. poblacionPath == "" is the
 // documented known limitation: every radio's deficit stays 0, so every candidate resolves to
 // NEUTRAL until the INDEC CSV is mounted. provincia == "" skips the province filter.
+//
+// When vulnerabilidad-radios.csv sits next to renacomPath, its vulnerabilidad replaces the deficit
+// of every radio (and needs no poblacionPath); the province filter then only narrows the CERCANO
+// points. Without the file the behaviour is unchanged.
 func Cargar(renacomPath, poblacionPath, provincia string, radioResolucionKm float64) (*Resolvedor, error) {
 	comedores, err := renacom.Cargar(renacomPath)
 	if err != nil {
@@ -79,6 +85,16 @@ func Cargar(renacomPath, poblacionPath, provincia string, radioResolucionKm floa
 	porRadio := make(map[string]float64, len(radios))
 	for _, r := range radios {
 		porRadio[r.CodigoRadio] = r.Deficit
+	}
+
+	// Optional sibling vulnerability file (make mapa-datos): when present it replaces the
+	// ReNaCoM-only deficit as the per-radio number. Radios it leaves empty are absent from the map,
+	// so they fall through to CERCANO / NEUTRAL like any radio with unknown coverage.
+	archivo := filepath.Join(filepath.Dir(renacomPath), metrics.ArchivoVulnerabilidad)
+	if _, statErr := os.Stat(archivo); statErr == nil {
+		if porRadio, err = metrics.CargarVulnerabilidad(archivo); err != nil {
+			return nil, err
+		}
 	}
 
 	var puntos []Punto

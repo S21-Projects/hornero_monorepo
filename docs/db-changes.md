@@ -10,6 +10,60 @@ production DB) — check the "Applied to" line before running anything twice.
 
 ---
 
+## 2026-10-13 — `organizacion_evento_tipo_check`: report-flow events (mapa-vulnerabilidad, task C)
+
+**Reason**: confirming or discarding a report on an unclaimed organizacion writes `TipoEventoOrganizacion.REPORTE_CONFIRMADO` / `REPORTE_DESCARTADO` to the audit trail. `ddl-auto=update` never widens the CHECK it generated for the STRING enum, so inserting them would fail. The new table `reportes_organizacion` is created by `ddl-auto=update` (no script needed).
+
+**Before**: `organizacion_evento_tipo_check` lacks `REPORTE_CONFIRMADO` and `REPORTE_DESCARTADO`.
+
+**Migration**: `scripts/sql/V009__reporte_eventos.sql` (run `make migrate`, then restart the MS). Drops any CHECK on `tipo` that lacks the new values and recreates it with the full list (V008 values included). Safe before or after deploying the new MS image, and re-runnable. It also builds the partial unique index `ux_reporte_pendiente` on `reportes_organizacion (organizacion_id, reportante_id) WHERE estado = 'PENDIENTE'` (one pending report per user and comedor, even under a race). That table only exists after the new MS image first boots, so **run `make migrate` again after that first boot** (idempotent). At boot `EsquemaVerificador` logs `ESQUEMA_PENDIENTE` while the stale CHECK or the index is missing (PostgreSQL only); until then confirming/discarding a report fails with a constraint violation (409 CONFLICTO_DATOS).
+
+**After**: `organizacion_evento.tipo` accepts the two report events.
+
+**Rollback**: `DELETE FROM organizacion_evento WHERE tipo IN ('REPORTE_CONFIRMADO','REPORTE_DESCARTADO');` then recreate the V008 check (without the two values) and `DROP INDEX IF EXISTS ux_reporte_pendiente;`. The report table can stay; the old code ignores it.
+
+**Applied to**:
+- [ ] Local dev DB
+- [ ] Pi production DB
+
+---
+
+## 2026-10-13 — `organizacion_evento_tipo_check`: claim-flow events (mapa-vulnerabilidad, task B)
+
+**Reason**: approving or rejecting a claim on an unclaimed organizacion writes `TipoEventoOrganizacion.RECLAMO_APROBADO` / `RECLAMO_RECHAZADO` to the audit trail. `ddl-auto=update` never widens the CHECK it generated for the STRING enum, so inserting them would fail. The new tables `reclamos_organizacion` and `reclamo_organizacion_evidencias` are created by `ddl-auto=update` (no script needed).
+
+**Before**: `organizacion_evento_tipo_check` lacks `RECLAMO_APROBADO` and `RECLAMO_RECHAZADO`.
+
+**Migration**: `scripts/sql/V008__reclamo_eventos.sql` (run `make migrate`, then restart the MS). Drops any CHECK on `tipo` that lacks the new values and recreates it with the full list. Safe before or after deploying the new MS image, and re-runnable. It also builds the partial unique index `ux_reclamo_pendiente` on `reclamos_organizacion (organizacion_id, referente_id) WHERE estado = 'PENDIENTE'` (one pending claim per referente and comedor, even under a race). That table only exists after the new MS image first boots, so **run `make migrate` again after that first boot** (idempotent). At boot `EsquemaVerificador` logs `ESQUEMA_PENDIENTE` while the stale CHECK or the index is missing (PostgreSQL only); until then approving/rejecting a claim fails with a constraint violation (409 CONFLICTO_DATOS).
+
+**After**: `organizacion_evento.tipo` accepts the two claim events.
+
+**Rollback**: `DELETE FROM organizacion_evento WHERE tipo IN ('RECLAMO_APROBADO','RECLAMO_RECHAZADO');` then recreate the V007 check (without the two values) and `DROP INDEX IF EXISTS ux_reclamo_pendiente;`. The claim tables can stay; the old code ignores them.
+
+**Applied to**:
+- [ ] Local dev DB
+- [ ] Pi production DB
+
+---
+
+## 2026-10-12 — `organizaciones`: provenance columns + widened `estado` / event `tipo` checks (mapa-vulnerabilidad, task A)
+
+**Reason**: ReNaCoM comedores are imported as unclaimed organizaciones. That adds `EstadoOrganizacion.SIN_RECLAMAR` / `INACTIVA`, `TipoEventoOrganizacion.IMPORTADA_RENACOM`, the `OrigenOrganizacion` enum and four columns. `ddl-auto=update` adds columns but never widens the CHECK constraints it generated for STRING enums, so inserting the new values would fail.
+
+**Before**: `organizaciones_estado_check` allows PENDIENTE/APROBADA/RECHAZADA; `organizacion_evento_tipo_check` lacks `IMPORTADA_RENACOM`; no `origen`, `origen_id`, `asistentes_declarados`, `codigo_radio`.
+
+**Migration**: `scripts/sql/V007__organizacion_origen.sql` (run `make migrate`). Adds the columns if missing, drops any CHECK on those columns that lacks the new values and recreates it, creates the partial unique index `ux_organizaciones_origen_id`. Safe before or after deploying the new MS image. At boot `EsquemaVerificador` logs `ESQUEMA_PENDIENTE` while a stale CHECK remains (PostgreSQL only). The rows themselves come from `make importar-renacom` (see `scripts/mapa/README.md`), a separate step.
+
+**After**: `organizaciones.estado` accepts SIN_RECLAMAR/INACTIVA; `organizacion_evento.tipo` accepts IMPORTADA_RENACOM; `origen` is NULL/`PLATAFORMA` for existing rows (read as PLATAFORMA).
+
+**Rollback**: delete imported rows first (`DELETE FROM organizacion_evento WHERE tipo = 'IMPORTADA_RENACOM'; DELETE FROM organizaciones WHERE origen = 'RENACOM';`), then `DROP INDEX ux_organizaciones_origen_id;` and recreate the narrower checks if wanted. The columns can stay; the old code ignores them.
+
+**Applied to**:
+- [ ] Local dev DB
+- [ ] Pi production DB
+
+---
+
 ## 2026-10-13 — `actividad` trigger lets the retention job clear `email_intento` (N15, D12)
 
 **Reason**: the data-protection policy (`docs/politica-datos-y-respaldo.md`, 1.5) limits the email typed in failed logins to 90 days, but V004 rejected every UPDATE on `actividad`. The row (who, when, what, IP) stays until the 365-day retention; only the email is erased.

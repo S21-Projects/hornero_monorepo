@@ -178,3 +178,64 @@ func CargarPoblacion(path string) (map[string]Poblacion, error) {
 	}
 	return out, nil
 }
+
+// ArchivoVulnerabilidad is the file name, next to renacom.csv, with the precomputed
+// vulnerability per census radio (make mapa-datos).
+const ArchivoVulnerabilidad = "vulnerabilidad-radios.csv"
+
+// CargarVulnerabilidad reads vulnerabilidad-radios.csv (codigo_radio, vulnerabilidad, other columns
+// ignored) and returns the vulnerability per radio. Radios whose vulnerabilidad is empty (no
+// comedores or no population: "unknown", never 0) are left out of the map, so a lookup misses
+// and the caller falls through to its next source.
+func CargarVulnerabilidad(path string) (map[string]float64, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, fmt.Errorf("metrics: %w", err)
+	}
+	defer f.Close()
+
+	cr := csv.NewReader(f)
+	cr.FieldsPerRecord = -1
+
+	header, err := cr.Read()
+	if err != nil {
+		return nil, fmt.Errorf("metrics: reading header: %w", err)
+	}
+	idx := make(map[string]int, len(header))
+	for i, h := range header {
+		idx[strings.ToLower(strings.TrimSpace(strings.TrimPrefix(h, "\ufeff")))] = i
+	}
+	colRadio, ok := idx["codigo_radio"]
+	if !ok {
+		return nil, fmt.Errorf("metrics: missing column codigo_radio")
+	}
+	colVuln, ok := idx["vulnerabilidad"]
+	if !ok {
+		return nil, fmt.Errorf("metrics: missing column vulnerabilidad")
+	}
+
+	out := make(map[string]float64)
+	for {
+		rec, err := cr.Read()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return nil, fmt.Errorf("metrics: %w", err)
+		}
+		if colRadio >= len(rec) || colVuln >= len(rec) {
+			continue
+		}
+		codigo := strings.TrimSpace(rec[colRadio])
+		raw := strings.TrimSpace(rec[colVuln])
+		if codigo == "" || raw == "" {
+			continue
+		}
+		v, err := strconv.ParseFloat(raw, 64)
+		if err != nil || v <= 0 {
+			continue
+		}
+		out[codigo] = v
+	}
+	return out, nil
+}

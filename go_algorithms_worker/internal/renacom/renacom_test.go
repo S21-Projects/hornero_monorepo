@@ -1,6 +1,8 @@
 package renacom
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -65,5 +67,57 @@ func TestCargarDatasetCommiteado(t *testing.T) {
 		if c.CodigoRadio == "" {
 			t.Fatalf("comedor %d has no census radio code", c.Identificador)
 		}
+	}
+}
+
+// writeFixture writes the sample ReNaCoM CSV (and, when radios != "", the 2022
+// override CSV) into a temp dir and returns the ReNaCoM path.
+func writeFixture(t *testing.T, radios string) string {
+	t.Helper()
+	dir := t.TempDir()
+	path := filepath.Join(dir, "renacom.csv")
+	if err := os.WriteFile(path, []byte(muestra), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if radios != "" {
+		if err := os.WriteFile(filepath.Join(dir, ArchivoRadio2022), []byte(radios), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	return path
+}
+
+func TestCargarUsaRadio2022CuandoExisteElArchivo(t *testing.T) {
+	// 2855 is overridden; 9002 is absent from the file and keeps its declared code.
+	path := writeFixture(t, "identificador,codigo_radio_2022\n2855,060001234\n")
+
+	cs, err := Cargar(path)
+	if err != nil {
+		t.Fatalf("Cargar: %v", err)
+	}
+	if len(cs) != 2 {
+		t.Fatalf("comedores = %d, want 2", len(cs))
+	}
+	if cs[0].CodigoRadio != "060001234" {
+		t.Errorf("overridden codigoRadio = %q, want 060001234", cs[0].CodigoRadio)
+	}
+	if cs[1].CodigoRadio != "140144304" {
+		t.Errorf("non-overridden codigoRadio = %q, want declared 140144304", cs[1].CodigoRadio)
+	}
+}
+
+func TestCargarSinArchivoRadio2022UsaCodigoDeclarado(t *testing.T) {
+	cs, err := Cargar(writeFixture(t, ""))
+	if err != nil {
+		t.Fatalf("Cargar: %v", err)
+	}
+	if cs[0].CodigoRadio != "065250609" {
+		t.Errorf("codigoRadio = %q, want declared 065250609", cs[0].CodigoRadio)
+	}
+}
+
+func TestCargarRechazaArchivoRadio2022SinColumnas(t *testing.T) {
+	if _, err := Cargar(writeFixture(t, "id,radio\n1,2\n")); err == nil {
+		t.Fatal("want error for override file with wrong headers")
 	}
 }

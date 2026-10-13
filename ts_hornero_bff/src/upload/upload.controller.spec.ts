@@ -1,6 +1,10 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ForbiddenException } from '@nestjs/common';
 import type { Request } from 'express';
+import { ConflictException } from '@nestjs/common';
+import { THROTTLER_LIMIT } from '@nestjs/throttler/dist/throttler.constants';
+import { ClientIpThrottlerGuard } from '../auth/guards/client-ip-throttler.guard';
+import { ReclamosService } from '../reclamos/reclamos.service';
 import { UploadController } from './upload.controller';
 import { UploadService } from './upload.service';
 import { OrganizacionesService } from '../organizaciones/organizaciones.service';
@@ -13,8 +17,10 @@ describe('UploadController', () => {
     uploadOrgProfile: jest.Mock;
     uploadOrgBanner: jest.Mock;
     uploadOrgEvidencia: jest.Mock;
+    uploadReclamoEvidencia: jest.Mock;
   };
   let authService: { verificarSesion: jest.Mock };
+  let reclamosService: { verificarReclamable: jest.Mock };
   let organizacionesService: {
     misOrganizaciones: jest.Mock;
     actualizar: jest.Mock;
@@ -37,8 +43,12 @@ describe('UploadController', () => {
       uploadOrgProfile: jest.fn().mockResolvedValue('org-profile/1-key'),
       uploadOrgBanner: jest.fn().mockResolvedValue('org-banner/1-key'),
       uploadOrgEvidencia: jest.fn().mockResolvedValue('org-evidencia/5/1-key'),
+      uploadReclamoEvidencia: jest
+        .fn()
+        .mockResolvedValue('reclamo-evidencia/5/7/1-key'),
     };
     authService = { verificarSesion: jest.fn().mockResolvedValue({}) };
+    reclamosService = { verificarReclamable: jest.fn().mockResolvedValue(undefined) };
     organizacionesService = {
       misOrganizaciones: jest.fn(),
       actualizar: jest.fn().mockResolvedValue({}),
@@ -51,8 +61,12 @@ describe('UploadController', () => {
         { provide: UploadService, useValue: uploadService },
         { provide: OrganizacionesService, useValue: organizacionesService },
         { provide: AuthService, useValue: authService },
+        { provide: ReclamosService, useValue: reclamosService },
       ],
-    }).compile();
+    })
+      .overrideGuard(ClientIpThrottlerGuard)
+      .useValue({ canActivate: () => true })
+      .compile();
 
     controller = module.get<UploadController>(UploadController);
   });
@@ -193,6 +207,73 @@ describe('UploadController', () => {
       expect(uploadService.uploadOrgProfile).not.toHaveBeenCalled();
       expect(uploadService.uploadOrgBanner).not.toHaveBeenCalled();
       expect(uploadService.uploadOrgEvidencia).not.toHaveBeenCalled();
+    });
+  });
+  describe('uploadReclamoEvidencia', () => {
+    const asReferente = (userId = '7') =>
+      ({
+        cookies: { access_token: 'token-123' },
+        user: { tipo: Role.REFERENTE, userId },
+      }) as unknown as Request;
+
+    it('stores under the caller own prefix without an ownership check (the org is unclaimed)', async () => {
+      const result = await controller.uploadReclamoEvidencia(
+        5,
+        file,
+        asReferente(),
+      );
+
+      expect(result).toEqual({ key: 'reclamo-evidencia/5/7/1-key' });
+      expect(authService.verificarSesion).toHaveBeenCalledWith('token-123');
+      expect(uploadService.uploadReclamoEvidencia).toHaveBeenCalledWith(
+        5,
+        7,
+        file,
+      );
+      expect(organizacionesService.misOrganizaciones).not.toHaveBeenCalled();
+    });
+
+    it('checks with the MS that the organizacion is claimable before writing anything', async () => {
+      await controller.uploadReclamoEvidencia(5, file, asReferente());
+
+      expect(reclamosService.verificarReclamable).toHaveBeenCalledWith(5, 'token-123');
+      expect(
+        reclamosService.verificarReclamable.mock.invocationCallOrder[0],
+      ).toBeLessThan(uploadService.uploadReclamoEvidencia.mock.invocationCallOrder[0]);
+    });
+
+    it('never writes to storage when the MS refuses the claim (404/409)', async () => {
+      reclamosService.verificarReclamable.mockRejectedValue(new ConflictException());
+
+      await expect(
+        controller.uploadReclamoEvidencia(5, file, asReferente()),
+      ).rejects.toBeInstanceOf(ConflictException);
+      expect(uploadService.uploadReclamoEvidencia).not.toHaveBeenCalled();
+    });
+
+    it('is rate limited per client IP (10 uploads per minute)', () => {
+      const handler = UploadController.prototype.uploadReclamoEvidencia;
+      expect(Reflect.getMetadata(THROTTLER_LIMIT + 'default', handler)).toBe(10);
+      const guards = Reflect.getMetadata('__guards__', handler) as unknown[];
+      expect(guards.map((g) => (g as { name: string }).name)).toContain('ClientIpThrottlerGuard');
+    });
+
+    it('rejects a missing file and never writes', async () => {
+      await expect(
+        controller.uploadReclamoEvidencia(
+          5,
+          undefined as unknown as Express.Multer.File,
+          asReferente(),
+        ),
+      ).rejects.toThrow();
+      expect(uploadService.uploadReclamoEvidencia).not.toHaveBeenCalled();
+    });
+
+    it('rejects a session without a usable user id', async () => {
+      await expect(
+        controller.uploadReclamoEvidencia(5, file, asReferente('abc')),
+      ).rejects.toThrow();
+      expect(uploadService.uploadReclamoEvidencia).not.toHaveBeenCalled();
     });
   });
 });
