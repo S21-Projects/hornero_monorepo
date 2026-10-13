@@ -8,6 +8,7 @@ import { Text } from '../components/ui/Typography';
 import { api } from '../lib/axios';
 import { useAuthStore } from '../store/auth.store';
 import { roleHome } from '../lib/roleHome';
+import { safeRedirectPath } from '../lib/safeRedirect';
 
 const RESEND_COOLDOWN_SECONDS = 60;
 
@@ -78,7 +79,7 @@ export default function VerifyEmailPage() {
       // from (e.g. /acreditacion right after registering) when that path is
       // internal; otherwise fall back to their role home, same as before.
       const from = (location.state as { from?: string } | null)?.from;
-      const target = from && from.startsWith('/') ? from : tipo ? roleHome(tipo) : '/';
+      const target = safeRedirectPath(from) ?? (tipo ? roleHome(tipo) : '/');
       navigate(target, { replace: true });
     } catch (err) {
       const reason = (err as { response?: { data?: { message?: string } } })?.response?.data
