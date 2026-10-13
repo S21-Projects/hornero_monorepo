@@ -165,6 +165,11 @@ Images (org banners/profiles) live in an S3-compatible bucket — Cloudflare R2 
 `docker-compose --profile minio` for anyone without an external bucket; the Pi deployment uses
 R2 (it only has a microSD, so images stay off-device).
 
+The MS also reads the same `AWS_*` vars, but only to **delete** claim evidence
+(`reclamo-evidencia/` and nothing else): after a user is anonymized
+(`EvidenciaBorradoListener`) and in a nightly orphan sweep (`EvidenciaHuerfanaBarridoJob`, kill
+switch `EVIDENCIA_BARRIDO_ENABLED=false`). With those vars blank the MS uses a no-op store.
+
 ## Other directories
 
 - `bruno/` — Bruno API collection for manual endpoint testing.
