@@ -80,7 +80,8 @@ radios. A direct join would silently attach the wrong population, so the worker 
 Radios geometry and population: Censo Nacional de Poblacion 2022 (INDEC), cartography by
 Rodriguez & de Grande (CONICET), redistributed on Source Cooperative by `nlebovits`
 (`censo-argentino/2022`), CC-BY-4.0. Attribute INDEC and Rodriguez & de Grande/CONICET.
-ReNaCoM: CONICET (see `go_algorithms_worker/README.md`).
+ReNaCoM: CONICET institutional repository, record hdl 11336/278030 (see `go_algorithms_worker/README.md`;
+license status in `docs/mapa-vulnerabilidad.md`, "Attribution and licenses"). Both are credited on `/mapa`.
 
 ## Importing ReNaCoM into the database
 
