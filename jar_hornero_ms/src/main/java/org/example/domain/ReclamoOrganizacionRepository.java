@@ -38,4 +38,9 @@ public interface ReclamoOrganizacionRepository extends JpaRepository<ReclamoOrga
             @org.springframework.data.repository.query.Param("organizacionId") Long organizacionId,
             @org.springframework.data.repository.query.Param("referenteId") Long referenteId,
             @org.springframework.data.repository.query.Param("objectKey") String objectKey);
+
+    /** Every evidence key still referenced by any claim: what the orphan sweep must not delete. */
+    @org.springframework.data.jpa.repository.Query(
+            "select k from ReclamoOrganizacion r join r.evidenciaKeys k")
+    List<String> findAllEvidenciaKeys();
 }
