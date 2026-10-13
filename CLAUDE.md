@@ -38,7 +38,9 @@ Docker only — there is no native/hot-reload dev mode. Two full-stack modes via
 
 ```bash
 make up              # prod-parity: full stack in Docker incl. Postgres, uses root .env as-is
-make up-local        # fast local: dummy secrets + local MinIO instead of R2, uses .env.local
+make up-local        # fast local: dummy secrets + local MinIO instead of R2, uses .env.local;
+                      # sets SEED_DEMO_DATA=true (demo users/orgs; e2e needs this — prod seeds none,
+                      # and requires SUPER_ADMIN_EMAIL/SUPER_ADMIN_PASSWORD)
 make down             # stop docker; `docker compose down -v` to also drop the DB volume
 make e2e              # API-level e2e tests (e2e/) against an already-running `make up-local` stack
 make seed             # run scripts/seed.ts against the BFF (creates seed users/orgs)

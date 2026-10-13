@@ -50,6 +50,11 @@ services:
       # deploys keep working. (An empty MAIL_FROM_EMAIL would otherwise shadow the fallback.)
       MAIL_FROM_EMAIL: "${MAIL_FROM_EMAIL:-${OTP_FROM_EMAIL:-}}"
       MAIL_LOG_ONLY: "${MAIL_LOG_ONLY:-false}"
+      # Production creates no demo data. `make up-local` sets SEED_DEMO_DATA=true. With it off the MS
+      # refuses to start unless SUPER_ADMIN_EMAIL/SUPER_ADMIN_PASSWORD are set (empty = missing).
+      SEED_DEMO_DATA: "${SEED_DEMO_DATA:-false}"
+      SUPER_ADMIN_EMAIL: "${SUPER_ADMIN_EMAIL:-}"
+      SUPER_ADMIN_PASSWORD: "${SUPER_ADMIN_PASSWORD:-}"
       # N14: public URL of the admin SPA; the password-reset link is built from it (never from
       # request headers). Local default matches the admin container's host port.
       APP_PANEL_URL: "${APP_PANEL_URL:-http://localhost:5173}"
