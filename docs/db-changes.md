@@ -10,6 +10,22 @@ production DB) — check the "Applied to" line before running anything twice.
 
 ---
 
+## 2026-10-13 — `actividad` trigger lets the retention job clear `email_intento` (N15, D12)
+
+**Reason**: the data-protection policy (`docs/politica-datos-y-respaldo.md`, 1.5) limits the email typed in failed logins to 90 days, but V004 rejected every UPDATE on `actividad`. The row (who, when, what, IP) stays until the 365-day retention; only the email is erased.
+
+**Before**: `actividad_inmutable()` rejected every UPDATE.
+
+**Migration**: `scripts/sql/V006__actividad_purga_email_intento.sql` (run `make migrate`; needs V004). Replaces the trigger function (the triggers are untouched). UPDATE is still rejected unless all hold: the transaction set `hornero.purga_actividad = 'on'`, `NEW.email_intento IS NULL`, and every other column is identical (`to_jsonb(NEW) - 'email_intento' = to_jsonb(OLD) - 'email_intento'`, so columns added later are protected without touching the script). DELETE/TRUNCATE rules are unchanged. `EmailIntentoPurgaJob` opens the window with `set_config(..., true)` (= `SET LOCAL`) in its own transaction. Safe to run before or after deploying the new MS image. Until it runs, the job logs the failure and `EsquemaVerificador` logs `ESQUEMA_PENDIENTE` at boot (PostgreSQL only); nothing else is affected.
+
+**After**: same triggers, new function body.
+
+**Rollback**: re-apply `scripts/sql/V004__actividad_inmutable.sql` (restores the function that rejects every UPDATE).
+
+**Applied to**: local dev DB (2026-10-13; verified in psql: UPDATE of `email_intento` without the setting fails, with it succeeds, any other column change fails even with it). Pi production: pending (`make migrate` after deploy).
+
+---
+
 ## 2026-10-12 — Backfill `donaciones.estado_desde` (N12, D4)
 
 **Reason**: the stale-donations job and the admin "estancada" flag need to know when a donation entered its current estado. `Donacion.estadoDesde` is stamped on every transition from now on; `ddl-auto=update` adds the column as nullable, so existing rows are NULL.

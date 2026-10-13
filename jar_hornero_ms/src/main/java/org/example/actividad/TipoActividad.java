@@ -29,6 +29,8 @@ public enum TipoActividad {
     // Users
     USUARIO_ACTIVADO,
     USUARIO_DESACTIVADO,
+    // N15/D12: right to erasure (admin-run); the entry never holds the data subject's data
+    USUARIO_ANONIMIZADO,
 
     // Organizaciones (accreditation level/evidence stay in OrganizacionEvento, not duplicated)
     ORGANIZACION_CREADA,
@@ -69,7 +71,9 @@ public enum TipoActividad {
     // N13: a notification email that could not be sent (successful sends are not recorded)
     NOTIFICACION_FALLIDA,
 
-    // System housekeeping that deletes data
+    // System housekeeping that deletes or minimizes data (N15/D12)
     TOKENS_PURGADOS,
-    ACTIVIDAD_PURGADA
+    ACTIVIDAD_PURGADA,
+    EMAIL_INTENTO_PURGADO,
+    COORDENADAS_MINIMIZADAS
 }

@@ -22,6 +22,11 @@ public interface PasswordResetTokenRepository extends JpaRepository<PasswordRese
     @Query("update PasswordResetToken t set t.usadoEn = :now where t.usuarioId = :usuarioId and t.usadoEn is null")
     int invalidarPendientes(@Param("usuarioId") Long usuarioId, @Param("now") Instant now);
 
+    /** N15: erasing the account removes every reset link of the user. */
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("delete from PasswordResetToken t where t.usuarioId = :usuarioId")
+    int deleteByUsuarioId(@Param("usuarioId") Long usuarioId);
+
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("delete from PasswordResetToken t where t.expiraEn < :cutoff")
     int deleteExpiredBefore(@Param("cutoff") Instant cutoff);

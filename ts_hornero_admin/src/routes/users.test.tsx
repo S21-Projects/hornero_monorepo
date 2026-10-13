@@ -4,12 +4,16 @@ import userEvent from '@testing-library/user-event';
 import UsersPage from './users';
 import { useUsuarios } from '../lib/hooks/useUsuarios';
 import { useToggleActivo } from '../lib/hooks/useToggleActivo';
+import { useAnonimizarUsuario } from '../lib/hooks/useAnonimizarUsuario';
+import { useAuthStore } from '../store/auth.store';
 
 vi.mock('../lib/hooks/useUsuarios', () => ({ useUsuarios: vi.fn() }));
 vi.mock('../lib/hooks/useToggleActivo', () => ({ useToggleActivo: vi.fn() }));
+vi.mock('../lib/hooks/useAnonimizarUsuario', () => ({ useAnonimizarUsuario: vi.fn() }));
 vi.mock('../lib/hooks/usePageClamp', () => ({ usePageClamp: vi.fn() }));
 
 const mutate = vi.fn();
+const anonimizar = vi.fn();
 
 const usuario = (over = {}) => ({
   id: 7, nombre: 'Dora Donante', email: 'dora@test.com', tipo: 'DONANTE', activo: true, ...over,
@@ -18,6 +22,7 @@ const usuario = (over = {}) => ({
 describe('UsersPage (M2: optional motivo)', () => {
   beforeEach(() => {
     mutate.mockReset();
+    anonimizar.mockReset();
     vi.mocked(useUsuarios).mockReturnValue({
       data: { content: [usuario()], number: 0, size: 20, totalElements: 1, totalPages: 1 },
       isLoading: false, isError: false, isFetching: false,
@@ -25,6 +30,9 @@ describe('UsersPage (M2: optional motivo)', () => {
     vi.mocked(useToggleActivo).mockReturnValue({
       mutate, isPending: false, isError: false, variables: undefined, error: null,
     } as unknown as ReturnType<typeof useToggleActivo>);
+    vi.mocked(useAnonimizarUsuario).mockReturnValue({
+      mutate: anonimizar, isPending: false, isError: false, variables: undefined, error: null,
+    } as unknown as ReturnType<typeof useAnonimizarUsuario>);
   });
 
   it('asks for an optional motivo and sends it with the toggle', async () => {
@@ -58,5 +66,77 @@ describe('UsersPage (M2: optional motivo)', () => {
 
     expect(screen.queryByLabelText('Motivo (opcional)')).not.toBeInTheDocument();
     expect(mutate).not.toHaveBeenCalled();
+  });
+});
+
+describe('UsersPage (N15: anonimizar)', () => {
+  beforeEach(() => {
+    mutate.mockReset();
+    anonimizar.mockReset();
+    useAuthStore.setState({ user: { userId: 1, email: 'a@a.com', nombre: 'Admin', tipo: 'ADMINISTRADOR', emailVerificado: true } });
+    vi.mocked(useUsuarios).mockReturnValue({
+      data: {
+        content: [
+          usuario(),
+          usuario({ id: 8, nombre: 'Usuario eliminado', email: 'eliminado-x@anonimo.invalid', activo: false }),
+          usuario({ id: 1, nombre: 'Admin', email: 'a@a.com', tipo: 'ADMINISTRADOR' }),
+        ],
+        number: 0, size: 20, totalElements: 3, totalPages: 1,
+      },
+      isLoading: false, isError: false, isFetching: false,
+    } as unknown as ReturnType<typeof useUsuarios>);
+    vi.mocked(useToggleActivo).mockReturnValue({
+      mutate, isPending: false, isError: false, variables: undefined, error: null,
+    } as unknown as ReturnType<typeof useToggleActivo>);
+    vi.mocked(useAnonimizarUsuario).mockReturnValue({
+      mutate: anonimizar, isPending: false, isError: false, variables: undefined, error: null,
+    } as unknown as ReturnType<typeof useAnonimizarUsuario>);
+  });
+
+  it('explains the action is irreversible and only mutates after confirming', async () => {
+    const user = userEvent.setup();
+    render(<UsersPage />);
+
+    await user.click(screen.getAllByRole('button', { name: 'Anonimizar' })[0]);
+
+    expect(screen.getByRole('alertdialog')).toHaveTextContent(/no se puede deshacer/i);
+    expect(screen.getByRole('alertdialog')).toHaveTextContent('Dora Donante');
+    expect(anonimizar).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole('button', { name: 'Anonimizar definitivamente' }));
+
+    expect(anonimizar).toHaveBeenCalledWith(7);
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+  });
+
+  it('cancel closes the confirmation without mutating', async () => {
+    const user = userEvent.setup();
+    render(<UsersPage />);
+
+    await user.click(screen.getAllByRole('button', { name: 'Anonimizar' })[0]);
+    await user.click(screen.getByRole('button', { name: 'Cancelar' }));
+
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+    expect(anonimizar).not.toHaveBeenCalled();
+  });
+
+  it('is disabled for your own account and for an already anonymized one', () => {
+    render(<UsersPage />);
+
+    const botones = screen.getAllByRole('button', { name: 'Anonimizar' });
+    expect(botones).toHaveLength(3);
+    expect(botones[0]).toBeEnabled();
+    expect(botones[1]).toBeDisabled(); // anonymized
+    expect(botones[2]).toBeDisabled(); // myself
+  });
+
+  it('shows the mapped error under the row', () => {
+    vi.mocked(useAnonimizarUsuario).mockReturnValue({
+      mutate: anonimizar, isPending: false, isError: true, variables: 7,
+      error: Object.assign(new Error('x'), { response: { status: 409, data: { message: 'REFERENTE_CON_ORGANIZACIONES' } } }),
+    } as unknown as ReturnType<typeof useAnonimizarUsuario>);
+    render(<UsersPage />);
+
+    expect(screen.getByText(/Reasigná cada organización/)).toBeInTheDocument();
   });
 });
