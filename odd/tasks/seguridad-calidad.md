@@ -349,6 +349,19 @@ The guide requires measures "related to the identified risks", so a risk matrix 
   - Follow-ups found by the sweep (not CSP): React hydration error #418 on a public Astro page;
     direct loads of protected admin URLs redirect to the role home (deep links) — investigate.
 
+- [x] **N19** Direct loads of protected admin URLs redirect to the role home instead of the
+  requested screen (breaks deep links, including N13 email links). Root-cause and fix.
+- [x] **N20** React hydration error #418 on a public Astro page. Root-cause and fix.
+  - Done N19: auth store started 'unauthenticated' until AuthInitializer's effect ran (child
+    effects first) → guard sent to /login → PublicOnlyRoute to role home. Store now seeds
+    'loading' from `session_hint`; login returns to `state.from` validated by `safeRedirectPath`
+    (also fixed an open redirect in verify-email: `//evil.com` passed `startsWith('/')`).
+    Playwright: deep links land on the requested screen for all roles; anonymous → login → back.
+  - Done N20: `NeedsBoard` formatted date-only `fechaVencimiento` via `new Date()` → UTC server vs
+    UTC-3 browser mismatch (and an off-by-one day on screen). `formatFechaISO` reads calendar
+    fields. Clean console in both time zones; page shows padded dates (01/11/2026).
+  - Evidence: admin 534/534 + build + lint, astro build, `make e2e` 95/95.
+
 ## Business definitions pending (list 2)
 
 Each item needs a team decision before related work starts. Record the decision and date here.

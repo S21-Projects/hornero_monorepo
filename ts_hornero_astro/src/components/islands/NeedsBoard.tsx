@@ -6,6 +6,7 @@ import { Avatar } from '../ui/avatar';
 import { EmptyState } from '../ui/empty-state';
 import { Text } from '../ui/typography';
 import type { Necesidad, Org } from '../../lib/types';
+import { formatFechaISO } from '../../lib/formatFecha';
 
 const PUBLIC_SPA_URL = import.meta.env.PUBLIC_SPA_URL ?? '';
 
@@ -52,9 +53,7 @@ interface NeedCardProps {
 function NeedCard({ n, orgName }: NeedCardProps) {
   const priority = mapPrioridad(n.prioridad);
   const estadoVariant = ESTADO_VARIANT[n.estado] ?? 'ghost';
-  const fechaLabel = n.fechaVencimiento
-    ? new Date(n.fechaVencimiento).toLocaleDateString('es-AR')
-    : null;
+  const fechaLabel = n.fechaVencimiento ? formatFechaISO(n.fechaVencimiento) : null;
 
   return (
     <Card className="flex flex-col gap-3.5 p-4 sm:p-5">
