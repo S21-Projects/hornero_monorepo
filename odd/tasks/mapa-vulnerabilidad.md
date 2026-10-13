@@ -100,7 +100,7 @@ assignment algorithm.
     from the MS is T4.
 Re-planned 2026-10-12 after the scope expansion (unclaimed ReNaCoM organizaciones):
 
-- [ ] A — Model + import + map endpoint (route: delegated writer; trigger: MS + BFF + admin
+- [x] A — Model + import + map endpoint (route: delegated writer; trigger: MS + BFF + admin
   types + SQL + DuckDB, 2+ non-trivial files)
   - MS: `Organizacion.origen` (`PLATAFORMA` default | `RENACOM`), `origenId` (unique),
     `asistentesDeclarados`, `codigoRadio`; `EstadoOrganizacion` += `SIN_RECLAMAR`, `INACTIVA`;
@@ -123,8 +123,33 @@ Re-planned 2026-10-12 after the scope expansion (unclaimed ReNaCoM organizacione
     authenticated slug serves SIN_RECLAMAR, import restricted to numeric identificador +
     escaped + deduped + 0,0 → null, /mapa DTO projection + Cache-Control max-age=300 (MS+BFF).
     Evidence: mvn test 712/0 fail; BFF 342/342 (parent re-ran: 43/43 suites); import x2 → 2,730
-    then +0. Awaiting commit permission.
-- [ ] B — Claim flow: MS reclamo aggregate + endpoints, BFF, admin queue, Astro ficha + modal
+    then +0. Commit: `f89019b`.
+- [x] B — Claim flow (route: delegated writer; trigger: MS + BFF + admin + Astro). Defaults
+  chosen by parent (adjustable): only an authenticated REFERENTE claims; Astro is anonymous, so
+  its "Reclamar" CTA links to an admin-SPA route that hosts the form (login redirect);
+  several pending claims per org allowed, approving one auto-rejects the rest; referente cap
+  (3) checked on submit and on approval; evidence reuses the acreditación evidence upload;
+  approval assigns the referente via a dedicated path (not the guarded asignarReferente),
+  moves estado SIN_RECLAMAR → PENDIENTE (normal admin validation follows), logs org event +
+  actividad; no emails (out of scope).
+  - 2026-10-13 writer done (uncommitted): mvn 755/0 fail; BFF 370/370 + build (BFF lint fails
+    on baseline, 292 pre-existing errors, new files clean); admin lint/build ok, vitest 513;
+    astro build + stub smoke; V008 x2 on ephemeral pg. Writer decisions: evidence mandatory
+    1-3 images under private `reclamo-evidencia/{org}/{user}/` prefix, streamed via MS check;
+    return-to-path after login added for all protected routes; pending count in page header.
+    Security review: 0 severe, 4 medium (upload not checking org/quota, cap recheck not atomic
+    across orgs, no DB uniqueness for pending claim, Date.now() keys). One correction round
+    sent.
+  - Correction round done: MS `GET /api/reclamos/disponibilidad` pre-flight called by the BFF
+    before evidence upload + 10/min per-IP throttle; PESSIMISTIC_WRITE lock on referente before
+    cap count; V008 partial unique index `ux_reclamo_pendiente` (+ DataIntegrityViolation →
+    409); randomUUID upload keys (shared upload path). Evidence: mvn test ok; BFF 377/377
+    (parent re-ran); V008 on ephemeral pg ok. Deploy note: run `make migrate` again after the
+    new MS first boots (table must exist for the index). Awaiting commit permission (3 commits).
+  - [ ] B1 — MS + BFF: `ReclamoOrganizacion` aggregate, endpoints, guards, V008 if enum CHECKs
+    need widening, tests
+  - [ ] B2 — Admin SPA: referente claim form route + admin "Reclamos" queue
+  - [ ] B3 — Astro: unclaimed ficha (badge, ReNaCoM source, CTA, no donate CTA/"Pendiente")
 - [ ] C — Report flow: MS reporte aggregate + endpoints, BFF, admin queue, Astro modal
 - [ ] D — Map: depto aggregation + GeoJSON from DB data (former T2-T3), `make mapa-datos`
   publish (D2), Astro Leaflet island (former T5), docs (former T6)

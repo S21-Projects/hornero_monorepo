@@ -110,6 +110,10 @@ public class SecurityConfig {
                         // AsignacionController/AsignacionService.
                         .requestMatchers(org.springframework.http.HttpMethod.GET,
                                 "/api/donaciones/*/asignaciones").authenticated()
+                        // Claim flow: never world-readable (claimant phone/email, evidence). Role granularity
+                        // (REFERENTE submits, ADMINISTRADOR resolves) is @PreAuthorize on ReclamoController.
+                        // Declared before the permitAll GET blocks below like every other private matcher.
+                        .requestMatchers("/api/reclamos", "/api/reclamos/**").authenticated()
                         // Public read-only endpoints — no account required
                         .requestMatchers(org.springframework.http.HttpMethod.GET,
                                 "/api/organizaciones",

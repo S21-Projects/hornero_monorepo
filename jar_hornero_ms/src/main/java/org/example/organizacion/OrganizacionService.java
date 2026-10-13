@@ -40,7 +40,7 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class OrganizacionService {
 
-    private static final int CAP_ORGANIZACIONES = 3;
+    public static final int CAP_ORGANIZACIONES = 3;
     private static final List<EstadoOrganizacion> ESTADOS_EN_MAPA =
             List.of(EstadoOrganizacion.APROBADA, EstadoOrganizacion.SIN_RECLAMAR);
 
@@ -238,6 +238,46 @@ public class OrganizacionService {
         organizacion.setReferente(referente);
         registrarReasignacion(organizacion, referenteAnteriorId, referente.getId());
         return toResponseAutenticado(organizacionRepository.save(organizacion));
+    }
+
+    /** Organizaciones a referente is responsible for, counting every estado but RECHAZADA (the cap's rule). */
+    @Transactional(readOnly = true)
+    public long contarACargo(Long referenteId) {
+        return organizacionRepository.countByReferente_IdAndEstadoNot(referenteId, EstadoOrganizacion.RECHAZADA);
+    }
+
+    /**
+     * Dedicated path for an approved claim; the guarded {@link #asignarReferente} refuses unclaimed
+     * organizaciones on purpose. Re-checks, inside the caller's transaction, that the organizacion is
+     * still {@code SIN_RECLAMAR} and that the cap still has room, then hands it over as a normal
+     * {@code PENDIENTE} N0 organizacion (admin validation follows). The row's {@code @Version} turns a
+     * concurrent assignment into a CONFLICTO_CONCURRENTE instead of a silent overwrite.
+     */
+    @Transactional
+    public Organizacion asignarPorReclamo(Organizacion organizacion, Referente referente, Administrador admin) {
+        if (!EstadoOrganizacion.SIN_RECLAMAR.equals(organizacion.getEstado())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "La organización ya no está disponible para ser reclamada");
+        }
+        // Serialize concurrent assignments to the same referente: the cap count below is only
+        // trustworthy while this row is locked (the org @Version only protects one organizacion).
+        usuarioRepository.findByIdForUpdate(referente.getId())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Usuario no encontrado"));
+        if (!referente.isActivo()) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "El referente está inactivo");
+        }
+        if (contarACargo(referente.getId()) >= CAP_ORGANIZACIONES) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "El referente ya alcanzó el máximo de " + CAP_ORGANIZACIONES + " organizaciones");
+        }
+        organizacion.setReferente(referente);
+        organizacion.setEstado(EstadoOrganizacion.PENDIENTE);
+        // Flushed at once: the organizacion row is locked (and its @Version checked) before any other
+        // row of the claim transaction is written, so two approvals queue on it instead of deadlocking.
+        Organizacion saved = organizacionRepository.saveAndFlush(organizacion);
+        acreditacionService.registrarReasignacionReferente(saved, null, referente.getId(), admin);
+        actividadService.registrar(Registro.de(TipoActividad.ORGANIZACION_REFERENTE_REASIGNADO)
+                .entidad("ORGANIZACION", saved.getId()).cambio(null, referente.getId()).actor(admin));
+        return saved;
     }
 
     @Transactional(readOnly = true)

@@ -1,6 +1,8 @@
 package org.example.user;
 
+import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -36,4 +38,13 @@ public interface UsuarioRepository extends JpaRepository<Usuario, Long> {
 
         String getEmail();
     }
+
+    /**
+     * Row lock (SELECT ... FOR UPDATE) on the user. Taken before counting a referente's
+     * organizaciones so two transactions assigning different organizaciones to the same referente
+     * serialize on this row instead of both passing the cap check.
+     */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select u from Usuario u where u.id = :id")
+    Optional<Usuario> findByIdForUpdate(@Param("id") Long id);
 }
