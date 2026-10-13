@@ -36,7 +36,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 /**
  * Claim flow for unclaimed (ReNaCoM-imported) organizaciones. A referente submits; an administrador
@@ -53,7 +52,6 @@ public class ReclamoService {
     static final String DEMASIADOS_RECLAMOS = "DEMASIADOS_RECLAMOS";
     static final String INDICE_PENDIENTE = "ux_reclamo_pendiente";
     static final String MOTIVO_OTRO_RECLAMO_APROBADO = "Se aprobó otro reclamo para este comedor";
-    private static final Pattern OBJECT_KEY_PATTERN = Pattern.compile("^reclamo-evidencia/(\\d+)/(\\d+)/[^/]+$");
 
     private final ReclamoOrganizacionRepository reclamoRepository;
     private final OrganizacionRepository organizacionRepository;
@@ -241,7 +239,7 @@ public class ReclamoService {
     @Transactional(readOnly = true)
     public void verificarArchivo(Long organizacionId, Long solicitanteId, String objectKey, Long userId,
                                  boolean esAdmin) {
-        Matcher matcher = objectKey == null ? null : OBJECT_KEY_PATTERN.matcher(objectKey);
+        Matcher matcher = objectKey == null ? null : ClaveEvidenciaReclamo.PATRON.matcher(objectKey);
         boolean claveValida = matcher != null && matcher.matches()
                 && matcher.group(1).equals(String.valueOf(organizacionId))
                 && matcher.group(2).equals(String.valueOf(solicitanteId));
@@ -300,7 +298,7 @@ public class ReclamoService {
     private static void validarEvidencias(List<String> keys, Long organizacionId, Long referenteId) {
         Set<String> vistas = new HashSet<>();
         for (String key : keys) {
-            Matcher m = OBJECT_KEY_PATTERN.matcher(key);
+            Matcher m = ClaveEvidenciaReclamo.PATRON.matcher(key);
             if (!m.matches() || !m.group(1).equals(String.valueOf(organizacionId))
                     || !m.group(2).equals(String.valueOf(referenteId)) || !vistas.add(key)) {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "EVIDENCIA_CLAVE_INVALIDA");

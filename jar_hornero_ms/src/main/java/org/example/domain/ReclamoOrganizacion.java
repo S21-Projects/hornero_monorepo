@@ -96,7 +96,9 @@ public class ReclamoOrganizacion {
     /**
      * N15/D12: erasure of the claimant's personal data. The row, its FKs, state and resolution stay
      * (audit trail); phone, free-text message and evidence references go. The stored objects are
-     * not reachable from here (see {@code docs/politica-datos-y-respaldo.md}).
+     * not reachable from here: the caller captures the keys first and, once the transaction
+     * commits, {@code EvidenciaBorradoListener} deletes them (see
+     * {@code docs/politica-datos-y-respaldo.md}).
      */
     public void anonimizar() {
         this.telefono = TELEFONO_ANONIMIZADO;

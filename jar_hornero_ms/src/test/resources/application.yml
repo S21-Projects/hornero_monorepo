@@ -44,6 +44,9 @@ app:
     generar-max: 5
     generar-window-minutes: 15
     generar-cooldown-seconds: 30
+  evidencia:
+    # Same-thread executor; the s3.* values stay absent, which selects the no-op store.
+    async: false
   worker:
     url: ""
   seed:

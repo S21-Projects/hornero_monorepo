@@ -85,5 +85,8 @@ public enum TipoActividad {
     TOKENS_PURGADOS,
     ACTIVIDAD_PURGADA,
     EMAIL_INTENTO_PURGADO,
-    COORDENADAS_MINIMIZADAS
+    COORDENADAS_MINIMIZADAS,
+    // Claim evidence objects deleted from the bucket: counts only, never keys or paths
+    EVIDENCIA_RECLAMO_BORRADA,
+    EVIDENCIA_HUERFANA_BORRADA
 }
