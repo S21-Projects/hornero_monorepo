@@ -47,13 +47,24 @@ browser never touches it directly. See `.env.example` for the `AWS_*` vars.
 
 ## Seeded Credentials
 
+Demo accounts exist **only with `SEED_DEMO_DATA=true`** — which `make up-local` sets for you, so
+the local stack and e2e keep them. Production (`make up` / the Pi) creates no demo data.
+
 | Role | Email | Password |
 |------|-------|----------|
 | Admin | admin@hornero.ar | Admin123! |
 | Referente | referente@hornero.ar | Ref123! |
 | Donante | donante@hornero.ar | Don123! |
 
-Create them with `make seed` against a running stack.
+Production needs a real super admin: set `SUPER_ADMIN_EMAIL` and `SUPER_ADMIN_PASSWORD`
+(no defaults — the MS refuses to start without both). The password must follow the NIST
+SP 800-63B policy (15–64 characters, not common, no email/name/"hornero"). An existing admin with
+that email is never modified. See `docs/deploy-rpi-cloudflare.md` (A.4-ter) for retiring the
+legacy `@hornero.ar` demo accounts.
+
+To test real flows with real emails, use Gmail plus-addressing
+(`usuario+donante@gmail.com`, `usuario+referente@gmail.com`) — all land in one inbox. Local and
+e2e keep `MAIL_LOG_ONLY=true` (no mail is sent).
 
 ---
 
@@ -113,6 +124,8 @@ reference with comments: `.env.example`.
 | `JWT_SECRET` | MS + BFF | HS256 signing secret — must match in both services (min 32 chars) |
 | `RESEND_API_KEY`, `OTP_FROM_EMAIL` | MS | OTP email delivery (Resend). Missing either → MS fails at startup unless `MAIL_LOG_ONLY=true` |
 | `MAIL_LOG_ONLY` | MS | `true` logs OTP codes instead of sending (local dev only; default `false`) |
+| `SEED_DEMO_DATA` | MS | `true` seeds demo users/orgs/necesidades/donaciones (set by `make up-local`; default `false`) |
+| `SUPER_ADMIN_EMAIL`, `SUPER_ADMIN_PASSWORD` | MS | Required (no defaults) unless `SEED_DEMO_DATA=true`. Password: NIST policy, ≥15 chars |
 | `SERVER_PORT` | MS | HTTP port (default 8081) |
 | `FRONTEND_URL` | BFF | Primary allowed CORS origin |
 | `CORS_ORIGINS` | BFF | Full CORS allowlist — every browser origin calling the BFF with credentials |

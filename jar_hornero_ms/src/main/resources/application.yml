@@ -29,8 +29,19 @@ app:
     expiration-refresh: 604800000
   mail:
     resend-api-key: ${RESEND_API_KEY:}
-    otp-from-email: ${OTP_FROM_EMAIL:}
+    # MAIL_FROM_EMAIL wins; OTP_FROM_EMAIL is the pre-N14 name, kept so existing deploys keep working.
+    from-email: ${MAIL_FROM_EMAIL:${OTP_FROM_EMAIL:}}
     log-only: ${MAIL_LOG_ONLY:false}
+    async: true
+  # N14: base URL of the admin SPA (where /restablecer lives); the reset link is built from it,
+  # never from request headers.
+  panel-url: ${APP_PANEL_URL:http://localhost:5173}
+  # N13/D6: event emails (after commit, async) and the admin daily digest. The switch turns both off.
+  notificaciones:
+    enabled: ${NOTIFICACIONES_ENABLED:true}
+    digest-cron: ${NOTIFICACIONES_DIGEST_CRON:0 0 8 * * *}
+  password-reset:
+    ttl-minutos: ${PASSWORD_RESET_TTL_MINUTOS:30}
   otp:
     ttl-minutes: 15
     max-attempts: 5
@@ -75,3 +86,10 @@ app:
       cron: ${RONDAS_AUTO_CRON:0 0 6 * * *}
   worker:
     url: ${WORKER_URL:}
+  seed:
+    # Production creates no demo data. SEED_DEMO_DATA=true (local/e2e only) adds demo users, orgs,
+    # necesidades and donaciones. With it off, SUPER_ADMIN_EMAIL/SUPER_ADMIN_PASSWORD are required
+    # (no defaults; empty = missing) and the password must pass the N8 policy.
+    demo: ${SEED_DEMO_DATA:false}
+    super-admin-email: ${SUPER_ADMIN_EMAIL:}
+    super-admin-password: ${SUPER_ADMIN_PASSWORD:}

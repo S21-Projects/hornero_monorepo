@@ -17,6 +17,7 @@ import {
   ApiOperation,
   ApiOkResponse,
   ApiNoContentResponse,
+  ApiAcceptedResponse,
   ApiBearerAuth,
   ApiCookieAuth,
 } from '@nestjs/swagger';
@@ -25,6 +26,8 @@ import { LoginDto } from './dto/login.dto.js';
 import { RegisterDto } from './dto/register.dto.js';
 import { VerifyOtpDto } from './dto/verify-otp.dto.js';
 import { ResendOtpDto } from './dto/resend-otp.dto.js';
+import { PasswordOlvidoDto } from './dto/password-olvido.dto.js';
+import { PasswordRestablecerDto } from './dto/password-restablecer.dto.js';
 import { Public } from './decorators/public.decorator.js';
 import { ClientIpThrottlerGuard } from './guards/client-ip-throttler.guard.js';
 import { AUTH_LIMITS, authThrottle } from './auth-throttler.config.js';
@@ -94,6 +97,28 @@ export class AuthController {
   @ApiNoContentResponse({ description: 'A new OTP was requested, if the email exists' })
   async resendOtp(@Body() dto: ResendOtpDto) {
     await this.authService.resendOtp(dto);
+  }
+
+  @Public()
+  @Throttle(authThrottle(AUTH_LIMITS.passwordOlvido))
+  @Post('password/olvido')
+  @HttpCode(HttpStatus.ACCEPTED)
+  @ApiOperation({
+    summary: 'Request a password reset link (always 202, no enumeration oracle)',
+  })
+  @ApiAcceptedResponse({ description: 'Generic message; an email is sent only if the account exists' })
+  async olvidoPassword(@Body() dto: PasswordOlvidoDto) {
+    return this.authService.olvidoPassword(dto);
+  }
+
+  @Public()
+  @Throttle(authThrottle(AUTH_LIMITS.passwordRestablecer))
+  @Post('password/restablecer')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Set a new password with a single-use reset token' })
+  @ApiOkResponse({ description: 'Password updated; all sessions revoked. 400 TOKEN_INVALIDO otherwise' })
+  async restablecerPassword(@Body() dto: PasswordRestablecerDto) {
+    return this.authService.restablecerPassword(dto);
   }
 
   @Public()

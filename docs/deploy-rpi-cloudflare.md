@@ -61,6 +61,11 @@ Creá `/…/hornero_app/.env` (NO se commitea) con:
 # Debe ser IDÉNTICO entre MS y BFF. Mínimo 32 chars aleatorios.
 JWT_SECRET=<secreto-largo-aleatorio>
 
+# Super admin REAL (obligatorio en producción: sin esto el MS no arranca; ver A.4-ter).
+# SEED_DEMO_DATA queda sin definir (= false): no se crean usuarios/orgs de demo.
+SUPER_ADMIN_EMAIL=<tu-email-real>
+SUPER_ADMIN_PASSWORD=<passphrase de 15+ caracteres, sin tu email/nombre ni "hornero">
+
 # Fronts — se HORNEAN en build. Rebuild obligatorio si cambian.
 PUBLIC_BFF_URL=https://api.elhornero.org
 PUBLIC_SPA_URL=https://panel.elhornero.org
@@ -204,6 +209,26 @@ curl -s -o /dev/null -w '%{http_code}\n' localhost:3001/api/docs  # bff
 ```
 
 > Con MinIO self-host en vez de R2: `docker compose --profile minio up --build -d`.
+
+### A.4-ter — Usuarios reales (sin datos de demo)
+
+Producción ya no crea cuentas de demo: el MS arranca con `SEED_DEMO_DATA=false` (default) y, en
+ese modo, exige `SUPER_ADMIN_EMAIL` y `SUPER_ADMIN_PASSWORD` (sin defaults; vacío cuenta como
+faltante). El password debe cumplir la política NIST (15–64 caracteres, no común, sin tu email,
+nombre ni "hornero"); si no, el MS falla al arrancar con el código de la política
+(ej. `PASSWORD_DEMASIADO_CORTA`). Si ya existe un admin con ese email, no se toca (nunca se
+pisa un password).
+
+1. Definir `SUPER_ADMIN_EMAIL` / `SUPER_ADMIN_PASSWORD` en el `.env` (A.3) y desplegar (A.4).
+2. Entrar a `https://panel.elhornero.org` con el nuevo admin.
+3. En la pantalla de usuarios, **desactivar** (no borrar) las cuentas legadas `@hornero.ar`
+   (`admin@`, `referente@`, `referente2@`, `referente3@`, `donante@`, `donante2@`): desactivar
+   conserva el historial y la actividad.
+4. Para pruebas con mails reales, usar plus-addressing de Gmail
+   (`usuario+donante@gmail.com`, `usuario+referente@gmail.com`): llegan todos al mismo buzón.
+
+> Las organizaciones/necesidades/donaciones de demo que ya existan en la base no se borran solas;
+> revisarlas desde el panel.
 
 ### A.4-bis — Probar en local ANTES de subir (mismo stack, sin túnel)
 

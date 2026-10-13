@@ -18,6 +18,10 @@ public enum TipoActividad {
     REFRESH_TOKEN_REUTILIZADO,
     OTP_VERIFICACION,
     OTP_BLOQUEO,
+    // N14: password reset (OWASP Forgot Password Cheat Sheet)
+    PASSWORD_RESET_SOLICITADO,
+    PASSWORD_RESET_COMPLETADO,
+    PASSWORD_RESET_FALLIDO,
     ENTREGA_CODIGO_GENERADO,
     ENTREGA_CODIGO_VERIFICACION,
     ENTREGA_CODIGO_BLOQUEO,
@@ -61,6 +65,9 @@ public enum TipoActividad {
     ARTICULO_ACTUALIZADO,
     ARTICULO_DESACTIVADO,
     ARTICULO_REACTIVADO,
+
+    // N13: a notification email that could not be sent (successful sends are not recorded)
+    NOTIFICACION_FALLIDA,
 
     // System housekeeping that deletes data
     TOKENS_PURGADOS,

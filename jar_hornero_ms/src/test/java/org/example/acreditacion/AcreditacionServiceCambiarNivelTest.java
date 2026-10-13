@@ -16,6 +16,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
 import org.springframework.context.annotation.Import;
+import org.springframework.test.context.event.ApplicationEvents;
+import org.springframework.test.context.event.RecordApplicationEvents;
+import org.example.notificacion.NotificacionEvento;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDate;
@@ -31,6 +34,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  */
 @DataJpaTest
 @Import(AcreditacionService.class)
+@RecordApplicationEvents
 class AcreditacionServiceCambiarNivelTest {
 
     @Autowired
@@ -44,6 +48,9 @@ class AcreditacionServiceCambiarNivelTest {
 
     @Autowired
     private UsuarioRepository usuarioRepository;
+
+    @Autowired
+    private ApplicationEvents events;
 
     private Organizacion organizacion;
     private Administrador administrador;
@@ -125,6 +132,49 @@ class AcreditacionServiceCambiarNivelTest {
                 organizacion.getId(), NivelAcreditacion.N1, "intento", administrador.getId()))
                 .isInstanceOf(ResponseStatusException.class)
                 .hasMessageContaining("409");
+    }
+
+    // --- N13: notification events ---
+
+    @Test
+    void raising_publishesNivelAcreditacionCambiadoWithTheMotivo() {
+        aprobarTodos(N1_REQUISITOS, null);
+
+        acreditacionService.cambiarNivel(organizacion.getId(), NivelAcreditacion.N1, "cumple todo", administrador.getId());
+
+        assertThat(events.stream(NotificacionEvento.class)).containsExactly(
+                new NotificacionEvento.NivelAcreditacionCambiado(organizacion.getId(), NivelAcreditacion.N0,
+                        NivelAcreditacion.N1, "cumple todo"));
+    }
+
+    @Test
+    void lowering_publishesNivelAcreditacionCambiado() {
+        aprobarTodos(N1_REQUISITOS, null);
+        acreditacionService.cambiarNivel(organizacion.getId(), NivelAcreditacion.N1, "sube", administrador.getId());
+        events.clear();
+
+        acreditacionService.cambiarNivel(organizacion.getId(), NivelAcreditacion.N0, "documentación vencida", administrador.getId());
+
+        assertThat(events.stream(NotificacionEvento.class)).containsExactly(
+                new NotificacionEvento.NivelAcreditacionCambiado(organizacion.getId(), NivelAcreditacion.N1,
+                        NivelAcreditacion.N0, "documentación vencida"));
+    }
+
+    @Test
+    void rejectedChange_publishesNothing() {
+        assertThatThrownBy(() -> acreditacionService.cambiarNivel(
+                organizacion.getId(), NivelAcreditacion.N1, "intento", administrador.getId()))
+                .isInstanceOf(ResponseStatusException.class);
+
+        assertThat(events.stream(NotificacionEvento.class)).isEmpty();
+    }
+
+    @Test
+    void legacyValidation_doesNotPublishALevelEvent_theOrganizationEventCoversIt() {
+        acreditacionService.aplicarTransicionLegacy(organizacion, NivelAcreditacion.N1, administrador,
+                "Validación administrativa", TipoEventoOrganizacion.NIVEL_ELEVADO);
+
+        assertThat(events.stream(NotificacionEvento.class)).isEmpty();
     }
 
     @Test

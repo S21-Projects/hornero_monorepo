@@ -27,8 +27,9 @@ app:
     expiration-refresh: 604800000
   mail:
     resend-api-key: ""
-    otp-from-email: ""
+    from-email: ""
     log-only: true
+    async: false
   otp:
     ttl-minutes: 15
     max-attempts: 5
@@ -45,3 +46,8 @@ app:
     generar-cooldown-seconds: 30
   worker:
     url: ""
+  seed:
+    # Integration tests rely on the seeded demo accounts (admin@hornero.ar / Admin123! ...).
+    demo: true
+    super-admin-email: ""
+    super-admin-password: ""

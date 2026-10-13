@@ -6,6 +6,8 @@ import { LoginDto } from './dto/login.dto.js';
 import { RegisterDto } from './dto/register.dto.js';
 import { VerifyOtpDto } from './dto/verify-otp.dto.js';
 import { ResendOtpDto } from './dto/resend-otp.dto.js';
+import { PasswordOlvidoDto } from './dto/password-olvido.dto.js';
+import { PasswordRestablecerDto } from './dto/password-restablecer.dto.js';
 
 @Injectable()
 export class AuthService {
@@ -59,6 +61,26 @@ export class AuthService {
   async resendOtp(dto: ResendOtpDto) {
     const javaUrl = this.configService.get<string>('JAVA_MS_URL');
     await this.httpService.axiosRef.post(`${javaUrl}/api/auth/resend-otp`, dto);
+  }
+
+  /** N14: the MS answers the same generic body whether or not the email exists; relay it as is. */
+  async olvidoPassword(dto: PasswordOlvidoDto) {
+    const javaUrl = this.configService.get<string>('JAVA_MS_URL');
+    const { data } = await this.httpService.axiosRef.post(
+      `${javaUrl}/api/auth/password/olvido`,
+      dto,
+    );
+    return data;
+  }
+
+  /** N14: no cookies are set; the MS revokes every session, so the user logs in again. */
+  async restablecerPassword(dto: PasswordRestablecerDto) {
+    const javaUrl = this.configService.get<string>('JAVA_MS_URL');
+    const { data } = await this.httpService.axiosRef.post(
+      `${javaUrl}/api/auth/password/restablecer`,
+      dto,
+    );
+    return data;
   }
 
   /**
