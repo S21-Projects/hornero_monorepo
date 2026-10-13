@@ -64,6 +64,15 @@ app:
     cap-n1: 3
     cap-n2: 6
     cap-n3: 12
+  # Anti-spam limits derived from persisted rows (any state counts toward the window).
+  # Concurrent submissions may overshoot a cap by a few rows (check-then-insert, no lock).
+  reclamo:
+    pendientes-max: 5
+    diario-max: 5
+    window-hours: 24
+  reporte:
+    diario-max: 20
+    window-hours: 24
   entrega:
     ttl-minutes: 10
     max-attempts: 5

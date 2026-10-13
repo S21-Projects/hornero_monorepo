@@ -45,7 +45,8 @@ class ReclamoServiceGuardsTest {
     private final VerificacionService verificacionService = mock(VerificacionService.class);
     private final ReclamoService service = new ReclamoService(reclamoRepository, organizacionRepository,
             usuarioRepository, organizacionService, mock(AcreditacionService.class), mock(ActividadService.class),
-            verificacionService, mock(ReporteCierre.class));
+            verificacionService, mock(ReporteCierre.class),
+            java.time.Clock.systemUTC(), LimitesReclamo.POR_DEFECTO);
 
     private Referente referente() {
         return new Referente(7L, "Ana", "ana@test.com", "x", true);

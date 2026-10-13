@@ -34,8 +34,8 @@ class ReporteServiceGuardsTest {
     private final UsuarioRepository usuarioRepository = mock(UsuarioRepository.class);
     private final ReporteService service = new ReporteService(reporteRepository, organizacionRepository,
             usuarioRepository, mock(AcreditacionService.class), mock(ActividadService.class),
-            mock(VerificacionService.class), mock(ReporteThrottle.class), mock(ReporteCierre.class),
-            mock(ReclamoService.class));
+            mock(VerificacionService.class), mock(ReporteCierre.class),
+            mock(ReclamoService.class), java.time.Clock.systemUTC(), LimitesReporte.POR_DEFECTO);
 
     @Test
     void crear_whenTheUniqueIndexRejectsAConcurrentDuplicate_is409() {

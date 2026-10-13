@@ -371,7 +371,20 @@ admin 596/596, Go ok, `make e2e` 95/95. Review verdict: merge with follow-ups:
 
 - [ ] **P1** Claim outcome notifications (approved/rejected) via N13 domain events.
 - [ ] **P2** R2 evidence files of claims survive anonymization (pending user decision).
-- [ ] **P3** Claims spam limits: cap of pending claims per user; persistent (not in-memory) throttle.
+- [x] **P3** Claims spam limits: cap of pending claims per user; persistent (not in-memory) throttle.
+  - Done (SDD `reclamos-limites`, branch `feat/reclamos-limites`): every limit is a count over rows
+    that already exist, so nothing is lost on restart and there is no schema change. Claims: 5
+    pending max (409 `LIMITE_RECLAMOS_PENDIENTES`, also in the evidence preflight) and 5 created per
+    rolling 24 h, any state (429 `DEMASIADOS_RECLAMOS`, creation only). Reports: the in-memory
+    `ReporteThrottle` is gone; 20 per 24 h now counts persisted rows (429 `DEMASIADOS_REPORTES`,
+    code unchanged). Keys `app.reclamo.*` / `app.reporte.*` in `application.yml` (restart to change).
+    Admin mapper shows dedicated messages for both new claim codes.
+  - Accepted: check-then-insert without a lock, so concurrent submissions may overshoot a cap by a
+    few rows (documented in the code); a 429 on creation leaves the already-uploaded evidence
+    objects orphaned in the bucket.
+  - Evidence: MS `mvn test` 1039/1039, admin `npm test` 597/597 + `npm run build` + lint clean (3
+    pre-existing warnings in gitignored `coverage/`). 5 new tests (3 claims, 1 reports, 1 mapper).
+    `make e2e` not run (P4).
 - [ ] **P4** e2e coverage for claims, reports, cascades, anonymization of claims/reports, public map.
 - [ ] **P5** CC-BY attribution (INDEC; Rodriguez & de Grande / CONICET) on `/mapa`; record the
   ReNaCoM data license.
