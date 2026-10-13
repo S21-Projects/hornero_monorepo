@@ -18,4 +18,13 @@ public interface ActividadRetencionRepository extends Repository<Actividad, Long
     @Modifying
     @Query("delete from Actividad a where a.ocurridoEn < :limite")
     int purgarAnterioresA(@Param("limite") Instant limite);
+
+    /**
+     * Native on purpose: the entity is {@code @Immutable} with {@code updatable = false} columns.
+     * Sets only {@code email_intento} to NULL, which is all the V006 trigger accepts.
+     */
+    @Modifying
+    @Query(value = "update actividad set email_intento = null where email_intento is not null and ocurrido_en < :limite",
+            nativeQuery = true)
+    int anularEmailIntentoAnterioresA(@Param("limite") Instant limite);
 }

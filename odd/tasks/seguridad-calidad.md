@@ -312,8 +312,16 @@ The guide requires measures "related to the identified risks", so a risk matrix 
     refused to boot. **USER ACTION (Pi):** set SUPER_ADMIN_*, deploy, deactivate legacy
     `@hornero.ar` accounts; test with Gmail plus-addressing.
 
-- [ ] **N15** (from D12) Admin anonymization of a user; coordinate coarsening job; 90-day purge of
+- [x] **N15** (from D12) Admin anonymization of a user; coordinate coarsening job; 90-day purge of
   `emailIntento`; D11 values in the runbook.
+  - Done: `POST /usuarios/{id}/anonimizar` (admin, idempotent; `.invalid` placeholder email,
+    unusable password, sessions/OTP/reset/idempotency rows removed; guards: self, last admin,
+    referente with orgs); `CoordenadasMinimizacionJob` (2 decimals HALF_UP, terminal > 30 d);
+    `EmailIntentoPurgaJob` + V006 trigger allowing only `email_intento → NULL` under the purge
+    setting (verified in psql); runbook D11 values. Evidence: `mvn test` 913/913, BFF 363/363,
+    admin 512/512 + build + lint, `make e2e` 95/95.
+  - Residual: two admins anonymizing each other at the same instant could leave zero active
+    admins (no lock).
 
 ## Business definitions pending (list 2)
 

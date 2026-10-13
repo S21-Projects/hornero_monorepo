@@ -35,4 +35,14 @@ export class UsuariosService {
     );
     return data;
   }
+
+  /** N15: the Idempotency-Key header is carried to the MS by the shared axios interceptor. */
+  async anonimizar(id: number, accessToken: string) {
+    const { data } = await this.httpService.axiosRef.post(
+      `${this.msUrl}/api/usuarios/${id}/anonimizar`,
+      {},
+      { headers: this.authHeaders(accessToken) },
+    );
+    return data;
+  }
 }

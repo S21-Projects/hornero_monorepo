@@ -182,4 +182,36 @@ class EsquemaVerificadorTest {
     void defaultState_estadoDesdeAssumedComplete() {
         assertThat(esquemaVerificador.estadoDesdeCompleto()).isTrue();
     }
+
+    @Test
+    void postgres_triggerFunctionWithoutEmailPurgeBranch_flagsV006Pending() throws Exception {
+        mockDatabaseProduct("PostgreSQL");
+        when(jdbcTemplate.queryForObject(org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.eq(String.class)))
+                .thenReturn("YES");
+        // trigger present, no NULL estado_desde, trigger function lacks the email_intento branch
+        when(jdbcTemplate.queryForObject(org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.eq(Boolean.class)))
+                .thenReturn(true, false, false);
+
+        esquemaVerificador.run(new DefaultApplicationArguments());
+
+        assertThat(esquemaVerificador.purgaEmailIntentoHabilitada()).isFalse();
+    }
+
+    @Test
+    void postgres_triggerFunctionWithEmailPurgeBranch_v006NotPending() throws Exception {
+        mockDatabaseProduct("PostgreSQL");
+        when(jdbcTemplate.queryForObject(org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.eq(String.class)))
+                .thenReturn("YES");
+        when(jdbcTemplate.queryForObject(org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.eq(Boolean.class)))
+                .thenReturn(true, false, true);
+
+        esquemaVerificador.run(new DefaultApplicationArguments());
+
+        assertThat(esquemaVerificador.purgaEmailIntentoHabilitada()).isTrue();
+    }
+
+    @Test
+    void defaultState_emailPurgeAssumedEnabled() {
+        assertThat(esquemaVerificador.purgaEmailIntentoHabilitada()).isTrue();
+    }
 }

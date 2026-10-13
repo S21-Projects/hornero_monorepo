@@ -396,8 +396,8 @@ rclone sync railway:<bucket-viejo> minio:hornero-images --progress
 
 La DB vive en el volumen `hornero_pgdata`, sobre la microSD de la Pi: **sin backup, si la SD
 muere se pierde todo**. El mecanismo está en `scripts/backup/` y los valores de negocio
-(RPO/RTO, retención, destino, responsables) están pendientes de la decisión **D11**; hoy corre
-con los defaults documentados abajo.
+(RPO/RTO, retención, destino) quedaron fijados en la decisión **D11**
+(`docs/politica-datos-y-respaldo.md`, sección 2); los responsables los designa el equipo (C.6).
 
 | Archivo                                 | Qué hace                                                              |
 | --------------------------------------- | --------------------------------------------------------------------- |
@@ -440,7 +440,7 @@ systemctl list-timers hornero-backup.timer
 ls -l backups/
 ```
 
-### C.3 — Copia offsite cifrada (opcional hasta que D11 defina el destino)
+### C.3 — Copia offsite cifrada (destino definido en D11: bucket privado de R2)
 
 1. Crear un bucket **distinto** del de imágenes (ej. `hornero-backups`), **privado**.
    `backup.sh` se niega a correr si `BACKUP_S3_BUCKET` es igual a `AWS_S3_BUCKET_NAME`:
@@ -455,7 +455,7 @@ ls -l backups/
    `amazon/aws-cli` (no requiere instalar nada en el host) a `s3://<bucket>/hornero/`.
 5. **Retención remota:** no la hace el script. Configurarla en el bucket: R2 → bucket →
    Settings → Object lifecycle rules → eliminar objetos con prefijo `hornero/` después de N días
-   (sugerido 30, a definir en D11).
+   (**30 días**, definido en D11).
 
 ### C.4 — Simulacro de restauración (restore drill)
 
@@ -472,7 +472,8 @@ Levanta un Postgres descartable (misma imagen que el compose, sin puertos public
 al terminar), restaura ahí, cuenta filas de `usuarios`, `organizaciones`, `necesidades`,
 `donaciones` y `refresh_tokens` y termina con `RESULT: OK` o un código de salida distinto de
 cero. **Nunca toca la DB real.** Registrar fecha y resultado de cada simulacro en
-`docs/seguridad-matriz-riesgos.md` o donde defina D11.
+`docs/seguridad-matriz-riesgos.md`. Frecuencia definida en D11: **una vez por cuatrimestre**, y además
+ante cada cambio de esquema o de passphrase.
 
 ### C.5 — Restauración real
 
@@ -512,14 +513,16 @@ que volver a iniciar sesión.
 
 ### C.6 — Roles y accesos
 
-| Rol / decisión                                | Responsable | Estado       |
-| --------------------------------------------- | ----------- | ------------ |
-| Quién guarda la passphrase (y su copia fuera de la Pi) | TBD (D11) | TBD (D11) |
-| Quién tiene acceso al bucket de backups (token R2)     | TBD (D11) | TBD (D11) |
-| Quién puede ejecutar una restauración real             | TBD (D11) | TBD (D11) |
-| Quién corre el simulacro y con qué frecuencia          | TBD (D11) | TBD (D11) |
-| RPO / RTO objetivo                                     | TBD (D11) | TBD (D11) |
-| Retención local / remota                               | 14 d / 30 d (defaults provisorios) | TBD (D11) |
+| Rol / decisión                                | Responsable / valor | Estado |
+| --------------------------------------------- | ------------------- | ------ |
+| Quién guarda la passphrase (y su copia fuera de la Pi) | A designar por el equipo | Pendiente de designar |
+| Quién tiene acceso al bucket de backups (token R2)     | A designar por el equipo | Pendiente de designar |
+| Quién puede ejecutar una restauración real             | A designar por el equipo | Pendiente de designar |
+| Quién corre el simulacro                               | A designar por el equipo | Pendiente de designar |
+| Frecuencia del simulacro                               | Una vez por cuatrimestre | Definido (D11) |
+| RPO (pérdida máxima de datos)                          | 24 horas | Definido (D11) |
+| RTO (tiempo máximo para volver a operar)               | 4 horas | Definido (D11) |
+| Retención local / remota                               | 14 días / 30 días | Definido (D11) |
 
 ### C.7 — Riesgo residual
 
@@ -528,7 +531,7 @@ que volver a iniciar sesión.
   Opciones, no implementadas: activar el versionado/replicación del bucket, o un
   `aws s3 sync` periódico hacia el bucket de backups.
 - El timer y el dump corren en la misma Pi: si la Pi se pierde antes de la copia offsite
-  (o sin offsite configurado), se pierde hasta 24 h de datos. El RPO real depende de D11.
+  (o sin offsite configurado), se pierde hasta 24 h de datos. El RPO objetivo (D11) es de 24 h y solo se cumple con la copia offsite configurada.
 - La passphrase está en el `.env` de la Pi para poder automatizar: protege el bucket frente a
   una filtración del lado de Cloudflare, no frente a un atacante con acceso a la Pi.
 

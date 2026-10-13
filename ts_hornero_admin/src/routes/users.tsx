@@ -8,6 +8,7 @@ import { PaginatedTable } from '../components/ui/PaginatedTable';
 import type { Column } from '../components/ui/PaginatedTable';
 import { useUsuarios } from '../lib/hooks/useUsuarios';
 import { useToggleActivo } from '../lib/hooks/useToggleActivo';
+import { useAnonimizarUsuario } from '../lib/hooks/useAnonimizarUsuario';
 import { mapUsuarioError } from '../lib/hooks/mapUsuarioError';
 import { usePageClamp } from '../lib/hooks/usePageClamp';
 import { ACTIVO } from '../lib/domain-ui';
@@ -22,14 +23,19 @@ const ROLE_LABEL: Record<string, string> = {
 
 const PAGE_SIZE = 20;
 
+/** Placeholder domain the MS gives to an anonymized account (RFC 2606 reserved TLD). */
+const esAnonimo = (u: Usuario) => u.email.endsWith('@anonimo.invalid');
+
 export default function UsersPage() {
   const [page, setPage] = useState(0);
   const [search, setSearch] = useState('');
   const [pendiente, setPendiente] = useState<{ id: number; activo: boolean } | null>(null);
   const [motivo, setMotivo] = useState('');
+  const [anonimizando, setAnonimizando] = useState<number | null>(null);
   const { data, isLoading, isError, isFetching } = useUsuarios({ page, size: PAGE_SIZE });
   usePageClamp(page, setPage, data?.totalPages);
   const toggleActivo = useToggleActivo();
+  const anonimizar = useAnonimizarUsuario();
   const myId = useAuthStore((s) => s.user?.userId);
 
   const usuarios = data?.content ?? [];
@@ -53,12 +59,18 @@ export default function UsersPage() {
       header: 'Estado',
       render: (u) => {
         const isErrorForThis = toggleActivo.isError && toggleActivo.variables?.id === u.id;
+        const isAnonErrorForThis = anonimizar.isError && anonimizar.variables === u.id;
         return (
           <>
             <Badge {...(ACTIVO[String(u.activo)] ?? { tone: 'neutral', label: String(u.activo) })} />
             {isErrorForThis && (
               <Text color="urgent" variant="micro" style={{ display: 'block', marginTop: 4 }}>
                 {mapUsuarioError(toggleActivo.error)}
+              </Text>
+            )}
+            {isAnonErrorForThis && (
+              <Text color="urgent" variant="micro" style={{ display: 'block', marginTop: 4 }}>
+                {mapUsuarioError(anonimizar.error)}
               </Text>
             )}
           </>
@@ -87,9 +99,40 @@ export default function UsersPage() {
             isFetching={isFetching}
             search={{ value: search, onChange: setSearch, placeholder: 'Buscar por nombre o email' }}
             emptyLabel="No hay usuarios que coincidan con la búsqueda"
-            expandedKeys={pendiente ? new Set([pendiente.id]) : new Set<number>()}
+            expandedKeys={new Set<number>([...(pendiente ? [pendiente.id] : []), ...(anonimizando !== null ? [anonimizando] : [])])}
             renderRowDetail={(u) =>
-              pendiente?.id === u.id ? (
+              anonimizando === u.id ? (
+                <div
+                  role="alertdialog"
+                  aria-labelledby={`anonimizar-titulo-${u.id}`}
+                  aria-describedby={`anonimizar-detalle-${u.id}`}
+                  style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap', padding: '8px 4px' }}
+                >
+                  <div style={{ flex: '1 1 320px' }}>
+                    <Text id={`anonimizar-titulo-${u.id}`} variant="body" style={{ fontWeight: 600 }}>
+                      ¿Anonimizar a {u.nombre}?
+                    </Text>
+                    <Text id={`anonimizar-detalle-${u.id}`} variant="body-sm" color="ink-3" style={{ display: 'block' }}>
+                      Esta acción no se puede deshacer. Se reemplazan el nombre y el email por datos genéricos,
+                      se desactiva la cuenta y se cierran sus sesiones. Las donaciones y el registro de
+                      actividades se conservan, sin datos que identifiquen a la persona.
+                    </Text>
+                  </div>
+                  <Button
+                    variant="danger"
+                    size="sm"
+                    onClick={() => {
+                      anonimizar.mutate(u.id);
+                      setAnonimizando(null);
+                    }}
+                  >
+                    Anonimizar definitivamente
+                  </Button>
+                  <Button variant="secondary" size="sm" onClick={() => { setAnonimizando(null); }}>
+                    Cancelar
+                  </Button>
+                </div>
+              ) : pendiente?.id === u.id ? (
                 <div style={{ display: 'flex', gap: 12, alignItems: 'flex-end', flexWrap: 'wrap', padding: '8px 4px' }}>
                   <Input
                     id={`usuario-motivo-${u.id}`}
@@ -121,16 +164,33 @@ export default function UsersPage() {
             rowActions={(u) => {
               const isSelf = u.id === myId;
               const isMutatingThis = toggleActivo.isPending && toggleActivo.variables?.id === u.id;
+              const anonimo = esAnonimo(u);
+              const isAnonimizandoThis = anonimizar.isPending && anonimizar.variables === u.id;
               return (
-                <Button
-                  variant={u.activo ? 'danger' : 'ok'}
-                  size="sm"
-                  disabled={isSelf || isMutatingThis}
-                  title={isSelf ? 'No podés desactivar tu propia cuenta' : undefined}
-                  onClick={() => { setMotivo(''); setPendiente({ id: u.id, activo: !u.activo }); }}
-                >
-                  {u.activo ? 'Desactivar' : 'Activar'}
-                </Button>
+                <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                  <Button
+                    variant={u.activo ? 'danger' : 'ok'}
+                    size="sm"
+                    disabled={isSelf || isMutatingThis || anonimo}
+                    title={isSelf ? 'No podés desactivar tu propia cuenta' : undefined}
+                    onClick={() => { setAnonimizando(null); setMotivo(''); setPendiente({ id: u.id, activo: !u.activo }); }}
+                  >
+                    {u.activo ? 'Desactivar' : 'Activar'}
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    disabled={isSelf || anonimo || isAnonimizandoThis}
+                    title={
+                      isSelf ? 'No podés anonimizar tu propia cuenta'
+                        : anonimo ? 'Esta cuenta ya fue anonimizada'
+                        : 'Derecho de supresión: reemplaza los datos personales de la cuenta'
+                    }
+                    onClick={() => { setPendiente(null); setAnonimizando(u.id); }}
+                  >
+                    Anonimizar
+                  </Button>
+                </div>
               );
             }}
           />
