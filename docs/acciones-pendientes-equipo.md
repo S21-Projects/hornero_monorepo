@@ -56,6 +56,15 @@ completarlo, con fecha. El seguimiento técnico completo está en `odd/tasks/seg
   # BACKUP_PASSPHRASE=
   # BACKUP_S3_PREFIX=hornero/
   ```
+- [ ] **Agregar a `.env.example` las variables del barrido de evidencia** (comentadas, con su valor
+  por defecto; el agente no edita ese archivo). Las `AWS_*` ya existen y el MS las reutiliza:
+
+  ```
+  # EVIDENCIA_BARRIDO_ENABLED=true
+  # EVIDENCIA_BARRIDO_GRACIA_DIAS=7
+  # EVIDENCIA_BARRIDO_MAX=500
+  # EVIDENCIA_BARRIDO_CRON=0 50 3 * * *
+  ```
 
 ## 2. Deploy en la Pi (en este orden)
 
@@ -108,9 +117,11 @@ completarlo, con fecha. El seguimiento técnico completo está en `odd/tasks/seg
 
 ## 5. Decisiones de negocio pendientes
 
-- [ ] **Evidencias de reclamos tras anonimizar:** la anonimización borra las referencias, pero las
-  imágenes (posibles fotos de documentos) quedan en R2. Decidir: regla de ciclo de vida en R2 o
-  borrado explícito. Bloquea la primera anonimización real de alguien con reclamos.
+- [x] **Evidencias de reclamos tras anonimizar:** resuelto: el microservicio borra los archivos al
+  anonimizar y con un barrido nocturno de huérfanos (`docs/politica-datos-y-respaldo.md`, 1.7).
+- [ ] **Retención de evidencia de reclamos ya resueltos:** hoy los archivos de un reclamo aprobado
+  o rechazado de un usuario que NO se anonimiza se conservan sin plazo. Decidir si se borran tras
+  un tiempo (cuánto) o se conservan como respaldo de la validación.
 - [ ] **Licencia de ReNaCoM:** abrir https://ri.conicet.gov.ar/handle/11336/278030, copiar la
   licencia y la cita recomendada en `docs/mapa-vulnerabilidad.md` ("Attribution and licenses").
   Si no es CC-BY, revisar el texto de fuentes de `/mapa`. Cierra la tarea P5.

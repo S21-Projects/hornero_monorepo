@@ -64,11 +64,11 @@ Strict TDD. All MS tests use the in-memory fake.
 
 ## Phase 4: Manual verification and docs (unit 4)
 
-- [ ] 4.1 Manual S3 adapter check against local MinIO: `make up-local`; as a referente create a claim with evidence; confirm objects with `mc ls`; add one stray object under `reclamo-evidencia/{org}/{userId}/`; anonymize the user as ADMINISTRADOR; confirm all objects gone, other prefixes intact, and a count-only actividad in the log (no keys). Then restart `ms` with `EVIDENCIA_BARRIDO_GRACIA_DIAS=0` and an unreferenced uploaded object; confirm the startup sweep deletes only it. Confirm pagination/`DeleteObjects` checksum behavior works (no checksum errors in `ms` logs). Record observations in the commit body or the feature notes.
-- [ ] 4.2 Run `make e2e` once against the running `make up-local` stack; record the result.
-- [ ] 4.3 Update `docs/politica-datos-y-respaldo.md` §1.6: move the evidence item out of "out of scope", describe post-anonymization deletion and the nightly sweep (7-day grace, cap 500), add a retention row.
-- [ ] 4.4 Update `docs/registro-actividades.md`: document `EVIDENCIA_RECLAMO_BORRADA` and `EVIDENCIA_HUERFANA_BORRADA` (system actor, counts only).
-- [ ] 4.5 Update `docs/deploy-rpi-cloudflare.md`: restore note (set `EVIDENCIA_BARRIDO_ENABLED=false` before starting `ms` on a restored DB until reconciled; R2 tokens are per bucket so a separate MS token only separates revocation).
-- [ ] 4.6 Update `docs/acciones-pendientes-equipo.md`: user action = add `EVIDENCIA_BARRIDO_*` vars to `.env.example` (agent does not edit it); team decision = retention of evidence for decided claims of non-anonymized users.
-- [ ] 4.7 Update `odd/tasks/seguridad-calidad.md` P2: check it off with commit references and the verification evidence from 4.1 and 4.2.
-- [ ] 4.8 Commit (unit 4): `docs(evidencia): document claim evidence deletion and close P2`.
+- [x] 4.1 Manual S3 adapter check against local MinIO: `make up-local`; as a referente create a claim with evidence; confirm objects with `mc ls`; add one stray object under `reclamo-evidencia/{org}/{userId}/`; anonymize the user as ADMINISTRADOR; confirm all objects gone, other prefixes intact, and a count-only actividad in the log (no keys). Then restart `ms` with `EVIDENCIA_BARRIDO_GRACIA_DIAS=0` and an unreferenced uploaded object; confirm the startup sweep deletes only it. Confirm pagination/`DeleteObjects` checksum behavior works (no checksum errors in `ms` logs). Record observations in the commit body or the feature notes.
+- [x] 4.2 Run `make e2e` once against the running `make up-local` stack; record the result.
+- [x] 4.3 Update `docs/politica-datos-y-respaldo.md` §1.6: move the evidence item out of "out of scope", describe post-anonymization deletion and the nightly sweep (7-day grace, cap 500), add a retention row.
+- [x] 4.4 Update `docs/registro-actividades.md`: document `EVIDENCIA_RECLAMO_BORRADA` and `EVIDENCIA_HUERFANA_BORRADA` (system actor, counts only).
+- [x] 4.5 Update `docs/deploy-rpi-cloudflare.md`: restore note (set `EVIDENCIA_BARRIDO_ENABLED=false` before starting `ms` on a restored DB until reconciled; R2 tokens are per bucket so a separate MS token only separates revocation).
+- [x] 4.6 Update `docs/acciones-pendientes-equipo.md`: user action = add `EVIDENCIA_BARRIDO_*` vars to `.env.example` (agent does not edit it); team decision = retention of evidence for decided claims of non-anonymized users.
+- [x] 4.7 Update `odd/tasks/seguridad-calidad.md` P2: check it off with commit references and the verification evidence from 4.1 and 4.2.
+- [x] 4.8 Commit (unit 4): `docs(evidencia): document claim evidence deletion and close P2`.

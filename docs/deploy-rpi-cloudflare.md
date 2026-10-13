@@ -530,6 +530,14 @@ que volver a iniciar sesión.
   respalda Postgres. Si alguien borra o sobrescribe objetos en `hornero-images`, no hay copia.
   Opciones, no implementadas: activar el versionado/replicación del bucket, o un
   `aws s3 sync` periódico hacia el bucket de backups.
+- **Restaurar una base antigua sobre un bucket más nuevo:** el barrido de evidencia huérfana
+  (`EVIDENCIA_BARRIDO_*`) borra los archivos de `reclamo-evidencia/` que la base no referencia, y
+  corre apenas arranca `ms`. Con una base restaurada, los archivos de reclamos posteriores al
+  respaldo parecerían huérfanos. Antes de iniciar `ms` sobre una base restaurada, poner
+  `EVIDENCIA_BARRIDO_ENABLED=false` en el `.env` y reactivarlo recién cuando base y bucket estén
+  reconciliados. Las credenciales de R2 se emiten por bucket: un token distinto para `ms` solo
+  separa la revocación, no limita el acceso dentro del bucket (el límite es el prefijo que
+  aplica el código).
 - El timer y el dump corren en la misma Pi: si la Pi se pierde antes de la copia offsite
   (o sin offsite configurado), se pierde hasta 24 h de datos. El RPO objetivo (D11) es de 24 h y solo se cumple con la copia offsite configurada.
 - La passphrase está en el `.env` de la Pi para poder automatizar: protege el bucket frente a

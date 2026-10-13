@@ -372,7 +372,24 @@ admin 596/596, Go ok, `make e2e` 95/95. Review verdict: merge with follow-ups:
 - [ ] **P1** Claim outcome notifications (approved/rejected) via N13 domain events.
   - Deferred 2026-10-13 (user): no new mails for now; planned as a future feature (outcome emails
     for claims and reports through the N13 domain events).
-- [ ] **P2** R2 evidence files of claims survive anonymization (pending user decision).
+- [x] **P2** R2 evidence files of claims survive anonymization.
+  - Done (SDD `evidencia-borrado`, stacked PRs `feat/evidencia-borrado` 276ea5e, `feat/evidencia-barrido`
+    871994d, `feat/evidencia-docs` c6c8da8 + docs commit): the MS has its own S3 client (AWS SDK v2,
+    URL-connection client; Netty and Apache excluded) behind the `EvidenciaAlmacen` port, scoped to
+    `reclamo-evidencia/`. Anonymizing a referente publishes `EvidenciaReclamoLiberadaEvento` with the
+    keys captured before the rows are cleared; `EvidenciaBorradoListener` (AFTER_COMMIT, own
+    executor) deletes them plus stray uploads under the user's id. `EvidenciaHuerfanaBarridoJob`
+    (03:50 BA + startup) deletes unreferenced, pattern-matching keys older than 7 days, max 500 per
+    run, kill switch `EVIDENCIA_BARRIDO_ENABLED`. Actividad `EVIDENCIA_RECLAMO_BORRADA` /
+    `EVIDENCIA_HUERFANA_BORRADA` carry counts only. No schema change; blank S3 config = no-op store.
+  - Evidence: MS `mvn test` 1047/1047 (+7), admin `npm test` 597/597 + build + lint (0 errors), `make e2e`
+    102/102. Manual against local MinIO: anonymizing a referente deleted 2 referenced + 1 stray object
+    (3), left another user's key and `org-evidencia/`, `org-banner/` untouched, one count-only
+    actividad; sweep with grace 0 and cap 2000 over 1105 objects deleted exactly the 1101 unreferenced
+    `reclamo-evidencia/` ones (pagination past 1000 keys and two `DeleteObjects` batches, no checksum
+    errors) and kept the referenced key, the non-pattern key and the `org-*` objects.
+  - User actions: add the `EVIDENCIA_BARRIDO_*` vars to `.env.example`; decide retention of evidence of
+    decided claims of non-anonymized users (`docs/acciones-pendientes-equipo.md`).
 - [x] **P3** Claims spam limits: cap of pending claims per user; persistent (not in-memory) throttle.
   - Done (SDD `reclamos-limites`, branch `feat/reclamos-limites`): every limit is a count over rows
     that already exist, so nothing is lost on restart and there is no schema change. Claims: 5
