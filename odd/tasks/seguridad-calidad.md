@@ -84,7 +84,7 @@ The guide requires measures "related to the identified risks", so a risk matrix 
     startup error.
   - Done: `JwtService.validateSecret()` (blank or <32 bytes fails), `MailerConfig` fails unless
     Resend is configured or `MAIL_LOG_ONLY=true`; compose passes `MAIL_LOG_ONLY` (default false).
-  - **USER ACTION:** add `MAIL_LOG_ONLY=true` to `.env.local.example` and your `.env.local`
+  - **USER ACTION:** add `MAIL_LOG_ONLY=true` to your `.env.local` (`.env.local.example` was removed 2026-10-13; `.env.local` is a copy of `.env.example`)
     (edit blocked by permission rule) — done by user 2026-10-10. Pi `.env` must have `RESEND_API_KEY` + `OTP_FROM_EMAIL`.
 - [x] **S3** Refresh-token persistence, rotation and revocation. Store refresh tokens (hashed,
   with `jti`) in DB; each refresh rotates (old one revoked); reuse of a revoked token revokes the
