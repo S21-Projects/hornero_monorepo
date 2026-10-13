@@ -385,7 +385,16 @@ admin 596/596, Go ok, `make e2e` 95/95. Review verdict: merge with follow-ups:
   - Evidence: MS `mvn test` 1039/1039, admin `npm test` 597/597 + `npm run build` + lint clean (3
     pre-existing warnings in gitignored `coverage/`). 5 new tests (3 claims, 1 reports, 1 mapper).
     `make e2e` not run (P4).
-- [ ] **P4** e2e coverage for claims, reports, cascades, anonymization of claims/reports, public map.
+- [x] **P4** e2e coverage for claims, reports, cascades, anonymization of claims/reports, public map.
+  - Done (branch `feat/e2e-reclamos-mapa`): `e2e/tests/12-reclamos-reportes.e2e.ts`, 7 tests: claim + 403s,
+    approve (rival claim rejected, org reports discarded), reject, report + marcar-inactiva (pending
+    claim rejected), anonymization (pending claim/report closed, phone/message/evidence/detalle scrubbed),
+    anonymous `/organizaciones/mapa`. No API creates SIN_RECLAMAR orgs, so the file imports its own
+    through the compose Postgres (`psql`, `importUnclaimedOrg` in `e2e/src/fixtures.ts`) and deletes the
+    previous run's `e2e-` rows first, keeping the org cap and the 5/24 h claim window free on reruns.
+    The new limits are not exercised (user: no excessive tests).
+  - Evidence: passed on first run (covers existing behavior, no product bug found; the only initial
+    failure was a test typo, `/auth/me` shape). `make e2e` 102/102 twice in a row, `tsc --noEmit` ok.
 - [ ] **P5** CC-BY attribution (INDEC; Rodriguez & de Grande / CONICET) on `/mapa`; record the
   ReNaCoM data license.
 - [ ] **P6** Nits: in-memory TTL cache for `/organizaciones/mapa`; redundant unique on `origen_id`;
@@ -458,6 +467,7 @@ Each item needs a team decision before related work starts. Record the decision 
 
 | Date | Task | Route | Evidence | Commit |
 |------|------|-------|----------|--------|
+| 2026-10-13 | P4 | e2e delegated (writer) | New tests passed on first run (existing behavior). `make e2e` 102/102 twice in a row (baseline 95), `tsc --noEmit` ok. Files: e2e/tests/12-reclamos-reportes.e2e.ts, e2e/src/fixtures.ts (psql helpers), e2e/README.md | (pending commit) |
 | 2026-10-10 | — | — | Document created from audit | — |
 | 2026-10-10 | N11 + slug fix | MS+BFF+admin+e2e delegated; seed 429 retry inline | RED per part. GREEN: `mvn test` 700/700; BFF 341/341, tsc ok; admin 460/460 + build + lint; `make e2e` 76/76; `make seed` exit 0 on 3 consecutive runs | (these commits) |
 | 2026-10-10 | N10 | MS+BFF+admin+infra delegated; compose env wiring inline | RED for hooks/BFF/admin (core service + TextoSeguro written before tests, no RED). GREEN: `mvn test` 675/675; BFF 334/334, tsc ok; admin 442/442 + build + lint; compose config ok; `make e2e` 67/67 twice | (this commit) |

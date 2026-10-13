@@ -20,6 +20,9 @@ make e2e             # or: cd e2e && npm install && npm test
 
 ## Notes
 
+- `12-reclamos-reportes` needs `docker compose exec postgres` from the repo root: no API creates unclaimed
+  (ReNaCoM) organizaciones, so it imports its own `e2e-` rows with SQL and clears the previous run's first.
+
 - The BFF rate-limits auth per IP (login 5/min, register 3/min). Global setup logs each actor in
   once and shares the cookie jars; if the window is already spent it waits (up to ~1 min) and
   retries. The suite registers a single throw-away account per run.
@@ -37,3 +40,5 @@ make e2e             # or: cd e2e && npm install && npm test
 | `03-exceptional-paths` | reject, cancel, wrong delivery code (+ lockout, known bug) |
 | `04-authz-validation-override` | 403/401 matrix, invalid input, admin override with/without motivo |
 | `05-session-and-verification` | unverified donante refused; refresh rotation, logout revokes refresh |
+| `06` to `11` | donor privacy, deactivated user, activity log, idempotency, password reset, anonymization |
+| `12-reclamos-reportes` | claims (approve/reject, 403s), reports, cascades, anonymization of a claimant, public map |
