@@ -397,6 +397,11 @@ admin 596/596, Go ok, `make e2e` 95/95. Review verdict: merge with follow-ups:
     failure was a test typo, `/auth/me` shape). `make e2e` 102/102 twice in a row, `tsc --noEmit` ok.
 - [ ] **P5** CC-BY attribution (INDEC; Rodriguez & de Grande / CONICET) on `/mapa`; record the
   ReNaCoM data license.
+  - Done (branch `feat/mapa-atribucion`): sources paragraph on `/mapa` crediting INDEC and
+    Rodriguez & de Grande (CONICET) with a CC BY 4.0 link and "processed by Hornero", plus ReNaCoM
+    with a link to its CONICET record; "Attribution and licenses" in `docs/mapa-vulnerabilidad.md`.
+    Evidence: astro build ok (Astro has no test runner). **Open:** the ReNaCoM record's license
+    could not be read (repository unreachable 2026-10-13); copy it into the doc to close P5.
 - [ ] **P6** Nits: in-memory TTL cache for `/organizaciones/mapa`; redundant unique on `origen_id`;
   approved-claim org leaves the map until validated (user question).
 

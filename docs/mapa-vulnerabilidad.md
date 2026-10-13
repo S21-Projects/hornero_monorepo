@@ -23,9 +23,19 @@ can mean high need or need already covered. Vulnerability combines two signals:
 
 | Source | Provides | Notes |
 |---|---|---|
-| ReNaCoM (`go_algorithms_worker/data/renacom.csv`) | 2,730 comedores/merenderos with `Código de radio`, asistentes | A sample of the registry, not the full registry |
+| ReNaCoM (`go_algorithms_worker/data/renacom.csv`), CONICET institutional repository [hdl 11336/278030](https://ri.conicet.gov.ar/handle/11336/278030) | 2,730 comedores/merenderos with `Código de radio`, asistentes | A sample of the registry, not the full registry. License: see "Attribution and licenses" |
 | Censo 2022 via Source Cooperative `nlebovits/censo-argentino/2022` (CC-BY-4.0) | `POB_TOT_P` per radio + radio geometry (`radios.parquet`) | Join `cod_2022` = `id_geo`; no hogares column |
 | Hornero MS | Validated organizaciones (`latitud`, `longitud`) + open necesidades | Organizaciones have no radio code |
+
+### Attribution and licenses
+
+- **Censo 2022 (INDEC) + radio cartography by Rodriguez & de Grande (CONICET): CC-BY-4.0.**
+  Credited on `/mapa` (sources paragraph under the map, `MapaVulnerabilidad.tsx`) with a link to
+  the license and a note that Hornero processed the data.
+- **ReNaCoM (CONICET):** credited on `/mapa` with a link to the repository record. **The exact
+  license of the record is not yet recorded here**: the repository was unreachable on 2026-10-13.
+  Copy the license shown on the record page (and its recommended citation) into this line and,
+  if it is not CC-BY, review the `/mapa` wording.
 
 ### Cleaning and merging
 

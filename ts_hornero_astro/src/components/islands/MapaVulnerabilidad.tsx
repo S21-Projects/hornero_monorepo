@@ -210,6 +210,19 @@ export default function MapaVulnerabilidad({ sinComedores, totalDepartamentos }:
             Las zonas con organizaciones de mayor nivel de acreditación pueden mostrar más necesidades, porque su tope de
             necesidades abiertas es más alto. El índice cuenta las necesidades tal como las declaran las organizaciones.
           </p>
+          {/* CC-BY-4.0 requires crediting the census authors and naming the license (scripts/mapa/README.md). */}
+          <p className="m-0">
+            Fuentes: Censo Nacional de Población, Hogares y Viviendas 2022 (INDEC), cartografía de radios de Rodriguez
+            &amp; de Grande (CONICET), bajo licencia{' '}
+            <a className="underline" href="https://creativecommons.org/licenses/by/4.0/deed.es" target="_blank" rel="noopener noreferrer">
+              CC BY 4.0
+            </a>
+            ; Registro Nacional de Comedores y Merenderos (ReNaCoM), publicado por CONICET en su{' '}
+            <a className="underline" href="https://ri.conicet.gov.ar/handle/11336/278030" target="_blank" rel="noopener noreferrer">
+              repositorio institucional
+            </a>
+            . Datos procesados por Hornero.
+          </p>
         </div>
       </aside>
 
