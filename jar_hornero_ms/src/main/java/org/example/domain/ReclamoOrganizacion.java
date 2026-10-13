@@ -89,4 +89,18 @@ public class ReclamoOrganizacion {
 
     @Column(name = "resuelto_en")
     private Instant resueltoEn;
+
+    /** What {@link #anonimizar()} leaves in the NOT NULL {@code telefono} column (no script is needed to relax it). */
+    public static final String TELEFONO_ANONIMIZADO = "";
+
+    /**
+     * N15/D12: erasure of the claimant's personal data. The row, its FKs, state and resolution stay
+     * (audit trail); phone, free-text message and evidence references go. The stored objects are
+     * not reachable from here (see {@code docs/politica-datos-y-respaldo.md}).
+     */
+    public void anonimizar() {
+        this.telefono = TELEFONO_ANONIMIZADO;
+        this.mensaje = null;
+        this.evidenciaKeys.clear();
+    }
 }

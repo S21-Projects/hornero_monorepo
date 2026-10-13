@@ -14,6 +14,9 @@ public interface ReclamoOrganizacionRepository extends JpaRepository<ReclamoOrga
 
     List<ReclamoOrganizacion> findByReferente_IdOrderByCreadoEnDescIdDesc(Long referenteId);
 
+    /** Every claim filed by a user, any state: used by the anonymization flow. */
+    List<ReclamoOrganizacion> findByReferente_Id(Long referenteId);
+
     List<ReclamoOrganizacion> findByOrganizacion_IdAndEstado(Long organizacionId, EstadoReclamo estado);
 
     boolean existsByOrganizacion_IdAndReferente_IdAndEstado(Long organizacionId, Long referenteId, EstadoReclamo estado);

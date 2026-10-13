@@ -6,7 +6,12 @@ import org.example.auth.RefreshTokenService;
 import org.example.auth.otp.CodigoVerificacionRepository;
 import org.example.auth.reset.PasswordResetTokenRepository;
 import org.example.domain.Organizacion;
+import org.example.domain.MotivoReporte;
 import org.example.domain.OrganizacionRepository;
+import org.example.domain.ReclamoOrganizacion;
+import org.example.domain.ReclamoOrganizacionRepository;
+import org.example.domain.ReporteOrganizacion;
+import org.example.domain.ReporteOrganizacionRepository;
 import org.example.idempotencia.IdempotenciaRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -18,6 +23,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -49,6 +55,10 @@ class UsuarioAnonimizacionServiceTest {
     private PasswordResetTokenRepository passwordResetTokenRepository;
     @Mock
     private IdempotenciaRepository idempotenciaRepository;
+    @Mock
+    private ReclamoOrganizacionRepository reclamoRepository;
+    @Mock
+    private ReporteOrganizacionRepository reporteRepository;
 
     private final BCryptPasswordEncoder encoder = new BCryptPasswordEncoder(4);
     private UsuarioAnonimizacionService service;
@@ -57,7 +67,7 @@ class UsuarioAnonimizacionServiceTest {
     void setUp() {
         service = new UsuarioAnonimizacionService(usuarioRepository, organizacionRepository, refreshTokenService,
                 actividadService, encoder, codigoVerificacionRepository, passwordResetTokenRepository,
-                idempotenciaRepository);
+                idempotenciaRepository, reclamoRepository, reporteRepository);
     }
 
     private Donante donante() {
@@ -118,6 +128,39 @@ class UsuarioAnonimizacionServiceTest {
         verify(codigoVerificacionRepository).deleteByEmailIgnoreCase("dora@test.com");
         verify(passwordResetTokenRepository).deleteByUsuarioId(7L);
         verify(idempotenciaRepository).deleteByUsuarioId(7L);
+    }
+
+    @Test
+    void scrubsPhoneMessageAndEvidenceOfTheClaimsTheUserFiled() {
+        donante();
+        ReclamoOrganizacion r = new ReclamoOrganizacion();
+        r.setTelefono("+54 351 555 1234");
+        r.setMensaje("Soy la coordinadora");
+        r.setEvidenciaKeys(new ArrayList<>(List.of("reclamo-evidencia/1/7/a.jpg", "reclamo-evidencia/1/7/b.jpg")));
+        when(reclamoRepository.findByReferente_Id(7L)).thenReturn(List.of(r));
+
+        service.anonimizar(7L, ADMIN_ID);
+
+        assertThat(r.getTelefono()).isEqualTo(ReclamoOrganizacion.TELEFONO_ANONIMIZADO);
+        assertThat(r.getMensaje()).isNull();
+        assertThat(r.getEvidenciaKeys()).isEmpty();
+        assertThat(r.getEstado()).isEqualTo(org.example.domain.EstadoReclamo.PENDIENTE);
+        verify(reclamoRepository, never()).delete(any());
+    }
+
+    @Test
+    void scrubsDetailOfTheReportsTheUserFiled() {
+        donante();
+        ReporteOrganizacion r = new ReporteOrganizacion();
+        r.setMotivo(MotivoReporte.INACTIVO);
+        r.setDetalle("Llamé por teléfono y nadie atiende");
+        when(reporteRepository.findByReportante_Id(7L)).thenReturn(List.of(r));
+
+        service.anonimizar(7L, ADMIN_ID);
+
+        assertThat(r.getDetalle()).isNull();
+        assertThat(r.getMotivo()).isEqualTo(MotivoReporte.INACTIVO);
+        verify(reporteRepository, never()).delete(any());
     }
 
     @Test

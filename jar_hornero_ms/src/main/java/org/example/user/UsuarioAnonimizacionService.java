@@ -7,6 +7,10 @@ import org.example.auth.RefreshTokenService;
 import org.example.auth.otp.CodigoVerificacionRepository;
 import org.example.auth.reset.PasswordResetTokenRepository;
 import org.example.domain.OrganizacionRepository;
+import org.example.domain.ReclamoOrganizacion;
+import org.example.domain.ReclamoOrganizacionRepository;
+import org.example.domain.ReporteOrganizacion;
+import org.example.domain.ReporteOrganizacionRepository;
 import org.example.idempotencia.IdempotenciaRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -50,6 +54,8 @@ public class UsuarioAnonimizacionService {
     private final CodigoVerificacionRepository codigoVerificacionRepository;
     private final PasswordResetTokenRepository passwordResetTokenRepository;
     private final IdempotenciaRepository idempotenciaRepository;
+    private final ReclamoOrganizacionRepository reclamoRepository;
+    private final ReporteOrganizacionRepository reporteRepository;
 
     @Transactional
     public UsuarioResponse anonimizar(Long id, Long adminId) {
@@ -78,6 +84,10 @@ public class UsuarioAnonimizacionService {
         codigoVerificacionRepository.deleteByEmailIgnoreCase(emailOriginal);
         passwordResetTokenRepository.deleteByUsuarioId(id);
         idempotenciaRepository.deleteByUsuarioId(id);
+        // Claims and reports the user filed keep their rows (audit trail) but lose phone, message,
+        // evidence references and free text. The actividad log is never touched.
+        reclamoRepository.findByReferente_Id(id).forEach(ReclamoOrganizacion::anonimizar);
+        reporteRepository.findByReportante_Id(id).forEach(ReporteOrganizacion::anonimizar);
 
         // Actor = the admin in the security context. No data of the subject goes in the entry.
         actividadService.registrar(ActividadService.Registro.de(TipoActividad.USUARIO_ANONIMIZADO)

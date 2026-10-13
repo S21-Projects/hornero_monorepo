@@ -14,6 +14,9 @@ public interface ReporteOrganizacionRepository extends JpaRepository<ReporteOrga
 
     List<ReporteOrganizacion> findByOrganizacion_IdAndEstado(Long organizacionId, EstadoReporte estado);
 
+    /** Every report filed by a user, any state: used by the anonymization flow. */
+    List<ReporteOrganizacion> findByReportante_Id(Long reportanteId);
+
     long countByReportante_IdAndEstado(Long reportanteId, EstadoReporte estado);
 
     boolean existsByOrganizacion_IdAndReportante_IdAndEstado(Long organizacionId, Long reportanteId, EstadoReporte estado);
