@@ -351,3 +351,82 @@ describe('PublicOnlyRoute guard', () => {
     expect(screen.getByText('Explorar Page')).toBeInTheDocument();
   });
 });
+
+describe('deep links: return to the originally requested URL', () => {
+  function LoginProbe() {
+    const location = useLocation();
+    const from = (location.state as { from?: string } | null)?.from;
+    return <div>Login from:{from ?? '(none)'}</div>;
+  }
+
+  function build(initial: string) {
+    return createMemoryRouter(
+      [
+        {
+          element: <ProtectedRoute allow={['ADMINISTRADOR']} />,
+          children: [{ path: '/control-donaciones', element: <div>Control Page</div> }],
+        },
+        { path: '/login', element: <PublicOnlyRoute><LoginProbe /></PublicOnlyRoute> },
+        { path: '/admin', element: <div>Admin Home</div> },
+      ],
+      { initialEntries: [initial] },
+    );
+  }
+
+  it('unauthenticated visitor is sent to /login carrying the requested path+search in state.from', () => {
+    render(<RouterProvider router={build('/control-donaciones?estado=X')} />);
+    expect(screen.getByText('Login from:/control-donaciones?estado=X')).toBeInTheDocument();
+  });
+
+  it('PublicOnlyRoute sends an authenticated user back to a valid state.from instead of role home', () => {
+    useAuthStore.setState({ status: 'authenticated', user: ADMIN_USER });
+    const router = createMemoryRouter(
+      [
+        { path: '/login', element: <PublicOnlyRoute><div>Login Page</div></PublicOnlyRoute> },
+        { path: '/admin', element: <div>Admin Home</div> },
+        { path: '/control-donaciones', element: <div>Control Page</div> },
+      ],
+      { initialEntries: [{ pathname: '/login', state: { from: '/control-donaciones' } }] },
+    );
+    render(<RouterProvider router={router} />);
+    expect(screen.getByText('Control Page')).toBeInTheDocument();
+  });
+
+  it.each(['//evil.com', 'https://evil.com', '/\\evil.com'])(
+    'PublicOnlyRoute ignores an unsafe state.from (%s) and uses role home',
+    (from) => {
+      useAuthStore.setState({ status: 'authenticated', user: ADMIN_USER });
+      const router = createMemoryRouter(
+        [
+          { path: '/login', element: <PublicOnlyRoute><div>Login Page</div></PublicOnlyRoute> },
+          { path: '/admin', element: <div>Admin Home</div> },
+        ],
+        { initialEntries: [{ pathname: '/login', state: { from } }] },
+      );
+      render(<RouterProvider router={router} />);
+      expect(screen.getByText('Admin Home')).toBeInTheDocument();
+    },
+  );
+
+  it('an authenticated user of the right role renders the requested screen (no bounce)', () => {
+    useAuthStore.setState({ status: 'authenticated', user: ADMIN_USER });
+    render(<RouterProvider router={build('/control-donaciones')} />);
+    expect(screen.getByText('Control Page')).toBeInTheDocument();
+  });
+
+  it('a user lacking the role still lands on their role home', () => {
+    useAuthStore.setState({ status: 'authenticated', user: DONANTE_USER });
+    const router = createMemoryRouter(
+      [
+        {
+          element: <ProtectedRoute allow={['ADMINISTRADOR']} />,
+          children: [{ path: '/control-donaciones', element: <div>Control Page</div> }],
+        },
+        { path: '/explorar', element: <div>Explorar Page</div> },
+      ],
+      { initialEntries: ['/control-donaciones'] },
+    );
+    render(<RouterProvider router={router} />);
+    expect(screen.getByText('Explorar Page')).toBeInTheDocument();
+  });
+});
