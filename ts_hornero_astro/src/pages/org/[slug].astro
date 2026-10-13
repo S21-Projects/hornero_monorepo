@@ -56,6 +56,8 @@ const PUBLIC_SPA_URL = import.meta.env.PUBLIC_SPA_URL ?? '';
 // The claim form lives in the admin SPA (the only place with authenticated routing); an anonymous
 // visitor is sent to its login and returned to the form afterwards.
 const reclamarHref = `${PUBLIC_SPA_URL}/reclamar/${encodeURIComponent(org.slug)}`;
+// Same for the report form: any account may report, so it is the SPA's login-then-return flow too.
+const reportarHref = `${PUBLIC_SPA_URL}/reportar/${encodeURIComponent(org.slug)}`;
 
 function mapPrioridad(prioridad: string): 'urgent' | 'medium' | 'normal' {
   const map: Record<string, 'urgent' | 'medium' | 'normal'> = {
@@ -336,28 +338,24 @@ const ESTADO_DONACION_PILL: Record<string, 'warn' | 'open' | 'ok' | 'bad'> = {
               <Text variant="caption" color="ink-3" style={{ marginTop: 8 }}>
                 Necesitás una cuenta de referente. Un administrador revisa cada reclamo.
               </Text>
-              {/* Report flow is a later task (C): rendered disabled so the layout matches the design. */}
-              <button
-                type="button"
-                disabled
-                aria-disabled="true"
-                title="Próximamente"
+              <a
+                href={reportarHref}
                 style={{
                   display: 'block',
-                  width: '100%',
+                  textAlign: 'center',
                   marginTop: 12,
                   padding: '10px 20px',
                   background: 'transparent',
-                  color: 'var(--ink-3)',
+                  color: 'var(--ink-2)',
                   border: '1.5px solid var(--line)',
                   borderRadius: 'var(--r-btn)',
                   fontWeight: 700,
                   fontSize: 14,
-                  cursor: 'not-allowed',
+                  textDecoration: 'none',
                 }}
               >
                 Reportar un problema
-              </button>
+              </a>
             </Card>
           </>
         ) : (
