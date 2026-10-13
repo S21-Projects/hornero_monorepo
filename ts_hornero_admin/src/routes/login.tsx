@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { FormEvent } from 'react';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { Logo } from '../components/ui/Logo';
 import { Card } from '../components/ui/Card';
 import { Input } from '../components/ui/Input';
@@ -8,9 +8,11 @@ import { Button } from '../components/ui/Button';
 import { Text } from '../components/ui/Typography';
 import { useAuthStore } from '../store/auth.store';
 import { roleHome } from '../lib/roleHome';
+import { safeRedirectPath } from '../lib/safeRedirect';
 
 export default function LoginPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchParams] = useSearchParams();
   const cuentaDesactivada = searchParams.get('motivo') === 'cuenta-desactivada';
   const passwordRestablecida = searchParams.get('motivo') === 'password-restablecida';
@@ -32,7 +34,10 @@ export default function LoginPage() {
       // REFERENTE sent to /dashboard is then correctly bounced to /pending-validation by the
       // route guard (ProtectedRoute requireValidated), not decided here.
       const tipo = useAuthStore.getState().user?.tipo;
-      if (tipo) navigate(roleHome(tipo), { replace: true });
+      // Return to the URL the visitor originally asked for (set by ProtectedRoute) when it is a
+      // safe same-origin path; the target's own guard still enforces role access.
+      const from = safeRedirectPath((location.state as { from?: unknown } | null)?.from);
+      if (tipo) navigate(from ?? roleHome(tipo), { replace: true });
     } catch {
       setError('Credenciales inválidas');
     } finally {

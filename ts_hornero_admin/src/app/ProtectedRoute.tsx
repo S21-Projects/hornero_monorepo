@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import { useAuthStore } from '../store/auth.store';
 import type { UserRole } from '../store/auth.store';
 import { roleHome } from '../lib/roleHome';
+import { safeRedirectPath } from '../lib/safeRedirect';
 
 interface ProtectedRouteProps {
   /** Roles permitted to access this route group. */
@@ -55,7 +56,9 @@ export function ProtectedRoute({
   }
 
   if (status === 'unauthenticated') {
-    return <Navigate to="/login" replace />;
+    // Remember where the visitor was headed so login can send them back there.
+    const from = `${location.pathname}${location.search}${location.hash}`;
+    return <Navigate to="/login" replace state={{ from }} />;
   }
 
   // status === 'authenticated'
@@ -89,19 +92,23 @@ interface PublicOnlyRouteProps {
 /**
  * Inverse guard for /login and /register.
  * - 'loading'         → render loader (role not resolved; premature redirect would break UX).
- * - 'authenticated'   → redirect to role home.
+ * - 'authenticated'   → redirect to the requested URL (state.from, validated) or role home.
  * - 'unauthenticated' → render the public page.
  */
 export function PublicOnlyRoute({ children }: PublicOnlyRouteProps) {
   const status = useAuthStore((s) => s.status);
   const user = useAuthStore((s) => s.user);
+  const location = useLocation();
 
   if (status === 'loading') {
     return <div aria-busy="true" aria-label="Loading..." />;
   }
 
   if (status === 'authenticated' && user) {
-    return <Navigate to={roleHome(user.tipo)} replace />;
+    // Honor the originally requested URL (set by ProtectedRoute) when it is a safe
+    // same-origin path; the destination's own guard still enforces role access.
+    const from = safeRedirectPath((location.state as { from?: unknown } | null)?.from);
+    return <Navigate to={from ?? roleHome(user.tipo)} replace />;
   }
 
   return <>{children}</>;

@@ -125,3 +125,38 @@ describe('LoginPage — password reset entry points (N14)', () => {
     expect(screen.getByRole('status')).toHaveTextContent('Cambiaste tu contraseña');
   });
 });
+
+describe('LoginPage — returns to the originally requested URL', () => {
+  beforeEach(() => {
+    useAuthStore.setState({ user: null, status: 'unauthenticated', orgValidada: false, orgChecked: false });
+  });
+
+  function routerFrom(from: string) {
+    return createMemoryRouter(
+      [
+        { path: '/login', element: <LoginPage /> },
+        { path: '/admin', element: <div>Admin Home</div> },
+        { path: '/control-donaciones', element: <div>Control Page</div> },
+      ],
+      { initialEntries: [{ pathname: '/login', state: { from } }] },
+    );
+  }
+
+  it('navigates to state.from after login when it is a safe path', async () => {
+    vi.spyOn(useAuthStore.getState(), 'login').mockImplementation(async () => {
+      useAuthStore.setState({ status: 'authenticated', user: ADMIN_USER });
+    });
+    render(<RouterProvider router={routerFrom('/control-donaciones')} />);
+    await submitLoginForm();
+    await waitFor(() => expect(screen.getByText('Control Page')).toBeInTheDocument());
+  });
+
+  it('ignores an open-redirect state.from and uses role home', async () => {
+    vi.spyOn(useAuthStore.getState(), 'login').mockImplementation(async () => {
+      useAuthStore.setState({ status: 'authenticated', user: ADMIN_USER });
+    });
+    render(<RouterProvider router={routerFrom('//evil.com')} />);
+    await submitLoginForm();
+    await waitFor(() => expect(screen.getByText('Admin Home')).toBeInTheDocument());
+  });
+});

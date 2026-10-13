@@ -77,7 +77,10 @@ function hasCookie(name: string): boolean {
 
 export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
-  status: 'unauthenticated',
+  // Seeded synchronously from session_hint: route guards render BEFORE AuthInitializer's
+  // effect (child effects run first), so a hard-loaded deep link must already see
+  // 'loading' — not 'unauthenticated' — or it is bounced to /login and then to role home.
+  status: hasCookie('session_hint') ? 'loading' : 'unauthenticated',
   orgValidada: false,
   orgChecked: false,
   orgCount: 0,
