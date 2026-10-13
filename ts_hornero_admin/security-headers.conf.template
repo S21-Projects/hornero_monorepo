@@ -12,10 +12,12 @@ add_header Referrer-Policy "strict-origin-when-cross-origin" always;
 # geolocation: nearby-organization sorting; camera: delivery-code QR scanner (EscanerQr).
 add_header Permissions-Policy "geolocation=(self), camera=(self), microphone=(), payment=()" always;
 
-# REPORT-ONLY on purpose: violations are logged in the browser console but nothing is blocked,
-# so a missed origin cannot break the deployed panel. Promote to Content-Security-Policy once the
-# console is clean in normal use.
-#  - api.elhornero.org: VITE_BFF_URL (XHR + /images?key=...); must match the build arg.
+# Rendered by the nginx image's envsubst step at container start (see docker-entrypoint.d/).
+#  - CSP_HEADER_NAME: Content-Security-Policy-Report-Only (default) or Content-Security-Policy,
+#    chosen from the runtime env CSP_MODE (report-only | enforce). Report-only logs violations in
+#    the browser console and blocks nothing, so enforcing is a one-line env change + restart.
+#  - CSP_API_ORIGIN: origin of VITE_BFF_URL (the same build arg the bundle was compiled with):
+#    XHR and /images?key=... go there.
 #  - tile.openstreetmap.org: Leaflet tiles. blob:/data: cover QR images and the camera stream.
 #  - style-src 'unsafe-inline': React style attributes and Leaflet's inline positioning.
-add_header Content-Security-Policy-Report-Only "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://api.elhornero.org https://*.tile.openstreetmap.org; connect-src 'self' https://api.elhornero.org; font-src 'self' data:; media-src 'self' blob:; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'" always;
+add_header ${CSP_HEADER_NAME} "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: ${CSP_API_ORIGIN} https://*.tile.openstreetmap.org; connect-src 'self' ${CSP_API_ORIGIN}; font-src 'self' data:; media-src 'self' blob:; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'" always;
