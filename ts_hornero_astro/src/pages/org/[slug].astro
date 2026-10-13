@@ -30,24 +30,32 @@ if (!org) {
   return new Response(null, { status: 404 });
 }
 
-try {
-  // TODO [tech-debt]: no UI pager yet, fixed size=50 ceiling
-  const page = await publicFetch<PageData<Necesidad>>(`/necesidades?organizacionId=${org.id}&size=50`);
-  needs = page.content;
-} catch {
-  needs = [];
-}
+// An unclaimed ReNaCoM comedor (no referente, not validated) has no needs or donations: skip both reads.
+const sinReclamar = org.estado === 'SIN_RECLAMAR';
 
-try {
-  // TODO [tech-debt]: no UI pager yet, fixed size=50 ceiling
-  const page = await publicFetch<PageData<Donacion>>(`/donaciones?organizacionId=${org.id}&size=50`);
-  donations = page.content;
-} catch {
-  donations = [];
+if (!sinReclamar) {
+  try {
+    // TODO [tech-debt]: no UI pager yet, fixed size=50 ceiling
+    const page = await publicFetch<PageData<Necesidad>>(`/necesidades?organizacionId=${org.id}&size=50`);
+    needs = page.content;
+  } catch {
+    needs = [];
+  }
+
+  try {
+    // TODO [tech-debt]: no UI pager yet, fixed size=50 ceiling
+    const page = await publicFetch<PageData<Donacion>>(`/donaciones?organizacionId=${org.id}&size=50`);
+    donations = page.content;
+  } catch {
+    donations = [];
+  }
 }
 
 const PUBLIC_BFF_URL = import.meta.env.PUBLIC_BFF_URL ?? '';
 const PUBLIC_SPA_URL = import.meta.env.PUBLIC_SPA_URL ?? '';
+// The claim form lives in the admin SPA (the only place with authenticated routing); an anonymous
+// visitor is sent to its login and returned to the form afterwards.
+const reclamarHref = `${PUBLIC_SPA_URL}/reclamar/${encodeURIComponent(org.slug)}`;
 
 function mapPrioridad(prioridad: string): 'urgent' | 'medium' | 'normal' {
   const map: Record<string, 'urgent' | 'medium' | 'normal'> = {
@@ -128,11 +136,26 @@ const ESTADO_DONACION_PILL: Record<string, 'warn' | 'open' | 'ok' | 'bad'> = {
         </div>
         <div class="min-w-0 flex-1 pb-1">
           <div class="mb-2 flex flex-wrap gap-2">
+            {sinReclamar && (
+              <Pill
+                variant="solid"
+                style={{ background: 'transparent', border: '1.5px dashed rgba(255,255,255,.85)' }}
+              >
+                Sin reclamar
+              </Pill>
+            )}
+            {sinReclamar && org.origen === 'RENACOM' && (
+              <Pill variant="solid" style={{ background: 'rgba(255,255,255,.22)' }}>
+                Registro Nacional de Comedores (ReNaCoM)
+              </Pill>
+            )}
             <Pill variant="cat">{TIPO_ORGANIZACION_LABELS[org.tipo as TipoOrganizacion] ?? org.tipo}</Pill>
-            <Pill variant="solid" style={{ background: 'rgba(255,255,255,.22)' }}>
-              {org.validada ? 'Validado' : 'Pendiente'}
-            </Pill>
-            {org.aceptaDonaciones && (
+            {!sinReclamar && (
+              <Pill variant="solid" style={{ background: 'rgba(255,255,255,.22)' }}>
+                {org.validada ? 'Validado' : 'Pendiente'}
+              </Pill>
+            )}
+            {!sinReclamar && org.aceptaDonaciones && (
               <Pill variant="solid" style={{ background: 'rgba(255,255,255,.22)' }}>
                 Recibe donaciones
               </Pill>
@@ -160,9 +183,30 @@ const ESTADO_DONACION_PILL: Record<string, 'warn' | 'open' | 'ok' | 'bad'> = {
         {/* about */}
         <Card className="p-5 sm:p-6">
           <Text variant="h3" as="h3" style={{ marginBottom: 6 }}>Sobre el comedor</Text>
-          <Text variant="body" color="ink-2">
-            {org.descripcion ?? ''}
-          </Text>
+          {sinReclamar ? (
+            <>
+              <Text variant="body" color="ink-2">
+                Estos datos provienen del Registro Nacional de Comedores y Merenderos (ReNaCoM) y todavía
+                no fueron confirmados por quienes sostienen el comedor.
+              </Text>
+              <div class="mt-[18px] flex flex-wrap gap-7">
+                {org.asistentesDeclarados != null && (
+                  <div>
+                    <Text as="div" variant="caption" color="ink-3">Asistentes declarados</Text>
+                    <Text as="div" variant="body-sm">{org.asistentesDeclarados}</Text>
+                  </div>
+                )}
+                <div>
+                  <Text as="div" variant="caption" color="ink-3">Dirección</Text>
+                  <Text as="div" variant="body-sm">{org.direccion ?? 'Sin dirección'}</Text>
+                </div>
+              </div>
+            </>
+          ) : (
+            <Text variant="body" color="ink-2">
+              {org.descripcion ?? ''}
+            </Text>
+          )}
           {(org.referenteEmail || org.sitioWebUrl) && (
             <div class="mt-[18px] flex flex-wrap gap-7">
               {org.referenteEmail && (
@@ -261,7 +305,63 @@ const ESTADO_DONACION_PILL: Record<string, 'warn' | 'open' | 'ok' | 'bad'> = {
 
       {/* right rail */}
       <div class="flex w-full flex-col gap-4 sm:w-[320px] sm:flex-shrink-0 sm:gap-[18px]">
-        {/* CTA to SPA — replaces DonateButton */}
+        {sinReclamar ? (
+          <>
+            <Card style={{ padding: 22, background: 'var(--card-2)' }}>
+              <Text variant="body-sm" color="ink-2">
+                <span aria-hidden="true">🔒 </span>
+                Este comedor todavía no recibe donaciones por Hornero. Podrá hacerlo cuando su responsable
+                lo reclame y un administrador lo valide.
+              </Text>
+            </Card>
+
+            <Card style={{ padding: 22, background: 'var(--straw)' }}>
+              <Text variant="h3" as="h3" style={{ marginBottom: 8 }}>¿Este comedor es tuyo?</Text>
+              <a
+                href={reclamarHref}
+                style={{
+                  display: 'block',
+                  textAlign: 'center',
+                  padding: '12px 20px',
+                  background: 'var(--earth)',
+                  color: '#fff',
+                  borderRadius: 'var(--r-btn)',
+                  fontWeight: 800,
+                  fontSize: 15,
+                  textDecoration: 'none',
+                }}
+              >
+                Reclamar este comedor
+              </a>
+              <Text variant="caption" color="ink-3" style={{ marginTop: 8 }}>
+                Necesitás una cuenta de referente. Un administrador revisa cada reclamo.
+              </Text>
+              {/* Report flow is a later task (C): rendered disabled so the layout matches the design. */}
+              <button
+                type="button"
+                disabled
+                aria-disabled="true"
+                title="Próximamente"
+                style={{
+                  display: 'block',
+                  width: '100%',
+                  marginTop: 12,
+                  padding: '10px 20px',
+                  background: 'transparent',
+                  color: 'var(--ink-3)',
+                  border: '1.5px solid var(--line)',
+                  borderRadius: 'var(--r-btn)',
+                  fontWeight: 700,
+                  fontSize: 14,
+                  cursor: 'not-allowed',
+                }}
+              >
+                Reportar un problema
+              </button>
+            </Card>
+          </>
+        ) : (
+        /* CTA to SPA — replaces DonateButton */
         <Card style={{ padding: 22, background: 'var(--straw)' }}>
           <Text variant="h3" as="h3" style={{ marginBottom: 8 }}>¿Querés colaborar?</Text>
           <Text variant="body-sm" color="ink-2" style={{ marginBottom: 14 }}>
@@ -311,6 +411,7 @@ const ESTADO_DONACION_PILL: Record<string, 'warn' | 'open' | 'ok' | 'bad'> = {
             </>
           )}
         </Card>
+        )}
 
         <Card style={{ padding: 20 }}>
           <Text variant="title" as="h4" style={{ marginBottom: 12 }}>Ubicación</Text>
