@@ -79,6 +79,21 @@ public class EsquemaVerificador implements ApplicationRunner {
               AND NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'ux_reclamo_pendiente')
             """;
 
+    /** V009: organizacion_evento.tipo CHECK that still rejects the report-flow events. */
+    private static final String CHECK_REPORTE_CHECKS_PENDIENTES_SQL = """
+            SELECT conname FROM pg_constraint
+            WHERE contype = 'c'
+              AND conrelid = to_regclass('organizacion_evento')
+              AND pg_get_constraintdef(oid) ~ '\\mtipo\\M'
+              AND pg_get_constraintdef(oid) NOT LIKE '%REPORTE_CONFIRMADO%'
+            """;
+
+    /** V009: unique partial index on pending reports, only meaningful once the reports table exists. */
+    private static final String CHECK_REPORTE_INDICE_PENDIENTE_SQL = """
+            SELECT 'ux_reporte_pendiente' WHERE to_regclass('reportes_organizacion') IS NOT NULL
+              AND NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'ux_reporte_pendiente')
+            """;
+
 
     /** V004 (M6): the immutability trigger on {@code actividad}; absent trigger = script pending. */
     private static final String CHECK_ACTIVIDAD_TRIGGER_SQL = """
@@ -105,6 +120,7 @@ public class EsquemaVerificador implements ApplicationRunner {
     private final AtomicBoolean versionesInicializadas = new AtomicBoolean(true);
     private final AtomicBoolean origenOrganizacionMigrado = new AtomicBoolean(true);
     private final AtomicBoolean eventosReclamoMigrados = new AtomicBoolean(true);
+    private final AtomicBoolean eventosReporteMigrados = new AtomicBoolean(true);
 
     @Override
     public void run(ApplicationArguments args) throws Exception {
@@ -126,6 +142,27 @@ public class EsquemaVerificador implements ApplicationRunner {
         verificarPurgaEmailIntento();
         verificarOrigenOrganizacion();
         verificarEventosReclamo();
+        verificarEventosReporte();
+    }
+
+    private void verificarEventosReporte() {
+        java.util.List<String> pendientes =
+                new java.util.ArrayList<>(jdbcTemplate.queryForList(CHECK_REPORTE_CHECKS_PENDIENTES_SQL, String.class));
+        java.util.List<String> indice = jdbcTemplate.queryForList(CHECK_REPORTE_INDICE_PENDIENTE_SQL, String.class);
+        if (indice != null) pendientes.addAll(indice);
+        if (!pendientes.isEmpty()) {
+            eventosReporteMigrados.set(false);
+            log.error("ESQUEMA_PENDIENTE: CHECK constraints / indexes {} are missing for the REPORTE_CONFIRMADO / "
+                    + "REPORTE_DESCARTADO events. Run scripts/sql/V009__reporte_eventos.sql (make migrate) before "
+                    + "resolving reports.", pendientes);
+        } else {
+            eventosReporteMigrados.set(true);
+        }
+    }
+
+    /** False when V009 has not widened the organizacion_evento CHECK or built the pending-report index. */
+    public boolean eventosReporteMigrados() {
+        return eventosReporteMigrados.get();
     }
 
     private void verificarEventosReclamo() {

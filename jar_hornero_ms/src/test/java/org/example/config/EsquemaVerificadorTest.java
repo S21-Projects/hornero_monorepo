@@ -294,4 +294,52 @@ class EsquemaVerificadorTest {
 
         assertThat(esquemaVerificador.eventosReclamoMigrados()).isFalse();
     }
+    @Test
+    void postgres_staleEventoTipoCheck_flagsV009Pending() throws Exception {
+        mockDatabaseProduct("PostgreSQL");
+        when(jdbcTemplate.queryForObject(org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.eq(String.class)))
+                .thenReturn("YES");
+        when(jdbcTemplate.queryForList(org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.eq(String.class)))
+                .thenReturn(java.util.List.of());
+        when(jdbcTemplate.queryForList(org.mockito.ArgumentMatchers.contains("REPORTE_CONFIRMADO"), org.mockito.ArgumentMatchers.eq(String.class)))
+                .thenReturn(java.util.List.of("organizacion_evento_tipo_check"));
+
+        esquemaVerificador.run(new DefaultApplicationArguments());
+
+        assertThat(esquemaVerificador.eventosReporteMigrados()).isFalse();
+        assertThat(esquemaVerificador.eventosReclamoMigrados()).isTrue();
+    }
+
+    @Test
+    void postgres_missingPendingReportIndex_flagsV009Pending() throws Exception {
+        mockDatabaseProduct("PostgreSQL");
+        when(jdbcTemplate.queryForObject(org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.eq(String.class)))
+                .thenReturn("YES");
+        when(jdbcTemplate.queryForList(org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.eq(String.class)))
+                .thenReturn(java.util.List.of());
+        when(jdbcTemplate.queryForList(org.mockito.ArgumentMatchers.contains("ux_reporte_pendiente"), org.mockito.ArgumentMatchers.eq(String.class)))
+                .thenReturn(java.util.List.of("ux_reporte_pendiente"));
+
+        esquemaVerificador.run(new DefaultApplicationArguments());
+
+        assertThat(esquemaVerificador.eventosReporteMigrados()).isFalse();
+    }
+
+    @Test
+    void postgres_v006Applied_notPending() throws Exception {
+        mockDatabaseProduct("PostgreSQL");
+        when(jdbcTemplate.queryForObject(org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.eq(String.class)))
+                .thenReturn("YES");
+        when(jdbcTemplate.queryForList(org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.eq(String.class)))
+                .thenReturn(java.util.List.of());
+
+        esquemaVerificador.run(new DefaultApplicationArguments());
+
+        assertThat(esquemaVerificador.eventosReporteMigrados()).isTrue();
+    }
+
+    @Test
+    void defaultState_v006AssumedMigrated() {
+        assertThat(esquemaVerificador.eventosReporteMigrados()).isTrue();
+    }
 }

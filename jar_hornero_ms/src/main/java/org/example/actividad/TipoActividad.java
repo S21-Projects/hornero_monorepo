@@ -47,6 +47,11 @@ public enum TipoActividad {
     RECLAMO_APROBADO,
     RECLAMO_RECHAZADO,
 
+    // Reportes sobre organizaciones importadas
+    REPORTE_CREADO,
+    REPORTE_CONFIRMADO,
+    REPORTE_DESCARTADO,
+
     // Necesidades
     NECESIDAD_CREADA,
     NECESIDAD_ACTUALIZADA,

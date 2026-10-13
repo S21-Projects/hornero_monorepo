@@ -10,6 +10,24 @@ production DB) — check the "Applied to" line before running anything twice.
 
 ---
 
+## 2026-10-13 — `organizacion_evento_tipo_check`: report-flow events (mapa-vulnerabilidad, task C)
+
+**Reason**: confirming or discarding a report on an unclaimed organizacion writes `TipoEventoOrganizacion.REPORTE_CONFIRMADO` / `REPORTE_DESCARTADO` to the audit trail. `ddl-auto=update` never widens the CHECK it generated for the STRING enum, so inserting them would fail. The new table `reportes_organizacion` is created by `ddl-auto=update` (no script needed).
+
+**Before**: `organizacion_evento_tipo_check` lacks `REPORTE_CONFIRMADO` and `REPORTE_DESCARTADO`.
+
+**Migration**: `scripts/sql/V009__reporte_eventos.sql` (run `make migrate`, then restart the MS). Drops any CHECK on `tipo` that lacks the new values and recreates it with the full list (V008 values included). Safe before or after deploying the new MS image, and re-runnable. It also builds the partial unique index `ux_reporte_pendiente` on `reportes_organizacion (organizacion_id, reportante_id) WHERE estado = 'PENDIENTE'` (one pending report per user and comedor, even under a race). That table only exists after the new MS image first boots, so **run `make migrate` again after that first boot** (idempotent). At boot `EsquemaVerificador` logs `ESQUEMA_PENDIENTE` while the stale CHECK or the index is missing (PostgreSQL only); until then confirming/discarding a report fails with a constraint violation (409 CONFLICTO_DATOS).
+
+**After**: `organizacion_evento.tipo` accepts the two report events.
+
+**Rollback**: `DELETE FROM organizacion_evento WHERE tipo IN ('REPORTE_CONFIRMADO','REPORTE_DESCARTADO');` then recreate the V008 check (without the two values) and `DROP INDEX IF EXISTS ux_reporte_pendiente;`. The report table can stay; the old code ignores it.
+
+**Applied to**:
+- [ ] Local dev DB
+- [ ] Pi production DB
+
+---
+
 ## 2026-10-13 — `organizacion_evento_tipo_check`: claim-flow events (mapa-vulnerabilidad, task B)
 
 **Reason**: approving or rejecting a claim on an unclaimed organizacion writes `TipoEventoOrganizacion.RECLAMO_APROBADO` / `RECLAMO_RECHAZADO` to the audit trail. `ddl-auto=update` never widens the CHECK it generated for the STRING enum, so inserting them would fail. The new tables `reclamos_organizacion` and `reclamo_organizacion_evidencias` are created by `ddl-auto=update` (no script needed).

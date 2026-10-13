@@ -1,6 +1,8 @@
 package org.example.reclamo;
 
 import org.example.acreditacion.AcreditacionService;
+import org.example.auth.VerificacionService;
+import org.example.reporte.ReporteCierre;
 import org.example.actividad.ActividadService;
 import org.example.domain.EstadoOrganizacion;
 import org.example.domain.Organizacion;
@@ -40,8 +42,10 @@ class ReclamoServiceGuardsTest {
     private final OrganizacionRepository organizacionRepository = mock(OrganizacionRepository.class);
     private final UsuarioRepository usuarioRepository = mock(UsuarioRepository.class);
     private final OrganizacionService organizacionService = mock(OrganizacionService.class);
+    private final VerificacionService verificacionService = mock(VerificacionService.class);
     private final ReclamoService service = new ReclamoService(reclamoRepository, organizacionRepository,
-            usuarioRepository, organizacionService, mock(AcreditacionService.class), mock(ActividadService.class));
+            usuarioRepository, organizacionService, mock(AcreditacionService.class), mock(ActividadService.class),
+            verificacionService, mock(ReporteCierre.class));
 
     private Referente referente() {
         return new Referente(7L, "Ana", "ana@test.com", "x", true);
@@ -73,6 +77,29 @@ class ReclamoServiceGuardsTest {
                     assertThat(e.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
                     assertThat(e.getReason()).isEqualTo(ReclamoService.MSG_RECLAMO_PENDIENTE);
                 });
+    }
+
+    @Test
+    void crear_rethrowsAnyOtherIntegrityViolation_insteadOfCallingItAPendingDuplicate() {
+        when(usuarioRepository.findById(7L)).thenReturn(Optional.of(referente()));
+        when(organizacionRepository.findById(4L)).thenReturn(Optional.of(org(EstadoOrganizacion.SIN_RECLAMAR)));
+        DataIntegrityViolationException otra = new DataIntegrityViolationException("value too long for column");
+        when(reclamoRepository.saveAndFlush(any(ReclamoOrganizacion.class))).thenThrow(otra);
+
+        assertThatThrownBy(() -> service.crear(new CrearReclamoRequest(4L, RolReclamo.RESPONSABLE, "351 555 1234",
+                null, List.of("reclamo-evidencia/4/7/1.jpg")), 7L)).isSameAs(otra);
+    }
+
+    @Test
+    void crear_recognisesTheIndexNameInTheCauseChain() {
+        when(usuarioRepository.findById(7L)).thenReturn(Optional.of(referente()));
+        when(organizacionRepository.findById(4L)).thenReturn(Optional.of(org(EstadoOrganizacion.SIN_RECLAMAR)));
+        when(reclamoRepository.saveAndFlush(any(ReclamoOrganizacion.class))).thenThrow(
+                new DataIntegrityViolationException("could not execute statement",
+                        new RuntimeException("ERROR: duplicate key value violates unique constraint \"UX_RECLAMO_PENDIENTE\"")));
+
+        assertStatus(() -> service.crear(new CrearReclamoRequest(4L, RolReclamo.RESPONSABLE, "351 555 1234",
+                null, List.of("reclamo-evidencia/4/7/1.jpg")), 7L), HttpStatus.CONFLICT);
     }
 
     @Test

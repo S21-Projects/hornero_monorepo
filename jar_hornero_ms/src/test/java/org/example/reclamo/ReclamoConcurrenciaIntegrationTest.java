@@ -59,8 +59,12 @@ class ReclamoConcurrenciaIntegrationTest {
                 new Administrador(null, "Admin2 " + s, "adm2-" + s + "@test.com", "hash", true));
         Referente ana = (Referente) usuarioRepository.save(
                 new Referente(null, "Ana " + s, "ana-" + s + "@test.com", "hash", true));
+        ana.setEmailVerificado(true);
+        usuarioRepository.save(ana);
         Referente beto = (Referente) usuarioRepository.save(
                 new Referente(null, "Beto " + s, "beto-" + s + "@test.com", "hash", true));
+        beto.setEmailVerificado(true);
+        usuarioRepository.save(beto);
 
         Organizacion org = new Organizacion();
         org.setNombre("Comedor concurrente " + s);

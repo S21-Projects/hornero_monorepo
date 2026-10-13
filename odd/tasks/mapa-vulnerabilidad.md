@@ -150,7 +150,27 @@ Re-planned 2026-10-12 after the scope expansion (unclaimed ReNaCoM organizacione
     need widening, tests
   - [ ] B2 — Admin SPA: referente claim form route + admin "Reclamos" queue
   - [ ] B3 — Astro: unclaimed ficha (badge, ReNaCoM source, CTA, no donate CTA/"Pendiente")
-- [ ] C — Report flow: MS reporte aggregate + endpoints, BFF, admin queue, Astro modal
+  - Commits: B1 `64990c9`, B2 `af9d962`, B3 `03cacd7`.
+- [x] C — Report flow (route: delegated writer). Defaults chosen by parent (adjustable): any
+  authenticated user (any role) reports, via an admin-SPA route linked from the Astro ficha
+  (Astro stays anonymous; avoids an unauthenticated write endpoint); only SIN_RECLAMAR orgs
+  are reportable for now; motivos INACTIVO, DATOS_INCORRECTOS, DUPLICADO (+ referenced
+  Hornero org, suggested from nearby PLATAFORMA orgs), OTRO; one pending report per user per
+  org; admin resolves with "Marcar inactiva" (org → INACTIVA, resolves all pending reports
+  on it) or "Descartar" (with nota); events + actividad logged; no emails.
+  - 2026-10-13 writer done (uncommitted): mvn 802/0 fail; BFF 391/391 (parent re-ran) + build;
+    admin lint/build ok, vitest 537; astro build; V009 x3 on ephemeral pg. Review: 0 severe,
+    4 medium (no per-user report cap, broad DataIntegrityViolation catch, pending claims left
+    open on INACTIVA, report/claim cross-closure) + verified-gate question. Correction round:
+    per-user caps, narrow constraint catch (also ReclamoService), marcarInactiva auto-rejects
+    pending claims, claim approval auto-discards pending reports, MS verified gate if a
+    pattern exists.
+  - Correction round done: per-user caps (10 pending → 409, 20/24h → 429, in-memory
+    ReporteThrottle), constraint-specific catch (`Restricciones.viola`, also ReclamoService),
+    marcarInactiva auto-rejects pending claims, claim approval auto-discards pending reports
+    (`ReporteCierre`), MS verified-email gate on report/claim POST + claim pre-flight. Evidence:
+    mvn 816/0 fail; admin 538; parent re-ran Reporte*/Reclamo* tests: exit 0.
+  - [ ] C1 — MS + BFF  · [ ] C2 — Admin SPA (report form + "Reportes" tab)  · [ ] C3 — Astro
 - [ ] D — Map: depto aggregation + GeoJSON from DB data (former T2-T3), `make mapa-datos`
   publish (D2), Astro Leaflet island (former T5), docs (former T6)
 

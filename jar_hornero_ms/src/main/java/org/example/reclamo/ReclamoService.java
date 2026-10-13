@@ -5,6 +5,8 @@ import org.example.acreditacion.AcreditacionService;
 import org.example.actividad.ActividadService;
 import org.example.actividad.ActividadService.Registro;
 import org.example.actividad.TipoActividad;
+import org.example.auth.VerificacionService;
+import org.example.common.Restricciones;
 import org.example.domain.EstadoOrganizacion;
 import org.example.domain.EstadoReclamo;
 import org.example.domain.Organizacion;
@@ -15,6 +17,7 @@ import org.example.domain.TipoEventoOrganizacion;
 import org.example.organizacion.OrganizacionService;
 import org.example.reclamo.dto.CrearReclamoRequest;
 import org.example.reclamo.dto.ReclamoResponse;
+import org.example.reporte.ReporteCierre;
 import org.example.user.Administrador;
 import org.example.user.Referente;
 import org.example.user.Usuario;
@@ -45,6 +48,7 @@ import java.util.regex.Pattern;
 public class ReclamoService {
 
     static final String MSG_RECLAMO_PENDIENTE = "Ya tenés un reclamo pendiente para este comedor";
+    static final String INDICE_PENDIENTE = "ux_reclamo_pendiente";
     static final String MOTIVO_OTRO_RECLAMO_APROBADO = "Se aprobó otro reclamo para este comedor";
     private static final Pattern OBJECT_KEY_PATTERN = Pattern.compile("^reclamo-evidencia/(\\d+)/(\\d+)/[^/]+$");
 
@@ -54,9 +58,12 @@ public class ReclamoService {
     private final OrganizacionService organizacionService;
     private final AcreditacionService acreditacionService;
     private final ActividadService actividadService;
+    private final VerificacionService verificacionService;
+    private final ReporteCierre reporteCierre;
 
     @Transactional
     public ReclamoResponse crear(CrearReclamoRequest request, Long userId) {
+        verificacionService.requireVerified(userId);
         Usuario usuario = usuarioRepository.findById(userId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Usuario no encontrado"));
         if (!(usuario instanceof Referente referente)) {
@@ -80,6 +87,10 @@ public class ReclamoService {
             saved = reclamoRepository.saveAndFlush(reclamo);
         } catch (DataIntegrityViolationException e) {
             // ux_reclamo_pendiente (V008): a concurrent duplicate got past the existsBy check.
+            // Any other integrity failure is a real error, not "already pending".
+            if (!Restricciones.viola(e, INDICE_PENDIENTE)) {
+                throw e;
+            }
             throw new ResponseStatusException(HttpStatus.CONFLICT, MSG_RECLAMO_PENDIENTE);
         }
 
@@ -95,6 +106,7 @@ public class ReclamoService {
      */
     @Transactional(readOnly = true)
     public void verificarReclamable(Long organizacionId, Long userId) {
+        verificacionService.requireVerified(userId);
         Usuario usuario = usuarioRepository.findById(userId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Usuario no encontrado"));
         if (!(usuario instanceof Referente referente)) {
@@ -173,7 +185,18 @@ public class ReclamoService {
                 cerrarComoRechazado(otro, admin, MOTIVO_OTRO_RECLAMO_APROBADO);
             }
         }
+        // The organizacion now has an owner: reports about it being unclaimed are moot.
+        reporteCierre.descartarPendientes(organizacion.getId(), admin, ReporteCierre.NOTA_RECLAMADA);
         return toResponse(reclamo, null);
+    }
+
+    /** Rejects every PENDIENTE claim on an organizacion that can no longer be claimed (marked inactive). */
+    @Transactional
+    public void rechazarPendientesDeOrganizacion(Long organizacionId, Administrador admin, String motivo) {
+        for (ReclamoOrganizacion r : reclamoRepository
+                .findByOrganizacion_IdAndEstado(organizacionId, EstadoReclamo.PENDIENTE)) {
+            cerrarComoRechazado(r, admin, motivo);
+        }
     }
 
     @Transactional
