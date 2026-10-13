@@ -32,6 +32,9 @@ Ante un pedido de baja, un administrador **anonimiza** la cuenta en lugar de bor
 - el correo se reemplaza por un valor irreversible y único que no permite recuperar el original
   ni volver a iniciar sesión;
 - se eliminan los datos de contacto y ubicación asociados al usuario;
+- sus reclamos y reportes pendientes se cierran automáticamente (reclamos rechazados con el motivo
+  "El solicitante dio de baja su cuenta", reportes descartados con la nota "El reportante dio de
+  baja su cuenta"), con los mismos eventos y actividad que una resolución manual;
 - los reclamos que presentó conservan su fila (estado, organización, resolución) pero pierden el
   teléfono, el mensaje y las referencias a los archivos de evidencia; los reportes que presentó
   pierden el detalle de texto libre;

@@ -19,6 +19,8 @@ public interface ReclamoOrganizacionRepository extends JpaRepository<ReclamoOrga
 
     List<ReclamoOrganizacion> findByOrganizacion_IdAndEstado(Long organizacionId, EstadoReclamo estado);
 
+    List<ReclamoOrganizacion> findByReferente_IdAndEstado(Long referenteId, EstadoReclamo estado);
+
     boolean existsByOrganizacion_IdAndReferente_IdAndEstado(Long organizacionId, Long referenteId, EstadoReclamo estado);
 
     /** Authorizes an evidence file: the key must be bound to a row of this claimant. */

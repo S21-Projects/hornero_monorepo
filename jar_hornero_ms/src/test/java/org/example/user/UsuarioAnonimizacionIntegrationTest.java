@@ -229,11 +229,15 @@ class UsuarioAnonimizacionIntegrationTest {
             assertThat(c.getMensaje()).isNull();
             assertThat(c.getEvidenciaKeys()).isEmpty();
             assertThat(c.getReferente().getId()).isEqualTo(ref.getId());
-            assertThat(c.getEstado()).isEqualTo(org.example.domain.EstadoReclamo.PENDIENTE);
+            assertThat(c.getEstado()).isEqualTo(org.example.domain.EstadoReclamo.RECHAZADO);
+            assertThat(c.getMotivoRechazo()).isEqualTo("El solicitante dio de baja su cuenta");
+            assertThat(c.getResueltoEn()).isNotNull();
         });
         ReporteOrganizacion rep = reporteRepository.findById(report.getId()).orElseThrow();
         assertThat(rep.getDetalle()).isNull();
         assertThat(rep.getMotivo()).isEqualTo(MotivoReporte.INACTIVO);
+        assertThat(rep.getEstado()).isEqualTo(org.example.domain.EstadoReporte.DESCARTADO);
+        assertThat(rep.getNotaResolucion()).isEqualTo("El reportante dio de baja su cuenta");
     }
 
     @Test
