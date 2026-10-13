@@ -3,6 +3,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createMemoryRouter, RouterProvider } from 'react-router-dom';
 import LoginPage from './login';
+import { ProtectedRoute, PublicOnlyRoute } from '../app/ProtectedRoute';
 import { useAuthStore } from '../store/auth.store';
 import type { AuthUser } from '../store/auth.store';
 
@@ -158,5 +159,40 @@ describe('LoginPage — returns to the originally requested URL', () => {
     render(<RouterProvider router={routerFrom('//evil.com')} />);
     await submitLoginForm();
     await waitFor(() => expect(screen.getByText('Admin Home')).toBeInTheDocument());
+  });
+});
+
+describe('claim deep link: anonymous visitor to /reclamar/<slug>', () => {
+  beforeEach(() => {
+    useAuthStore.setState({ user: null, status: 'unauthenticated', orgValidada: false, orgChecked: false });
+  });
+
+  it('goes through /login and returns to /reclamar/<slug> (query and hash preserved)', async () => {
+    vi.spyOn(useAuthStore.getState(), 'login').mockImplementation(async () => {
+      useAuthStore.setState({ status: 'authenticated', user: REFERENTE_USER });
+    });
+    const router = createMemoryRouter(
+      [
+        {
+          element: <ProtectedRoute allow={['REFERENTE']} />,
+          children: [{ path: '/reclamar/:slug', element: <div>Claim page</div> }],
+        },
+        { path: '/login', element: <PublicOnlyRoute><LoginPage /></PublicOnlyRoute> },
+        { path: '/dashboard', element: <div>Referente Dashboard</div> },
+      ],
+      { initialEntries: ['/reclamar/comedor-x-1?ref=astro#form'] },
+    );
+    render(<RouterProvider router={router} />);
+
+    // Bounced to the login form first...
+    expect(await screen.findByLabelText('Email')).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe('/login');
+
+    await submitLoginForm();
+
+    await waitFor(() => expect(screen.getByText('Claim page')).toBeInTheDocument());
+    expect(router.state.location.pathname).toBe('/reclamar/comedor-x-1');
+    expect(router.state.location.search).toBe('?ref=astro');
+    expect(router.state.location.hash).toBe('#form');
   });
 });

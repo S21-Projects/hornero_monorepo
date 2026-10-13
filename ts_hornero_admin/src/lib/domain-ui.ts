@@ -54,6 +54,19 @@ export const ESTADO_ORGANIZACION: Record<string, BadgeConfig> = {
   INACTIVA:  { tone: 'neutral', label: 'Inactiva' },
 };
 
+/** Claim flow: the claimant's declared relationship with the comedor (MS `RolReclamo`). */
+export const ROL_RECLAMO: Record<string, string> = {
+  RESPONSABLE: 'Responsable / coordinador/a',
+  VOLUNTARIO: 'Voluntario/a',
+  INTEGRANTE: 'Integrante de la organización que lo sostiene',
+};
+
+export const ESTADO_RECLAMO: Record<string, BadgeConfig> = {
+  PENDIENTE: { tone: 'sky',    label: 'En revisión' },
+  APROBADO:  { tone: 'ok',     label: 'Aprobado' },
+  RECHAZADO: { tone: 'danger', label: 'Rechazado' },
+};
+
 export const TIPO_ORGANIZACION: Record<string, BadgeConfig> = {
   COMEDOR:   { tone: 'neutral', label: 'Comedor' },
   COPITA:    { tone: 'neutral', label: 'Copita' },
@@ -124,6 +137,9 @@ export const ACCION_ACTIVIDAD: Record<string, string> = {
   ORGANIZACION_INFO_PUBLICA_EDITADA: 'Información pública editada',
   ORGANIZACION_INFO_PUBLICA_APROBADA: 'Información pública aprobada',
   ORGANIZACION_INFO_PUBLICA_RECHAZADA: 'Información pública rechazada',
+  RECLAMO_CREADO: 'Reclamo de comedor presentado',
+  RECLAMO_APROBADO: 'Reclamo de comedor aprobado',
+  RECLAMO_RECHAZADO: 'Reclamo de comedor rechazado',
   NECESIDAD_CREADA: 'Necesidad creada',
   NECESIDAD_ACTUALIZADA: 'Necesidad actualizada',
   NECESIDAD_ELIMINADA: 'Necesidad eliminada',
@@ -167,6 +183,7 @@ export const ACTOR_ACTIVIDAD: Record<string, string> = {
 export const ENTIDAD_ACTIVIDAD: Record<string, string> = {
   USUARIO: 'Usuario',
   ORGANIZACION: 'Organización',
+  RECLAMO: 'Reclamo',
   NECESIDAD: 'Necesidad',
   DONACION: 'Donación',
   ARTICULO: 'Artículo',

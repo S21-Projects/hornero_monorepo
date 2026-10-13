@@ -13,7 +13,7 @@ interface UploadVariables {
  * uploads on any org write through the admin-only info-pública endpoint) —
  * there's no separate "save" step on the frontend.
  */
-function useUploadOrgImagen(endpoint: 'org-profile' | 'org-banner' | 'org-evidencia') {
+function useUploadOrgImagen(endpoint: 'org-profile' | 'org-banner' | 'org-evidencia' | 'reclamo-evidencia') {
   const queryClient = useQueryClient();
 
   return useMutation<{ key: string }, Error, UploadVariables>({
@@ -47,4 +47,13 @@ export function useUploadOrgBanner() {
  */
 export function useUploadOrgEvidencia() {
   return useUploadOrgImagen('org-evidencia');
+}
+
+/**
+ * Claim evidence upload (`POST upload/reclamo-evidencia/:orgId`, any referente — the organizacion is
+ * still unclaimed). The BFF stores it under the caller's own prefix and returns the key, which the
+ * claim form then submits in `POST /reclamos`. `organizacionId` is the organizacion being claimed.
+ */
+export function useUploadReclamoEvidencia() {
+  return useUploadOrgImagen('reclamo-evidencia');
 }

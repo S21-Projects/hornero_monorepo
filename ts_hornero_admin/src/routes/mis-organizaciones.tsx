@@ -15,6 +15,7 @@ import { ESTADO_ORGANIZACION, TIPO_ORGANIZACION } from '../lib/domain-ui';
 import { TipoOrganizacion } from '../types/domain';
 import type { TipoOrganizacion as TipoOrganizacionType, Organizacion } from '../types/domain';
 import { InfoPublicaForm } from '../components/org/InfoPublicaForm';
+import { MisReclamos } from '../components/reclamo/MisReclamos';
 import { CORDOBA_CENTER, type LatLng } from '../lib/geo';
 
 const CAP = 3;
@@ -243,6 +244,8 @@ export default function MisOrganizacionesPage() {
       {showForm && (
         <CrearOrganizacionForm onDone={() => { setShowForm(false); void refetch(); }} />
       )}
+
+      <MisReclamos />
     </div>
   );
 }

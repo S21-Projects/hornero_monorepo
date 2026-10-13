@@ -30,6 +30,8 @@ import EntregaPage from '../routes/entrega';
 import AuditoriaPage from '../routes/auditoria';
 import RondasPage from '../routes/rondas';
 import CatalogoPage from '../routes/catalogo';
+import ReclamarPage from '../routes/reclamar';
+import ReclamosPage from '../routes/reclamos';
 
 export const router = createBrowserRouter([
   // ── Public-only routes (redirect away when authenticated) ──────────────
@@ -95,6 +97,9 @@ export const router = createBrowserRouter([
           // their org is still below N1 — gating it on validation would make
           // self-service accreditation impossible to reach.
           { path: '/acreditacion', element: <AcreditacionPage /> },
+          // Claim form for an unclaimed (ReNaCoM) comedor, linked from the public site. An
+          // anonymous visitor is bounced to /login and returned here afterwards (safeRedirectPath).
+          { path: '/reclamar/:slug', element: <ReclamarPage /> },
         ],
       },
     ],
@@ -114,6 +119,7 @@ export const router = createBrowserRouter([
           { path: '/control-donaciones', element: <ControlDonacionesPage /> },
           { path: '/auditoria', element: <AuditoriaPage /> },
           { path: '/rondas', element: <RondasPage /> },
+          { path: '/reclamos', element: <ReclamosPage /> },
           { path: '/actividad', element: <ActividadPage /> },
           { path: '/catalogo', element: <CatalogoPage /> },
         ],
