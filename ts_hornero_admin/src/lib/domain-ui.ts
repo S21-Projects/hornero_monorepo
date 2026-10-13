@@ -67,6 +67,23 @@ export const ESTADO_RECLAMO: Record<string, BadgeConfig> = {
   RECHAZADO: { tone: 'danger', label: 'Rechazado' },
 };
 
+/** Report flow: why a visitor reports an unclaimed comedor (MS `MotivoReporte`). */
+export const MOTIVO_REPORTE: Record<string, { label: string; hint: string }> = {
+  INACTIVO: { label: 'Ya no funciona', hint: 'Cerró o dejó de dar comidas' },
+  DATOS_INCORRECTOS: { label: 'Los datos son incorrectos', hint: 'Dirección, nombre o tipo equivocados' },
+  DUPLICADO: {
+    label: 'Ya está en Hornero con otro nombre',
+    hint: 'Es la misma organización que otra de la plataforma',
+  },
+  OTRO: { label: 'Otro motivo', hint: 'Contanos en el detalle' },
+};
+
+export const ESTADO_REPORTE: Record<string, BadgeConfig> = {
+  PENDIENTE: { tone: 'sky',    label: 'En revisión' },
+  CONFIRMADO: { tone: 'ok',    label: 'Confirmado' },
+  DESCARTADO: { tone: 'neutral', label: 'Descartado' },
+};
+
 export const TIPO_ORGANIZACION: Record<string, BadgeConfig> = {
   COMEDOR:   { tone: 'neutral', label: 'Comedor' },
   COPITA:    { tone: 'neutral', label: 'Copita' },
@@ -140,6 +157,9 @@ export const ACCION_ACTIVIDAD: Record<string, string> = {
   RECLAMO_CREADO: 'Reclamo de comedor presentado',
   RECLAMO_APROBADO: 'Reclamo de comedor aprobado',
   RECLAMO_RECHAZADO: 'Reclamo de comedor rechazado',
+  REPORTE_CREADO: 'Reporte de comedor presentado',
+  REPORTE_CONFIRMADO: 'Reporte de comedor confirmado',
+  REPORTE_DESCARTADO: 'Reporte de comedor descartado',
   NECESIDAD_CREADA: 'Necesidad creada',
   NECESIDAD_ACTUALIZADA: 'Necesidad actualizada',
   NECESIDAD_ELIMINADA: 'Necesidad eliminada',
@@ -184,6 +204,7 @@ export const ENTIDAD_ACTIVIDAD: Record<string, string> = {
   USUARIO: 'Usuario',
   ORGANIZACION: 'Organización',
   RECLAMO: 'Reclamo',
+  REPORTE: 'Reporte',
   NECESIDAD: 'Necesidad',
   DONACION: 'Donación',
   ARTICULO: 'Artículo',
