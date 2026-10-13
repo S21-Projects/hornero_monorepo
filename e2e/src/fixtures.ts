@@ -1,3 +1,6 @@
+import { execFileSync } from 'node:child_process';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { inject } from 'vitest';
 import { Actor, BFF_URL } from './client.js';
 
@@ -116,3 +119,54 @@ export async function completarEntrega(donante: Actor, referente: Actor, donacio
 }
 
 export { BFF_URL };
+
+// --- Direct DB access (claims/reports need ReNaCoM-imported organizaciones, which no API creates) ---
+
+const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
+
+/** Runs SQL inside the compose Postgres (same path as `make migrate`); returns the unaligned rows. */
+export function psql(sql: string): string[] {
+  const out = execFileSync(
+    'docker',
+    ['compose', 'exec', '-T', 'postgres', 'sh', '-c', 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v ON_ERROR_STOP=1 -tA'],
+    { cwd: repoRoot, input: sql, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] },
+  );
+  return out.split('\n').filter((l) => l.trim() !== '' && !/^(INSERT|UPDATE|DELETE) /.test(l));
+}
+
+const E2E_ORIGEN = "origen_id LIKE 'e2e-%'";
+
+/**
+ * Removes the organizaciones (and their claims, reports and events) that earlier runs imported, so a
+ * rerun starts with free referente caps and an empty 24 h claim window. Only touches `e2e-` rows.
+ */
+export function cleanupUnclaimedOrgs() {
+  const orgs = `SELECT id FROM organizaciones WHERE ${E2E_ORIGEN}`;
+  psql(`
+    DELETE FROM reclamo_organizacion_evidencias WHERE reclamo_id IN
+      (SELECT id FROM reclamos_organizacion WHERE organizacion_id IN (${orgs}));
+    DELETE FROM reclamos_organizacion WHERE organizacion_id IN (${orgs});
+    DELETE FROM reportes_organizacion WHERE organizacion_id IN (${orgs}) OR organizacion_duplicada_id IN (${orgs});
+    DELETE FROM organizacion_evento WHERE organizacion_id IN (${orgs});
+    DELETE FROM organizaciones WHERE ${E2E_ORIGEN};
+  `);
+}
+
+/** Imports one unclaimed (SIN_RECLAMAR, origen RENACOM) organizacion, like `make importar-renacom` does. */
+export function importUnclaimedOrg(label: string): { id: number; nombre: string } {
+  const nombre = marker(label);
+  const key = `e2e-${runId}-${label}`;
+  const [id] = psql(`
+    INSERT INTO organizaciones (nombre, slug, tipo, direccion, latitud, longitud, validada, estado, nivel,
+                                referente_id, acepta_donaciones, origen, origen_id, version)
+    VALUES ('${nombre}', '${key}', 'COMEDOR', 'Calle E2E 123', -31.42, -64.19, false, 'SIN_RECLAMAR', 'N0',
+            NULL, false, 'RENACOM', '${key}', 0)
+    RETURNING id;
+  `);
+  return { id: Number(id), nombre };
+}
+
+/** The register flow leaves the email unverified (OTP); claims require it, so mark it directly. */
+export function markEmailVerified(email: string) {
+  psql(`UPDATE usuarios SET email_verificado = true WHERE email = '${email}';`);
+}
