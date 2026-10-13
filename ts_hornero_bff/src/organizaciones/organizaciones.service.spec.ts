@@ -58,7 +58,7 @@ describe('OrganizacionesService', () => {
 
   describe('mapa', () => {
     it('proxies the public MS map endpoint without credentials', async () => {
-      const data = { data: [{ id: 1, slug: 'a', estado: 'SIN_RECLAMAR' }] };
+      const data = { data: [{ id: 1, slug: 'a', estado: 'SIN_RECLAMAR', necesidadesAbiertas: 2 }] };
       httpService.axiosRef.get.mockResolvedValue({ data });
 
       const result = await service.mapa();

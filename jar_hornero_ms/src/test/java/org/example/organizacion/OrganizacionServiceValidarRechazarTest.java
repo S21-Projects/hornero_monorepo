@@ -227,6 +227,41 @@ class OrganizacionServiceValidarRechazarTest {
                 .satisfies(m -> assertThat(m.origen()).isEqualTo(org.example.domain.OrigenOrganizacion.PLATAFORMA));
     }
 
+    private void persistNecesidad(Organizacion owner, org.example.domain.EstadoNecesidad estado,
+                                  java.time.LocalDate vence) {
+        var n = new org.example.domain.Necesidad();
+        n.setDescripcion("necesidad");
+        n.setPrioridad(org.example.domain.PrioridadNecesidad.MEDIA);
+        n.setEstado(estado);
+        n.setFechaVencimiento(vence);
+        n.setOrganizacion(owner);
+        entityManager.persistAndFlush(n);
+    }
+
+    @Test
+    void listarMapaCountsOnlyOpenUncoveredNecesidadesPerOrganizacion() {
+        Organizacion conDemanda = persistImportada("m-demanda", EstadoOrganizacion.SIN_RECLAMAR, -34.0, -58.0);
+        Organizacion sinDemanda = persistImportada("m-sin-demanda", EstadoOrganizacion.SIN_RECLAMAR, -35.0, -59.0);
+        Organizacion otra = persistImportada("m-otra", EstadoOrganizacion.APROBADA, -36.0, -60.0);
+        var hoy = java.time.LocalDate.now();
+        persistNecesidad(conDemanda, org.example.domain.EstadoNecesidad.ABIERTA, null);
+        persistNecesidad(conDemanda, org.example.domain.EstadoNecesidad.EN_PROGRESO, hoy);
+        persistNecesidad(conDemanda, org.example.domain.EstadoNecesidad.CUMPLIDA, null);
+        persistNecesidad(conDemanda, org.example.domain.EstadoNecesidad.VENCIDA, hoy.minusDays(1));
+        persistNecesidad(conDemanda, org.example.domain.EstadoNecesidad.ABIERTA, hoy.minusDays(1)); // lapsed, job not run yet
+        persistNecesidad(otra, org.example.domain.EstadoNecesidad.ABIERTA, hoy.plusDays(5));
+
+        var mapa = organizacionService.listarMapa();
+
+        assertThat(mapa).hasSize(3);
+        assertThat(mapa).filteredOn(m -> m.slug().equals("m-demanda")).singleElement()
+                .satisfies(m -> assertThat(m.necesidadesAbiertas()).isEqualTo(2));
+        assertThat(mapa).filteredOn(m -> m.slug().equals("m-sin-demanda")).singleElement()
+                .satisfies(m -> assertThat(m.necesidadesAbiertas()).isZero());
+        assertThat(mapa).filteredOn(m -> m.slug().equals("m-otra")).singleElement()
+                .satisfies(m -> assertThat(m.necesidadesAbiertas()).isEqualTo(1));
+    }
+
     @Test
     void asignarReferenteRefusesUnclaimedButAllowsUnassign() {
         Organizacion o = persistImportada("sr-asignar", EstadoOrganizacion.SIN_RECLAMAR, -34.0, -58.0);

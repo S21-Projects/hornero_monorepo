@@ -73,6 +73,18 @@ population would attach the wrong figures. `make mapa-datos` also writes
 When that file sits next to `renacom.csv`, `renacom.Cargar` uses it instead of the
 declared code (matched by `Identificador`); without it the declared code is kept.
 
+**Vulnerability override.** When `data/vulnerabilidad-radios.csv` sits next to `renacom.csv`,
+`geo.Cargar` (used by `serve`, `assign` and the AD-2 resolver) reads its `vulnerabilidad`
+column and uses it as the per-radio number of the score's deficit term, in place of the
+ReNaCoM-only `deficit` (so it also works without `--poblacion`). The precedence is unchanged
+(request-provided value > RADIO > CERCANO > NEUTRAL) and so is the normalization
+(`min(value, deficitMaximo) / deficitMaximo`); the wire contract does not change. An empty
+`vulnerabilidad` (radio with no comedores or no population) is "unknown": that radio is skipped
+and resolution falls through to CERCANO / NEUTRAL, never to 0. Without the file the behaviour is
+the one described below. `make mapa-datos` writes it (see `scripts/mapa/README.md`); the
+vulnerability is the deficit times `(1 + necesidadesAbiertas / comedores)`, so a radio with no open
+necesidades scores exactly its deficit. `--provincia` only narrows the CERCANO points, not this file.
+
 ## The metric
 
 Counting comedores per area says nothing on its own: 108 comedores in a dense,

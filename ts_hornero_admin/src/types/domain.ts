@@ -347,6 +347,20 @@ export const OrigenOrganizacion = {
 } as const;
 export type OrigenOrganizacion = typeof OrigenOrganizacion[keyof typeof OrigenOrganizacion];
 
+/** Item of `GET /organizaciones/mapa` (MS `OrganizacionMapaResponse`): lightweight map pin. */
+export interface OrganizacionMapa {
+  id: number;
+  slug: string;
+  nombre: string;
+  tipo: TipoOrganizacion;
+  estado: EstadoOrganizacion;
+  origen: OrigenOrganizacion;
+  latitud: number;
+  longitud: number;
+  /** Open, uncovered necesidades (ABIERTA or EN_PROGRESO, not expired). */
+  necesidadesAbiertas: number;
+}
+
 export const TipoOrganizacion = {
   COMEDOR:   'COMEDOR',
   COPITA:    'COPITA',
