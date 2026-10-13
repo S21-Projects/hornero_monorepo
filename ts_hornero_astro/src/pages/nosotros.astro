@@ -12,10 +12,8 @@ const FICHA = [
   { termino: 'Cátedra', definicion: 'TODO — materia o cátedra' },
 ];
 
-// If an image is missing, swap it for the labelled placeholder that follows it.
-// Same defensive pattern used for the logo in `Nav.astro`.
-const ON_IMG_ERROR =
-  "this.style.display='none';this.nextElementSibling.style.display='flex'";
+// If an image is missing, `data-img-fallback` (handled by the script in `Nav.astro`) swaps it for
+// the labelled placeholder that follows it.
 ---
 
 <Layout
@@ -102,7 +100,7 @@ const ON_IMG_ERROR =
                 loading="lazy"
                 decoding="async"
                 class="h-full w-full object-cover"
-                onerror={ON_IMG_ERROR}
+                data-img-fallback="next:flex"
               />
               <!-- Placeholder shown until the real file exists in `public/proceso/`. -->
               <div

@@ -1,0 +1,16 @@
+#!/bin/sh
+# Sourced by the nginx image entrypoint BEFORE 20-envsubst-on-templates.sh renders
+# security-headers.conf.template. Derives the CSP variables from CSP_MODE / VITE_BFF_URL.
+# Anything other than "enforce" falls back to report-only (the safe default).
+
+if [ "${CSP_MODE:-report-only}" = "enforce" ]; then
+  CSP_HEADER_NAME="Content-Security-Policy"
+else
+  CSP_HEADER_NAME="Content-Security-Policy-Report-Only"
+fi
+
+# scheme://host[:port] of the BFF; a path or trailing slash in VITE_BFF_URL is dropped.
+CSP_API_ORIGIN=$(printf '%s' "${VITE_BFF_URL:-http://localhost:3001}" | sed -E 's#^(https?://[^/]+).*#\1#')
+
+export CSP_HEADER_NAME CSP_API_ORIGIN
+echo "csp: ${CSP_HEADER_NAME} (api origin ${CSP_API_ORIGIN})"
