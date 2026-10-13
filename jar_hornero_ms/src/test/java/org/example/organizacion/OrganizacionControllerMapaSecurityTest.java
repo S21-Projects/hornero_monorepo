@@ -23,7 +23,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 /** The map endpoint is public and must not be swallowed by the {@code /{slug}} route. */
 @WebMvcTest(OrganizacionController.class)
-@Import(SecurityConfig.class)
+@Import({SecurityConfig.class, MapaOrganizacionesCache.class})
 class OrganizacionControllerMapaSecurityTest {
 
     @Autowired
