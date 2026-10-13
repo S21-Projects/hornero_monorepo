@@ -86,3 +86,10 @@ app:
       cron: ${RONDAS_AUTO_CRON:0 0 6 * * *}
   worker:
     url: ${WORKER_URL:}
+  seed:
+    # Production creates no demo data. SEED_DEMO_DATA=true (local/e2e only) adds demo users, orgs,
+    # necesidades and donaciones. With it off, SUPER_ADMIN_EMAIL/SUPER_ADMIN_PASSWORD are required
+    # (no defaults; empty = missing) and the password must pass the N8 policy.
+    demo: ${SEED_DEMO_DATA:false}
+    super-admin-email: ${SUPER_ADMIN_EMAIL:}
+    super-admin-password: ${SUPER_ADMIN_PASSWORD:}

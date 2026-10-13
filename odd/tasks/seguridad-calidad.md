@@ -304,8 +304,13 @@ The guide requires measures "related to the identified risks", so a risk matrix 
     dashboard 2026-10-12: e2e + manual runs mailed donante/referente/admin@hornero.ar).
   - Fixed: `MAIL_LOG_ONLY=true` now always wins over a configured key (RED: test hit Resend with
     401; GREEN: `mvn test` 868/868); local MS rebuilt and logs log-only mode.
-  - Open: demo accounts on `@hornero.ar` are seeded in production too → move to a reserved
-    domain (user decision pending).
+  - Resolved 2026-10-12 (user): `hornero.ar` does not resolve (no MX/A/NS) — nothing was
+    delivered. Production moves to real users: `SEED_DEMO_DATA` (default false; `make up-local`
+    sets true) gates demo users/orgs/necesidades/donaciones; without demo data the MS requires
+    `SUPER_ADMIN_EMAIL` + `SUPER_ADMIN_PASSWORD` (NIST policy) and never overwrites an existing
+    admin. Evidence: `mvn test` 876/876, `make e2e` 85/85, one-off container without SUPER_ADMIN_*
+    refused to boot. **USER ACTION (Pi):** set SUPER_ADMIN_*, deploy, deactivate legacy
+    `@hornero.ar` accounts; test with Gmail plus-addressing.
 
 ## Business definitions pending (list 2)
 

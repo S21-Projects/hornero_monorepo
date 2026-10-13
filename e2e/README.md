@@ -12,6 +12,8 @@ make e2e             # or: cd e2e && npm install && npm test
 
 - `E2E_BFF_URL` (default `http://localhost:3001`) selects the BFF.
 - `E2E_ADMIN_EMAIL` / `E2E_ADMIN_PASSWORD` override the seeded admin (`admin@hornero.ar`).
+- Needs the demo data: run it against `make up-local` (it sets `SEED_DEMO_DATA=true`); a production-like
+  stack (`make up`) has no demo accounts.
 - Uses the demo accounts seeded by the MS `DataInitializer` (donante, referente, referente2,
   referente3, admin) and the seeded needs/articulos. It does not reset the DB: every run creates
   fresh donations tagged with a unique marker and never relies on absolute counts.

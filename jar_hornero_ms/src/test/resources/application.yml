@@ -46,3 +46,8 @@ app:
     generar-cooldown-seconds: 30
   worker:
     url: ""
+  seed:
+    # Integration tests rely on the seeded demo accounts (admin@hornero.ar / Admin123! ...).
+    demo: true
+    super-admin-email: ""
+    super-admin-password: ""

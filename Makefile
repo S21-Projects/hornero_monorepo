@@ -18,9 +18,10 @@ down:
 	docker compose --profile minio down
 
 # Fast local: local Postgres + local MinIO bucket instead of R2, dummy
-# secrets. Never touches the real production bucket.
+# secrets. Never touches the real production bucket. SEED_DEMO_DATA=true (shell env wins over
+# --env-file) keeps the demo accounts/orgs/necesidades local without editing .env.local.
 up-local:
-	docker compose --env-file .env.local --profile minio up --build
+	SEED_DEMO_DATA=true docker compose --env-file .env.local --profile minio up --build
 
 ## End-to-end (API level) — needs the stack already running: `make up-local` in another terminal.
 e2e:

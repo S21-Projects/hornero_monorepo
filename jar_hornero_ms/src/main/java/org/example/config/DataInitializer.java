@@ -6,6 +6,7 @@ import jakarta.persistence.PersistenceContext;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.example.auth.PasswordPolicy;
 import org.example.domain.Articulo;
 import org.example.domain.ArticuloRepository;
 import org.example.domain.CategoriaAlimento;
@@ -37,6 +38,7 @@ import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Component;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -56,24 +58,64 @@ public class DataInitializer {
     private final DonacionRepository donacionRepository;
     private final ArticuloRepository articuloRepository;
     private final OrganizacionEventoRepository organizacionEventoRepository;
+    private final PasswordPolicy passwordPolicy;
 
     @PersistenceContext
     private EntityManager entityManager;
 
-    @Value("${SUPER_ADMIN_EMAIL:admin@hornero.ar}")
+    /** Local-dev/e2e fallback, used ONLY when {@link #seedDemo} is on and nothing is configured. */
+    private static final String DEMO_ADMIN_EMAIL = "admin@hornero.ar";
+    private static final String DEMO_ADMIN_PASSWORD = "Admin123!";
+
+    /** SEED_DEMO_DATA: demo users/orgs/necesidades/donaciones. Off in production. */
+    @Value("${app.seed.demo:false}")
+    private boolean seedDemo;
+
+    /** SUPER_ADMIN_EMAIL: required (no default) unless demo data is on. Empty counts as missing. */
+    @Value("${app.seed.super-admin-email:}")
     private String superAdminEmail;
 
-    @Value("${SUPER_ADMIN_PASSWORD:Admin123!}")
+    /** SUPER_ADMIN_PASSWORD: required (no default) unless demo data is on. Must pass N8. */
+    @Value("${app.seed.super-admin-password:}")
     private String superAdminPassword;
 
     @PostConstruct
     public void init() {
+        resolveSuperAdminCredentials();
         seedAdmin();
-        seedUsers();
-        seedOrganizaciones();
         seedArticulos();
-        seedNecesidades();
-        seedDonaciones();
+        if (seedDemo) {
+            seedUsers();
+            seedOrganizaciones();
+            seedNecesidades();
+            seedDonaciones();
+        } else {
+            log.info("Demo data disabled (SEED_DEMO_DATA=false): no demo users, orgs, necesidades or donaciones");
+        }
+    }
+
+    /**
+     * Fail-fast like JWT_SECRET: with demo data off, the super admin must be configured explicitly
+     * (a blank value, e.g. compose's {@code ${VAR:-}}, counts as missing). With demo data on, the
+     * legacy defaults fill any gap so local dev and e2e work unchanged.
+     */
+    private void resolveSuperAdminCredentials() {
+        boolean emailMissing = superAdminEmail == null || superAdminEmail.isBlank();
+        boolean passwordMissing = superAdminPassword == null || superAdminPassword.isBlank();
+        if (seedDemo) {
+            if (emailMissing) superAdminEmail = DEMO_ADMIN_EMAIL;
+            if (passwordMissing) superAdminPassword = DEMO_ADMIN_PASSWORD;
+            return;
+        }
+        if (emailMissing || passwordMissing) {
+            throw new IllegalStateException(
+                    "SUPER_ADMIN_EMAIL and SUPER_ADMIN_PASSWORD must both be set when SEED_DEMO_DATA is not true "
+                            + "(no defaults). Missing: "
+                            + (emailMissing ? "SUPER_ADMIN_EMAIL " : "")
+                            + (passwordMissing ? "SUPER_ADMIN_PASSWORD" : "")
+                            + ". The password must be 15-64 characters (NIST SP 800-63B).");
+        }
+        superAdminEmail = superAdminEmail.trim();
     }
 
     /**
@@ -156,6 +198,15 @@ public class DataInitializer {
         if (usuarioRepository.findByEmail(superAdminEmail).isPresent()) {
             log.info("Admin already exists, skipping");
             return;
+        }
+
+        if (!seedDemo) {
+            try {
+                passwordPolicy.validate(superAdminPassword, superAdminEmail, "Admin Hornero");
+            } catch (ResponseStatusException e) {
+                throw new IllegalStateException(
+                        "SUPER_ADMIN_PASSWORD rejected by the password policy: " + e.getReason(), e);
+            }
         }
 
         Administrador admin = new Administrador();
