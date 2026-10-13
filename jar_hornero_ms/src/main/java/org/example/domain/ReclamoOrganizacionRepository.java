@@ -5,6 +5,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
+import java.time.Instant;
 import java.util.List;
 
 @Repository
@@ -22,6 +23,11 @@ public interface ReclamoOrganizacionRepository extends JpaRepository<ReclamoOrga
     List<ReclamoOrganizacion> findByReferente_IdAndEstado(Long referenteId, EstadoReclamo estado);
 
     boolean existsByOrganizacion_IdAndReferente_IdAndEstado(Long organizacionId, Long referenteId, EstadoReclamo estado);
+
+    long countByReferente_IdAndEstado(Long referenteId, EstadoReclamo estado);
+
+    /** Claims a user created at or after {@code desde}, any state: the rolling-window rate limit. */
+    long countByReferente_IdAndCreadoEnGreaterThanEqual(Long referenteId, Instant desde);
 
     /** Authorizes an evidence file: the key must be bound to a row of this claimant. */
     @org.springframework.data.jpa.repository.Query("""
