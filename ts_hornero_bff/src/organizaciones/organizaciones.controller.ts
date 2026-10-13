@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  Header,
   Param,
   ParseIntPipe,
   Patch,
@@ -94,6 +95,17 @@ export class OrganizacionesController {
   @ApiOperation({ summary: 'Reject an organization (admin only)' })
   rechazar(@Param('id', ParseIntPipe) id: number, @Req() req: Request) {
     return this.organizacionesService.rechazar(id, this.getToken(req));
+  }
+
+  // Declared before ':slug' so Nest does not route "mapa" as a slug.
+  @Public()
+  @Header('Cache-Control', 'public, max-age=300')
+  @Get('mapa')
+  @ApiOperation({
+    summary: 'Lightweight list for the public map (approved + unclaimed, with coordinates)',
+  })
+  mapa() {
+    return this.organizacionesService.mapa();
   }
 
   @Public()

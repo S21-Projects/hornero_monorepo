@@ -12,19 +12,19 @@ import { Public } from '../auth/decorators/public.decorator.js';
 import { ImagesService } from './images.service.js';
 
 /**
- * Object-key prefix reserved for accreditation evidence (see
+ * Object-key prefixes reserved for accreditation evidence and claim evidence (see
  * `specs/organizacion-acreditacion/spec.md`). The authenticated, ownership- and row-checked
  * `evidencia-files` route (AD-12) is the only supported way to read these files; this deny-list
  * stays as defense in depth so any key resolving under this prefix is still denied outright here
  * too (Threat Matrix "Evidence key smuggling" row).
  */
-const EVIDENCIA_PREFIX = 'org-evidencia/';
+const EVIDENCIA_PREFIXES = ['org-evidencia/', 'reclamo-evidencia/'];
 
 /**
  * Normalizes an S3 object key before the deny-list check: repeatedly URL-decodes it (catching
  * single and double encoding of path separators), strips leading slashes, and collapses `.` /
  * `..` segments — so a leading slash, an encoded `%2F`, a `../` traversal attempt, or mixed case
- * cannot smuggle a key that still resolves under `org-evidencia/` past a naive exact-string check.
+ * cannot smuggle a key that still resolves under a reserved prefix past a naive exact-string check.
  */
 function isEvidenciaKey(rawKey: string): boolean {
   let key = rawKey;
@@ -51,7 +51,7 @@ function isEvidenciaKey(rawKey: string): boolean {
   }
 
   const normalized = segments.join('/').toLowerCase();
-  return normalized.startsWith(EVIDENCIA_PREFIX);
+  return EVIDENCIA_PREFIXES.some((prefix) => normalized.startsWith(prefix));
 }
 
 @ApiTags('images')

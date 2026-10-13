@@ -151,6 +151,8 @@ export interface Organizacion extends InfoPublica, InfoPublicaPendiente {
   nombre: string;
   validada: boolean;
   estado: EstadoOrganizacion;
+  origen?: OrigenOrganizacion;
+  asistentesDeclarados?: number | null;
   referenteId?: number | null;
   profileImageKey?: string | null;
   bannerKey?: string | null;
@@ -333,8 +335,31 @@ export const EstadoOrganizacion = {
   PENDIENTE: 'PENDIENTE',
   APROBADA:  'APROBADA',
   RECHAZADA: 'RECHAZADA',
+  SIN_RECLAMAR: 'SIN_RECLAMAR',
+  INACTIVA:  'INACTIVA',
 } as const;
 export type EstadoOrganizacion = typeof EstadoOrganizacion[keyof typeof EstadoOrganizacion];
+
+/** Mirrors MS `OrigenOrganizacion`: where an organizacion row came from. */
+export const OrigenOrganizacion = {
+  PLATAFORMA: 'PLATAFORMA',
+  RENACOM:    'RENACOM',
+} as const;
+export type OrigenOrganizacion = typeof OrigenOrganizacion[keyof typeof OrigenOrganizacion];
+
+/** Item of `GET /organizaciones/mapa` (MS `OrganizacionMapaResponse`): lightweight map pin. */
+export interface OrganizacionMapa {
+  id: number;
+  slug: string;
+  nombre: string;
+  tipo: TipoOrganizacion;
+  estado: EstadoOrganizacion;
+  origen: OrigenOrganizacion;
+  latitud: number;
+  longitud: number;
+  /** Open, uncovered necesidades (ABIERTA or EN_PROGRESO, not expired). */
+  necesidadesAbiertas: number;
+}
 
 export const TipoOrganizacion = {
   COMEDOR:   'COMEDOR',
@@ -572,4 +597,113 @@ export interface Actividad {
   /** Resolved by the MS from actorUsuarioId; null for SISTEMA/ANONIMO rows or deleted users. */
   actorNombre: string | null;
   actorEmail: string | null;
+}
+
+// ---------------------------------------------------------------------------
+// Claim flow for unclaimed (ReNaCoM) organizaciones — mirrors jar_hornero_ms's
+// `reclamo/dto/*.java` and ts_hornero_bff's `reclamos/dto/*.ts`.
+// ---------------------------------------------------------------------------
+
+export const RolReclamo = {
+  RESPONSABLE: 'RESPONSABLE',
+  VOLUNTARIO: 'VOLUNTARIO',
+  INTEGRANTE: 'INTEGRANTE',
+} as const;
+export type RolReclamo = typeof RolReclamo[keyof typeof RolReclamo];
+
+export const EstadoReclamo = {
+  PENDIENTE: 'PENDIENTE',
+  APROBADO: 'APROBADO',
+  RECHAZADO: 'RECHAZADO',
+} as const;
+export type EstadoReclamo = typeof EstadoReclamo[keyof typeof EstadoReclamo];
+
+export interface Reclamo {
+  id: number;
+  organizacionId: number;
+  organizacionNombre: string;
+  organizacionSlug: string;
+  organizacionDireccion?: string | null;
+  solicitanteId: number;
+  solicitanteNombre: string;
+  solicitanteEmail: string;
+  rol: RolReclamo;
+  telefono: string;
+  mensaje?: string | null;
+  /** Keys under `reclamo-evidencia/{orgId}/{solicitanteId}/`; read through `reclamo-files`. */
+  evidenciaKeys: string[];
+  estado: EstadoReclamo;
+  motivoRechazo?: string | null;
+  resueltoPorNombre?: string | null;
+  creadoEn: string;
+  resueltoEn?: string | null;
+  /** Admin detail only: the claimant's organizaciones a cargo and the cap (the "n/3"). */
+  organizacionesACargo?: number | null;
+  capOrganizaciones?: number | null;
+}
+
+export interface CrearReclamoInput {
+  organizacionId: number;
+  rol: RolReclamo;
+  telefono: string;
+  mensaje?: string;
+  evidenciaKeys: string[];
+}
+
+// ---------------------------------------------------------------------------
+// Report flow for unclaimed (ReNaCoM) organizaciones — mirrors jar_hornero_ms's
+// `reporte/dto/*.java` and ts_hornero_bff's `reportes/dto/*.ts`.
+// ---------------------------------------------------------------------------
+
+export const MotivoReporte = {
+  INACTIVO: 'INACTIVO',
+  DATOS_INCORRECTOS: 'DATOS_INCORRECTOS',
+  DUPLICADO: 'DUPLICADO',
+  OTRO: 'OTRO',
+} as const;
+export type MotivoReporte = typeof MotivoReporte[keyof typeof MotivoReporte];
+
+export const EstadoReporte = {
+  PENDIENTE: 'PENDIENTE',
+  CONFIRMADO: 'CONFIRMADO',
+  DESCARTADO: 'DESCARTADO',
+} as const;
+export type EstadoReporte = typeof EstadoReporte[keyof typeof EstadoReporte];
+
+export interface Reporte {
+  id: number;
+  organizacionId: number;
+  organizacionNombre: string;
+  organizacionSlug: string;
+  organizacionDireccion?: string | null;
+  reportanteId: number;
+  reportanteNombre: string;
+  reportanteEmail: string;
+  motivo: MotivoReporte;
+  /** Set iff `motivo` is DUPLICADO: the Hornero organizacion it duplicates. */
+  organizacionDuplicadaId?: number | null;
+  organizacionDuplicadaNombre?: string | null;
+  organizacionDuplicadaSlug?: string | null;
+  detalle?: string | null;
+  estado: EstadoReporte;
+  notaResolucion?: string | null;
+  resueltoPorNombre?: string | null;
+  creadoEn: string;
+  resueltoEn?: string | null;
+}
+
+export interface CrearReporteInput {
+  organizacionId: number;
+  motivo: MotivoReporte;
+  organizacionDuplicadaId?: number;
+  detalle?: string;
+}
+
+/** A Hornero organizacion within 500 m of the reported one (the duplicate picker). */
+export interface OrganizacionCercana {
+  id: number;
+  slug: string;
+  nombre: string;
+  direccion?: string | null;
+  distanciaMetros: number;
 }

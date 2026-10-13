@@ -69,6 +69,27 @@ public class Organizacion {
     @JoinColumn(name = "referente_id", nullable = true)
     private Referente referente;
 
+    // --- External-registry provenance (V007). Nullable columns: ddl-auto=update cannot add NOT NULL
+    // to a populated table; a null origen is read as PLATAFORMA (see origenEfectivo()). ---
+    @Enumerated(EnumType.STRING)
+    @Column(name = "origen", nullable = true)
+    private OrigenOrganizacion origen = OrigenOrganizacion.PLATAFORMA;
+
+    /** Identifier in the source registry (ReNaCoM "Identificador"); unique when present. */
+    @Column(name = "origen_id", unique = true)
+    private String origenId;
+
+    @Column(name = "asistentes_declarados")
+    private Integer asistentesDeclarados;
+
+    /** Censo 2022 radio (9 chars) containing the point, derived by point-in-polygon. */
+    @Column(name = "codigo_radio", length = 9)
+    private String codigoRadio;
+
+    public OrigenOrganizacion origenEfectivo() {
+        return origen == null ? OrigenOrganizacion.PLATAFORMA : origen;
+    }
+
     @Column(name = "profile_image_key")
     private String profileImageKey;
 

@@ -23,8 +23,8 @@ CONICET/Poblaciones.
 
 The column that carries the project is **`Código de radio`**: a 9-digit INDEC
 census radio code (`PP DDD FF RR` = province, department, fraction, radio),
-populated on every row. It is the join key to census population, so computing
-coverage needs a `GROUP BY`, not a point-in-polygon pass over geometry.
+populated on every row. It is not Censo 2022 vintage, so the worker prefers the
+point-in-polygon radio from `data/renacom-radio-2022.csv` (see "Radio vintage" below).
 
 `Tipo de georreferenciación` is the coordinate precision, per the published
 data dictionary: 1 georeferenced by RENACOM, 2 precise via Google Maps, 3
@@ -60,8 +60,30 @@ the compose network at `http://worker:8090`. The MS does not `depends_on` it —
 with the worker down, only `POST /api/rondas` answers `503 WORKER_NO_DISPONIBLE` while it is.
 
 `--poblacion` expects a CSV with headers `codigo_radio,habitantes,hogares`
-(hogares optional), sourced from INDEC Censo 2022. That file is the one piece
-still missing.
+(hogares optional). `data/poblacion-radios.csv` is committed: Censo 2022 population
+per radio (66,502 radios, INDEC; cartography by Rodriguez & de Grande/CONICET,
+CC-BY-4.0). `hogares` is empty because the source has no households column.
+
+Regenerate it with `make mapa-datos` (needs the `duckdb` CLI; see `scripts/mapa/README.md`).
+
+**Radio vintage.** ReNaCoM's declared `Código de radio` is not Censo 2022 vintage: it
+matches the radio containing the point in only ~22% of rows, so joining it to the 2022
+population would attach the wrong figures. `make mapa-datos` also writes
+`data/renacom-radio-2022.csv` (`identificador,codigo_radio_2022`) by point-in-polygon.
+When that file sits next to `renacom.csv`, `renacom.Cargar` uses it instead of the
+declared code (matched by `Identificador`); without it the declared code is kept.
+
+**Vulnerability override.** When `data/vulnerabilidad-radios.csv` sits next to `renacom.csv`,
+`geo.Cargar` (used by `serve`, `assign` and the AD-2 resolver) reads its `vulnerabilidad`
+column and uses it as the per-radio number of the score's deficit term, in place of the
+ReNaCoM-only `deficit` (so it also works without `--poblacion`). The precedence is unchanged
+(request-provided value > RADIO > CERCANO > NEUTRAL) and so is the normalization
+(`min(value, deficitMaximo) / deficitMaximo`); the wire contract does not change. An empty
+`vulnerabilidad` (radio with no comedores or no population) is "unknown": that radio is skipped
+and resolution falls through to CERCANO / NEUTRAL, never to 0. Without the file the behaviour is
+the one described below. `make mapa-datos` writes it (see `scripts/mapa/README.md`); the
+vulnerability is the deficit times `(1 + necesidadesAbiertas / comedores)`, so a radio with no open
+necesidades scores exactly its deficit. `--provincia` only narrows the CERCANO points, not this file.
 
 ## The metric
 

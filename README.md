@@ -107,7 +107,10 @@ Same stack, but with dummy secrets and a local MinIO container instead of R2 —
 never touches the real production bucket. Good for quick mockups/UI work.
 
 ```bash
-cp .env.local.example .env.local
+cp .env.example .env.local
+# In .env.local: set MAIL_LOG_ONLY=true (never send real email from local) and
+# empty the AWS_* lines (the stack falls back to the local MinIO bucket).
+# `make up-local` turns on SEED_DEMO_DATA, so SUPER_ADMIN_* can stay empty.
 
 make up-local
 ```
@@ -139,8 +142,8 @@ reference with comments: `.env.example`.
 | `DB_NAME`, `DB_USERNAME`, `DB_PASSWORD` | MS, Postgres | Database credentials (`DB_HOST`/`DB_PORT` are hardcoded to `postgres:5432` in Docker) |
 | `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD` | Docker `postgres` service | Must match `DB_NAME`/`DB_USERNAME`/`DB_PASSWORD` |
 
-Env file templates: `.env.example` (prod-parity), `.env.local.example` (fast
-local with MinIO, dummy secrets)
+Env file template: `.env.example`. Copy it to `.env` (prod-parity, `make up`) or to `.env.local`
+(fast local, `make up-local`; see above).
 
 ---
 

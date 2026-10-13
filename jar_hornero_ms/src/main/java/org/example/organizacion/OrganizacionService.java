@@ -7,6 +7,7 @@ import org.example.acreditacion.AcreditacionService;
 import org.example.actividad.ActividadService;
 import org.example.actividad.ActividadService.Registro;
 import org.example.actividad.TipoActividad;
+import org.example.domain.EstadoNecesidad;
 import org.example.domain.EstadoOrganizacion;
 import org.example.domain.NivelAcreditacion;
 import org.example.domain.Organizacion;
@@ -16,6 +17,7 @@ import org.example.organizacion.dto.ActualizarInfoPublicaRequest;
 import org.example.organizacion.dto.ActualizarOrganizacionRequest;
 import org.example.organizacion.dto.AsignarReferenteRequest;
 import org.example.organizacion.dto.CrearOrganizacionRequest;
+import org.example.organizacion.dto.OrganizacionMapaResponse;
 import org.example.organizacion.dto.OrganizacionResponse;
 import org.example.user.Administrador;
 import org.example.user.Referente;
@@ -31,6 +33,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.text.Normalizer;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -39,7 +42,16 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class OrganizacionService {
 
-    private static final int CAP_ORGANIZACIONES = 3;
+    public static final int CAP_ORGANIZACIONES = 3;
+    private static final List<EstadoOrganizacion> ESTADOS_EN_MAPA =
+            List.of(EstadoOrganizacion.APROBADA, EstadoOrganizacion.SIN_RECLAMAR);
+
+    /**
+     * A necesidad is "open, uncovered" while ABIERTA or EN_PROGRESO: the same pair that counts against
+     * the accreditation caps and that a ronda may still fill. CUMPLIDA and VENCIDA are excluded.
+     */
+    private static final List<EstadoNecesidad> ESTADOS_NECESIDAD_ABIERTA =
+            List.of(EstadoNecesidad.ABIERTA, EstadoNecesidad.EN_PROGRESO);
 
     private final OrganizacionRepository organizacionRepository;
     private final UsuarioRepository usuarioRepository;
@@ -92,6 +104,12 @@ public class OrganizacionService {
                 .map(this::toResponse);
     }
 
+    /** Public, non-paged map payload: validated and unclaimed organizaciones that have coordinates. */
+    @Transactional(readOnly = true)
+    public List<OrganizacionMapaResponse> listarMapa() {
+        return organizacionRepository.findMapa(ESTADOS_EN_MAPA, ESTADOS_NECESIDAD_ABIERTA, LocalDate.now());
+    }
+
     @Transactional(readOnly = true)
     public Page<OrganizacionResponse> listarPendientes(Pageable pageable) {
         return organizacionRepository.findByEstado(EstadoOrganizacion.PENDIENTE, pageable)
@@ -105,6 +123,10 @@ public class OrganizacionService {
 
         if (EstadoOrganizacion.APROBADA.equals(organizacion.getEstado())) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "La organización ya fue validada");
+        }
+        if (organizacion.getEstado() != null && organizacion.getEstado().esDeRegistroExterno()) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Una organización importada sin reclamar solo cambia de estado mediante el flujo de reclamo");
         }
 
         Usuario usuario = usuarioRepository.findById(adminUserId)
@@ -155,7 +177,8 @@ public class OrganizacionService {
     @Transactional(readOnly = true)
     public OrganizacionResponse findBySlugPublic(String slug) {
         return organizacionRepository.findBySlug(slug)
-                .filter(o -> EstadoOrganizacion.APROBADA.equals(o.getEstado()))
+                .filter(o -> EstadoOrganizacion.APROBADA.equals(o.getEstado())
+                        || EstadoOrganizacion.SIN_RECLAMAR.equals(o.getEstado()))
                 .map(this::toResponse)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Organización no encontrada"));
     }
@@ -176,6 +199,15 @@ public class OrganizacionService {
                 .collect(Collectors.toList());
     }
 
+
+    /** Unclaimed/inactive imports change only through the claim/report flows (task B/C). */
+    private static void rechazarSiRegistroExterno(Organizacion o, String accion) {
+        if (o.getEstado() != null && o.getEstado().esDeRegistroExterno()) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Una organización importada sin reclamar no admite " + accion + " hasta ser reclamada");
+        }
+    }
+
     @Transactional
     public OrganizacionResponse asignarReferente(Long orgId, AsignarReferenteRequest request) {
         Organizacion organizacion = organizacionRepository.findById(orgId)
@@ -184,6 +216,7 @@ public class OrganizacionService {
         Long referenteAnteriorId = organizacion.getReferente() != null ? organizacion.getReferente().getId() : null;
 
         Long referenteId = request.getReferenteId();
+        if (referenteId != null) rechazarSiRegistroExterno(organizacion, "asignar un referente");
         if (referenteId == null) {
             organizacion.setReferente(null);
             registrarReasignacion(organizacion, referenteAnteriorId, null);
@@ -216,6 +249,46 @@ public class OrganizacionService {
         return toResponseAutenticado(organizacionRepository.save(organizacion));
     }
 
+    /** Organizaciones a referente is responsible for, counting every estado but RECHAZADA (the cap's rule). */
+    @Transactional(readOnly = true)
+    public long contarACargo(Long referenteId) {
+        return organizacionRepository.countByReferente_IdAndEstadoNot(referenteId, EstadoOrganizacion.RECHAZADA);
+    }
+
+    /**
+     * Dedicated path for an approved claim; the guarded {@link #asignarReferente} refuses unclaimed
+     * organizaciones on purpose. Re-checks, inside the caller's transaction, that the organizacion is
+     * still {@code SIN_RECLAMAR} and that the cap still has room, then hands it over as a normal
+     * {@code PENDIENTE} N0 organizacion (admin validation follows). The row's {@code @Version} turns a
+     * concurrent assignment into a CONFLICTO_CONCURRENTE instead of a silent overwrite.
+     */
+    @Transactional
+    public Organizacion asignarPorReclamo(Organizacion organizacion, Referente referente, Administrador admin) {
+        if (!EstadoOrganizacion.SIN_RECLAMAR.equals(organizacion.getEstado())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "La organización ya no está disponible para ser reclamada");
+        }
+        // Serialize concurrent assignments to the same referente: the cap count below is only
+        // trustworthy while this row is locked (the org @Version only protects one organizacion).
+        usuarioRepository.findByIdForUpdate(referente.getId())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Usuario no encontrado"));
+        if (!referente.isActivo()) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "El referente está inactivo");
+        }
+        if (contarACargo(referente.getId()) >= CAP_ORGANIZACIONES) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "El referente ya alcanzó el máximo de " + CAP_ORGANIZACIONES + " organizaciones");
+        }
+        organizacion.setReferente(referente);
+        organizacion.setEstado(EstadoOrganizacion.PENDIENTE);
+        // Flushed at once: the organizacion row is locked (and its @Version checked) before any other
+        // row of the claim transaction is written, so two approvals queue on it instead of deadlocking.
+        Organizacion saved = organizacionRepository.saveAndFlush(organizacion);
+        acreditacionService.registrarReasignacionReferente(saved, null, referente.getId(), admin);
+        actividadService.registrar(Registro.de(TipoActividad.ORGANIZACION_REFERENTE_REASIGNADO)
+                .entidad("ORGANIZACION", saved.getId()).cambio(null, referente.getId()).actor(admin));
+        return saved;
+    }
+
     @Transactional(readOnly = true)
     public OrganizacionResponse findBySlug(String slug, Long requestingUserId, String requestingRole) {
         Organizacion org = organizacionRepository.findBySlug(slug)
@@ -224,7 +297,8 @@ public class OrganizacionService {
         boolean isAdmin = "ROLE_ADMINISTRADOR".equals(requestingRole);
         boolean isOwner = org.getReferente() != null && org.getReferente().getId().equals(requestingUserId);
 
-        if (EstadoOrganizacion.APROBADA.equals(org.getEstado())) {
+        if (EstadoOrganizacion.APROBADA.equals(org.getEstado())
+                || EstadoOrganizacion.SIN_RECLAMAR.equals(org.getEstado())) {
             // D6: pending info-pública fields must not leave the MS on a path an
             // arbitrary authenticated user (e.g. a donante) can reach — only the
             // owning referente or an admin gets the pending snapshot here.
@@ -304,6 +378,7 @@ public class OrganizacionService {
     public OrganizacionResponse actualizarInfoPublica(Long orgId, ActualizarInfoPublicaRequest request) {
         Organizacion organizacion = organizacionRepository.findById(orgId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Organización no encontrada"));
+        rechazarSiRegistroExterno(organizacion, "cambios de información pública");
 
         if (request.getAceptaDonaciones() != null) organizacion.setAceptaDonaciones(request.getAceptaDonaciones());
         if (request.getSitioWebUrl() != null) organizacion.setSitioWebUrl(normalizarUrl(request.getSitioWebUrl()));
@@ -326,6 +401,7 @@ public class OrganizacionService {
     public OrganizacionResponse aprobarInfoPublica(Long orgId) {
         Organizacion organizacion = organizacionRepository.findById(orgId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Organización no encontrada"));
+        rechazarSiRegistroExterno(organizacion, "cambios de información pública");
 
         if (organizacion.getInfoPublicaPendienteEn() == null) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "No hay cambios pendientes de aprobación");
@@ -430,7 +506,9 @@ public class OrganizacionService {
                 null,
                 null,
                 null,
-                null
+                null,
+                organizacion.origenEfectivo(),
+                organizacion.getAsistentesDeclarados()
         );
     }
 

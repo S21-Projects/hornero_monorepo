@@ -35,10 +35,14 @@ Cada fila responde a ASVS 16.2.1: cuándo (`ocurridoEn`, UTC), dónde (`ip`, `en
   inválidos o vencidos.
 - **Escrituras de administración:** activar y desactivar usuarios (con `motivo` opcional), alta,
   validación, rechazo y edición de organizaciones, aprobación y rechazo de información pública,
-  reasignación de referente, catálogo de artículos, ejecución de rondas (manual y automática).
+  reasignación de referente, aprobación y rechazo de reclamos de comedores importados (con el
+  motivo del rechazo), confirmación y descarte de reportes sobre comedores importados (con la nota
+  del descarte), catálogo de artículos, ejecución de rondas (manual y automática).
 - **Cambios de estado de negocio:** creación, decisión, cancelación, eliminación y override de
   donaciones (con estado anterior y nuevo); alta, edición, relanzamiento y eliminación de
-  necesidades; generación y verificación de códigos de entrega.
+  necesidades; presentación de un reclamo sobre un comedor importado (sin teléfono, mensaje ni
+  archivos: solo el nombre del comedor); presentación de un reporte sobre un comedor importado (sin el detalle
+  libre: solo el nombre del comedor); generación y verificación de códigos de entrega.
 - **Tareas del sistema:** vencimiento diario de necesidades (una fila con la cantidad), purga de
   refresh tokens y la propia purga por retención. Actor `SISTEMA`.
 

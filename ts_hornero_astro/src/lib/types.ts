@@ -11,7 +11,9 @@ export interface Org {
   direccion?: string;
   latitud?: number | null;
   longitud?: number | null;
-  estado: 'PENDIENTE' | 'APROBADA' | 'RECHAZADA';
+  estado: 'PENDIENTE' | 'APROBADA' | 'RECHAZADA' | 'SIN_RECLAMAR' | 'INACTIVA';
+  origen?: 'PLATAFORMA' | 'RENACOM';
+  asistentesDeclarados?: number | null;
   validada: boolean;
   referenteNombre?: string;
   referenteEmail?: string;
@@ -21,6 +23,20 @@ export interface Org {
   aceptaDonaciones?: boolean;
   sitioWebUrl?: string | null;
   donacionDirectaUrl?: string | null;
+}
+
+/** Item of `GET /organizaciones/mapa` (MS `OrganizacionMapaResponse`): lightweight map pin. */
+export interface OrgMapa {
+  id: number;
+  slug: string;
+  nombre: string;
+  tipo: TipoOrganizacion;
+  estado: 'APROBADA' | 'SIN_RECLAMAR';
+  origen: 'PLATAFORMA' | 'RENACOM';
+  latitud: number;
+  longitud: number;
+  /** Open, uncovered necesidades (ABIERTA or EN_PROGRESO, not expired). 0 for unclaimed orgs. */
+  necesidadesAbiertas: number;
 }
 
 // ─── Necesidad ─────────────────────────────────────────────────────────────────

@@ -7,7 +7,13 @@ import org.example.auth.RefreshTokenService;
 import org.example.auth.otp.CodigoVerificacionRepository;
 import org.example.auth.reset.PasswordResetTokenRepository;
 import org.example.domain.OrganizacionRepository;
+import org.example.domain.ReclamoOrganizacion;
+import org.example.domain.ReclamoOrganizacionRepository;
+import org.example.domain.ReporteOrganizacion;
+import org.example.domain.ReporteOrganizacionRepository;
 import org.example.idempotencia.IdempotenciaRepository;
+import org.example.reclamo.ReclamoService;
+import org.example.reporte.ReporteCierre;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -40,6 +46,9 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class UsuarioAnonimizacionService {
 
+    static final String MOTIVO_RECLAMO = "El solicitante dio de baja su cuenta";
+    static final String NOTA_REPORTE = "El reportante dio de baja su cuenta";
+
     private static final SecureRandom RANDOM = new SecureRandom();
 
     private final UsuarioRepository usuarioRepository;
@@ -50,6 +59,10 @@ public class UsuarioAnonimizacionService {
     private final CodigoVerificacionRepository codigoVerificacionRepository;
     private final PasswordResetTokenRepository passwordResetTokenRepository;
     private final IdempotenciaRepository idempotenciaRepository;
+    private final ReclamoOrganizacionRepository reclamoRepository;
+    private final ReporteOrganizacionRepository reporteRepository;
+    private final ReclamoService reclamoService;
+    private final ReporteCierre reporteCierre;
 
     @Transactional
     public UsuarioResponse anonimizar(Long id, Long adminId) {
@@ -78,6 +91,17 @@ public class UsuarioAnonimizacionService {
         codigoVerificacionRepository.deleteByEmailIgnoreCase(emailOriginal);
         passwordResetTokenRepository.deleteByUsuarioId(id);
         idempotenciaRepository.deleteByUsuarioId(id);
+        // Their pending claims and reports can no longer be handled (nobody to contact): close them
+        // through the same paths as a manual resolution, the anonymizing admin being the actor.
+        Administrador admin = usuarioRepository.findById(adminId)
+                .filter(Administrador.class::isInstance).map(Administrador.class::cast)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.FORBIDDEN, "Solo los administradores pueden anonimizar"));
+        reclamoService.rechazarPendientesDeReferente(id, admin, MOTIVO_RECLAMO);
+        reporteCierre.descartarPendientesDeReportante(id, admin, NOTA_REPORTE);
+        // Claims and reports the user filed keep their rows (audit trail) but lose phone, message,
+        // evidence references and free text. The actividad log is never touched.
+        reclamoRepository.findByReferente_Id(id).forEach(ReclamoOrganizacion::anonimizar);
+        reporteRepository.findByReportante_Id(id).forEach(ReporteOrganizacion::anonimizar);
 
         // Actor = the admin in the security context. No data of the subject goes in the entry.
         actividadService.registrar(ActividadService.Registro.de(TipoActividad.USUARIO_ANONIMIZADO)

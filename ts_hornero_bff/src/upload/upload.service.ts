@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
@@ -44,6 +45,19 @@ export class UploadService {
     return this.upload(`org-evidencia/${orgId}`, file);
   }
 
+  /**
+   * Claim evidence is keyed by the claimant too (`reclamo-evidencia/{orgId}/{userId}/`), so a
+   * referente cannot attach another claimant's file to their own claim: the MS only accepts keys
+   * under the caller's own prefix.
+   */
+  async uploadReclamoEvidencia(
+    orgId: number,
+    userId: number,
+    file: Express.Multer.File,
+  ): Promise<string> {
+    return this.upload(`reclamo-evidencia/${orgId}/${userId}`, file);
+  }
+
   private async upload(
     prefix: string,
     file: Express.Multer.File,
@@ -55,7 +69,7 @@ export class UploadService {
         'File content does not match an allowed image type (jpeg, png, or webp)',
       );
     }
-    const key = `${prefix}/${Date.now()}.${detected.ext}`;
+    const key = `${prefix}/${randomUUID()}.${detected.ext}`;
 
     await this.s3.send(
       new PutObjectCommand({
