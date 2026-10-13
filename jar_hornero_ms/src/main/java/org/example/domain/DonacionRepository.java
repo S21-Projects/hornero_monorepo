@@ -135,6 +135,21 @@ public interface DonacionRepository extends JpaRepository<Donacion, Long> {
     List<Long> findIdsOfrecidasDirectasDesde(@Param("corte") Instant corte, @Param("fechaCorte") LocalDate fechaCorte);
 
     /**
+     * N15/D12: ids of terminal donations whose precise coordinates are past the minimization window
+     * ({@code estadoDesde < corte}, or {@code fechaOferta <= fechaCorte} for rows without it) and
+     * still carry more than two decimals. The tolerance only absorbs floating-point noise: a value
+     * already rounded to two decimals is a whole number of hundredths up to ~1e-12.
+     */
+    @Query("SELECT d.id FROM Donacion d WHERE d.estado IN :terminales "
+            + "AND (d.estadoDesde < :corte OR (d.estadoDesde IS NULL AND d.fechaOferta <= :fechaCorte)) "
+            + "AND ((d.latitud IS NOT NULL AND ABS(d.latitud * 100 - FLOOR(d.latitud * 100 + 0.5)) > 0.000001) "
+            + "  OR (d.longitud IS NOT NULL AND ABS(d.longitud * 100 - FLOOR(d.longitud * 100 + 0.5)) > 0.000001)) "
+            + "ORDER BY d.id")
+    List<Long> findIdsConCoordenadasPrecisasTerminadasAntesDe(@Param("terminales") Collection<EstadoDonacion> terminales,
+                                                              @Param("corte") Instant corte,
+                                                              @Param("fechaCorte") LocalDate fechaCorte);
+
+    /**
      * Row-locks the donación for the duration of the transaction (AD-6/AD-9). Required by
      * {@code EntregaService.verificar}: without this lock, two concurrent verifications each read
      * "the other party hasn't confirmed yet" and the donación can get stuck at

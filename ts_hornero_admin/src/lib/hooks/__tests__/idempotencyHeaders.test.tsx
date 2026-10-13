@@ -12,6 +12,7 @@ import { useRelanzarNecesidad } from '../useRelanzarNecesidad';
 import { useEjecutarRonda } from '../useRondas';
 import { useGenerarCodigo, useVerificarCodigo } from '../useEntrega';
 import { useCargarEvidencia } from '../useAcreditacion';
+import { useAnonimizarUsuario } from '../useAnonimizarUsuario';
 
 const mock = new MockAdapter(api, { onNoMatch: 'throwException' });
 
@@ -141,4 +142,20 @@ describe('axios fallback interceptor', () => {
     expect(keyOf(0)).toBe('fixed-key');
     expect(mock.history.get[0].headers?.['Idempotency-Key']).toBeUndefined();
   });
+
+  it('useAnonimizarUsuario (N15) POSTs to /usuarios/:id/anonimizar with a key, reused on retry', async () => {
+    mock.onPost('/usuarios/7/anonimizar').replyOnce(503).onPost('/usuarios/7/anonimizar').reply(200, { id: 7 });
+    const { result } = renderHook(() => useAnonimizarUsuario(), { wrapper: wrapper() });
+
+    await act(async () => {
+      await result.current.mutateAsync(7).catch(() => undefined);
+    });
+    await act(async () => {
+      await result.current.mutateAsync(7);
+    });
+
+    expect(keyOf(0)).toMatch(/^[0-9a-f-]{36}$/);
+    expect(keyOf(1)).toBe(keyOf(0));
+  });
 });
+

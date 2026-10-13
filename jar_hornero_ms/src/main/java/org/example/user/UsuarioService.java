@@ -64,9 +64,6 @@ public class UsuarioService {
     }
 
     private UsuarioResponse toResponse(Usuario u) {
-        String tipo = u instanceof Donante ? "DONANTE"
-                : u instanceof Referente ? "REFERENTE"
-                : "ADMINISTRADOR";
-        return new UsuarioResponse(u.getId(), u.getNombre(), u.getEmail(), tipo, u.isActivo());
+        return UsuarioResponse.de(u);
     }
 }

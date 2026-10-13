@@ -73,6 +73,14 @@ app:
   actividad:
     # N10: activity-log retention. Provisional default until D12 (PII retention) is decided.
     retencion-dias: ${ACTIVIDAD_RETENCION_DIAS:365}
+    # N15/D12: the email typed in failed logins is cleared after this many days (row kept).
+    # Needs scripts/sql/V006 on PostgreSQL.
+    email-intento-dias: ${ACTIVIDAD_EMAIL_INTENTO_DIAS:90}
+    email-intento-cron: ${ACTIVIDAD_EMAIL_INTENTO_CRON:0 20 3 * * *}
+  datos:
+    # N15/D12: coordinates of terminal donations are rounded to 2 decimals after this many days.
+    coordenadas-precisas-dias: ${DATOS_COORDENADAS_PRECISAS_DIAS:30}
+    coordenadas-cron: ${DATOS_COORDENADAS_CRON:0 30 0 * * *}
   idempotencia:
     # N11: Idempotency-Key retention. A repeated key within the TTL replays the original response;
     # after it the key is a new operation. An EN_PROCESO key older than en-proceso-max-minutos is

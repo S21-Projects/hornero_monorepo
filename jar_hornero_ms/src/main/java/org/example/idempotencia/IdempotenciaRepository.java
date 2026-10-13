@@ -47,6 +47,12 @@ public interface IdempotenciaRepository extends JpaRepository<ClaveIdempotencia,
     @Query("delete from ClaveIdempotencia c where c.id = :id")
     int liberar(@Param("id") Long id);
 
+    /** N15: stored responses may echo the user's data; erasing the account removes the user's keys. */
+    @Transactional
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("delete from ClaveIdempotencia c where c.usuarioId = :usuarioId")
+    int deleteByUsuarioId(@Param("usuarioId") Long usuarioId);
+
     @Transactional
     @Modifying(clearAutomatically = true)
     @Query("delete from ClaveIdempotencia c where c.expiraEn < :ahora")

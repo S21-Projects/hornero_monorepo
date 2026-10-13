@@ -59,6 +59,15 @@ public class EsquemaVerificador implements ApplicationRunner {
             SELECT EXISTS (SELECT 1 FROM donaciones WHERE estado_desde IS NULL AND fecha_oferta IS NOT NULL)
             """;
 
+    /**
+     * V006 (N15): the trigger function of V004 replaced by the version that lets the retention job
+     * clear {@code email_intento}. Detected by the column name appearing in the function body.
+     */
+    private static final String CHECK_PURGA_EMAIL_INTENTO_SQL = """
+            SELECT EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'actividad_inmutable' AND prosrc LIKE '%email_intento%')
+            """;
+
+    private final AtomicBoolean purgaEmailIntento = new AtomicBoolean(true);
     private final AtomicBoolean estadoDesdeCompleto = new AtomicBoolean(true);
     private final AtomicBoolean actividadInmutable = new AtomicBoolean(true);
     private final AtomicBoolean necesidadIdNullable = new AtomicBoolean(true);
@@ -81,6 +90,24 @@ public class EsquemaVerificador implements ApplicationRunner {
         verificarVersiones();
         verificarActividadInmutable();
         verificarEstadoDesde();
+        verificarPurgaEmailIntento();
+    }
+
+    private void verificarPurgaEmailIntento() {
+        Boolean presente = jdbcTemplate.queryForObject(CHECK_PURGA_EMAIL_INTENTO_SQL, Boolean.class);
+        if (Boolean.FALSE.equals(presente)) {
+            purgaEmailIntento.set(false);
+            log.error("ESQUEMA_PENDIENTE: the actividad trigger does not allow clearing email_intento. Run "
+                    + "scripts/sql/V006__actividad_purga_email_intento.sql (make migrate); until then the 90-day "
+                    + "purge of attempted emails fails and logs this error every run.");
+        } else {
+            purgaEmailIntento.set(true);
+        }
+    }
+
+    /** False when V006 has not been applied. Informational; PostgreSQL only. */
+    public boolean purgaEmailIntentoHabilitada() {
+        return purgaEmailIntento.get();
     }
 
     private void verificarEstadoDesde() {
