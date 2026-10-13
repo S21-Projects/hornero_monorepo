@@ -11,6 +11,16 @@ import org.example.auth.otp.CodigoVerificacionRepository;
 import org.example.domain.Donacion;
 import org.example.domain.DonacionRepository;
 import org.example.domain.EstadoDonacion;
+import org.example.domain.EstadoOrganizacion;
+import org.example.domain.MotivoReporte;
+import org.example.domain.NivelAcreditacion;
+import org.example.domain.Organizacion;
+import org.example.domain.OrganizacionRepository;
+import org.example.domain.ReclamoOrganizacion;
+import org.example.domain.ReclamoOrganizacionRepository;
+import org.example.domain.ReporteOrganizacion;
+import org.example.domain.ReporteOrganizacionRepository;
+import org.example.domain.RolReclamo;
 import org.example.idempotencia.IdempotenciaRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -22,9 +32,11 @@ import org.springframework.http.MediaType;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -56,6 +68,15 @@ class UsuarioAnonimizacionIntegrationTest {
     private RefreshTokenRepository refreshTokenRepository;
     @Autowired
     private ActividadService actividadService;
+
+    @Autowired
+    private OrganizacionRepository organizacionRepository;
+    @Autowired
+    private ReclamoOrganizacionRepository reclamoRepository;
+    @Autowired
+    private ReporteOrganizacionRepository reporteRepository;
+    @Autowired
+    private TransactionTemplate tx;
 
     private String adminToken;
     private String email;
@@ -168,6 +189,51 @@ class UsuarioAnonimizacionIntegrationTest {
         assertThat(codigoRepository.findTopByEmailAndUsadoFalseOrderByCreadoEnDesc(email)).isEmpty();
         assertThat(idempotenciaRepository.findAll().stream()
                 .anyMatch(k -> k.getUsuarioId().equals(donante.getId()))).isFalse();
+    }
+
+    @Test
+    void claimsAndReportsFiledByTheUser_loseTheirPersonalData_butKeepTheirRows() throws Exception {
+        Referente ref = usuarioRepository.save(new Referente(null, "Rita Referente",
+                "rita-" + UUID.randomUUID() + "@test.com", passwordEncoder.encode(PASSWORD), true));
+        Organizacion o = new Organizacion();
+        o.setNombre("Comedor " + System.nanoTime());
+        o.setSlug("comedor-" + System.nanoTime());
+        o.setEstado(EstadoOrganizacion.SIN_RECLAMAR);
+        o.setNivel(NivelAcreditacion.N0);
+        o.setValidada(false);
+        o = organizacionRepository.save(o);
+
+        ReclamoOrganizacion claim = new ReclamoOrganizacion();
+        claim.setOrganizacion(o);
+        claim.setReferente(ref);
+        claim.setRol(RolReclamo.RESPONSABLE);
+        claim.setTelefono("+54 351 555 1234");
+        claim.setMensaje("Soy la coordinadora");
+        claim.getEvidenciaKeys().add("reclamo-evidencia/" + o.getId() + "/" + ref.getId() + "/1.jpg");
+        claim = reclamoRepository.saveAndFlush(claim);
+
+        ReporteOrganizacion report = new ReporteOrganizacion();
+        report.setOrganizacion(o);
+        report.setReportante(ref);
+        report.setMotivo(MotivoReporte.INACTIVO);
+        report.setDetalle("Nadie atiende el teléfono");
+        report = reporteRepository.saveAndFlush(report);
+
+        MvcResult r = anonimizar(ref.getId(), adminToken, UUID.randomUUID().toString());
+
+        assertThat(r.getResponse().getStatus()).isEqualTo(200);
+        Long claimId = claim.getId();
+        tx.executeWithoutResult(s -> {
+            ReclamoOrganizacion c = reclamoRepository.findById(claimId).orElseThrow();
+            assertThat(c.getTelefono()).isEmpty();
+            assertThat(c.getMensaje()).isNull();
+            assertThat(c.getEvidenciaKeys()).isEmpty();
+            assertThat(c.getReferente().getId()).isEqualTo(ref.getId());
+            assertThat(c.getEstado()).isEqualTo(org.example.domain.EstadoReclamo.PENDIENTE);
+        });
+        ReporteOrganizacion rep = reporteRepository.findById(report.getId()).orElseThrow();
+        assertThat(rep.getDetalle()).isNull();
+        assertThat(rep.getMotivo()).isEqualTo(MotivoReporte.INACTIVO);
     }
 
     @Test

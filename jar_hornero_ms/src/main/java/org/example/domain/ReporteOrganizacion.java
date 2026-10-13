@@ -84,4 +84,9 @@ public class ReporteOrganizacion {
 
     @Column(name = "resuelto_en")
     private Instant resueltoEn;
+
+    /** N15/D12: erasure of the reporter's free text; the row, its FKs and state stay (audit trail). */
+    public void anonimizar() {
+        this.detalle = null;
+    }
 }

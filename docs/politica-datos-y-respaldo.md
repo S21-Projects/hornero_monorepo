@@ -20,6 +20,8 @@ excesivos) y **seguridad** (art. 9), y por el **derecho de supresión** (art. 16
 |------|---------|-----------|-------------|
 | Nombre y correo | Todos los usuarios | Identificación, autenticación, notificaciones | El propio usuario y administradores; el nombre del donante solo lo ve la organización receptora (D5) |
 | Coordenadas de la donación | Donante | Asignación por cercanía y coordinación de la entrega | Organización receptora y administradores |
+| Teléfono, mensaje y archivos de evidencia de un reclamo de organización | Referente | Que un administrador verifique que quien reclama es responsable del comedor | Administradores y el propio referente |
+| Detalle de texto libre de un reporte de organización | Usuario que reporta | Que un administrador evalúe el reporte | Administradores |
 | IP y correo intentado en logins fallidos | Cualquier visitante | Detección de ataques (registro de actividades) | Solo administradores |
 
 ### 1.3 Derecho de supresión: anonimización
@@ -30,6 +32,9 @@ Ante un pedido de baja, un administrador **anonimiza** la cuenta en lugar de bor
 - el correo se reemplaza por un valor irreversible y único que no permite recuperar el original
   ni volver a iniciar sesión;
 - se eliminan los datos de contacto y ubicación asociados al usuario;
+- los reclamos que presentó conservan su fila (estado, organización, resolución) pero pierden el
+  teléfono, el mensaje y las referencias a los archivos de evidencia; los reportes que presentó
+  pierden el detalle de texto libre;
 - la cuenta queda desactivada y sus sesiones revocadas.
 
 Las donaciones y el registro de actividades **se conservan sin datos identificatorios**. Borrar
@@ -60,6 +65,12 @@ La ley exige destruir los datos cuando dejan de ser necesarios para su finalidad
 | Tokens de sesión, recuperación e idempotencia | Hasta su vencimiento (horas o días) | Datos técnicos de vida corta |
 
 ### 1.6 Fuera de alcance (documentado)
+
+- Los archivos de evidencia de un reclamo anonimizado **siguen en el bucket R2** como objetos
+  huérfanos: el microservicio no tiene acceso al bucket y ningún flujo actual borra objetos. Se
+  desvinculan de la base (ya no hay forma de leerlos por la API), y su prefijo
+  `reclamo-evidencia/{organizacionId}/{referenteId}/` se deduce de la fila conservada, por lo que
+  se pueden borrar a mano o con una regla de ciclo de vida del bucket. Pendiente de decisión.
 
 - Exportación de los datos del titular (derecho de acceso, art. 14) y baja autogestionada: se
   atienden por pedido al administrador.
