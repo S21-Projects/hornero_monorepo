@@ -45,6 +45,8 @@ completarlo, con fecha. El seguimiento técnico completo está en `odd/tasks/seg
   # DONACIONES_CONFIRMACION_ESTANCADA_DIAS=7
   # DONACIONES_ESTANCADAS_CRON=0 15 0 * * *
   # ACTIVIDAD_RETENCION_DIAS=365
+  # ACTIVIDAD_EMAIL_INTENTO_DIAS=90
+  # DATOS_COORDENADAS_PRECISAS_DIAS=30
   # IDEMPOTENCIA_TTL_HORAS=24
   # BACKUP_RETENTION_DAYS=14
   # BACKUP_S3_BUCKET=
@@ -59,7 +61,7 @@ completarlo, con fecha. El seguimiento técnico completo está en `odd/tasks/seg
 
 - [ ] `git pull` en `develop` y `docker compose up --build -d`.
 - [ ] Esperar a que el MS esté sano (crea las tablas y columnas nuevas al arrancar).
-- [ ] **`make migrate`**: hace backup y aplica V002–V005 (rondas, versiones, inmutabilidad de
+- [ ] **`make migrate`**: hace backup y aplica V002–V006 (rondas, versiones, inmutabilidad de
   `actividad`, `estado_desde` de donaciones). Reiniciar el MS después.
 - [ ] Tener en cuenta que, al arrancar, el job de donaciones estancadas **cancela las ofertas
   directas sin respuesta hace más de 7 días** y devuelve al pozo las propuestas de más de 3 días.
@@ -78,7 +80,7 @@ completarlo, con fecha. El seguimiento técnico completo está en `odd/tasks/seg
 - [ ] Recorrer el sitio público y el panel con la consola del navegador abierta y **anotar las
   violaciones de CSP** (están en modo Report-Only). Pasarlas para activar la CSP.
 - [ ] Opcional: activar HSTS en Cloudflare.
-- [ ] Marcar "Applied to" en `docs/db-changes.md` para V002–V005.
+- [ ] Marcar "Applied to" en `docs/db-changes.md` para V002–V006.
 
 ## 4. Backups (runbook: `docs/deploy-rpi-cloudflare.md`, Parte C)
 
@@ -91,16 +93,19 @@ completarlo, con fecha. El seguimiento técnico completo está en `odd/tasks/seg
 
 ## 5. Decisiones de negocio pendientes
 
-- [ ] **D11 — Backups:** RPO (cuántos datos se pueden perder), RTO (en cuánto tiempo se restaura),
-  retención, y responsables (completar la tabla "Roles y acceso" del runbook, hoy `TBD (D11)`).
-- [ ] **D12 — Datos personales (Ley 25.326):** cuánto tiempo se guardan y cómo se borran los datos
-  de usuarios dados de baja; si se cifran dirección y coordenadas del donante. Define también la
-  retención de `actividad` (hoy 365 días provisorios).
+- [x] **D11 — Backups:** valores decididos el 2026-10-13 (RPO 24 h, RTO 4 h, retención 14 d local /
+  30 d R2, simulacro una vez por cuatrimestre). Ver `docs/politica-datos-y-respaldo.md`.
+- [ ] **D11 — Responsables:** nombrar quién custodia la passphrase, quién accede al bucket, quién
+  restaura y quién corre el simulacro (tabla "Roles y acceso" del runbook, hoy "A designar por el
+  equipo").
+- [x] **D12 — Datos personales:** decidido el 2026-10-13 e implementado (anonimización, minimización
+  de coordenadas a 30 días, borrado del correo de logins fallidos a 90 días).
 
 ## 6. Documentación de la tesis
 
 - [ ] Sumar el **RF de política de contraseñas** (texto entregado; referencias NIST SP 800-63B-4 y
   OWASP ASVS 5.0 V6.2).
+- [ ] Incorporar `docs/politica-datos-y-respaldo.md` (D11 y D12) al documento.
 - [ ] Citar como evidencia: `docs/seguridad-matriz-riesgos.md`, `docs/registro-actividades.md`,
   `docs/notificaciones-email.md` y los resultados de las pruebas (`mvn test`, `npm test`,
   `make e2e`).

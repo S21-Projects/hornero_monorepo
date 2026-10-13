@@ -66,6 +66,16 @@ Además de ids, la tabla guarda dos datos personales, ambos justificados:
   contraseña (`PASSWORD_RESET_SOLICITADO`) de un email desconocido o inactivo. Sin él no se puede
   distinguir un ataque dirigido a una cuenta del ruido general. No se guarda en ningún otro evento.
   Nunca se guarda el token del enlace de restablecimiento.
+  **Se borra a los 90 días** (política de datos, D12): `EmailIntentoPurgaJob` deja `emailIntento`
+  en `NULL` y conserva la fila, que se elimina a los 365 días. Es la única modificación que admite
+  la tabla; en PostgreSQL la autoriza `scripts/sql/V006` (solo esa columna, solo a `NULL`, solo en
+  la transacción del job).
+- Anonimización de una cuenta (`USUARIO_ANONIMIZADO`): quién la ejecutó (administrador), cuándo y
+  sobre qué usuario (solo el id). No guarda ningún dato del titular. Los registros anteriores que
+  nombran al usuario por id se conservan; los correos que aparezcan en `emailIntento` se
+  eliminan por la regla de los 90 días.
+- Minimización de coordenadas (`COORDENADAS_MINIMIZADAS`, actor SISTEMA): un resumen por corrida
+  con la cantidad de donaciones afectadas, sin coordenadas.
 
 ### Notificaciones por email (N13)
 
@@ -93,7 +103,10 @@ envíos exitosos no se registran (volumen sin valor de auditoría). Ver `docs/no
 `DELETE`/`TRUNCATE` fallan salvo que la transacción haya fijado `hornero.purga_actividad = 'on'`.
 Solo `ActividadRetencionJob` lo hace, con `set_config(..., true)` (equivalente a `SET LOCAL`) como
 primera sentencia de su propia transacción, así que el permiso desaparece al confirmar o revertir y
-no puede quedar en una conexión del pool. Verificado contra PostgreSQL real: `UPDATE`, `DELETE` y
+no puede quedar en una conexión del pool. `scripts/sql/V006` agrega una única excepción para
+`UPDATE`: con el parámetro fijado, se admite poner `email_intento` en `NULL` siempre que ninguna
+otra columna cambie (se compara la fila completa como `jsonb`, así que una columna futura queda
+protegida sin tocar el script). Verificado contra PostgreSQL real: `UPDATE`, `DELETE` y
 `TRUNCATE` sueltos fallan; `DELETE` con el parámetro funciona; `UPDATE` con el parámetro sigue
 fallando; y el job borró una fila de prueba de 800 días. Si falta el trigger, `EsquemaVerificador`
 lo avisa al arrancar (`ESQUEMA_PENDIENTE`). H2 (tests) no tiene el trigger: allí la garantía sigue

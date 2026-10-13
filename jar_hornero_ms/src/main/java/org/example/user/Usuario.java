@@ -43,4 +43,26 @@ public abstract class Usuario {
         this.password = password;
         this.activo = activo;
     }
+
+    public static final String NOMBRE_ANONIMO = "Usuario eliminado";
+    /** RFC 2606 reserved TLD: mail to it can never be delivered. */
+    public static final String DOMINIO_ANONIMO = "anonimo.invalid";
+
+    /** True once {@link #anonimizar} ran: the email is an {@code @anonimo.invalid} placeholder. */
+    public boolean esAnonimo() {
+        return email != null && email.endsWith("@" + DOMINIO_ANONIMO);
+    }
+
+    /**
+     * N15/D12: irreversibly replaces every personal field. The caller supplies a random email
+     * placeholder and a hash of a random secret nobody knows, so neither can be derived from the
+     * original values.
+     */
+    public void anonimizar(String emailAnonimo, String passwordInutilizable) {
+        this.nombre = NOMBRE_ANONIMO;
+        this.email = emailAnonimo;
+        this.password = passwordInutilizable;
+        this.activo = false;
+        this.emailVerificado = false;
+    }
 }

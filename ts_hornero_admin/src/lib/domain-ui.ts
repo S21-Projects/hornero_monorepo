@@ -140,6 +140,9 @@ export const ACCION_ACTIVIDAD: Record<string, string> = {
   ARTICULO_REACTIVADO: 'Artículo reactivado',
   TOKENS_PURGADOS: 'Limpieza de sesiones vencidas',
   ACTIVIDAD_PURGADA: 'Purga por retención',
+  USUARIO_ANONIMIZADO: 'Usuario anonimizado',
+  EMAIL_INTENTO_PURGADO: 'Correos de intentos fallidos borrados (automático)',
+  COORDENADAS_MINIMIZADAS: 'Coordenadas de donaciones reducidas (automático)',
 };
 
 export function labelAccion(codigo: string): string {

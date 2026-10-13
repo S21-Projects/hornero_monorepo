@@ -2,9 +2,11 @@ import {
   Body,
   Controller,
   Get,
+  HttpCode,
   Param,
   ParseIntPipe,
   Patch,
+  Post,
   Query,
   Req,
   UnauthorizedException,
@@ -48,5 +50,16 @@ export class UsuariosController {
     @Req() req: Request,
   ) {
     return this.usuariosService.toggleActivo(id, body, this.getToken(req));
+  }
+
+  @Roles(Role.ADMINISTRADOR)
+  @Post(':id/anonimizar')
+  @HttpCode(200)
+  @ApiOperation({
+    summary:
+      'Anonymize a user (right to erasure, irreversible; ADMINISTRADOR only)',
+  })
+  anonimizar(@Param('id', ParseIntPipe) id: number, @Req() req: Request) {
+    return this.usuariosService.anonimizar(id, this.getToken(req));
   }
 }
