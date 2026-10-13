@@ -1,4 +1,4 @@
-.PHONY: up down up-local seed backup restore-check migrate e2e coverage mapa-datos importar-renacom
+.PHONY: up down up-local seed backup restore-check migrate e2e coverage mapa-datos mapa-fixture importar-renacom
 
 ## Docker only — two modes, both full-stack including Postgres.
 ## The Pi runs docker compose directly, not through this Makefile
@@ -70,13 +70,25 @@ migrate: backup
 	done
 
 ## Map data
-# Regenerate go_algorithms_worker/data/{poblacion-radios,renacom-radio-2022}.csv from the
-# Censo 2022 radios parquet (cached, downloaded once). Needs the duckdb CLI.
-# See scripts/mapa/README.md.
+# Regenerate the map data from the Censo 2022 radios parquet (cached, downloaded once):
+#   go_algorithms_worker/data/{poblacion-radios,renacom-radio-2022,vulnerabilidad-radios}.csv
+#   ts_hornero_astro/public/mapa/departamentos.geojson
+# MAPA_ORGS = local JSON file or http(s):// URL of GET /organizaciones/mapa (default: the committed
+# ReNaCoM fixture). Pointing it at a real BFF is an explicit operator decision, e.g.
+#   MAPA_ORGS=http://localhost:3001/organizaciones/mapa make mapa-datos
+# Needs the duckdb CLI. See scripts/mapa/README.md.
 mapa-datos:
 	@command -v duckdb >/dev/null || { echo "duckdb not found: install it (e.g. 'brew install duckdb')" >&2; exit 1; }
 	scripts/mapa/fetch.sh
 	duckdb < scripts/mapa/build.sql
+	scripts/mapa/orgs.sh
+	mkdir -p ts_hornero_astro/public/mapa
+	duckdb < scripts/mapa/vulnerabilidad.sql
+
+# Regenerate the committed ReNaCoM-only stand-in for /organizaciones/mapa from renacom.csv.
+mapa-fixture:
+	@command -v duckdb >/dev/null || { echo "duckdb not found: install it (e.g. 'brew install duckdb')" >&2; exit 1; }
+	duckdb < scripts/mapa/fixture.sql
 
 # Load the ReNaCoM comedores/merenderos into the DB as unclaimed organizaciones
 # (estado SIN_RECLAMAR, origen RENACOM). Needs V007 applied first (`make migrate`) and

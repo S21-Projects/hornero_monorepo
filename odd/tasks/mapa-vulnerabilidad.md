@@ -171,7 +171,34 @@ Re-planned 2026-10-12 after the scope expansion (unclaimed ReNaCoM organizacione
     (`ReporteCierre`), MS verified-email gate on report/claim POST + claim pre-flight. Evidence:
     mvn 816/0 fail; admin 538; parent re-ran Reporte*/Reclamo* tests: exit 0.
   - [ ] C1 — MS + BFF  · [ ] C2 — Admin SPA (report form + "Reportes" tab)  · [ ] C3 — Astro
-- [ ] D — Map: depto aggregation + GeoJSON from DB data (former T2-T3), `make mapa-datos`
+  - Commits: C1 `5589549`, C2 `3ba7f7b`, C3 `dd4de9f`.
+- [ ] D — Map, split by parent 2026-10-13 (sequential writers, single writer at a time):
+  - [x] D-data (delegated writer): MS `/organizaciones/mapa` DTO gains `necesidadesAbiertas`
+    (open, uncovered necesidades count) + BFF/TS types; `make mapa-datos` DuckDB pipeline reads
+    a `/organizaciones/mapa` JSON (URL param or local file; never a remote host without user
+    authorization), PIP to 2022 radios, aggregates per radio + departamento (comedores,
+    necesidadesAbiertas, habitantes, deficitCobertura, vulnerabilidad with national median,
+    "no comedores" as null), writes `go_algorithms_worker/data/vulnerabilidad-radios.csv` and
+    `ts_hornero_astro/public/mapa/departamentos.geojson` (simplified). Committed outputs are
+    generated from a ReNaCoM-only fixture (= state right after `make importar-renacom`).
+    Worker uses `vulnerabilidad-radios.csv` for the score's deficit term when present
+    (fallback to current behaviour), with tests. D2 resolved: Astro `public/` (rebuild).
+    - 2026-10-13 done (uncommitted): 2,730 orgs → 2,002 radios with comedores; 155/528 deptos
+      non-null vulnerabilidad; median 16,655 (depto) / 819.5 (radio); GeoJSON 449 KB; open =
+      ABIERTA|EN_PROGRESO not past fechaVencimiento; no dedup step (ReNaCoM now lives in the MS).
+      Evidence: go test/vet ok (parent re-ran), mvn ok, BFF 391/391, admin+astro build ok;
+      parent re-ran `make mapa-datos`: byte-identical outputs. Gap: committed outputs come
+      from the fixture (necesidadesAbiertas 0).
+  - [ ] D-front (delegated writer, after D-data): Astro `/mapa` page with a Leaflet island:
+    departamento choropleth from the GeoJSON, live pins from `/organizaciones/mapa`
+    (PLATAFORMA vs SIN_RECLAMAR styles), density heat layer, legend, disclaimer, info card;
+    nav entry. Mockup screen 1.
+    - 2026-10-13 writer partial (uncommitted): `/mapa` page + islands + nav entry; build ok,
+      astro check 0 errors; stub smoke: /mapa 200 with disclaimer "373 de 528", GeoJSON 200,
+      CSP allows OSM tiles. Not browser-tested (render, clicks, toggles, phone layout).
+      Density = translucent circleMarkers (no leaflet.heat); null deptos = muted gray dashed.
+      Docs Rendering section updated by parent.
+- [ ] D — Map (original line kept for history): depto aggregation + GeoJSON from DB data (former T2-T3), `make mapa-datos`
   publish (D2), Astro Leaflet island (former T5), docs (former T6)
 
 Delivery: user rule — no PRs, commit only with permission, never push. Work-unit commits per

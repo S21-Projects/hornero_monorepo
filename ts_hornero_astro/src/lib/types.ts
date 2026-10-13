@@ -25,6 +25,20 @@ export interface Org {
   donacionDirectaUrl?: string | null;
 }
 
+/** Item of `GET /organizaciones/mapa` (MS `OrganizacionMapaResponse`): lightweight map pin. */
+export interface OrgMapa {
+  id: number;
+  slug: string;
+  nombre: string;
+  tipo: TipoOrganizacion;
+  estado: 'APROBADA' | 'SIN_RECLAMAR';
+  origen: 'PLATAFORMA' | 'RENACOM';
+  latitud: number;
+  longitud: number;
+  /** Open, uncovered necesidades (ABIERTA or EN_PROGRESO, not expired). 0 for unclaimed orgs. */
+  necesidadesAbiertas: number;
+}
+
 // ─── Necesidad ─────────────────────────────────────────────────────────────────
 
 /** Mirrors MS `NecesidadResponse`'s `articulos` component (feature catalogo-articulos, decision 6). */

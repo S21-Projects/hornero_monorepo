@@ -1,6 +1,10 @@
 package geo
 
-import "testing"
+import (
+	"os"
+	"path/filepath"
+	"testing"
+)
 
 // Reuse Córdoba-ish coordinates so the fixtures read the same way as internal/assign's tests.
 const (
@@ -95,5 +99,104 @@ func TestNuevoResolvedorDefaultRadio(t *testing.T) {
 	deficit, fuente := r.Resolver(latCentro+0.001, lngCentro, "", nil)
 	if deficit != 3.0 || fuente != FuenteCercano {
 		t.Fatalf("Resolver() = (%v, %v), want CERCANO with the default 1.0km radius", deficit, fuente)
+	}
+}
+
+const renacomVulnerabilidad = `"Identificador","Nombre","Tipo de organización","Cantidad de asistentes","Cantidad de responsables","Comidas ofrecidas","Poblacion asistida","Tipo de georreferenciación","Latitud","Longitud","Nombre de provincia","Nombre de departamento","Localidad","Código de radio"
+1,"Comedor A","Comedor",100,1,"Almuerzo","Adultos",3,-31.4201,-64.1888,"Córdoba","Capital","CORDOBA","RADIO_A"
+2,"Comedor B","Comedor",100,1,"Almuerzo","Adultos",3,-34.6037,-58.3816,"Buenos Aires","CABA","CABA","RADIO_B"
+`
+
+// cargarConArchivos writes renacom.csv (and, when non-empty, vulnerabilidad-radios.csv) into one
+// temp dir and loads a Resolvedor from it with no census population CSV.
+func cargarConArchivos(t *testing.T, vulnerabilidad string) *Resolvedor {
+	t.Helper()
+	dir := t.TempDir()
+	renacomPath := filepath.Join(dir, "renacom.csv")
+	if err := os.WriteFile(renacomPath, []byte(renacomVulnerabilidad), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if vulnerabilidad != "" {
+		if err := os.WriteFile(filepath.Join(dir, "vulnerabilidad-radios.csv"), []byte(vulnerabilidad), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	r, err := Cargar(renacomPath, "", "", 1.0)
+	if err != nil {
+		t.Fatalf("Cargar: %v", err)
+	}
+	return r
+}
+
+// TestCargarUsaVulnerabilidadDelRadio covers the optional vulnerabilidad-radios.csv: its value
+// replaces the deficit per radio, an empty value falls through to the next source, and without the
+// file the behaviour is the previous one.
+func TestCargarUsaVulnerabilidadDelRadio(t *testing.T) {
+	const conArchivo = "codigo_radio,habitantes,comedores,necesidades_abiertas,deficit_cobertura,vulnerabilidad\n" +
+		"RADIO_A,500,1,2,1.5,4.5\n" +
+		"RADIO_B,0,1,0,,\n"
+
+	tests := []struct {
+		name           string
+		vulnerabilidad string
+		lat, lng       float64
+		codigoRadio    string
+		wantDeficit    float64
+		wantFuente     Fuente
+	}{
+		{
+			name:           "RADIO uses vulnerabilidad, not the (zero) population-based deficit",
+			vulnerabilidad: conArchivo,
+			lat:            -20, lng: -60, codigoRadio: "RADIO_A",
+			wantDeficit: 4.5, wantFuente: FuenteRadio,
+		},
+		{
+			name:           "empty vulnerabilidad falls through to NEUTRAL when no precise point is near",
+			vulnerabilidad: conArchivo,
+			lat:            -34.6037, lng: -58.3816, codigoRadio: "RADIO_B",
+			wantDeficit: Neutral, wantFuente: FuenteNeutral,
+		},
+		{
+			name:           "empty vulnerabilidad falls through to CERCANO from a neighbouring radio",
+			vulnerabilidad: conArchivo,
+			lat:            -31.4202, lng: -64.1888, codigoRadio: "RADIO_B",
+			wantDeficit: 4.5, wantFuente: FuenteCercano,
+		},
+		{
+			name:           "CERCANO also reads vulnerabilidad",
+			vulnerabilidad: conArchivo,
+			lat:            -31.4202, lng: -64.1888, codigoRadio: "",
+			wantDeficit: 4.5, wantFuente: FuenteCercano,
+		},
+		{
+			name:           "without the file nothing changes: no population means NEUTRAL",
+			vulnerabilidad: "",
+			lat:            -20, lng: -60, codigoRadio: "RADIO_A",
+			wantDeficit: Neutral, wantFuente: FuenteNeutral,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r := cargarConArchivos(t, tt.vulnerabilidad)
+			deficit, fuente := r.Resolver(tt.lat, tt.lng, tt.codigoRadio, nil)
+			if deficit != tt.wantDeficit || fuente != tt.wantFuente {
+				t.Fatalf("Resolver() = (%v, %v), want (%v, %v)", deficit, fuente, tt.wantDeficit, tt.wantFuente)
+			}
+		})
+	}
+}
+
+func TestCargarRechazaVulnerabilidadSinColumnas(t *testing.T) {
+	dir := t.TempDir()
+	renacomPath := filepath.Join(dir, "renacom.csv")
+	if err := os.WriteFile(renacomPath, []byte(renacomVulnerabilidad), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "vulnerabilidad-radios.csv"), []byte("codigo_radio,x\nA,1\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Cargar(renacomPath, "", "", 1.0); err == nil {
+		t.Fatal("want error for a vulnerabilidad file without the vulnerabilidad column")
 	}
 }

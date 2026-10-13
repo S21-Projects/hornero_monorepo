@@ -7,6 +7,7 @@ import org.example.acreditacion.AcreditacionService;
 import org.example.actividad.ActividadService;
 import org.example.actividad.ActividadService.Registro;
 import org.example.actividad.TipoActividad;
+import org.example.domain.EstadoNecesidad;
 import org.example.domain.EstadoOrganizacion;
 import org.example.domain.NivelAcreditacion;
 import org.example.domain.Organizacion;
@@ -32,6 +33,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.text.Normalizer;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -43,6 +45,13 @@ public class OrganizacionService {
     public static final int CAP_ORGANIZACIONES = 3;
     private static final List<EstadoOrganizacion> ESTADOS_EN_MAPA =
             List.of(EstadoOrganizacion.APROBADA, EstadoOrganizacion.SIN_RECLAMAR);
+
+    /**
+     * A necesidad is "open, uncovered" while ABIERTA or EN_PROGRESO: the same pair that counts against
+     * the accreditation caps and that a ronda may still fill. CUMPLIDA and VENCIDA are excluded.
+     */
+    private static final List<EstadoNecesidad> ESTADOS_NECESIDAD_ABIERTA =
+            List.of(EstadoNecesidad.ABIERTA, EstadoNecesidad.EN_PROGRESO);
 
     private final OrganizacionRepository organizacionRepository;
     private final UsuarioRepository usuarioRepository;
@@ -98,7 +107,7 @@ public class OrganizacionService {
     /** Public, non-paged map payload: validated and unclaimed organizaciones that have coordinates. */
     @Transactional(readOnly = true)
     public List<OrganizacionMapaResponse> listarMapa() {
-        return organizacionRepository.findMapa(ESTADOS_EN_MAPA);
+        return organizacionRepository.findMapa(ESTADOS_EN_MAPA, ESTADOS_NECESIDAD_ABIERTA, LocalDate.now());
     }
 
     @Transactional(readOnly = true)

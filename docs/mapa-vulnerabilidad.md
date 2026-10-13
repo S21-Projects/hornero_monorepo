@@ -1,6 +1,6 @@
 # Design — National Vulnerability Map
 
-Status: **in progress** (`odd/tasks/mapa-vulnerabilidad.md`). Not implemented yet.
+Status: **in progress** (`odd/tasks/mapa-vulnerabilidad.md`). Data pipeline, worker integration and the `/mapa` page (Astro + Leaflet) are implemented; radio-level polygons at high zoom are not.
 
 ## Goal
 
@@ -36,10 +36,10 @@ can mean high need or need already covered. Vulnerability combines two signals:
    join would silently attach the wrong population. The declared code is ignored.
 2. **Georeference precision.** ReNaCoM rows with `Tipo de georreferenciación` >= 6 (193 rows)
    are kept for their radio code but excluded from point-based rendering.
-3. **Assign a radio to Hornero organizaciones** by point-in-polygon against the 2022 radio
-   geometry (done in the worker batch, not in the MS).
-4. **Deduplicate** Hornero organizaciones against ReNaCoM: candidate match when within a
-   distance threshold and names are similar. A matched pair counts as **one** comedor.
+3. **Assign a radio to every organizacion** (ReNaCoM-imported and Hornero) by point-in-polygon
+   against the 2022 radio geometry, in the DuckDB pipeline (`scripts/mapa/vulnerabilidad.sql`).
+4. **No dedup step.** ReNaCoM comedores are imported into the MS as `SIN_RECLAMAR`
+   organizaciones, so the organizaciones list is already the single list of comedores.
 5. **Aggregate** per radio and per departamento.
 
 ## Metric
@@ -47,15 +47,17 @@ can mean high need or need already covered. Vulnerability combines two signals:
 Per zone (radio or departamento):
 
 ```
-comedores            = renacom(zona) + hornero(zona) - duplicados(zona)
+comedores            = organizaciones (APROBADA + SIN_RECLAMAR, with coordinates) in the zone
 habitantesPorComedor = habitantes(zona) / comedores(zona)
 deficitCobertura     = habitantesPorComedor / medianaNacional
-necesidadesAbiertas  = raw count of open, uncovered necesidades of Hornero orgs in the zone
+necesidadesAbiertas  = raw count of open, uncovered necesidades of those organizaciones
 vulnerabilidad       = deficitCobertura * (1 + necesidadesAbiertas / comedores)
 ```
 
-- **National median** (decided): every zone is compared against the median of all zones with
-  known population, so any two provinces are comparable.
+- **National median** (decided): every zone is compared against the median of the zones of the
+  same level (radio or departamento) with comedores, so any two provinces are comparable.
+- **Zones with no comedores** have `deficitCobertura` and `vulnerabilidad` null ("sin comedores
+  en el registro"), never 0.
 - **Raw count** of necesidades (decided): Hornero cannot judge the importance of each
   necesidad; it relies on what organizaciones declare. Accepted bias: open-necesidad caps
   depend on accreditation level (N0/N1/N2/N3 = 0/3/6/12, `AcreditacionProperties`), so zones
@@ -69,41 +71,71 @@ vulnerabilidad       = deficitCobertura * (1 + necesidadesAbiertas / comedores)
 
 ## Rendering
 
-- **Country / province zoom:** choropleth by **departamento** (~530 polygons, simplified),
-  diverging color scale centred on 1.0.
-- **High zoom:** choropleth by **radio**.
-- Comedor points (ReNaCoM + Hornero, deduplicated) as a heatmap weighted by asistentes, and
-  Hornero organizaciones as clickable markers.
-- Tooltip: `vulnerabilidad`, `deficitCobertura`, `habitantesPorComedor`, `comedores`,
-  `necesidadesAbiertas`, `habitantes`.
-- Visible disclaimer: ReNaCoM is a sample; absence of points does not mean absence of need.
+Implemented in `ts_hornero_astro/src/pages/mapa.astro` with the islands
+`MapaVulnerabilidad.tsx` (panel, legend, info card) and `MapaVulnerabilidadMap.tsx` (Leaflet):
 
-Library: start with Leaflet + `leaflet.heat` (current stack). Migrate to MapLibre GL +
-PMTiles only if national radio-level polygons become a requirement.
+- **Choropleth by departamento** from the static `public/mapa/departamentos.geojson`, diverging
+  6-step scale centred on 1.0. Departamentos without comedores render muted gray with a dashed
+  outline ("Sin comedores en el registro"), never as low need.
+- **Pins** fetched at runtime from the BFF `GET /organizaciones/mapa`: Hornero organizaciones
+  (filled) and unclaimed ReNaCoM comedores (outlined), with popups linking to `/org/{slug}`.
+  If the BFF is unreachable the choropleth still renders.
+- **Density layer** (off by default): large translucent circle markers that accumulate where
+  comedores cluster. `leaflet.heat` was rejected (unmaintained since 2016, no types). Points
+  are not weighted by asistentes because the map endpoint does not carry them.
+- **Info card** per departamento: vulnerabilidad, habitantes, comedores, habitantes por
+  comedor, necesidades sin cubrir. A "Ir a un departamento" select gives keyboard access.
+- Visible disclaimer: ReNaCoM is a sample; absence of points does not mean absence of need;
+  higher-accredited organizaciones can show more necesidades because their cap is larger.
+- **Not built:** radio-level polygons at high zoom (~66k radios). Revisit with MapLibre GL +
+  PMTiles if that becomes a requirement.
 
 ## Pipeline
 
-The public site does not call the worker at runtime (the worker is internal-only).
+The public site does not call the worker at runtime (the worker is internal-only). The data is
+precomputed offline and committed:
 
 ```
-make mapa-datos
-  -> fetch census parquet (cached, gitignored) -> data/poblacion-radios.csv
-  -> fetch Hornero organizaciones + open necesidades from the MS
-  -> worker: merge, dedup, aggregate
-  -> cobertura-departamentos.geojson, cobertura-radios (tiles or per-province files),
-     comedores-heat.json
-  -> published as static files
+make mapa-datos                      (see scripts/mapa/README.md)
+  fetch.sh      -> Censo 2022 radios.parquet (cached, gitignored)
+  build.sql     -> data/poblacion-radios.csv, data/renacom-radio-2022.csv
+  orgs.sh       -> stages MAPA_ORGS (JSON file or http(s) URL of GET /organizaciones/mapa;
+                   default: the committed ReNaCoM fixture) into scripts/mapa/out/
+  vulnerabilidad.sql (DuckDB)
+                -> point-in-polygon of each organizacion to its 2022 radio
+                -> go_algorithms_worker/data/vulnerabilidad-radios.csv
+                -> ts_hornero_astro/public/mapa/departamentos.geojson
 ```
 
-Hornero data changes over time, so the pipeline runs on a schedule. Ronda runs read the
-same Hornero data live, so the algorithm is always current even when the map lags.
+- **Open, uncovered necesidades.** `GET /organizaciones/mapa` carries `necesidadesAbiertas` per
+  organizacion: the count of its necesidades in `ABIERTA` or `EN_PROGRESO` that are not past their
+  `fechaVencimiento` (computed in the same projection query, no N+1). Those are the states that
+  count against the accreditation caps and that a ronda can still fill; `CUMPLIDA` and `VENCIDA`
+  are excluded. Unclaimed ReNaCoM comedores always report 0.
+- **One list of comedores.** ReNaCoM comedores are already organizaciones in the MS
+  (`SIN_RECLAMAR`), so the pipeline reads a single list and the earlier "dedup Hornero against
+  ReNaCoM" step is not needed: a claimed comedor stays one organizacion.
+- **Committed outputs come from the fixture** (`scripts/mapa/fixtures/organizaciones-mapa.renacom.json`,
+  rebuilt with `make mapa-fixture`), so they show pure coverage deficit (`vulnerabilidad` = `deficitCobertura`).
+  Refreshing them with real Hornero demand is `MAPA_ORGS=http://localhost:3001/organizaciones/mapa make mapa-datos`
+  against a BFF the operator chooses; pointing it at production is a manual, explicit decision.
+- **Fixture run:** 2,730 organizaciones, all in a 2022 radio; 2,002 radios with comedores; 528
+  departamentos (Antartida excluded), 155 with comedores (the other 373 have null deficit and
+  vulnerabilidad); national median 16,655 habitantes per comedor across those departamentos
+  (819.5 across radios); GeoJSON 449 KB.
+- **Ronda score.** When `vulnerabilidad-radios.csv` is next to `renacom.csv`, the worker uses a
+  radio's `vulnerabilidad` for the score's deficit term, with the existing precedence and
+  normalization; an empty value falls through to CERCANO / NEUTRAL (see `go_algorithms_worker/README.md`).
+
+Hornero data changes over time, so the files are regenerated on demand. Ronda runs read the
+worker's committed CSV, so it lags the live data until it is regenerated and redeployed.
 
 ## Phases
 
 | Task | Work |
 |---|---|
 | T1 | Acquire census data, build `data/poblacion-radios.csv`, verify ReNaCoM radio match rate |
-| T2 | Worker: merge + dedup + per-departamento aggregation, with tests |
+| T2 | Aggregation per radio and departamento (DuckDB, `vulnerabilidad.sql`) |
 | T3 | Worker: GeoJSON + heat JSON output |
 | T4 | `make mapa-datos` + publish location |
 | T5 | Astro island: choropleth, heatmap, markers, legend, disclaimer, national view |
@@ -112,7 +144,6 @@ same Hornero data live, so the algorithm is always current even when the map lag
 ## Open questions
 
 - Publish location of generated files: `ts_hornero_astro/public/` (rebuild) vs R2.
-- Dedup distance threshold and name-similarity rule.
 - RENABAP (barrios populares, datos.gob.ar, CC-BY) as an optional extra signal.
 
 ## Related

@@ -42,7 +42,7 @@ class OrganizacionControllerMapaSecurityTest {
     void anonymousCanReadMapaAndItRoutesToMapaNotSlug() throws Exception {
         when(organizacionService.listarMapa()).thenReturn(List.of(new OrganizacionMapaResponse(
                 1L, "comedor-x-1", "Comedor X", TipoOrganizacion.COMEDOR, EstadoOrganizacion.SIN_RECLAMAR,
-                OrigenOrganizacion.RENACOM, -34.6, -58.4)));
+                OrigenOrganizacion.RENACOM, -34.6, -58.4, 2L)));
 
         mockMvc.perform(get("/api/organizaciones/mapa"))
                 .andExpect(status().isOk())
@@ -51,7 +51,8 @@ class OrganizacionControllerMapaSecurityTest {
                 .andExpect(jsonPath("$.data[0].slug").value("comedor-x-1"))
                 .andExpect(jsonPath("$.data[0].estado").value("SIN_RECLAMAR"))
                 .andExpect(jsonPath("$.data[0].origen").value("RENACOM"))
-                .andExpect(jsonPath("$.data[0].latitud").value(-34.6));
+                .andExpect(jsonPath("$.data[0].latitud").value(-34.6))
+                .andExpect(jsonPath("$.data[0].necesidadesAbiertas").value(2));
 
         verify(organizacionService).listarMapa();
     }
