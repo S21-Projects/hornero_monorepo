@@ -402,8 +402,20 @@ admin 596/596, Go ok, `make e2e` 95/95. Review verdict: merge with follow-ups:
     with a link to its CONICET record; "Attribution and licenses" in `docs/mapa-vulnerabilidad.md`.
     Evidence: astro build ok (Astro has no test runner). **Open:** the ReNaCoM record's license
     could not be read (repository unreachable 2026-10-13); copy it into the doc to close P5.
-- [ ] **P6** Nits: in-memory TTL cache for `/organizaciones/mapa`; redundant unique on `origen_id`;
+- [x] **P6** Nits: in-memory TTL cache for `/organizaciones/mapa`; redundant unique on `origen_id`;
   approved-claim org leaves the map until validated (user question).
+  - Decided 2026-10-13 (user): keep the current behavior — `/mapa` shows APROBADA and SIN_RECLAMAR
+    only, so an org whose claim was approved leaves the map until validated. Showing PENDIENTE orgs
+    with a label is under team evaluation (`docs/acciones-pendientes-equipo.md`).
+  - Done (branch `feat/mapa-nits`): `MapaOrganizacionesCache` (TTL 300 s,
+    `app.mapa.cache-ttl-seconds` / `APP_MAPA_CACHE_TTL_SECONDS`, injected `Clock`, synchronized reload)
+    now fronts `GET /organizaciones/mapa`; `unique = true` removed from `Organizacion.origenId` and
+    `V010__organizaciones_origen_id_unique_dedup.sql` drops the duplicate constraint by column
+    (V007 partial index stays; no `EsquemaVerificador` check, cleanup only). Docs: `db-changes.md`,
+    `acciones-pendientes-equipo.md`. Evidence: `mvn test` 1040 green (1 new test, RED then GREEN);
+    `make migrate ENV_FILE=.env.local` twice, second run clean; psql shows only
+    `ux_organizaciones_origen_id` for origen_id (0 UNIQUE constraints on that column); `make e2e` 102/102.
+    **Open:** the "approved-claim org leaves the map until validated" question is a user decision.
 
 ## Business definitions pending (list 2)
 
