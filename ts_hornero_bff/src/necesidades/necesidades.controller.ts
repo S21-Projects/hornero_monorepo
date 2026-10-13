@@ -67,8 +67,11 @@ export class NecesidadesController {
   @Public()
   @Get(':id')
   @ApiOperation({ summary: 'Get a need by ID (public)' })
-  findById(@Param('id', ParseIntPipe) id: number) {
-    return this.necesidadesService.findById(id);
+  findById(@Param('id', ParseIntPipe) id: number, @Req() req: Request) {
+    return this.necesidadesService.findById(
+      id,
+      (req as any).cookies?.['access_token'] || undefined,
+    );
   }
 
   @Roles(Role.REFERENTE)

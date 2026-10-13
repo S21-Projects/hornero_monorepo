@@ -281,6 +281,7 @@ describe('Authorization, validation and admin override', () => {
 
         expect(await ids(anonymous(), byOrg)).toContain(necId);
         expect(await ids(anonymous(), all)).toContain(necId);
+        expect((await anonymous().get(`/necesidades/${necId}`)).status).toBe(200);
 
         expect((await a.admin.patch(`/organizaciones/${orgId}/acreditacion/nivel`, {
           destino: 'N0', motivo: marker('lower to N0 (M3)'),
@@ -292,6 +293,12 @@ describe('Authorization, validation and admin override', () => {
         expect(await ids(a.referente3, byOrg)).toContain(necId);
         expect(await ids(a.referente3, all)).toContain(necId);
         expect(await ids(a.admin, byOrg)).toContain(necId);
+
+        // N17: the detail endpoint is consistent with the listings (404, not 403).
+        expect((await anonymous().get(`/necesidades/${necId}`)).status).toBe(404);
+        expect((await a.donante.get(`/necesidades/${necId}`)).status).toBe(404);
+        expect((await a.referente3.get(`/necesidades/${necId}`)).status).toBe(200);
+        expect((await a.admin.get(`/necesidades/${necId}`)).status).toBe(200);
       } finally {
         await retireOrg(a.admin, orgId);
       }

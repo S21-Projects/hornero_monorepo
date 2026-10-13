@@ -323,6 +323,19 @@ The guide requires measures "related to the identified risks", so a risk matrix 
   - Residual: two admins anonymizing each other at the same instant could leave zero active
     admins (no lock).
 
+- [x] **N16** Evidence for the guide's "Validación y calidad" section: coverage reports per
+  service (JaCoCo for the MS, jest/vitest coverage, `go test -cover`), a `make coverage` target,
+  and `docs/validacion-calidad.md` (Spanish) mapping each guide bullet to concrete tests/results,
+  with the normal vs exceptional scenario matrix. Branch `feat/validacion-calidad`.
+- [x] **N17** Close the M3 gap: `GET /necesidades/{id}` of an N0 organization only for its owner
+  and admins.
+  - Done N17: `findById` → 404 for N0/null-level orgs except owner/admin; BFF forwards the token on
+    the detail GET (RED: 3 MS + 2 BFF + 1 e2e).
+  - Done N16: JaCoCo behind `-Pcoverage`, admin `@vitest/coverage-v8` (vitest 4.1.9 → 4.1.11 patch
+    bump), `make coverage`; `docs/validacion-calidad.md` (37 cited test files verified to exist).
+    Numbers 2026-10-13: MS 920 tests / 90.7 % lines; BFF 365 / 95.8 %; admin 513 / 79.7 %; Go 56
+    / 66.7 % statements; e2e 95.
+
 ## Business definitions pending (list 2)
 
 Each item needs a team decision before related work starts. Record the decision and date here.

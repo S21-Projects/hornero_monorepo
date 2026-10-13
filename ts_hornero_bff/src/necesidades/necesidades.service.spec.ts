@@ -66,6 +66,20 @@ describe('NecesidadesService — buildQuery forwarding', () => {
     );
   });
 
+  it('findById forwards the session token so the MS can show an N0 necesidad to its owner (N17)', async () => {
+    await service.findById(7, 'tok');
+    expect(getMock).toHaveBeenCalledWith(`${MS_URL}/api/necesidades/7`, {
+      headers: { Authorization: 'Bearer tok' },
+    });
+  });
+
+  it('findById sends no Authorization header for anonymous callers', async () => {
+    await service.findById(7);
+    expect(getMock).toHaveBeenCalledWith(`${MS_URL}/api/necesidades/7`, {
+      headers: {},
+    });
+  });
+
   it('relanzar POSTs the new date to the MS with the bearer token', async () => {
     const out = await service.relanzar(
       7,
