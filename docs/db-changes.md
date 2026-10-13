@@ -10,6 +10,24 @@ production DB) — check the "Applied to" line before running anything twice.
 
 ---
 
+## 2026-10-13 — `organizaciones.origen_id`: drop the redundant UNIQUE constraint (P6)
+
+**Reason**: `Organizacion.origenId` declared `unique = true`, so `ddl-auto=update` generated a `uk_<hash>` UNIQUE constraint next to the partial unique index `ux_organizaciones_origen_id` from V007. The partial index is the single source of truth (idempotency key of `scripts/mapa/importar-renacom.sql`); the entity no longer declares `unique = true`.
+
+**Before**: both `uk_<hash> UNIQUE (origen_id)` and `ux_organizaciones_origen_id` exist.
+
+**Migration**: `scripts/sql/V010__organizaciones_origen_id_unique_dedup.sql` (run `make migrate`). Looks the constraint up in `pg_constraint` by column (the generated name varies per database) and drops it; the partial index is untouched. Safe before or after deploying the new MS image, and re-runnable. Cleanup only: nothing breaks if it is pending, so `EsquemaVerificador` has no check for it.
+
+**After**: only `ux_organizaciones_origen_id` enforces uniqueness of `origen_id` (NULLs allowed, as before).
+
+**Rollback**: `ALTER TABLE organizaciones ADD CONSTRAINT uk_organizaciones_origen_id UNIQUE (origen_id);` (only to restore the old duplicate; not needed).
+
+**Applied to**:
+- [ ] Local dev DB
+- [ ] Pi production DB
+
+---
+
 ## 2026-10-13 — `organizacion_evento_tipo_check`: report-flow events (mapa-vulnerabilidad, task C)
 
 **Reason**: confirming or discarding a report on an unclaimed organizacion writes `TipoEventoOrganizacion.REPORTE_CONFIRMADO` / `REPORTE_DESCARTADO` to the audit trail. `ddl-auto=update` never widens the CHECK it generated for the STRING enum, so inserting them would fail. The new table `reportes_organizacion` is created by `ddl-auto=update` (no script needed).
