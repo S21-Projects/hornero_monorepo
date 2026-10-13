@@ -635,3 +635,61 @@ export interface CrearReclamoInput {
   mensaje?: string;
   evidenciaKeys: string[];
 }
+
+// ---------------------------------------------------------------------------
+// Report flow for unclaimed (ReNaCoM) organizaciones — mirrors jar_hornero_ms's
+// `reporte/dto/*.java` and ts_hornero_bff's `reportes/dto/*.ts`.
+// ---------------------------------------------------------------------------
+
+export const MotivoReporte = {
+  INACTIVO: 'INACTIVO',
+  DATOS_INCORRECTOS: 'DATOS_INCORRECTOS',
+  DUPLICADO: 'DUPLICADO',
+  OTRO: 'OTRO',
+} as const;
+export type MotivoReporte = typeof MotivoReporte[keyof typeof MotivoReporte];
+
+export const EstadoReporte = {
+  PENDIENTE: 'PENDIENTE',
+  CONFIRMADO: 'CONFIRMADO',
+  DESCARTADO: 'DESCARTADO',
+} as const;
+export type EstadoReporte = typeof EstadoReporte[keyof typeof EstadoReporte];
+
+export interface Reporte {
+  id: number;
+  organizacionId: number;
+  organizacionNombre: string;
+  organizacionSlug: string;
+  organizacionDireccion?: string | null;
+  reportanteId: number;
+  reportanteNombre: string;
+  reportanteEmail: string;
+  motivo: MotivoReporte;
+  /** Set iff `motivo` is DUPLICADO: the Hornero organizacion it duplicates. */
+  organizacionDuplicadaId?: number | null;
+  organizacionDuplicadaNombre?: string | null;
+  organizacionDuplicadaSlug?: string | null;
+  detalle?: string | null;
+  estado: EstadoReporte;
+  notaResolucion?: string | null;
+  resueltoPorNombre?: string | null;
+  creadoEn: string;
+  resueltoEn?: string | null;
+}
+
+export interface CrearReporteInput {
+  organizacionId: number;
+  motivo: MotivoReporte;
+  organizacionDuplicadaId?: number;
+  detalle?: string;
+}
+
+/** A Hornero organizacion within 500 m of the reported one (the duplicate picker). */
+export interface OrganizacionCercana {
+  id: number;
+  slug: string;
+  nombre: string;
+  direccion?: string | null;
+  distanciaMetros: number;
+}

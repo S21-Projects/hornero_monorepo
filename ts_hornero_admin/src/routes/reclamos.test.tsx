@@ -8,6 +8,7 @@ import {
   useReclamo,
   useReclamosPendientes,
 } from '../lib/hooks/useReclamos';
+import { useReportesPendientes } from '../lib/hooks/useReportes';
 import { makePage } from '../test/fixtures/page';
 import type { Reclamo } from '../types/domain';
 
@@ -16,6 +17,12 @@ vi.mock('../lib/hooks/useReclamos', () => ({
   useReclamo: vi.fn(),
   useAprobarReclamo: vi.fn(),
   useRechazarReclamo: vi.fn(),
+}));
+vi.mock('../lib/hooks/useReportes', () => ({
+  useReportesPendientes: vi.fn(),
+  useReporte: vi.fn(),
+  useMarcarInactiva: vi.fn(),
+  useDescartarReporte: vi.fn(),
 }));
 vi.mock('../components/reclamo/ReclamoEvidencia', () => ({
   ReclamoEvidencia: ({ objectKey }: { objectKey: string }) => <div>archivo:{objectKey}</div>,
@@ -58,6 +65,9 @@ describe('ReclamosPage (admin queue)', () => {
     vi.mocked(useReclamosPendientes).mockReturnValue({
       data: makePage([ROW]), isLoading: false, isError: false, isFetching: false, refetch: vi.fn(),
     } as unknown as ReturnType<typeof useReclamosPendientes>);
+    vi.mocked(useReportesPendientes).mockReturnValue({
+      data: makePage([], { totalElements: 3 }), isLoading: false, isError: false, isFetching: false, refetch: vi.fn(),
+    } as unknown as ReturnType<typeof useReportesPendientes>);
     vi.mocked(useReclamo).mockReturnValue({
       data: ROW, isLoading: false, isError: false, refetch: vi.fn(),
     } as unknown as ReturnType<typeof useReclamo>);
@@ -144,5 +154,25 @@ describe('ReclamosPage (admin queue)', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Ver detalle' }));
 
     expect(screen.getByText('El solicitante ya alcanzó el máximo de 3 organizaciones a su cargo.')).toBeInTheDocument();
+  });
+
+  it('shows both tabs with their pending counts and starts on Reclamos', () => {
+    renderPage();
+
+    expect(screen.getByRole('tab', { name: 'Reclamos · 1' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByRole('tab', { name: 'Reportes · 3' })).toHaveAttribute('aria-selected', 'false');
+  });
+
+  it('switches to the Reportes queue', () => {
+    vi.mocked(useReportesPendientes).mockReturnValue({
+      data: makePage([], { totalElements: 0 }), isLoading: false, isError: false, isFetching: false, refetch: vi.fn(),
+    } as unknown as ReturnType<typeof useReportesPendientes>);
+    renderPage();
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Reportes · 0' }));
+
+    expect(screen.getByRole('tab', { name: 'Reportes · 0' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByText('No hay reportes pendientes')).toBeInTheDocument();
+    expect(screen.queryByText('Comedor X')).not.toBeInTheDocument();
   });
 });

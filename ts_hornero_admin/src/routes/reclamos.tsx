@@ -6,12 +6,14 @@ import { PaginatedTable } from '../components/ui/PaginatedTable';
 import type { Column } from '../components/ui/PaginatedTable';
 import { Text } from '../components/ui/Typography';
 import { ReclamoEvidencia } from '../components/reclamo/ReclamoEvidencia';
+import { ReportesCola } from '../components/reporte/ReportesCola';
 import {
   useAprobarReclamo,
   useRechazarReclamo,
   useReclamo,
   useReclamosPendientes,
 } from '../lib/hooks/useReclamos';
+import { useReportesPendientes } from '../lib/hooks/useReportes';
 import { usePageClamp } from '../lib/hooks/usePageClamp';
 import { mapReclamoError } from '../lib/hooks/mapReclamoError';
 import { ROL_RECLAMO } from '../lib/domain-ui';
@@ -151,8 +153,8 @@ function ReclamoDetalle({ id, onResuelto }: { id: number; onResuelto(): void }) 
   );
 }
 
-/** Admin queue of pending claims on unclaimed comedores. ADMINISTRADOR-only (router guard). */
-export default function ReclamosPage() {
+/** Pending claims on unclaimed comedores (the "Reclamos" tab). */
+function ReclamosCola() {
   const [page, setPage] = useState(0);
   const [selectedId, setSelectedId] = useState<number | null>(null);
 
@@ -176,7 +178,6 @@ export default function ReclamosPage() {
   return (
     <div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-        <Text variant="h1">Reclamos</Text>
         <Badge tone={total > 0 ? 'sky' : 'neutral'} label={`${total} pendientes`} />
       </div>
       <Text variant="body-sm" color="ink-3" style={{ marginTop: 4, display: 'block' }}>
@@ -214,6 +215,51 @@ export default function ReclamosPage() {
           />
         </div>
       </AsyncSection>
+    </div>
+  );
+}
+
+type Tab = 'reclamos' | 'reportes';
+
+/**
+ * Admin queues for unclaimed comedores: claims by referentes ("Reclamos") and visitor reports
+ * ("Reportes"). ADMINISTRADOR-only (router guard). Tab counts reuse the queues' first-page queries.
+ */
+export default function ReclamosPage() {
+  const [tab, setTab] = useState<Tab>('reclamos');
+  const reclamos = useReclamosPendientes({ page: 0, size: PAGE_SIZE });
+  const reportes = useReportesPendientes({ page: 0, size: PAGE_SIZE });
+
+  const tabs: { id: Tab; label: string }[] = [
+    { id: 'reclamos', label: `Reclamos · ${reclamos.data?.totalElements ?? 0}` },
+    { id: 'reportes', label: `Reportes · ${reportes.data?.totalElements ?? 0}` },
+  ];
+
+  return (
+    <div>
+      <Text variant="h1">Reclamos y reportes</Text>
+
+      <div role="tablist" aria-label="Comedores sin reclamar" style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+        {tabs.map((t) => (
+          <Button
+            key={t.id}
+            type="button"
+            role="tab"
+            id={`tab-${t.id}`}
+            aria-selected={tab === t.id}
+            aria-controls={`panel-${t.id}`}
+            variant={tab === t.id ? 'primary' : 'secondary'}
+            size="sm"
+            onClick={() => setTab(t.id)}
+          >
+            {t.label}
+          </Button>
+        ))}
+      </div>
+
+      <div role="tabpanel" id={`panel-${tab}`} aria-labelledby={`tab-${tab}`}>
+        {tab === 'reclamos' ? <ReclamosCola /> : <ReportesCola />}
+      </div>
     </div>
   );
 }
