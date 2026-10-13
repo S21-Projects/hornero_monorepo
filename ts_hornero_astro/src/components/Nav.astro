@@ -36,13 +36,13 @@ function linkClass(href: string) {
         src="/icon.svg"
         alt="El Hornero"
         class="block h-10 w-10 object-contain sm:hidden"
-        onerror="this.style.display='none';document.getElementById('logo-fallback').style.display='inline-flex'"
+        data-img-fallback="#logo-fallback:inline-flex"
       />
       <img
         src="/logo_filled.svg"
         alt="El Hornero — Comedores Córdoba"
         class="hidden h-11 w-auto object-contain sm:block"
-        onerror="this.style.display='none';document.getElementById('logo-fallback').style.display='inline-flex'"
+        data-img-fallback="#logo-fallback:inline-flex"
       />
       <span
         id="logo-fallback"
@@ -119,6 +119,28 @@ function linkClass(href: string) {
 </header>
 
 <script is:inline>
+  // Image fallback without inline `onerror` attributes (they would need 'unsafe-inline' in the CSP):
+  // an <img data-img-fallback="<target>:<display>"> is hidden and its target shown when it fails.
+  // <target> is a CSS selector, or `next` for the following sibling.
+  (function () {
+    function fallback(img) {
+      var spec = img.getAttribute('data-img-fallback');
+      if (!spec) return;
+      var cut = spec.lastIndexOf(':');
+      var target = spec.slice(0, cut);
+      var el = target === 'next' ? img.nextElementSibling : document.querySelector(target);
+      img.style.display = 'none';
+      if (el) el.style.display = spec.slice(cut + 1);
+    }
+    // `error` does not bubble but can be captured on the document.
+    document.addEventListener('error', function (e) {
+      if (e.target && e.target.tagName === 'IMG') fallback(e.target);
+    }, true);
+    // Images that already failed before this script ran.
+    document.querySelectorAll('img[data-img-fallback]').forEach(function (img) {
+      if (img.complete && img.naturalWidth === 0) fallback(img);
+    });
+  })();
   (function () {
     var btn = document.getElementById('nav-toggle');
     var menu = document.getElementById('mobile-menu');

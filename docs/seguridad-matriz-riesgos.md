@@ -28,7 +28,7 @@ queda después de aplicar la medida.
 |----|------------------|---|---|--------|------|-----------|----------|
 | R1 | Robo de contraseñas almacenadas | M | A | Hash BCrypt; la contraseña nunca se devuelve en respuestas | MS | `ApplicationConfig.java`, `AuthService.java`, `UserResponse` | B |
 | R2 | Adivinación de contraseñas por fuerza bruta | A | A | Límite de intentos por IP: login 5/min, registro 3/min, refresh 20/min, OTP 5/min y reenvío 3/min | BFF | `auth.throttling.spec.ts`, `client-ip-throttler.guard.spec.ts` | M (política de contraseñas pendiente, D8) |
-| R3 | Robo de token de sesión vía XSS | M | A | Cookies `httpOnly` + `secure`; el rol se obtiene de `GET /auth/me`, nunca de una cookie legible; headers de seguridad y CSP (en modo Report-Only) | BFF / admin / Astro | `docs/security-access-token-httponly.md`, `app.setup.spec.ts`, `security-headers.conf`, `securityHeaders.ts` | M (CSP a forzar tras observar) |
+| R3 | Robo de token de sesión vía XSS | M | A | Cookies `httpOnly` + `secure`; el rol se obtiene de `GET /auth/me`, nunca de una cookie legible; headers de seguridad y CSP (Report-Only por defecto; `CSP_MODE=enforce` la fuerza) | BFF / admin / Astro | `docs/security-access-token-httponly.md`, `app.setup.spec.ts`, `security-headers.conf`, `securityHeaders.ts` | M (CSP a forzar en producción) |
 | R4 | Uso de un refresh token como access token (o viceversa) | M | A | Claim `type` validado en MS y BFF | MS / BFF | `JwtServiceTest`, `AuthTokenTypeIntegrationTest`, `jwt.strategy.spec.ts`, `role-matrix.spec.ts` | B |
 | R5 | Sesión robada que sobrevive al logout | M | A | Refresh tokens persistidos (solo `jti`), rotación en cada uso, detección de reutilización con revocación de la familia, revocación en logout y al desactivar un usuario | MS / BFF | `RefreshTokenLifecycleIntegrationTest`, `RefreshTokenReuseDetectionIntegrationTest`, e2e `05-session-and-verification` | B (el access token vive hasta 15 min, D9) |
 | R6 | Firma de tokens con una clave conocida por error de configuración | B | A | El MS no arranca sin `JWT_SECRET` de al menos 32 bytes | MS | `JwtSecretValidationTest` | B |
@@ -57,7 +57,7 @@ Los riesgos marcados en negrita dependen de definiciones de negocio todavía abi
   automatizar el backup y ejecutar un simulacro de restauración (B1–B3).
 - **R20**: política de datos definida (D12) e implementada (N15); el residual es operativo (pedido manual de baja, respaldos).
 - **R18**: alcance decidido (D10) e implementado (N10). La retención definitiva quedó fijada en D12: 365 días (correo de intentos fallidos: 90).
-- **R3**: pasar la CSP de Report-Only a forzada después de observar el sitio desplegado.
+- **R3**: la CSP ya es conmutable (`CSP_MODE`, runtime) y los orígenes salen de `VITE_BFF_URL` / `PUBLIC_BFF_URL`; un barrido headless local en modo enforce no dio violaciones. Falta activarla en producción (`docs/acciones-pendientes-equipo.md`, sección 3). Astro ya no usa `'unsafe-inline'` en `script-src` (hashes por respuesta). Residual: `style-src 'unsafe-inline'` (atributos `style=` de React/Leaflet) y la CSP del panel no cubre `script` inline porque no los hay.
 
 ## Cómo se verifica
 

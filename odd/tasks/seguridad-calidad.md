@@ -336,6 +336,19 @@ The guide requires measures "related to the identified risks", so a risk matrix 
     Numbers 2026-10-13: MS 920 tests / 90.7 % lines; BFF 365 / 95.8 %; admin 513 / 79.7 %; Go 56
     / 66.7 % statements; e2e 95.
 
+- [x] **N18** CSP readiness (S5 follow-up): CSP origins derived from build/runtime config instead
+  of the hardcoded `api.elhornero.org`, a `CSP_MODE` switch (`report-only` default | `enforce`)
+  for admin nginx and Astro, and a headless-browser sweep of the local stack collecting CSP
+  violations to fix them before the user enforces in production. Branch `feat/csp`.
+  - Done: admin CSP rendered at container start (nginx envsubst template + entrypoint script; API
+    origin from `VITE_BFF_URL`); `CSP_MODE` runtime switch for admin and Astro (anything but
+    `enforce` → report-only); Astro hashes every inline script per response, `'unsafe-inline'`
+    removed from `script-src` (inline `onerror` handlers replaced); Playwright sweep with CSP
+    enforced over public pages and all three roles → 0 violations; `make e2e` 95/95.
+  - Residual: `style-src 'unsafe-inline'` (React/Leaflet inline styles).
+  - Follow-ups found by the sweep (not CSP): React hydration error #418 on a public Astro page;
+    direct loads of protected admin URLs redirect to the role home (deep links) — investigate.
+
 ## Business definitions pending (list 2)
 
 Each item needs a team decision before related work starts. Record the decision and date here.

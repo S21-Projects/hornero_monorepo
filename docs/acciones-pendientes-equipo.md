@@ -77,8 +77,17 @@ completarlo, con fecha. El seguimiento técnico completo está en `odd/tasks/seg
 - [ ] **Probar con mails reales** usando alias de Gmail (`usuario+donante@gmail.com`,
   `usuario+referente@gmail.com`): registro, OTP, reset de contraseña, donación directa y de fondo
   común, notificaciones y resumen diario del admin.
-- [ ] Recorrer el sitio público y el panel con la consola del navegador abierta y **anotar las
-  violaciones de CSP** (están en modo Report-Only). Pasarlas para activar la CSP.
+- [ ] **Activar la CSP** (hoy en Report-Only; el barrido headless local con `CSP_MODE=enforce` no
+  dio violaciones, falta confirmarlo en producción):
+  1. Con `CSP_MODE` sin definir (Report-Only), recorrer el sitio público (`/`, `/nosotros`,
+     `/contacto` enviando el formulario con Turnstile, `/organizaciones`, una org) y el panel con
+     los tres roles (mapa, escáner QR de entrega, carga de imágenes de una org), con la consola
+     del navegador abierta.
+  2. Si la consola no muestra mensajes "Content Security Policy" ni "Report Only", agregar
+     `CSP_MODE=enforce` al `.env` de la Pi y recrear: `docker compose up -d --build admin astro`
+     (basta `up -d admin astro` si no cambió código: es una variable de runtime, no de build).
+  3. Repetir el recorrido. **Rollback**: poner `CSP_MODE=report-only` (o quitar la línea) y
+     volver a correr el mismo `up -d`. Cualquier valor distinto de `enforce` queda en Report-Only.
 - [ ] Opcional: activar HSTS en Cloudflare.
 - [ ] Marcar "Applied to" en `docs/db-changes.md` para V002–V006.
 

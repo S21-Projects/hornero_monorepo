@@ -176,6 +176,9 @@ services:
       PORT: "4321"
       # Server-only internal URL for SSR fetches — reached over the compose network.
       BFF_BASE_URL: "http://bff:3001"
+      # Content-Security-Policy: report-only (default, logs violations in the browser console) or
+      # enforce (blocks). Runtime-only: change it and recreate the container, no rebuild.
+      CSP_MODE: "${CSP_MODE:-report-only}"
       # Turnstile secret for the contact form's siteverify call. Runtime-only:
       # the site key is public and baked into the bundle, this one never is.
       # When empty the bot gate is inert — the form itself keeps working.
@@ -198,6 +201,9 @@ services:
       args:
         # Baked into the SPA bundle — the browser calls the BFF directly.
         VITE_BFF_URL: "${VITE_BFF_URL:-http://localhost:3001}"
+    environment:
+      # report-only (default) | enforce — see astro. Runtime-only, nginx renders it at start.
+      CSP_MODE: "${CSP_MODE:-report-only}"
     # Loopback only (see astro). Host port 5173 matches PUBLIC_SPA_URL's default
     # so Astro's links to the panel resolve during local testing.
     ports:
