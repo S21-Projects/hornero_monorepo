@@ -114,8 +114,8 @@ completarlo, con fecha. El seguimiento técnico completo está en `odd/tasks/seg
 - [ ] **Licencia de ReNaCoM:** abrir https://ri.conicet.gov.ar/handle/11336/278030, copiar la
   licencia y la cita recomendada en `docs/mapa-vulnerabilidad.md` ("Attribution and licenses").
   Si no es CC-BY, revisar el texto de fuentes de `/mapa`. Cierra la tarea P5.
-- [ ] **Mails de reclamos y reportes (P1):** decidir si se avisa por mail al decidir un reclamo o
-  un reporte.
+- [x] **Mails de reclamos y reportes (P1):** decidido el 2026-10-13: por ahora no se envían; queda
+  como próxima feature (aviso al decidir un reclamo o un reporte).
 - [ ] **Organización con reclamo aprobado (en evaluación):** hoy pasa a PENDIENTE y desaparece de
   `/mapa` hasta que un admin la valida (`ESTADOS_EN_MAPA` = APROBADA y SIN_RECLAMAR). Se decidió
   dejarlo así por ahora (2026-10-13). Alternativa a evaluar: mostrar las PENDIENTE con una etiqueta

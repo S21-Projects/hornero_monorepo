@@ -370,6 +370,8 @@ merged `--no-ff` (72e18a7). Merged tree == branch tip; re-run on it: MS 1040/104
 admin 596/596, Go ok, `make e2e` 95/95. Review verdict: merge with follow-ups:
 
 - [ ] **P1** Claim outcome notifications (approved/rejected) via N13 domain events.
+  - Deferred 2026-10-13 (user): no new mails for now; planned as a future feature (outcome emails
+    for claims and reports through the N13 domain events).
 - [ ] **P2** R2 evidence files of claims survive anonymization (pending user decision).
 - [x] **P3** Claims spam limits: cap of pending claims per user; persistent (not in-memory) throttle.
   - Done (SDD `reclamos-limites`, branch `feat/reclamos-limites`): every limit is a count over rows
