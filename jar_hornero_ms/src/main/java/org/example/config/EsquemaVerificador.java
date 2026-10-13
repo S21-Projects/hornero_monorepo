@@ -64,6 +64,21 @@ public class EsquemaVerificador implements ApplicationRunner {
                     AND pg_get_constraintdef(oid) NOT LIKE '%IMPORTADA_RENACOM%'))
             """;
 
+    /** V008: organizacion_evento.tipo CHECK that still rejects the claim-flow events. */
+    private static final String CHECK_RECLAMO_CHECKS_PENDIENTES_SQL = """
+            SELECT conname FROM pg_constraint
+            WHERE contype = 'c'
+              AND conrelid = to_regclass('organizacion_evento')
+              AND pg_get_constraintdef(oid) ~ '\\mtipo\\M'
+              AND pg_get_constraintdef(oid) NOT LIKE '%RECLAMO_APROBADO%'
+            """;
+
+    /** V008: unique partial index on pending claims, only meaningful once the claims table exists. */
+    private static final String CHECK_RECLAMO_INDICE_PENDIENTE_SQL = """
+            SELECT 'ux_reclamo_pendiente' WHERE to_regclass('reclamos_organizacion') IS NOT NULL
+              AND NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'ux_reclamo_pendiente')
+            """;
+
 
     /** V004 (M6): the immutability trigger on {@code actividad}; absent trigger = script pending. */
     private static final String CHECK_ACTIVIDAD_TRIGGER_SQL = """
@@ -89,6 +104,7 @@ public class EsquemaVerificador implements ApplicationRunner {
     private final AtomicBoolean necesidadIdNullable = new AtomicBoolean(true);
     private final AtomicBoolean versionesInicializadas = new AtomicBoolean(true);
     private final AtomicBoolean origenOrganizacionMigrado = new AtomicBoolean(true);
+    private final AtomicBoolean eventosReclamoMigrados = new AtomicBoolean(true);
 
     @Override
     public void run(ApplicationArguments args) throws Exception {
@@ -109,6 +125,27 @@ public class EsquemaVerificador implements ApplicationRunner {
         verificarEstadoDesde();
         verificarPurgaEmailIntento();
         verificarOrigenOrganizacion();
+        verificarEventosReclamo();
+    }
+
+    private void verificarEventosReclamo() {
+        java.util.List<String> pendientes =
+                new java.util.ArrayList<>(jdbcTemplate.queryForList(CHECK_RECLAMO_CHECKS_PENDIENTES_SQL, String.class));
+        java.util.List<String> indice = jdbcTemplate.queryForList(CHECK_RECLAMO_INDICE_PENDIENTE_SQL, String.class);
+        if (indice != null) pendientes.addAll(indice);
+        if (pendientes != null && !pendientes.isEmpty()) {
+            eventosReclamoMigrados.set(false);
+            log.error("ESQUEMA_PENDIENTE: CHECK constraints {} reject the RECLAMO_APROBADO / RECLAMO_RECHAZADO "
+                    + "events. Run scripts/sql/V008__reclamo_eventos.sql (make migrate) before resolving claims.",
+                    pendientes);
+        } else {
+            eventosReclamoMigrados.set(true);
+        }
+    }
+
+    /** False when V008 has not widened the organizacion_evento CHECK. Informational; PostgreSQL only. */
+    public boolean eventosReclamoMigrados() {
+        return eventosReclamoMigrados.get();
     }
 
     private void verificarPurgaEmailIntento() {

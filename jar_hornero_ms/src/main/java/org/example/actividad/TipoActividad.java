@@ -42,6 +42,11 @@ public enum TipoActividad {
     ORGANIZACION_INFO_PUBLICA_APROBADA,
     ORGANIZACION_INFO_PUBLICA_RECHAZADA,
 
+    // Reclamos de organizaciones importadas (the org-side facts also land in OrganizacionEvento)
+    RECLAMO_CREADO,
+    RECLAMO_APROBADO,
+    RECLAMO_RECHAZADO,
+
     // Necesidades
     NECESIDAD_CREADA,
     NECESIDAD_ACTUALIZADA,

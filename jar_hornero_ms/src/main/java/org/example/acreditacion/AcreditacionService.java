@@ -179,6 +179,17 @@ public class AcreditacionService {
     }
 
     /**
+     * Claim-flow facts ({@code RECLAMO_APROBADO} / {@code RECLAMO_RECHAZADO}). Never changes
+     * {@code nivel}: an approved claim leaves the organizacion at its current level (N0) so the
+     * normal validation ladder still applies.
+     */
+    @Transactional
+    public void registrarResolucionReclamo(Organizacion org, TipoEventoOrganizacion tipo, Usuario actor,
+                                           String motivo) {
+        eventoRepository.save(OrganizacionEvento.de(org, tipo, actor, motivo, null, null));
+    }
+
+    /**
      * `specs/organizacion-evidencia/spec.md` "One Evidence Row Per Requisito Submission" +
      * "Replacement Never Overwrites History": inserts a new {@code PENDIENTE} row and, if a
      * non-{@code REEMPLAZADA} row already exists for the same requisito, marks it

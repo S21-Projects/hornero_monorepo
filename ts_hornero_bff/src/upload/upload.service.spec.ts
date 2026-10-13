@@ -42,6 +42,17 @@ describe('UploadService', () => {
     service = module.get<UploadService>(UploadService);
   });
 
+  it('uploadReclamoEvidencia() writes under reclamo-evidencia/{orgId}/{userId}/', async () => {
+    const file = {
+      mimetype: 'image/jpeg',
+      buffer: JPEG_BYTES,
+    } as Express.Multer.File;
+
+    const key = await service.uploadReclamoEvidencia(5, 7, file);
+
+    expect(key).toMatch(/^reclamo-evidencia\/5\/7\/[0-9a-f-]{36}\.jpg$/);
+  });
+
   it('uploadOrgEvidencia() writes under org-evidencia/{orgId}/', async () => {
     const file = {
       mimetype: 'image/jpeg',
@@ -50,7 +61,7 @@ describe('UploadService', () => {
 
     const key = await service.uploadOrgEvidencia(7, file);
 
-    expect(key).toMatch(/^org-evidencia\/7\/\d+\.jpg$/);
+    expect(key).toMatch(/^org-evidencia\/7\/[0-9a-f-]{36}\.jpg$/);
     const s3Instance = (S3Client as unknown as jest.Mock).mock.results[0].value;
     expect(s3Instance.send).toHaveBeenCalled();
   });
@@ -70,7 +81,7 @@ describe('UploadService', () => {
 
     const key = await service.uploadOrgProfile(3, file);
 
-    expect(key).toMatch(/^org-profile\/3\/\d+\.png$/);
+    expect(key).toMatch(/^org-profile\/3\/[0-9a-f-]{36}\.png$/);
     expect(lastSentInput()).toMatchObject({ ContentType: 'image/png' });
   });
 

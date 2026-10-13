@@ -9,6 +9,7 @@ import {
   Req,
   UnauthorizedException,
   UploadedFile,
+  UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
@@ -21,9 +22,15 @@ import { OrganizacionesService } from '../organizaciones/organizaciones.service.
 import { ActualizarOrganizacionDto } from '../organizaciones/dto/actualizar-organizacion.dto.js';
 import { ActualizarInfoPublicaDto } from '../organizaciones/dto/actualizar-info-publica.dto.js';
 import { UploadService } from './upload.service.js';
+import { ReclamosService } from '../reclamos/reclamos.service.js';
+import { ClientIpThrottlerGuard } from '../auth/guards/client-ip-throttler.guard.js';
+import { Throttle } from '@nestjs/throttler';
+
+/** Claim evidence uploads allowed per minute and client IP. */
+export const RECLAMO_UPLOAD_LIMIT = 10;
 
 interface AuthedRequest extends Request {
-  user?: { tipo?: Role };
+  user?: { tipo?: Role; userId?: string };
 }
 
 @ApiTags('upload')
@@ -33,6 +40,7 @@ export class UploadController {
     private readonly uploadService: UploadService,
     private readonly organizacionesService: OrganizacionesService,
     private readonly authService: AuthService,
+    private readonly reclamosService: ReclamosService,
   ) {}
 
   @Post('org-profile/:id')
@@ -113,6 +121,44 @@ export class UploadController {
     }
 
     const key = await this.uploadService.uploadOrgEvidencia(id, file);
+    return { key };
+  }
+
+  @Post('reclamo-evidencia/:id')
+  @Roles(Role.REFERENTE)
+  @UseGuards(ClientIpThrottlerGuard)
+  @Throttle({ default: { limit: RECLAMO_UPLOAD_LIMIT, ttl: 60_000 } })
+  @HttpCode(201)
+  @UseInterceptors(FileInterceptor('image'))
+  @ApiOperation({
+    summary:
+      'Upload a claim evidence file for an unclaimed organization (referente) — the resulting key ' +
+      'is not persisted here; it is submitted through POST /reclamos',
+  })
+  @ApiConsumes('multipart/form-data')
+  async uploadReclamoEvidencia(
+    @Param('id', ParseIntPipe) id: number,
+    @UploadedFile() file: Express.Multer.File,
+    @Req() req: AuthedRequest,
+  ): Promise<{ key: string }> {
+    if (!file)
+      throw new BadRequestException(
+        'Image file is required (jpeg, png, or webp, max 5 MB)',
+      );
+
+    await this.assertSesionActiva(req);
+    // Nothing reaches storage unless the MS says this referente could claim this organizacion now.
+    await this.reclamosService.verificarReclamable(id, this.extractToken(req));
+    const userId = Number(req.user?.userId);
+    if (!Number.isInteger(userId) || userId <= 0) {
+      throw new UnauthorizedException('Invalid session');
+    }
+
+    const key = await this.uploadService.uploadReclamoEvidencia(
+      id,
+      userId,
+      file,
+    );
     return { key };
   }
 

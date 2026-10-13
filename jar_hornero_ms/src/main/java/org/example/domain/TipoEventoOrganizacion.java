@@ -38,5 +38,11 @@ public enum TipoEventoOrganizacion {
     REFERENTE_REASIGNADO,
 
     /** Written once by the ReNaCoM import for every organizacion it creates (actor SISTEMA). */
-    IMPORTADA_RENACOM
+    IMPORTADA_RENACOM,
+
+    /** An admin approved a claim: the claimant became the organizacion's referente. */
+    RECLAMO_APROBADO,
+
+    /** A claim on the organizacion was rejected (by an admin, or automatically when another won). */
+    RECLAMO_RECHAZADO
 }
