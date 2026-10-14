@@ -90,6 +90,8 @@ services:
       AWS_ACCESS_KEY_ID: "${AWS_ACCESS_KEY_ID:-${MINIO_ROOT_USER:-hornero}}"
       AWS_SECRET_ACCESS_KEY: "${AWS_SECRET_ACCESS_KEY:-${MINIO_ROOT_PASSWORD:-hornero-minio-secret}}"
       AWS_DEFAULT_REGION: "${AWS_DEFAULT_REGION:-auto}"
+      # Opt-in: local stacks share the production bucket, so only the Pi sets this to true.
+      EVIDENCIA_BORRADO_ENABLED: "${EVIDENCIA_BORRADO_ENABLED:-false}"
       EVIDENCIA_BARRIDO_ENABLED: "${EVIDENCIA_BARRIDO_ENABLED:-true}"
       EVIDENCIA_BARRIDO_GRACIA_DIAS: "${EVIDENCIA_BARRIDO_GRACIA_DIAS:-7}"
       EVIDENCIA_BARRIDO_MAX: "${EVIDENCIA_BARRIDO_MAX:-500}"
