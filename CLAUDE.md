@@ -38,7 +38,8 @@ Docker only — there is no native/hot-reload dev mode. Two full-stack modes via
 
 ```bash
 make up              # prod-parity: full stack in Docker incl. Postgres, uses root .env as-is
-make up-local        # fast local: dummy secrets + local MinIO instead of R2, uses .env.local;
+make up-local        # fast local: uses .env.local (also starts MinIO, but the team's .env.local
+                      # points AWS_* at the PRODUCTION R2 bucket — never enable destructive bucket code);
                       # sets SEED_DEMO_DATA=true (demo users/orgs; e2e needs this — prod seeds none,
                       # and requires SUPER_ADMIN_EMAIL/SUPER_ADMIN_PASSWORD)
 make down             # stop docker; `docker compose down -v` to also drop the DB volume
@@ -184,5 +185,6 @@ enable it locally.
   `scripts/sql/README.md`. The MS `EsquemaVerificador` reports a pending script at startup.
 - `.env.example` — template for the root `.env` (prod-parity, `make up`), the single source of
   truth for every service. `.env.local` (`make up-local`) is a copy of it with
-  `MAIL_LOG_ONLY=true` and empty `AWS_*` (falls back to local MinIO); there is no separate template.
+  `MAIL_LOG_ONLY=true`. In practice the team's `.env.local` uses the production R2 bucket
+  (`hornero-images`); blank `AWS_*` would fall back to local MinIO. There is no separate template.
 - `docs/deploy-rpi-cloudflare.md` — production deploy runbook (Raspberry Pi + Cloudflare Tunnel).
