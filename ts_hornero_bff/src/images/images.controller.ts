@@ -75,6 +75,9 @@ export class ImagesController {
 
     const { body, contentType } = await this.imagesService.getObject(key);
     res.set('Content-Type', contentType ?? 'application/octet-stream');
+    // Upload keys embed a random UUID and are never overwritten, so a cached copy can't go stale.
+    // Lets browsers and the Cloudflare edge serve repeat views without hitting the Pi or R2.
+    res.set('Cache-Control', 'public, max-age=31536000, immutable');
     return new StreamableFile(body);
   }
 }
