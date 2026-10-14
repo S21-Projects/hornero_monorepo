@@ -11,9 +11,11 @@ import org.example.domain.ReclamoOrganizacion;
 import org.example.domain.ReclamoOrganizacionRepository;
 import org.example.domain.ReporteOrganizacion;
 import org.example.domain.ReporteOrganizacionRepository;
+import org.example.evidencia.EvidenciaReclamoLiberadaEvento;
 import org.example.idempotencia.IdempotenciaRepository;
 import org.example.reclamo.ReclamoService;
 import org.example.reporte.ReporteCierre;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -22,6 +24,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.security.SecureRandom;
 import java.util.Base64;
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -63,6 +66,7 @@ public class UsuarioAnonimizacionService {
     private final ReporteOrganizacionRepository reporteRepository;
     private final ReclamoService reclamoService;
     private final ReporteCierre reporteCierre;
+    private final ApplicationEventPublisher eventos;
 
     @Transactional
     public UsuarioResponse anonimizar(Long id, Long adminId) {
@@ -100,7 +104,14 @@ public class UsuarioAnonimizacionService {
         reporteCierre.descartarPendientesDeReportante(id, admin, NOTA_REPORTE);
         // Claims and reports the user filed keep their rows (audit trail) but lose phone, message,
         // evidence references and free text. The actividad log is never touched.
-        reclamoRepository.findByReferente_Id(id).forEach(ReclamoOrganizacion::anonimizar);
+        List<ReclamoOrganizacion> reclamos = reclamoRepository.findByReferente_Id(id);
+        // The evidence keys must be copied before anonimizar() clears them; the objects themselves
+        // are deleted after commit (EvidenciaBorradoListener), so a rollback deletes nothing.
+        List<String> evidenciaKeys = reclamos.stream().flatMap(r -> r.getEvidenciaKeys().stream()).toList();
+        if (u instanceof Referente) {
+            eventos.publishEvent(new EvidenciaReclamoLiberadaEvento(id, evidenciaKeys));
+        }
+        reclamos.forEach(ReclamoOrganizacion::anonimizar);
         reporteRepository.findByReportante_Id(id).forEach(ReporteOrganizacion::anonimizar);
 
         // Actor = the admin in the security context. No data of the subject goes in the entry.

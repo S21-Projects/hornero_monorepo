@@ -80,6 +80,12 @@ Además de ids, la tabla guarda dos datos personales, ambos justificados:
   eliminan por la regla de los 90 días.
 - Minimización de coordenadas (`COORDENADAS_MINIMIZADAS`, actor SISTEMA): un resumen por corrida
   con la cantidad de donaciones afectadas, sin coordenadas.
+- Borrado de evidencia de reclamos tras anonimizar (`EVIDENCIA_RECLAMO_BORRADA`, actor SISTEMA,
+  entidad `USUARIO` con el id del usuario anonimizado): la cantidad de archivos borrados. Si el
+  almacenamiento falla, queda con resultado `FALLO` y la clase del error, y lo reintenta el barrido.
+- Barrido de evidencia huérfana (`EVIDENCIA_HUERFANA_BORRADA`, actor SISTEMA): un resumen por
+  corrida con la cantidad de archivos borrados; no se registra nada si no se borró ninguno.
+  Ninguno de los dos guarda claves, rutas ni ids de organización.
 
 ### Notificaciones por email (N13)
 

@@ -19,7 +19,10 @@ completarlo, con fecha. El seguimiento técnico completo está en `odd/tasks/seg
   SUPER_ADMIN_EMAIL=<mail real del administrador>
   SUPER_ADMIN_PASSWORD=<15-64 caracteres; no común; sin nombre, email ni "hornero">
   APP_PANEL_URL=https://panel.elhornero.org
+  EVIDENCIA_BORRADO_ENABLED=true                # habilita el borrado de evidencia de reclamos
   # No definir en producción: SEED_DEMO_DATA, MAIL_LOG_ONLY
+  # Nunca poner EVIDENCIA_BORRADO_ENABLED=true en .env.local: el stack local usa el bucket de
+  # producción y borraría evidencia real usando ids de la base local.
   ```
 
 - [ ] **Confirmar que el puerto 3001 del BFF no está expuesto** fuera del túnel de Cloudflare
@@ -55,6 +58,16 @@ completarlo, con fecha. El seguimiento técnico completo está en `odd/tasks/seg
   # BACKUP_AWS_SECRET_ACCESS_KEY=
   # BACKUP_PASSPHRASE=
   # BACKUP_S3_PREFIX=hornero/
+  ```
+- [ ] **Agregar a `.env.example` las variables del barrido de evidencia** (comentadas, con su valor
+  por defecto; el agente no edita ese archivo). Las `AWS_*` ya existen y el MS las reutiliza:
+
+  ```
+  # EVIDENCIA_BORRADO_ENABLED=false   # true SOLO en la Pi: el stack local usa el bucket de producción
+  # EVIDENCIA_BARRIDO_ENABLED=true
+  # EVIDENCIA_BARRIDO_GRACIA_DIAS=7
+  # EVIDENCIA_BARRIDO_MAX=500
+  # EVIDENCIA_BARRIDO_CRON=0 50 3 * * *
   ```
 
 ## 2. Deploy en la Pi (en este orden)
@@ -108,14 +121,16 @@ completarlo, con fecha. El seguimiento técnico completo está en `odd/tasks/seg
 
 ## 5. Decisiones de negocio pendientes
 
-- [ ] **Evidencias de reclamos tras anonimizar:** la anonimización borra las referencias, pero las
-  imágenes (posibles fotos de documentos) quedan en R2. Decidir: regla de ciclo de vida en R2 o
-  borrado explícito. Bloquea la primera anonimización real de alguien con reclamos.
+- [x] **Evidencias de reclamos tras anonimizar:** resuelto: el microservicio borra los archivos al
+  anonimizar y con un barrido nocturno de huérfanos (`docs/politica-datos-y-respaldo.md`, 1.7).
+- [ ] **Retención de evidencia de reclamos ya resueltos:** hoy los archivos de un reclamo aprobado
+  o rechazado de un usuario que NO se anonimiza se conservan sin plazo. Decidir si se borran tras
+  un tiempo (cuánto) o se conservan como respaldo de la validación.
 - [ ] **Licencia de ReNaCoM:** abrir https://ri.conicet.gov.ar/handle/11336/278030, copiar la
   licencia y la cita recomendada en `docs/mapa-vulnerabilidad.md` ("Attribution and licenses").
   Si no es CC-BY, revisar el texto de fuentes de `/mapa`. Cierra la tarea P5.
-- [ ] **Mails de reclamos y reportes (P1):** decidir si se avisa por mail al decidir un reclamo o
-  un reporte.
+- [x] **Mails de reclamos y reportes (P1):** decidido el 2026-10-13: por ahora no se envían; queda
+  como próxima feature (aviso al decidir un reclamo o un reporte).
 - [ ] **Organización con reclamo aprobado (en evaluación):** hoy pasa a PENDIENTE y desaparece de
   `/mapa` hasta que un admin la valida (`ESTADOS_EN_MAPA` = APROBADA y SIN_RECLAMAR). Se decidió
   dejarlo así por ahora (2026-10-13). Alternativa a evaluar: mostrar las PENDIENTE con una etiqueta
