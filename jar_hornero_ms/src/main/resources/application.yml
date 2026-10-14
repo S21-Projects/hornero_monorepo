@@ -108,6 +108,9 @@ app:
     # Claim evidence deletion (after anonymization + nightly orphan sweep). Same bucket and
     # credentials as the BFF; only reclamo-evidencia/ is ever listed or deleted. With any of
     # endpoint/bucket/keys blank the MS uses a no-op store and logs one startup warning.
+    # Opt-in master switch: local stacks share the production bucket, so only the Pi sets
+    # EVIDENCIA_BORRADO_ENABLED=true. Anything else keeps the no-op store (no listing, no deletion).
+    borrado-habilitado: ${EVIDENCIA_BORRADO_ENABLED:false}
     async: true
     s3:
       endpoint: ${AWS_ENDPOINT_URL:}
