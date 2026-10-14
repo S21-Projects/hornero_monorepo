@@ -17,11 +17,13 @@ import java.net.URI;
 import java.util.concurrent.Executor;
 
 /**
- * Wires the claim evidence store. The S3 adapter exists only when the endpoint, bucket and both
- * credentials are all non-blank; otherwise the no-op adapter is used (one startup warning), so the
- * MS and every test boot without object storage. A factory method is used instead of
- * {@code @ConditionalOnProperty} because compose passes empty strings, and an empty property still
- * counts as present.
+ * Wires the claim evidence store. The S3 adapter exists only when deletion is explicitly enabled
+ * ({@code app.evidencia.borrado-habilitado}, opt-in) and the endpoint, bucket and both credentials are
+ * all non-blank; otherwise the no-op adapter is used (one startup warning), so the MS and every test
+ * boot without object storage. Opt-in because local stacks use the production bucket: credentials
+ * alone must never allow a local MS to delete production objects. A factory method is used instead
+ * of {@code @ConditionalOnProperty} because compose passes empty strings, and an empty property
+ * still counts as present.
  */
 @Slf4j
 @Configuration
@@ -29,11 +31,17 @@ public class EvidenciaAlmacenConfig {
 
     @Bean
     public EvidenciaAlmacen evidenciaAlmacen(
+            @Value("${app.evidencia.borrado-habilitado:false}") boolean borradoHabilitado,
             @Value("${app.evidencia.s3.endpoint:}") String endpoint,
             @Value("${app.evidencia.s3.bucket:}") String bucket,
             @Value("${app.evidencia.s3.region:auto}") String region,
             @Value("${app.evidencia.s3.access-key-id:}") String accessKeyId,
             @Value("${app.evidencia.s3.secret-access-key:}") String secretAccessKey) {
+        if (!borradoHabilitado) {
+            log.warn("[evidencia] deletion disabled (EVIDENCIA_BORRADO_ENABLED is not true): "
+                    + "claim evidence will not be deleted");
+            return new EvidenciaAlmacenNoOp();
+        }
         if (endpoint.isBlank() || bucket.isBlank() || accessKeyId.isBlank() || secretAccessKey.isBlank()) {
             log.warn("[evidencia] object storage not configured: claim evidence will not be deleted");
             return new EvidenciaAlmacenNoOp();
