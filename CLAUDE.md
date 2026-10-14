@@ -168,7 +168,10 @@ R2 (it only has a microSD, so images stay off-device).
 The MS also reads the same `AWS_*` vars, but only to **delete** claim evidence
 (`reclamo-evidencia/` and nothing else): after a user is anonymized
 (`EvidenciaBorradoListener`) and in a nightly orphan sweep (`EvidenciaHuerfanaBarridoJob`, kill
-switch `EVIDENCIA_BARRIDO_ENABLED=false`). With those vars blank the MS uses a no-op store.
+switch `EVIDENCIA_BARRIDO_ENABLED=false`). Deletion is **opt-in**: only with
+`EVIDENCIA_BORRADO_ENABLED=true` (set on the Pi only) and the `AWS_*` vars present does the MS build the
+S3 store; otherwise it uses a no-op store. Local stacks point at the production R2 bucket, so never
+enable it locally.
 
 ## Other directories
 

@@ -93,6 +93,9 @@ nunca toca otro prefijo del bucket (`org-evidencia/`, `org-banner/`, `org-profil
   servicio). Borra solo los archivos de `reclamo-evidencia/` con forma de clave válida que ningún
   reclamo referencia y que tienen más de 7 días (la gracia cubre una subida cuyo reclamo aún no se
   confirmó), hasta 500 por corrida. Se puede apagar con `EVIDENCIA_BARRIDO_ENABLED=false`.
+- **Solo en producción.** Ambos mecanismos requieren `EVIDENCIA_BORRADO_ENABLED=true` (por
+  defecto está apagado). El entorno local usa el mismo bucket de R2 que producción, así que ahí
+  nunca se habilita: sin la variable el MS no lista ni borra nada.
 
 Sin configuración de almacenamiento (`AWS_*` vacías) el servicio arranca igual y no borra nada,
 con una advertencia al iniciar. El registro de actividades guarda solo cantidades: nunca claves,

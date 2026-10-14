@@ -19,7 +19,10 @@ completarlo, con fecha. El seguimiento técnico completo está en `odd/tasks/seg
   SUPER_ADMIN_EMAIL=<mail real del administrador>
   SUPER_ADMIN_PASSWORD=<15-64 caracteres; no común; sin nombre, email ni "hornero">
   APP_PANEL_URL=https://panel.elhornero.org
+  EVIDENCIA_BORRADO_ENABLED=true                # habilita el borrado de evidencia de reclamos
   # No definir en producción: SEED_DEMO_DATA, MAIL_LOG_ONLY
+  # Nunca poner EVIDENCIA_BORRADO_ENABLED=true en .env.local: el stack local usa el bucket de
+  # producción y borraría evidencia real usando ids de la base local.
   ```
 
 - [ ] **Confirmar que el puerto 3001 del BFF no está expuesto** fuera del túnel de Cloudflare
@@ -60,6 +63,7 @@ completarlo, con fecha. El seguimiento técnico completo está en `odd/tasks/seg
   por defecto; el agente no edita ese archivo). Las `AWS_*` ya existen y el MS las reutiliza:
 
   ```
+  # EVIDENCIA_BORRADO_ENABLED=false   # true SOLO en la Pi: el stack local usa el bucket de producción
   # EVIDENCIA_BARRIDO_ENABLED=true
   # EVIDENCIA_BARRIDO_GRACIA_DIAS=7
   # EVIDENCIA_BARRIDO_MAX=500
