@@ -12,6 +12,7 @@ import org.example.domain.ReclamoOrganizacion;
 import org.example.domain.ReclamoOrganizacionRepository;
 import org.example.domain.ReporteOrganizacion;
 import org.example.domain.ReporteOrganizacionRepository;
+import org.example.evidencia.EvidenciaReclamoLiberadaEvento;
 import org.example.idempotencia.IdempotenciaRepository;
 import org.example.reclamo.ReclamoService;
 import org.example.reporte.ReporteCierre;
@@ -21,6 +22,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.web.server.ResponseStatusException;
@@ -65,6 +67,8 @@ class UsuarioAnonimizacionServiceTest {
     private ReclamoService reclamoService;
     @Mock
     private ReporteCierre reporteCierre;
+    @Mock
+    private ApplicationEventPublisher eventos;
 
     private final BCryptPasswordEncoder encoder = new BCryptPasswordEncoder(4);
     private final Administrador admin = new Administrador(ADMIN_ID, "Admin", "admin@test.com", "x", true);
@@ -74,7 +78,7 @@ class UsuarioAnonimizacionServiceTest {
     void setUp() {
         service = new UsuarioAnonimizacionService(usuarioRepository, organizacionRepository, refreshTokenService,
                 actividadService, encoder, codigoVerificacionRepository, passwordResetTokenRepository,
-                idempotenciaRepository, reclamoRepository, reporteRepository, reclamoService, reporteCierre);
+                idempotenciaRepository, reclamoRepository, reporteRepository, reclamoService, reporteCierre, eventos);
         org.mockito.Mockito.lenient().when(usuarioRepository.findById(ADMIN_ID)).thenReturn(Optional.of(admin));
     }
 
@@ -164,6 +168,22 @@ class UsuarioAnonimizacionServiceTest {
         assertThat(r.getEvidenciaKeys()).isEmpty();
         assertThat(r.getEstado()).isEqualTo(org.example.domain.EstadoReclamo.PENDIENTE);
         verify(reclamoRepository, never()).delete(any());
+    }
+
+    @Test
+    void publishesTheEvidenceKeysCapturedBeforeTheClaimsAreCleared() {
+        Referente ref = new Referente(5L, "Rita Referente", "rita@test.com", "h", true);
+        when(usuarioRepository.findById(5L)).thenReturn(Optional.of(ref));
+        when(usuarioRepository.saveAndFlush(any(Usuario.class))).thenAnswer(inv -> inv.getArgument(0));
+        ReclamoOrganizacion r = new ReclamoOrganizacion();
+        r.setEvidenciaKeys(new ArrayList<>(List.of("reclamo-evidencia/1/5/a.jpg", "reclamo-evidencia/2/5/b.jpg")));
+        when(reclamoRepository.findByReferente_Id(5L)).thenReturn(List.of(r));
+
+        service.anonimizar(5L, ADMIN_ID);
+
+        assertThat(r.getEvidenciaKeys()).isEmpty();
+        verify(eventos).publishEvent(new EvidenciaReclamoLiberadaEvento(5L,
+                List.of("reclamo-evidencia/1/5/a.jpg", "reclamo-evidencia/2/5/b.jpg")));
     }
 
     @Test

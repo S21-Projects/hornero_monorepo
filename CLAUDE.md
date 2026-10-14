@@ -38,7 +38,8 @@ Docker only — there is no native/hot-reload dev mode. Two full-stack modes via
 
 ```bash
 make up              # prod-parity: full stack in Docker incl. Postgres, uses root .env as-is
-make up-local        # fast local: dummy secrets + local MinIO instead of R2, uses .env.local;
+make up-local        # fast local: uses .env.local (also starts MinIO, but the team's .env.local
+                      # points AWS_* at the PRODUCTION R2 bucket — never enable destructive bucket code);
                       # sets SEED_DEMO_DATA=true (demo users/orgs; e2e needs this — prod seeds none,
                       # and requires SUPER_ADMIN_EMAIL/SUPER_ADMIN_PASSWORD)
 make down             # stop docker; `docker compose down -v` to also drop the DB volume
@@ -165,6 +166,14 @@ Images (org banners/profiles) live in an S3-compatible bucket — Cloudflare R2 
 `docker-compose --profile minio` for anyone without an external bucket; the Pi deployment uses
 R2 (it only has a microSD, so images stay off-device).
 
+The MS also reads the same `AWS_*` vars, but only to **delete** claim evidence
+(`reclamo-evidencia/` and nothing else): after a user is anonymized
+(`EvidenciaBorradoListener`) and in a nightly orphan sweep (`EvidenciaHuerfanaBarridoJob`, kill
+switch `EVIDENCIA_BARRIDO_ENABLED=false`). Deletion is **opt-in**: only with
+`EVIDENCIA_BORRADO_ENABLED=true` (set on the Pi only) and the `AWS_*` vars present does the MS build the
+S3 store; otherwise it uses a no-op store. Local stacks point at the production R2 bucket, so never
+enable it locally.
+
 ## Other directories
 
 - `bruno/` — Bruno API collection for manual endpoint testing.
@@ -176,5 +185,6 @@ R2 (it only has a microSD, so images stay off-device).
   `scripts/sql/README.md`. The MS `EsquemaVerificador` reports a pending script at startup.
 - `.env.example` — template for the root `.env` (prod-parity, `make up`), the single source of
   truth for every service. `.env.local` (`make up-local`) is a copy of it with
-  `MAIL_LOG_ONLY=true` and empty `AWS_*` (falls back to local MinIO); there is no separate template.
+  `MAIL_LOG_ONLY=true`. In practice the team's `.env.local` uses the production R2 bucket
+  (`hornero-images`); blank `AWS_*` would fall back to local MinIO. There is no separate template.
 - `docs/deploy-rpi-cloudflare.md` — production deploy runbook (Raspberry Pi + Cloudflare Tunnel).

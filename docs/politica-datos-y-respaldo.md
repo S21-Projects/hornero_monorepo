@@ -38,6 +38,8 @@ Ante un pedido de baja, un administrador **anonimiza** la cuenta en lugar de bor
 - los reclamos que presentó conservan su fila (estado, organización, resolución) pero pierden el
   teléfono, el mensaje y las referencias a los archivos de evidencia; los reportes que presentó
   pierden el detalle de texto libre;
+- los archivos de evidencia de esos reclamos se **borran del bucket** una vez confirmada la
+  anonimización (ver 1.7);
 - la cuenta queda desactivada y sus sesiones revocadas.
 
 Las donaciones y el registro de actividades **se conservan sin datos identificatorios**. Borrar
@@ -66,19 +68,38 @@ La ley exige destruir los datos cuando dejan de ser necesarios para su finalidad
 | Correo intentado en logins fallidos | 90 días | Dato sensible cuya utilidad para detectar ataques se agota antes |
 | Coordenadas precisas de donaciones terminadas | 30 días | Ver 1.4 |
 | Tokens de sesión, recuperación e idempotencia | Hasta su vencimiento (horas o días) | Datos técnicos de vida corta |
+| Archivos de evidencia de reclamos de un usuario anonimizado | Se borran al anonimizar; el barrido nocturno reintenta lo que falle | Ver 1.7 |
+| Archivos de evidencia huérfanos (sin fila que los referencie) | Se borran tras 7 días de gracia (hasta 500 por corrida) | Ver 1.7 |
 
 ### 1.6 Fuera de alcance (documentado)
-
-- Los archivos de evidencia de un reclamo anonimizado **siguen en el bucket R2** como objetos
-  huérfanos: el microservicio no tiene acceso al bucket y ningún flujo actual borra objetos. Se
-  desvinculan de la base (ya no hay forma de leerlos por la API), y su prefijo
-  `reclamo-evidencia/{organizacionId}/{referenteId}/` se deduce de la fila conservada, por lo que
-  se pueden borrar a mano o con una regla de ciclo de vida del bucket. Pendiente de decisión.
 
 - Exportación de los datos del titular (derecho de acceso, art. 14) y baja autogestionada: se
   atienden por pedido al administrador.
 - Políticas de conservación de los respaldos (sección 2), que contienen datos personales por
   definición: se protegen con cifrado y acceso restringido en lugar de anonimización.
+
+### 1.7 Borrado de los archivos de evidencia de reclamos
+
+Los archivos que acompañan un reclamo (posibles fotos de documentos) viven en el bucket R2 bajo
+`reclamo-evidencia/{organizacionId}/{referenteId}/`. El microservicio los borra en dos casos y
+nunca toca otro prefijo del bucket (`org-evidencia/`, `org-banner/`, `org-profile/`):
+
+- **Al anonimizar a un referente.** Las claves se copian antes de limpiar las filas y los archivos
+  se borran **después de confirmada la transacción**: si la anonimización se revierte, no se borra
+  nada. Se borran las claves referenciadas por sus reclamos y cualquier archivo suelto que quede
+  bajo su identificador. Un fallo del almacenamiento no deshace la anonimización: se registra
+  como actividad fallida y lo reintenta el barrido.
+- **Barrido nocturno de huérfanos** (03:50, hora de Buenos Aires, y una vez al iniciar el
+  servicio). Borra solo los archivos de `reclamo-evidencia/` con forma de clave válida que ningún
+  reclamo referencia y que tienen más de 7 días (la gracia cubre una subida cuyo reclamo aún no se
+  confirmó), hasta 500 por corrida. Se puede apagar con `EVIDENCIA_BARRIDO_ENABLED=false`.
+- **Solo en producción.** Ambos mecanismos requieren `EVIDENCIA_BORRADO_ENABLED=true` (por
+  defecto está apagado). El entorno local usa el mismo bucket de R2 que producción, así que ahí
+  nunca se habilita: sin la variable el MS no lista ni borra nada.
+
+Sin configuración de almacenamiento (`AWS_*` vacías) el servicio arranca igual y no borra nada,
+con una advertencia al iniciar. El registro de actividades guarda solo cantidades: nunca claves,
+rutas ni identificadores de organización (ver `docs/registro-actividades.md`).
 
 ## 2. Respaldo y recuperación (D11)
 

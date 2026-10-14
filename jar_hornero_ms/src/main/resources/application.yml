@@ -104,6 +104,26 @@ app:
     auto:
       enabled: ${RONDAS_AUTO_ENABLED:false}
       cron: ${RONDAS_AUTO_CRON:0 0 6 * * *}
+  evidencia:
+    # Claim evidence deletion (after anonymization + nightly orphan sweep). Same bucket and
+    # credentials as the BFF; only reclamo-evidencia/ is ever listed or deleted. With any of
+    # endpoint/bucket/keys blank the MS uses a no-op store and logs one startup warning.
+    # Opt-in master switch: local stacks share the production bucket, so only the Pi sets
+    # EVIDENCIA_BORRADO_ENABLED=true. Anything else keeps the no-op store (no listing, no deletion).
+    borrado-habilitado: ${EVIDENCIA_BORRADO_ENABLED:false}
+    async: true
+    s3:
+      endpoint: ${AWS_ENDPOINT_URL:}
+      bucket: ${AWS_S3_BUCKET_NAME:}
+      region: ${AWS_DEFAULT_REGION:auto}
+      access-key-id: ${AWS_ACCESS_KEY_ID:}
+      secret-access-key: ${AWS_SECRET_ACCESS_KEY:}
+    barrido:
+      # Kill switch: EVIDENCIA_BARRIDO_ENABLED=false and restart ms (e.g. after restoring a DB).
+      enabled: ${EVIDENCIA_BARRIDO_ENABLED:true}
+      gracia-dias: ${EVIDENCIA_BARRIDO_GRACIA_DIAS:7}
+      max-por-corrida: ${EVIDENCIA_BARRIDO_MAX:500}
+      cron: ${EVIDENCIA_BARRIDO_CRON:0 50 3 * * *}
   worker:
     url: ${WORKER_URL:}
   seed:
