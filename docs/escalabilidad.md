@@ -8,7 +8,7 @@ citarse.
 
 - **E0 (hoy) se cumple.** Una Raspberry Pi 5 con todos los servicios alcanza para cientos de usuarios.
 - **E1 no se cumple todavía.** Requiere cuatro cambios de infraestructura y configuración (sección 7),
-  ninguno de rediseño: caché de imágenes, disco SSD, límites de memoria y plan pago de Resend.
+  ninguno de rediseño: regla de caché de imágenes en Cloudflare (el código ya está), disco SSD, límites de memoria y plan pago de Resend.
 - **E2 requiere cambios de arquitectura**: varias instancias, sin estado en memoria y trabajo pesado
   asíncrono.
 - Lo primero que se rompe al crecer no es la lógica de negocio sino la infraestructura: el tráfico de
@@ -26,7 +26,7 @@ citarse.
 
 | # | Punto | Situación actual | Escala en que falla | Mitigación |
 |---|---|---|---|---|
-| 1 | Imágenes | Cada vista pasa por el BFF, que pide el objeto a R2 y lo reenvía por la Pi y el túnel, sin `Cache-Control` (`ts_hornero_bff/src/images/images.controller.ts:76`). Con 20 imágenes de unos 200 KB por visita, 10.000 visitas diarias son unos 40 GB por día de subida doméstica. | E1 | `Cache-Control: public, max-age=31536000, immutable` (las claves llevan UUID y no cambian) y regla de caché de Cloudflare para `/images*`. En E2, servir `org-banner/` y `org-profile/` desde un dominio público de R2; la evidencia sigue por el proxy autenticado. |
+| 1 | Imágenes | Cada vista pasa por el BFF, que pide el objeto a R2 y lo reenvía por la Pi y el túnel, sin caché. **Resuelto en código el 2026-10-13**: el BFF ya envía el header; falta la regla de Cloudflare (`docs/deploy-rpi-cloudflare.md`, A.2-bis). Con 20 imágenes de unos 200 KB por visita, 10.000 visitas diarias son unos 40 GB por día de subida doméstica. | E1 | `Cache-Control: public, max-age=31536000, immutable` (las claves llevan UUID y no cambian) y regla de caché de Cloudflare para `/images*`. En E2, servir `org-banner/` y `org-profile/` desde un dominio público de R2; la evidencia sigue por el proxy autenticado. |
 | 2 | PostgreSQL en microSD | Escrituras por request en `actividad`, `refresh_tokens` e `idempotency_keys`. El backup (03:15) coincide con las purgas (03:15 a 03:50). | E1 | SSD NVMe en la Pi 5; mover el backup a las 04:30. |
 | 3 | Memoria | Ningún servicio tiene `mem_limit`; la JVM usa el heap por defecto. JVM, Node y PostgreSQL compiten por la RAM. | E1 | Límites por servicio en `docker-compose.yml` y `-Xmx` explícito. |
 | 4 | Consultas que crecen con los datos | `RondaService.leer()` hace una consulta por organización candidata y otra por donación del pozo (N+1, `RondaService.java:214-238`); `fondoEstado` carga el pozo para contarlo (`:191`); `listarTodas` usa `findAll()`. | E2 | Consultas agregadas y paginación. |
@@ -76,5 +76,5 @@ fuertes o integraciones con terceros; ninguno aparece antes de E2.
 
 | Etapa | Cambios | Esfuerzo |
 |---|---|---|
-| Para E1 | Caché de imágenes (`Cache-Control` y regla de Cloudflare), SSD en la Pi, límites de memoria, backup a las 04:30, plan pago de Resend. Recomendado también: lock de anonimización de administradores, outbox de correos, eliminar el N+1 de la ronda. | Bajo: configuración y cambios acotados |
+| Para E1 | Regla de caché de imágenes en Cloudflare (el header ya está en el BFF), SSD en la Pi, límites de memoria, backup a las 04:30, plan pago de Resend. Recomendado también: lock de anonimización de administradores, outbox de correos, eliminar el N+1 de la ronda. | Bajo: configuración y cambios acotados |
 | Para E2 | ShedLock, throttles persistentes, advisory lock en la ronda, ronda asíncrona, imágenes públicas desde R2, migrar de la Pi a VPS o nube con PostgreSQL gestionado | Medio |
