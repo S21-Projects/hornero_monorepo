@@ -46,12 +46,12 @@ Deploy-order risk: PR1 and PR2a MUST be deployed together. After PR1 alone, the 
 
 ## Phase 2: PR2a - Worker serve without CSVs (Unit 2)
 
-- [ ] 2.1 RED: Go test in `go_algorithms_worker` (serve wiring, e.g. `main_test.go` or the http package) - serve with empty `--data` starts and solves a ronda whose candidates carry `deficit`; candidate without deficit/codigoRadio gets NEUTRAL 1.0 in `deficitFuente` (spec "Serve starts and assigns without CSVs"). Run `go test ./...` (fails).
-- [ ] 2.2 GREEN: change `serve` `--data` default to `""` and build `geo.NuevoResolvedor(nil, nil, 1.0)` when empty (AD-7); `metrics`/`assign` unchanged.
-- [ ] 2.3 Verify spec "CLI subcommands still read CSVs": `go run . metrics --data data/renacom.csv` (or existing CLI test) still works; `go vet ./...`.
-- [ ] 2.4 Edit `go_algorithms_worker/Dockerfile`: stop copying CSVs, remove `POBLACION_CSV`, exec-form ENTRYPOINT `serve --addr :8090` (the `--radios` flag is added in 3.x); edit `docker-compose.yml`: drop `POBLACION_CSV`, healthcheck `start_period: 30s`.
-- [ ] 2.5 Verify: `docker compose build worker` on `make up-local`, worker healthy, trigger a ronda.
-- [ ] 2.6 Commits: `feat(worker): serve without CSV data`; `build(worker): drop CSVs from image`.
+- [x] 2.1 RED: Go test in `go_algorithms_worker` (serve wiring, e.g. `main_test.go` or the http package) - serve with empty `--data` starts and solves a ronda whose candidates carry `deficit`; candidate without deficit/codigoRadio gets NEUTRAL 1.0 in `deficitFuente` (spec "Serve starts and assigns without CSVs"). Run `go test ./...` (fails).
+- [x] 2.2 GREEN: change `serve` `--data` default to `""` and build `geo.NuevoResolvedor(nil, nil, 1.0)` when empty (AD-7); `metrics`/`assign` unchanged.
+- [x] 2.3 Verify spec "CLI subcommands still read CSVs": `go run . metrics --data data/renacom.csv` (or existing CLI test) still works; `go vet ./...`.
+- [x] 2.4 Edit `go_algorithms_worker/Dockerfile`: stop copying CSVs, remove `POBLACION_CSV`, exec-form ENTRYPOINT `serve --addr :8090` (the `--radios` flag is added in 3.x); edit `docker-compose.yml`: drop `POBLACION_CSV`, healthcheck `start_period: 30s`.
+- [x] 2.5 Verify: `docker compose build worker` on `make up-local`, worker healthy, trigger a ronda.
+- [x] 2.6 Commits: `feat(worker): serve without CSV data`; `build(worker): drop CSVs from image`.
 
 ## Phase 3: PR2b - Worker POST /v1/radio and polygon asset (Unit 3)
 
