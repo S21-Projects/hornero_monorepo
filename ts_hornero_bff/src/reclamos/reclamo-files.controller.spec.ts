@@ -36,7 +36,11 @@ describe('ReclamoFilesController', () => {
   });
 
   it('authorizes with the MS, then streams the bound key', async () => {
-    await controller.serve(4, 7, 'foto.jpg', req(), res());
+    const response = res();
+    await controller.serve(4, 7, 'foto.jpg', req(), response);
+
+    // Personal evidence: never stored by the browser or Cloudflare.
+    expect(response.set).toHaveBeenCalledWith('Cache-Control', 'private, no-store');
 
     expect(reclamosService.verificarArchivo).toHaveBeenCalledWith(
       4,

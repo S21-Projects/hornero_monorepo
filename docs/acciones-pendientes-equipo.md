@@ -107,6 +107,8 @@ completarlo, con fecha. El seguimiento técnico completo está en `odd/tasks/seg
      (basta `up -d admin astro` si no cambió código: es una variable de runtime, no de build).
   3. Repetir el recorrido. **Rollback**: poner `CSP_MODE=report-only` (o quitar la línea) y
      volver a correr el mismo `up -d`. Cualquier valor distinto de `enforce` queda en Report-Only.
+- [ ] **Crear la Cache Rule de imágenes en Cloudflare** (pasos en `docs/deploy-rpi-cloudflare.md`,
+  A.2-bis) y verificar `cf-cache-status: HIT` en una imagen pública.
 - [ ] Opcional: activar HSTS en Cloudflare.
 - [ ] Marcar "Applied to" en `docs/db-changes.md` para V002–V010.
 
@@ -152,5 +154,6 @@ completarlo, con fecha. El seguimiento técnico completo está en `odd/tasks/seg
 - [ ] Citar como evidencia: `docs/seguridad-matriz-riesgos.md`, `docs/registro-actividades.md`,
   `docs/notificaciones-email.md` y los resultados de las pruebas (`mvn test`, `npm test`,
   `make e2e`).
+- [ ] Incorporar `docs/escalabilidad.md` (escalas E0–E2, costos y cuándo usar colas) al documento.
 - [ ] Incorporar `docs/validacion-calidad.md` (estrategia de pruebas, cobertura y defectos hallados) al
   documento.

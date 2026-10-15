@@ -53,6 +53,33 @@ En el túnel → pestaña **Public Hostname**, creá tres entradas:
 Cloudflare crea los registros DNS (CNAME al túnel) automáticamente. No hace falta
 abrir ningún puerto en el router: el túnel sale desde la Pi hacia Cloudflare.
 
+### A.2-bis — Caché de imágenes en Cloudflare
+
+El BFF responde `GET /images` con `Cache-Control: public, max-age=31536000, immutable` (las claves
+llevan un UUID y nunca se sobrescriben) y la evidencia de reclamos y de acreditación con
+`Cache-Control: private, no-store`. Cloudflare no cachea por defecto una URL sin extensión de
+imagen como `/images?key=…`, así que hace falta una regla:
+
+1. Panel de Cloudflare → dominio `elhornero.org` → **Caching → Cache Rules → Create rule**.
+2. Nombre: `Imagenes publicas`. Condición (*Custom filter expression*): **Hostname** *equals*
+   `api.elhornero.org` **AND** **URI Path** *starts with* `/images`.
+3. **Cache eligibility:** *Eligible for cache*.
+4. **Edge TTL:** *Use cache-control header if present, bypass cache if not*.
+5. **Browser TTL:** *Respect origin*. No tocar la *Cache key*: la query string (`key=…`) tiene que
+   seguir siendo parte de la clave.
+6. Guardar y verificar: pedir dos veces una imagen pública y revisar que la segunda respuesta tenga
+   `cf-cache-status: HIT`:
+
+   ```bash
+   curl -sI "https://api.elhornero.org/images?key=<clave-de-un-banner>" | grep -i -E "cache-control|cf-cache-status"
+   ```
+
+   Una URL de evidencia (`/reclamo-files/…`, `/evidencia-files/…`) nunca debe mostrar `HIT`.
+
+**Borrar una imagen pública por un motivo legal:** además de borrarla del bucket, purgarla de la
+caché en **Caching → Configuration → Custom Purge → URL** con la URL exacta; si no, Cloudflare la
+sigue sirviendo hasta un año.
+
 ### A.3 — Archivo `.env` en la Pi
 
 Creá `/…/hornero_app/.env` (NO se commitea) con:

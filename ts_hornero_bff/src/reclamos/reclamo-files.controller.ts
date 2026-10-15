@@ -54,6 +54,8 @@ export class ReclamoFilesController {
 
     const { body, contentType } = await this.imagesService.getObject(key);
     res.set('Content-Type', contentType ?? 'application/octet-stream');
+    // Personal evidence: never stored by the browser or a shared cache such as Cloudflare.
+    res.set('Cache-Control', 'private, no-store');
     return new StreamableFile(body);
   }
 

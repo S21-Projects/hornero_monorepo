@@ -49,12 +49,16 @@ describe('EvidenciaFilesController', () => {
   });
 
   it('streams the object when the MS confirms the row (204)', async () => {
+    const response = fakeResponse();
     await controller.serve(
       5,
       'foto.jpg',
       requestWith('token-123', Role.REFERENTE),
-      fakeResponse(),
+      response,
     );
+
+    // Accreditation evidence: never stored by the browser or Cloudflare.
+    expect(response.set).toHaveBeenCalledWith('Cache-Control', 'private, no-store');
 
     expect(acreditacionService.verificarArchivoEvidencia).toHaveBeenCalledWith(
       5,

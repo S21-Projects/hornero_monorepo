@@ -104,4 +104,12 @@ describe('ImagesController — org-evidencia deny-list', () => {
 
     expect(getObjectMock).toHaveBeenCalledWith('org-profile/1/x.jpg');
   });
+
+  it('lets browsers and Cloudflare cache public images for a year (keys are immutable UUIDs)', async () => {
+    await request(app.getHttpServer())
+      .get('/images')
+      .query({ key: 'org-banner/1/0b1e.jpg' })
+      .expect(200)
+      .expect('Cache-Control', 'public, max-age=31536000, immutable');
+  });
 });
