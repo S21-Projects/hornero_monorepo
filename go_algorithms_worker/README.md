@@ -121,11 +121,32 @@ a necesidad taken by one donation is denied to every other, the round's optimum
 is not the sum of the individual optima — so the round is solved as a whole
 with the Hungarian (Kuhn-Munkres) algorithm, Jonker-Volgenant variant, O(n²m).
 
-Each pair is scored in `[0, 1]`:
+Pairs that break a hard filter are infeasible (cost `Inf`), never just penalized: an
+organizacion the donor already rejected, a category outside the necesidad's or the
+accreditation level's list, no shared articulo, or a distance over `distanciaMaximaKm`
+(30 km). Every feasible pair is scored in `[0, 1]` (`internal/assign/scoring.go`,
+`PesosPorDefecto` / `ParametrosPorDefecto`):
 
 ```
-score = 0.35*deficit + 0.30*urgencia + 0.20*proximidad + 0.15*espera
+score = 0.30*deficit + 0.25*urgencia + 0.17*proximidad + 0.13*espera + 0.15*cumplimiento
+
+deficit      = min(deficit, 3) / 3                       (deficit 1.0 = median zone)
+urgencia     = clamp(urgencia, 0, 1)                     (computed by the MS)
+proximidad   = exp(-km / 8)
+espera       = min(diasDesdeUltimaDonacion / 90, 1)
+cumplimiento = (E + 5*p0) / (E + F + 5)                  (E delivered, F rejected,
+                                                          p0 = ronda-wide average)
 ```
+
+Weights are normalized to sum 1, so a request may override them on any scale.
+`cumplimiento` is Bayesian-smoothed: an organizacion with no history scores the
+ronda average `p0`, not 0 or 1.
+
+The cost matrix is `-score` plus one private "leave unassigned" column per
+donation costing `0.10 * min(diasEnFondo / 90, 1)`: it keeps the problem
+feasible when donations outnumber candidates, and under contention it favours
+the donation that has waited longest in the pool. A donation matched to its own
+column comes back in `sinAsignar`.
 
 Every term is normalized before weighting — kilometres, ratios and days live
 on different scales, and skipping that step is the usual reason a weighted
@@ -138,6 +159,14 @@ on the other three terms climbs on its own until it wins. It is deterministic
 rather than randomized on purpose — on a donation platform, being able to
 explain why a donation went where it went is worth more than squeezing out the
 last bit of optimality.
+
+`POST /v1/ronda` rejects with `400 ENTRADA_INVALIDA` any request whose numbers
+would break the score: overrides that are denominators (`distanciaMediaKm`,
+`esperaMaximaDias`, `deficitMaximo`, `cumplimientoPseudoObs`) must be `> 0`,
+`distanciaMaximaKm` and `penalizacionNoAsignar` `>= 0` (`distanciaMaximaKm = 0`
+disables the cut-off), `cumplimientoPrior` in `[0, 1]`, weights `>= 0` with at
+least one positive, `urgencia` in `[0, 1]`, no negative day counts, deficits or
+compliance counts, and no repeated donation or necesidad ids.
 
 **`espera` must count direct donations too**, even though those never pass
 through this solver. An organizacion with many direct donors would otherwise
