@@ -3,12 +3,12 @@
 //
 //	algorithms metrics [--data f.csv] [--poblacion p.csv] [--provincia Córdoba] [--top 20]
 //	algorithms assign  --input ronda.json
-//	algorithms serve   [--addr :8090] [--data f.csv] [--poblacion p.csv] [--provincia Córdoba]
+//	algorithms serve   [--addr :8090] [--data f.csv] [--poblacion p.csv] [--provincia Córdoba]  (CSVs optional)
 //
 // metrics and assign are deliberately a batch job, not a service: census radios do not move, so
 // coverage is recomputed on a schedule and the MS only ever reads the resulting flat numbers.
-// serve is the AD-1 long-lived process the MS calls over HTTP for a ronda: it loads RENACOM once
-// at startup (AD-2) instead of on every request.
+// serve is the AD-1 long-lived process the MS calls over HTTP for a ronda. It needs no CSV: the MS
+// computes the live deficit; --data only restores the old CSV-backed fallbacks.
 package main
 
 import (
@@ -163,23 +163,33 @@ func cmdAssign(args []string) error {
 	return enc.Encode(salida)
 }
 
+// resolvedorServe builds the deficit resolver of `serve`. Without --data nothing is read from disk:
+// the MS sends each candidate's live deficit (PROVISTO) and one without it resolves to NEUTRAL
+// (rondas-datos-vivos). Passing --data keeps the old CSV-backed fallbacks (RADIO / CERCANO).
+func resolvedorServe(data, poblacionPath, provincia string) (*geo.Resolvedor, error) {
+	if data == "" {
+		log.Println("serve sin --data: el deficit llega del MS; sin el, todo candidato resolvera deficitFuente=NEUTRAL")
+		return geo.NuevoResolvedor(nil, nil, 1.0), nil
+	}
+	if poblacionPath == "" {
+		log.Println("advertencia: sin --poblacion, los radios del CSV no tienen deficit (AD-2)")
+	}
+	return geo.Cargar(data, poblacionPath, provincia, 1.0)
+}
+
 // cmdServe runs the AD-1 HTTP entrypoint: POST /v1/ronda and GET /healthz, on a single
-// long-lived process so RENACOM (and the optional census CSV) are loaded once, not per request.
+// long-lived process. The CSVs are optional: without --data it loads nothing.
 func cmdServe(args []string) error {
 	fs := flag.NewFlagSet("serve", flag.ExitOnError)
 	addr := fs.String("addr", ":8090", "listen address")
-	data := fs.String("data", "data/renacom.csv", "ReNaCoM CSV path")
+	data := fs.String("data", "", "ReNaCoM CSV path (optional: the MS sends the live deficit)")
 	poblacionPath := fs.String("poblacion", "", "census population CSV (codigo_radio,habitantes,hogares)")
 	provincia := fs.String("provincia", "", "filter by province name")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
 
-	if *poblacionPath == "" {
-		log.Println("advertencia: sin POBLACION_CSV, todo candidato resolvera deficitFuente=NEUTRAL (AD-2)")
-	}
-
-	resolvedor, err := geo.Cargar(*data, *poblacionPath, *provincia, 1.0)
+	resolvedor, err := resolvedorServe(*data, *poblacionPath, *provincia)
 	if err != nil {
 		return err
 	}
