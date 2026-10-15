@@ -11,11 +11,11 @@ Strict TDD (RED -> GREEN), minimal tests per design. MS: `mvn test -Dtest=...` f
 | Chained PRs recommended | Yes |
 | Suggested split | PR1 (MS live deficit) -> PR2a (worker serve w/o CSVs) -> PR2b (worker /v1/radio + asset) -> PR3 (MS radio client + hook + backfill) |
 | Delivery strategy | ask-on-risk |
-| Chain strategy | pending (design proposes stacked-to-main) |
+| Chain strategy | stacked-to-main (chosen by the user; 4 chained PRs targeting `develop`) |
 
-Decision needed before apply: Yes
+Decision needed before apply: No (resolved: 4 chained PRs, stacked-to-main)
 Chained PRs recommended: Yes
-Chain strategy: pending
+Chain strategy: stacked-to-main
 400-line budget risk: High
 
 Deploy-order risk: PR1 and PR2a MUST be deployed together. After PR1 alone, the old CSV worker may answer RADIO/CERCANO for candidates without a computed deficit; after PR2a alone the worker has no CSVs and every candidate would be NEUTRAL.
@@ -31,18 +31,18 @@ Deploy-order risk: PR1 and PR2a MUST be deployed together. After PR1 alone, the 
 
 ## Phase 1: PR1 - MS live vulnerability (Unit 1)
 
-- [ ] 1.1 Create `scripts/sql/V011__poblacion_radio.sql`: `CREATE TABLE IF NOT EXISTS poblacion_radio (codigo_radio varchar(9) PRIMARY KEY, habitantes integer NOT NULL CHECK (habitantes >= 0))` inside BEGIN/COMMIT (AD-1). Check `scripts/sql/README.md` for a script list and update it if present.
-- [ ] 1.2 Create entity `PoblacionRadio` (`@Entity @Immutable`, table `poblacion_radio`) under `jar_hornero_ms/src/main/java/org/example/` (package alongside the organizacion/ronda code; H2 tests use create-drop).
-- [ ] 1.3 RED: `jar_hornero_ms/src/test/java/.../VulnerabilidadCalculatorTest.java` - spec scenario "Deficit follows the formula" (pop 3000, 2 comedores, 1 necesidad, median 1000 -> 2.25) and an even-count median case. Also cover radio without population/zero comedores omitted. Run: `mvn test -Dtest=VulnerabilidadCalculatorTest` (fails).
-- [ ] 1.4 GREEN: create pure `VulnerabilidadCalculator` (median with percentile_cont semantics, `v = hpc/median*(1+nec/com)`), mirroring `CumplimientoCalculator` style (AD-4). Empty input -> empty map.
-- [ ] 1.5 RED: `PoblacionRadioRepositoryTest` (`@DataJpaTest`, H2) for `zonasConComedores`: excludes PENDIENTE/RECHAZADA/INACTIVA (spec "Excluded estados"), counts only ABIERTA/EN_PROGRESO necesidades not vencidas (same as `findMapa`), requires coords and codigo_radio, joins population with habitantes > 0. Run it (fails).
-- [ ] 1.6 GREEN: create `PoblacionRadioRepository` with native query `zonasConComedores` (CTE nec per org -> com per radio JOIN poblacion_radio WHERE habitantes>0). Keep SQL portable to H2 (no percentile_cont in SQL).
-- [ ] 1.7 RED: `EntradaRondaFactoryTest` 2 tests - org with radio+population -> candidate has codigoRadio, computed deficit, deficitFuente PROVISTO; org without radio or radio without population -> codigoRadio absent/present but deficit omitted (NEUTRAL by omission, AD-5). Path: existing factory test under `jar_hornero_ms/src/test/java/`.
-- [ ] 1.8 GREEN: modify `EntradaRondaFactory` (find under `jar_hornero_ms/src/main/java/`) to call the repository + calculator once per ronda inside RondaService tx1 (AD-6), send `codigoRadio` when present and `deficit` only when computed; log WARN when `poblacion_radio` is empty. `RondaService` unchanged.
-- [ ] 1.9 Create `scripts/mapa/importar-poblacion.sh` (BEGIN; temp staging ON COMMIT DROP; COPY FROM STDIN csv header; CSV body; TRUNCATE poblacion_radio; INSERT `lpad(codigo,9,'0')`, habitantes WHERE habitantes NOT NULL; COMMIT) and add `make importar-poblacion` to `Makefile` (depends on backup, pipes into `$(PSQL)`) (AD-3). Document the expected CSV path/columns in the script header.
-- [ ] 1.10 Docs for PR1: `scripts/mapa/README.md` (importar-poblacion), `docs/mapa-vulnerabilidad.md` (live formula, NEUTRAL cases, estados), `docs/db-changes.md` (V011).
-- [ ] 1.11 Verify PR1 on `make up-local`: `make migrate ENV_FILE=.env.local` (do not read the file), `make importar-poblacion` run twice (same count), run a ronda as ADMINISTRADOR, confirm `deficitFuente` PROVISTO for an imported org and NEUTRAL for one without radio. Run `mvn test` full MS suite.
-- [ ] 1.12 Commits (suggested): `feat(ms): add poblacion_radio table and importer`; `feat(ms): compute live vulnerability for rondas`; `docs: document live ronda vulnerability`.
+- [x] 1.1 Create `scripts/sql/V011__poblacion_radio.sql`: `CREATE TABLE IF NOT EXISTS poblacion_radio (codigo_radio varchar(9) PRIMARY KEY, habitantes integer NOT NULL CHECK (habitantes >= 0))` inside BEGIN/COMMIT (AD-1). Check `scripts/sql/README.md` for a script list and update it if present.
+- [x] 1.2 Create entity `PoblacionRadio` (`@Entity @Immutable`, table `poblacion_radio`) under `jar_hornero_ms/src/main/java/org/example/` (package alongside the organizacion/ronda code; H2 tests use create-drop).
+- [x] 1.3 RED: `jar_hornero_ms/src/test/java/.../VulnerabilidadCalculatorTest.java` - spec scenario "Deficit follows the formula" (pop 3000, 2 comedores, 1 necesidad, median 1000 -> 2.25) and an even-count median case. Also cover radio without population/zero comedores omitted. Run: `mvn test -Dtest=VulnerabilidadCalculatorTest` (fails).
+- [x] 1.4 GREEN: create pure `VulnerabilidadCalculator` (median with percentile_cont semantics, `v = hpc/median*(1+nec/com)`), mirroring `CumplimientoCalculator` style (AD-4). Empty input -> empty map.
+- [x] 1.5 RED: `PoblacionRadioRepositoryTest` (`@DataJpaTest`, H2) for `zonasConComedores`: excludes PENDIENTE/RECHAZADA/INACTIVA (spec "Excluded estados"), counts only ABIERTA/EN_PROGRESO necesidades not vencidas (same as `findMapa`), requires coords and codigo_radio, joins population with habitantes > 0. Run it (fails).
+- [x] 1.6 GREEN: create `PoblacionRadioRepository` with native query `zonasConComedores` (CTE nec per org -> com per radio JOIN poblacion_radio WHERE habitantes>0). Keep SQL portable to H2 (no percentile_cont in SQL).
+- [x] 1.7 RED: `EntradaRondaFactoryTest` 2 tests - org with radio+population -> candidate has codigoRadio, computed deficit, deficitFuente PROVISTO; org without radio or radio without population -> codigoRadio absent/present but deficit omitted (NEUTRAL by omission, AD-5). Path: existing factory test under `jar_hornero_ms/src/test/java/`.
+- [x] 1.8 GREEN: modify `EntradaRondaFactory` (find under `jar_hornero_ms/src/main/java/`) to call the repository + calculator once per ronda inside RondaService tx1 (AD-6), send `codigoRadio` when present and `deficit` only when computed; log WARN when `poblacion_radio` is empty. `RondaService` unchanged.
+- [x] 1.9 Create `scripts/mapa/importar-poblacion.sh` (BEGIN; temp staging ON COMMIT DROP; COPY FROM STDIN csv header; CSV body; TRUNCATE poblacion_radio; INSERT `lpad(codigo,9,'0')`, habitantes WHERE habitantes NOT NULL; COMMIT) and add `make importar-poblacion` to `Makefile` (depends on backup, pipes into `$(PSQL)`) (AD-3). Document the expected CSV path/columns in the script header.
+- [x] 1.10 Docs for PR1: `scripts/mapa/README.md` (importar-poblacion), `docs/mapa-vulnerabilidad.md` (live formula, NEUTRAL cases, estados), `docs/db-changes.md` (V011).
+- [x] 1.11 Verify PR1 on `make up-local`: `make migrate ENV_FILE=.env.local` (do not read the file), `make importar-poblacion` run twice (same count), run a ronda as ADMINISTRADOR, confirm `deficitFuente` PROVISTO for an imported org and NEUTRAL for one without radio. Run `mvn test` full MS suite.
+- [x] 1.12 Commits (suggested): `feat(ms): add poblacion_radio table and importer`; `feat(ms): compute live vulnerability for rondas`; `docs: document live ronda vulnerability`.
 
 ## Phase 2: PR2a - Worker serve without CSVs (Unit 2)
 
