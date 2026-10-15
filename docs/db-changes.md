@@ -10,6 +10,24 @@ production DB) — check the "Applied to" line before running anything twice.
 
 ---
 
+## 2026-10-15 — `poblacion_radio`: population per census radio (rondas-datos-vivos)
+
+**Reason**: rondas compute the vulnerability `deficit` from the current database instead of numbers baked into the worker image. The population per 2022 census radio is the one input the database did not have.
+
+**Before**: no `poblacion_radio` table.
+
+**Migration**: `scripts/sql/V011__poblacion_radio.sql` (run `make migrate`), then load the data with `make importar-poblacion`. `CREATE TABLE IF NOT EXISTS poblacion_radio (codigo_radio varchar(9) PRIMARY KEY, habitantes integer NOT NULL CHECK (habitantes >= 0))`. Additive, re-runnable and safe before or after deploying the new MS image (the read-only `PoblacionRadio` entity maps the same columns, so `ddl-auto=update` is a no-op). `EsquemaVerificador` has no check: an empty or missing table makes every candidate's deficit NEUTRAL (1.0) and logs a WARN at ronda time, never an error.
+
+**After**: `poblacion_radio` holds one row per radio with population; running `make importar-poblacion` again leaves identical contents.
+
+**Rollback**: `DROP TABLE poblacion_radio;` (rondas fall back to NEUTRAL deficits).
+
+**Applied to**:
+- [ ] Local dev DB
+- [ ] Pi production DB
+
+---
+
 ## 2026-10-13 — `organizaciones.origen_id`: drop the redundant UNIQUE constraint (P6)
 
 **Reason**: `Organizacion.origenId` declared `unique = true`, so `ddl-auto=update` generated a `uk_<hash>` UNIQUE constraint next to the partial unique index `ux_organizaciones_origen_id` from V007. The partial index is the single source of truth (idempotency key of `scripts/mapa/importar-renacom.sql`); the entity no longer declares `unique = true`.
