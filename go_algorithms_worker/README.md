@@ -50,11 +50,11 @@ go run . metrics --poblacion data/poblacion-radios.csv --json
 # (see contract/ronda-v1.md). --data/--poblacion resolve AD-2 the same way `serve` does.
 go run . assign --input testdata/ronda-v1/request.json
 
-# The AD-1 HTTP entrypoint: POST /v1/ronda, GET /healthz. This is what
+# The AD-1 HTTP entrypoint: POST /v1/ronda, POST /v1/radio, GET /healthz. This is what
 # docker-compose.yml's `worker` service runs, with no CSV: candidates without a deficit from the
 # MS resolve to NEUTRAL. --data/--poblacion/--provincia are optional and restore the old
 # CSV-backed RADIO / CERCANO fallbacks (local experiments only; the image ships no CSV).
-go run . serve --addr :8090
+go run . serve --addr :8090 --radios data/radios-2022.ndjson.gz
 go run . serve --addr :8090 --data data/renacom.csv [--poblacion data/poblacion-radios.csv] [--provincia "Córdoba"]
 ```
 
@@ -195,3 +195,33 @@ asks why.
 
 Solver correctness is pinned by `internal/assign/hungarian_test.go`, which
 checks 200 random matrices against a brute-force oracle.
+
+## Radio lookup (`POST /v1/radio`)
+
+The MS asks the worker which Censo 2022 radio contains an organizacion's coordinates, so it can store
+`codigo_radio` without carrying any geometry itself. Internal only (no host port).
+
+```
+POST /v1/radio   {"latitud": -31.4167, "longitud": -64.1833}
+200  {"codigoRadio": "140145516"}
+400  ENTRADA_INVALIDA          malformed JSON, missing coordinate, latitud outside [-90,90] or longitud outside [-180,180]
+404  RADIO_NO_ENCONTRADO       no radio within 25 m of the point
+405  METODO_NO_PERMITIDO       any method but POST
+413  CUERPO_DEMASIADO_GRANDE   body over 4 KiB
+503  RADIOS_NO_DISPONIBLES     the asset is not loaded
+```
+
+Errors use the same `{"error","detalle"}` envelope as `/v1/ronda`.
+
+- **Asset**: `serve --radios data/radios-2022.ndjson.gz` (gzipped NDJSON, one `{"c":code,"g":GeoJSON}`
+  line per radio). A missing or unreadable file only logs a warning and `/v1/radio` answers 503;
+  rondas never depend on it. The Docker image ships this one file and no CSV.
+- **Regenerating it**: `make mapa-radios` (needs `duckdb`; reuses the parquet cached by
+  `make mapa-datos`). See `scripts/mapa/README.md` for the size gate and tolerance. The output is
+  deterministic.
+- **Lookup** (`internal/radios`): 0.05 degree grid over bounding boxes, even-odd ray casting over every
+  ring (holes excluded), a point on a shared edge goes to the lowest code, and a point that falls in
+  a simplification gap resolves to the nearest edge within 25 m.
+- **Cost**: loading takes about 1 s and adds about 43 MB of heap (about 77 MiB RSS in the container);
+  a lookup takes microseconds. `/healthz` turns green only after the asset is loaded.
+
