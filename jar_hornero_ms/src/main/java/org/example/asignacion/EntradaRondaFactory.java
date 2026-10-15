@@ -29,6 +29,7 @@ public class EntradaRondaFactory {
 
     private final AcreditacionService acreditacionService;
     private final CumplimientoCalculator cumplimientoCalculator;
+    private final VulnerabilidadCalculator vulnerabilidadCalculator;
 
     public EntradaRondaV1 crear(List<Donacion> pool,
                                  List<Necesidad> candidatas,
@@ -38,12 +39,15 @@ public class EntradaRondaFactory {
         // One grouped query for the whole ronda (AD-11, 6b) — never per-candidate, to avoid an
         // N+1 pattern against `donacion`.
         Map<Long, CumplimientoV1> cumplimientoPorOrganizacion = cumplimientoCalculator.calcular();
+        // Same for the live per-radio vulnerability (rondas-datos-vivos): one grouped query per ronda.
+        Map<String, Double> vulnerabilidadPorRadio = vulnerabilidadCalculator.calcular(hoy);
 
         EntradaRondaV1 entrada = new EntradaRondaV1();
         entrada.setVersion(1);
         entrada.setDonaciones(pool.stream().map(d -> donacionEntrada(d, organizacionesExcluidasPorDonacion, hoy)).toList());
         entrada.setCandidatos(candidatas.stream()
-                .map(n -> candidatoEntrada(n, diasDesdeUltimaDonacionPorOrganizacion, cumplimientoPorOrganizacion, hoy))
+                .map(n -> candidatoEntrada(n, diasDesdeUltimaDonacionPorOrganizacion, cumplimientoPorOrganizacion,
+                        vulnerabilidadPorRadio, hoy))
                 .toList());
         return entrada;
     }
@@ -61,13 +65,18 @@ public class EntradaRondaFactory {
     }
 
     private CandidatoEntradaV1 candidatoEntrada(Necesidad n, Map<Long, Long> diasDesdeUltimaDonacionPorOrganizacion,
-                                                 Map<Long, CumplimientoV1> cumplimientoPorOrganizacion, LocalDate hoy) {
+                                                 Map<Long, CumplimientoV1> cumplimientoPorOrganizacion,
+                                                 Map<String, Double> vulnerabilidadPorRadio, LocalDate hoy) {
         Organizacion organizacion = n.getOrganizacion();
         CandidatoEntradaV1 c = new CandidatoEntradaV1();
         c.setNecesidadId(n.getId());
         c.setOrganizacionId(organizacion.getId());
         c.setLatitud(organizacion.getLatitud());
         c.setLongitud(organizacion.getLongitud());
+        // The radio is always sent when known; the deficit only when computed. Omitting it makes the
+        // worker answer NEUTRAL 1.0 (deficitFuente), see AD-5.
+        c.setCodigoRadio(organizacion.getCodigoRadio());
+        c.setDeficit(organizacion.getCodigoRadio() != null ? vulnerabilidadPorRadio.get(organizacion.getCodigoRadio()) : null);
         c.setUrgencia(UrgenciaCalculator.calcular(n.getPrioridad(), n.getFechaVencimiento(), hoy));
         c.setDiasDesdeUltimaDonacion(
                 diasDesdeUltimaDonacionPorOrganizacion.getOrDefault(organizacion.getId(), ESPERA_MAXIMA_DIAS_DEFECTO).intValue());
