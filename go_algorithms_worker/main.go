@@ -3,7 +3,7 @@
 //
 //	algorithms metrics [--data f.csv] [--poblacion p.csv] [--provincia Córdoba] [--top 20]
 //	algorithms assign  --input ronda.json
-//	algorithms serve   [--addr :8090] [--data f.csv] [--poblacion p.csv] [--provincia Córdoba]  (CSVs optional)
+//	algorithms serve   [--addr :8090] [--radios radios.ndjson.gz] [--data f.csv] [--poblacion p.csv] [--provincia Córdoba]
 //
 // metrics and assign are deliberately a batch job, not a service: census radios do not move, so
 // coverage is recomputed on a schedule and the MS only ever reads the resulting flat numbers.
@@ -12,18 +12,22 @@
 package main
 
 import (
+	"bufio"
+	"compress/gzip"
 	"encoding/json"
 	"flag"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
+	"strings"
 
 	"algorithms/internal/api"
 	"algorithms/internal/assign"
 	"algorithms/internal/contrato"
 	"algorithms/internal/geo"
 	"algorithms/internal/metrics"
+	"algorithms/internal/radios"
 	"algorithms/internal/renacom"
 )
 
@@ -56,7 +60,7 @@ func uso() {
 	fmt.Fprintln(os.Stderr, "usage:")
 	fmt.Fprintln(os.Stderr, "  algorithms metrics [--data f.csv] [--poblacion p.csv] [--provincia P] [--top N] [--json]")
 	fmt.Fprintln(os.Stderr, "  algorithms assign --input ronda.json")
-	fmt.Fprintln(os.Stderr, "  algorithms serve [--addr :8090] [--data f.csv] [--poblacion p.csv] [--provincia P]")
+	fmt.Fprintln(os.Stderr, "  algorithms serve [--addr :8090] [--radios r.ndjson.gz] [--data f.csv] [--poblacion p.csv] [--provincia P]")
 }
 
 func cmdMetrics(args []string) error {
@@ -177,6 +181,39 @@ func resolvedorServe(data, poblacionPath, provincia string) (*geo.Resolvedor, er
 	return geo.Cargar(data, poblacionPath, provincia, 1.0)
 }
 
+// cargarRadios loads the radios asset for POST /v1/radio. A missing or unreadable asset only logs a
+// warning and returns nil (the endpoint answers 503): rondas never depend on it.
+func cargarRadios(path string) *radios.Indice {
+	if path == "" {
+		log.Println("serve sin --radios: POST /v1/radio respondera 503 RADIOS_NO_DISPONIBLES")
+		return nil
+	}
+	indice, err := leerRadios(path)
+	if err != nil {
+		log.Printf("advertencia: no se pudo cargar %s (%v): POST /v1/radio respondera 503", path, err)
+		return nil
+	}
+	log.Printf("radios cargados desde %s", path)
+	return indice
+}
+
+func leerRadios(path string) (*radios.Indice, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	if !strings.HasSuffix(path, ".gz") {
+		return radios.Cargar(bufio.NewReader(f))
+	}
+	gz, err := gzip.NewReader(f)
+	if err != nil {
+		return nil, err
+	}
+	defer gz.Close()
+	return radios.Cargar(bufio.NewReader(gz))
+}
+
 // cmdServe runs the AD-1 HTTP entrypoint: POST /v1/ronda and GET /healthz, on a single
 // long-lived process. The CSVs are optional: without --data it loads nothing.
 func cmdServe(args []string) error {
@@ -185,6 +222,7 @@ func cmdServe(args []string) error {
 	data := fs.String("data", "", "ReNaCoM CSV path (optional: the MS sends the live deficit)")
 	poblacionPath := fs.String("poblacion", "", "census population CSV (codigo_radio,habitantes,hogares)")
 	provincia := fs.String("provincia", "", "filter by province name")
+	radiosPath := fs.String("radios", "", "radios asset for POST /v1/radio (gzipped NDJSON, see make mapa-radios)")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -194,7 +232,7 @@ func cmdServe(args []string) error {
 		return err
 	}
 
-	h := api.NuevoHandler(resolvedor)
+	h := api.NuevoHandler(resolvedor, cargarRadios(*radiosPath))
 	log.Printf("algorithms serve: escuchando en %s", *addr)
 	return http.ListenAndServe(*addr, h.Rutas())
 }

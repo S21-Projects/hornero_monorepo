@@ -55,15 +55,15 @@ Deploy-order risk: PR1 and PR2a MUST be deployed together. After PR1 alone, the 
 
 ## Phase 3: PR2b - Worker POST /v1/radio and polygon asset (Unit 3)
 
-- [ ] 3.1 FIRST: write `scripts/mapa/radios.sql` (DuckDB: radio 2022 polygons -> `{"c":code,"g":GeoJSON}` NDJSON, `ST_SimplifyPreserveTopology` 0.0001 + `ST_ReducePrecision` 0.00001) and `make mapa-radios` target writing `go_algorithms_worker/data/radios-2022.ndjson.gz` (AD-8). Run it and MEASURE the gzipped size. Gate: commit if <= 10 MB; else rerun with tolerance 0.0002; else publish as GitHub Release asset and fetch in the Dockerfile with a pinned SHA-256 (requires the user's explicit decision before any publish). Record the measured size in the commit body and in 6.x docs.
-- [ ] 3.2 RED: table-driven `go_algorithms_worker/internal/radios/radios_test.go` for `Buscar`: inside, inside a hole -> not found (or outer neighbour), MultiPolygon, tie -> lowest code, near-miss within 25 m, outside -> not found. Use a tiny inline NDJSON fixture. Run `go test ./internal/radios/...` (fails).
-- [ ] 3.3 GREEN: create `go_algorithms_worker/internal/radios/` - streaming NDJSON(.gz) loader, even-odd ray casting over all rings, 0.05 deg grid `map[int64][]int32` with "grandes" list for bbox > 400 cells, nearest-edge fallback 25 m (AD-9).
-- [ ] 3.4 RED: handler tests for `POST /v1/radio` in the worker http package: 200 `{codigoRadio}`, 400 ENTRADA_INVALIDA (bad JSON / out-of-range lat/lng), 404 RADIO_NO_ENCONTRADO, 503 RADIOS_NO_DISPONIBLES (nil index), 405 other methods; 4 KiB body cap (AD-10).
-- [ ] 3.5 GREEN: add the handler and route; add `--radios` flag to `serve` (missing/failed asset logs a WARN and never blocks serve, index nil -> 503).
-- [ ] 3.6 Dockerfile: copy only the radios asset (or fetch-with-SHA if the gate chose a Release asset), add `--radios` to the exec-form entrypoint. `go test ./...` and `go vet ./...`.
-- [ ] 3.7 Verify: `docker compose up --build -d worker`; `docker compose exec worker` POST `/v1/radio` with an Argentine coordinate -> 9-digit code, with (0,0) -> 404; observe RAM (~16-32 MB expected).
-- [ ] 3.8 Docs: worker README (new endpoint, `--radios`, asset regeneration with `make mapa-radios`), `scripts/mapa/README.md` (radios.sql).
-- [ ] 3.9 Commits: `feat(worker): add radios index with point-in-polygon lookup`; `feat(worker): expose POST /v1/radio`; `build(worker): ship radios asset`; `docs(worker): document radio lookup`. Mark the generated asset as excluded from the review count.
+- [x] 3.1 FIRST: write `scripts/mapa/radios.sql` (DuckDB: radio 2022 polygons -> `{"c":code,"g":GeoJSON}` NDJSON, `ST_SimplifyPreserveTopology` 0.0001 + `ST_ReducePrecision` 0.00001) and `make mapa-radios` target writing `go_algorithms_worker/data/radios-2022.ndjson.gz` (AD-8). Run it and MEASURE the gzipped size. Gate: commit if <= 10 MB; else rerun with tolerance 0.0002; else publish as GitHub Release asset and fetch in the Dockerfile with a pinned SHA-256 (requires the user's explicit decision before any publish). Record the measured size in the commit body and in 6.x docs.
+- [x] 3.2 RED: table-driven `go_algorithms_worker/internal/radios/radios_test.go` for `Buscar`: inside, inside a hole -> not found (or outer neighbour), MultiPolygon, tie -> lowest code, near-miss within 25 m, outside -> not found. Use a tiny inline NDJSON fixture. Run `go test ./internal/radios/...` (fails).
+- [x] 3.3 GREEN: create `go_algorithms_worker/internal/radios/` - streaming NDJSON(.gz) loader, even-odd ray casting over all rings, 0.05 deg grid `map[int64][]int32` with "grandes" list for bbox > 400 cells, nearest-edge fallback 25 m (AD-9).
+- [x] 3.4 RED: handler tests for `POST /v1/radio` in the worker http package: 200 `{codigoRadio}`, 400 ENTRADA_INVALIDA (bad JSON / out-of-range lat/lng), 404 RADIO_NO_ENCONTRADO, 503 RADIOS_NO_DISPONIBLES (nil index), 405 other methods; 4 KiB body cap (AD-10).
+- [x] 3.5 GREEN: add the handler and route; add `--radios` flag to `serve` (missing/failed asset logs a WARN and never blocks serve, index nil -> 503).
+- [x] 3.6 Dockerfile: copy only the radios asset (or fetch-with-SHA if the gate chose a Release asset), add `--radios` to the exec-form entrypoint. `go test ./...` and `go vet ./...`.
+- [x] 3.7 Verify: `docker compose up --build -d worker`; `docker compose exec worker` POST `/v1/radio` with an Argentine coordinate -> 9-digit code, with (0,0) -> 404; observe RAM (~16-32 MB expected).
+- [x] 3.8 Docs: worker README (new endpoint, `--radios`, asset regeneration with `make mapa-radios`), `scripts/mapa/README.md` (radios.sql).
+- [x] 3.9 Commits: `feat(worker): add radios index with point-in-polygon lookup`; `feat(worker): expose POST /v1/radio`; `build(worker): ship radios asset`; `docs(worker): document radio lookup`. Mark the generated asset as excluded from the review count.
 
 ## Phase 4: PR3 - MS radio resolution on create/edit and backfill (Unit 4)
 

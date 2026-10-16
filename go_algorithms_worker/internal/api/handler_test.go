@@ -28,7 +28,7 @@ func leerFixture(t *testing.T, nombre string) []byte {
 }
 
 func TestHealthz(t *testing.T) {
-	h := NuevoHandler(resolvedorVacio())
+	h := NuevoHandler(resolvedorVacio(), nil)
 	req := httptest.NewRequest(http.MethodGet, "/healthz", nil)
 	rec := httptest.NewRecorder()
 
@@ -41,7 +41,7 @@ func TestHealthz(t *testing.T) {
 
 func TestRondaRequestValidoDevuelve200(t *testing.T) {
 	body := leerFixture(t, "request.json")
-	h := NuevoHandler(resolvedorVacio())
+	h := NuevoHandler(resolvedorVacio(), nil)
 	req := httptest.NewRequest(http.MethodPost, "/v1/ronda", bytes.NewReader(body))
 	rec := httptest.NewRecorder()
 
@@ -53,7 +53,7 @@ func TestRondaRequestValidoDevuelve200(t *testing.T) {
 }
 
 func TestRondaRequestInvalidoDevuelve400(t *testing.T) {
-	h := NuevoHandler(resolvedorVacio())
+	h := NuevoHandler(resolvedorVacio(), nil)
 	req := httptest.NewRequest(http.MethodPost, "/v1/ronda", bytes.NewReader([]byte(`{"version":2,"donaciones":[],"candidatos":[]}`)))
 	rec := httptest.NewRecorder()
 
@@ -77,7 +77,7 @@ func TestRondaCuerpoDemasiadoGrandeDevuelve413(t *testing.T) {
 	// instead of failing on the first malformed byte.
 	relleno := bytes.Repeat([]byte("a"), 2<<20)
 	grande := append(append([]byte(`{"version":1,"donaciones":[],"candidatos":[],"_relleno":"`), relleno...), []byte(`"}`)...)
-	h := NuevoHandler(resolvedorVacio())
+	h := NuevoHandler(resolvedorVacio(), nil)
 	req := httptest.NewRequest(http.MethodPost, "/v1/ronda", bytes.NewReader(grande))
 	rec := httptest.NewRecorder()
 
@@ -89,7 +89,7 @@ func TestRondaCuerpoDemasiadoGrandeDevuelve413(t *testing.T) {
 }
 
 func TestRondaMetodoNoPermitido(t *testing.T) {
-	h := NuevoHandler(resolvedorVacio())
+	h := NuevoHandler(resolvedorVacio(), nil)
 	req := httptest.NewRequest(http.MethodGet, "/v1/ronda", nil)
 	rec := httptest.NewRecorder()
 
@@ -107,7 +107,7 @@ func TestRondaGoldenRoundtrip(t *testing.T) {
 	reqBody := leerFixture(t, "request.json")
 	wantBody := leerFixture(t, "response.json")
 
-	h := NuevoHandler(resolvedorVacio())
+	h := NuevoHandler(resolvedorVacio(), nil)
 	req := httptest.NewRequest(http.MethodPost, "/v1/ronda", bytes.NewReader(reqBody))
 	rec := httptest.NewRecorder()
 	h.Rutas().ServeHTTP(rec, req)
