@@ -74,7 +74,7 @@ completarlo, con fecha. El seguimiento técnico completo está en `odd/tasks/seg
 
 - [ ] `git pull` en `develop` y `docker compose up --build -d`.
 - [ ] Esperar a que el MS esté sano (crea las tablas y columnas nuevas al arrancar).
-- [ ] **`make migrate`**: hace backup y aplica V002–V010 (rondas, versiones, inmutabilidad de
+- [ ] **`make migrate`**: hace backup y aplica V002–V011 (rondas, versiones, inmutabilidad de
   `actividad`, `estado_desde` de donaciones). Reiniciar el MS después. V010 solo elimina un unique
   duplicado sobre `organizaciones.origen_id` (limpieza; el índice parcial de V007 queda).
 - [ ] Tener en cuenta que, al arrancar, el job de donaciones estancadas **cancela las ofertas
@@ -86,6 +86,28 @@ completarlo, con fecha. El seguimiento técnico completo está en `odd/tasks/seg
   crean índices sobre las tablas de reclamos y reportes, que recién existen cuando el MS las crea.
   `EsquemaVerificador` avisa en el log si quedó algo pendiente.
 - [ ] Opcional: importar las organizaciones de ReNaCoM con `make importar-renacom` (paso manual).
+
+### Rondas con datos vivos (cambio `rondas-datos-vivos`)
+
+El déficit de cobertura de cada ronda ahora se calcula desde la base de datos en lugar de leer CSV
+dentro del worker. Se despliega en cuatro PR encadenados; mergearlos y desplegarlos en este orden:
+
+- [ ] **PR1 (MS) y PR2a (worker sin CSV): desplegar juntos.** Si se despliega solo el PR1, el worker
+  viejo todavía puede responder `RADIO`/`CERCANO` con sus CSV; si se despliega solo el PR2a, todos
+  los candidatos quedan en déficit neutral.
+- [ ] `make migrate` (aplica V011, tabla `poblacion_radio`) y luego **`make importar-poblacion`**
+  (carga la población del censo 2022). Se puede correr dos veces: deja el mismo contenido. Sin esa
+  carga las rondas siguen funcionando, pero con déficit neutral para todos y un WARN en el log del MS.
+- [ ] **PR2b (worker `POST /v1/radio`)**: la imagen del worker incluye el archivo
+  `radios-2022.ndjson.gz` (unos 9 MB) y tarda alrededor de un segundo más en arrancar; el healthcheck
+  ya espera 30 s. Si el archivo no se puede leer, el worker arranca igual y `/v1/radio` responde 503.
+- [ ] **PR3 (MS resuelve el radio al crear y editar organizaciones)**: después del deploy, un job
+  horario (minuto 15) completa el `codigo_radio` de las organizaciones que tienen coordenadas y no
+  tienen radio, hasta 500 por corrida. No requiere ninguna acción; se puede apagar con
+  `RADIOS_BACKFILL_ENABLED=false`. Con el worker caído, crear o editar una organización guarda igual
+  y el radio se completa en la próxima corrida.
+- [ ] Verificar: `select count(*) from organizaciones where codigo_radio is null and latitud is not null;`
+  debería bajar a cero (o a las organizaciones fuera de Argentina) en las horas siguientes.
 
 ## 3. Después del deploy
 
