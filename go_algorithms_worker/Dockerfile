@@ -23,10 +23,13 @@ WORKDIR /app
 RUN apk add --no-cache wget
 
 COPY --from=builder /app/algorithms ./algorithms
+# The only data in the image: simplified census radio polygons for POST /v1/radio
+# (regenerate with `make mapa-radios`). No scoring CSVs ship here.
+COPY data/radios-2022.ndjson.gz ./data/radios-2022.ndjson.gz
 
 EXPOSE 8090
 
 # No scoring data ships in the image: the MS computes each candidate's live deficit from the
 # database, and a candidate without one resolves to NEUTRAL. The CSVs under data/ only feed the
-# offline `metrics` / `assign` subcommands.
-ENTRYPOINT ["./algorithms", "serve", "--addr", ":8090"]
+# offline `metrics` / `assign` subcommands. A failing --radios load only disables POST /v1/radio.
+ENTRYPOINT ["./algorithms", "serve", "--addr", ":8090", "--radios", "data/radios-2022.ndjson.gz"]

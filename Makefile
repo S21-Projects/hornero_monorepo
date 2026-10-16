@@ -1,4 +1,4 @@
-.PHONY: up down up-local seed backup restore-check migrate e2e coverage mapa-datos mapa-fixture importar-renacom importar-poblacion
+.PHONY: up down up-local seed backup restore-check migrate e2e coverage mapa-datos mapa-fixture importar-renacom importar-poblacion mapa-radios
 
 ## Docker only — two modes, both full-stack including Postgres.
 ## The Pi runs docker compose directly, not through this Makefile
@@ -106,3 +106,13 @@ importar-renacom: backup
 # Local stack: make importar-poblacion ENV_FILE=.env.local. See scripts/mapa/README.md.
 importar-poblacion: backup
 	scripts/mapa/importar-poblacion.sh | $(PSQL)
+
+# Regenerate go_algorithms_worker/data/radios-2022.ndjson.gz, the simplified census radio polygons
+# behind the worker's POST /v1/radio (reuses the cached radios parquet of `make mapa-datos`).
+# Committed; regenerate only for a new census vintage or a different simplification tolerance.
+# Needs the duckdb CLI. See scripts/mapa/README.md.
+mapa-radios:
+	@command -v duckdb >/dev/null || { echo "duckdb not found: install it (e.g. 'brew install duckdb')" >&2; exit 1; }
+	scripts/mapa/fetch.sh
+	duckdb < scripts/mapa/radios.sql
+	@ls -l go_algorithms_worker/data/radios-2022.ndjson.gz

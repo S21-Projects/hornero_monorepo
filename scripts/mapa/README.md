@@ -120,3 +120,25 @@ Idempotent: every run leaves identical contents (same rows, same count). Check w
 `select count(*), sum(habitantes) from poblacion_radio;` before and after a second run. Re-run it only
 when the population dataset changes; until then the table is static.
 
+## Radios asset for the worker (`POST /v1/radio`)
+
+`make mapa-radios` runs `radios.sql` (DuckDB) over the cached radios parquet and writes
+`go_algorithms_worker/data/radios-2022.ndjson.gz`: one `{"c":"<9-digit code>","g":<GeoJSON>}` line per
+radio (66,502 lines), simplified with `ST_SimplifyPreserveTopology` and `ST_ReducePrecision` so it can
+be committed. It is a generated file, committed and excluded from the review line count; the output
+is deterministic.
+
+**Size gate**: commit the asset only if it is at most 10 MB. Measured on the Censo 2022 parquet:
+
+| Simplification tolerance | Gzipped size | Decision |
+|---|---|---|
+| 0.0001 degrees (about 10 m) | 11.25 MB | over the gate |
+| 0.0002 degrees (about 20 m) | 8.71 MB | committed |
+
+Above the gate at 0.0002 the asset would have to become a GitHub Release asset fetched in the
+Dockerfile with a pinned SHA-256. Simplification opens small gaps between neighbouring radios, which
+the worker covers with a 25 m nearest-edge fallback. Checked against the 2,730 ReNaCoM points (whose
+radio comes from the full-resolution polygons): 94.4% resolve to the same radio, 100% are found, and
+every mismatch is a point within 25 m of the expected radio's edge (street-border addresses).
+Regenerate it only for a new census vintage or a different tolerance.
+
