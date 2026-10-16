@@ -4,6 +4,8 @@ Hornero's geographic metrics and donation-assignment solver. Two of its three su
 (`metrics`, `assign`) are deliberately offline/batch jobs; the third (`serve`) is the AD-1 HTTP
 entrypoint the MS calls for a ronda.
 
+For an in-depth walkthrough of how a ronda is scored and solved, see [`docs/worker-asignacion.md`](../docs/worker-asignacion.md).
+
 `metrics` stays a batch job on purpose: census radios do not move and coverage changes slowly, so
 it is recomputed on a schedule and the MS only ever reads flat numbers. `serve` is a long-lived
 process, and it needs no dataset: the MS computes each candidate's live deficit from its database at
