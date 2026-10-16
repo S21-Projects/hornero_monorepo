@@ -130,18 +130,116 @@ func (e EntradaRondaV1) Validar() error {
 	if len(e.Candidatos) > limiteItems {
 		return errEntrada(fmt.Sprintf("candidatos = %d, maximo %d", len(e.Candidatos), limiteItems))
 	}
+	donaciones := make(map[int64]bool, len(e.Donaciones))
 	for _, d := range e.Donaciones {
 		if !coordenadaValida(d.Latitud, d.Longitud) {
 			return errEntrada(fmt.Sprintf("donacion %d: coordenadas invalidas (%v, %v)", d.ID, d.Latitud, d.Longitud))
 		}
+		if d.DiasEnFondo < 0 {
+			return errEntrada(fmt.Sprintf("donacion %d: diasEnFondo negativo", d.ID))
+		}
+		if donaciones[d.ID] {
+			return errEntrada(fmt.Sprintf("donacion %d repetida", d.ID))
+		}
+		donaciones[d.ID] = true
 	}
+	// necesidadId keys the per-assignment metadata, so it must be unique within a ronda.
+	necesidades := make(map[int64]bool, len(e.Candidatos))
 	for _, c := range e.Candidatos {
 		if !coordenadaValida(c.Latitud, c.Longitud) {
 			return errEntrada(fmt.Sprintf("candidato (necesidad %d): coordenadas invalidas (%v, %v)", c.NecesidadID, c.Latitud, c.Longitud))
 		}
+		if err := validarCandidato(c); err != nil {
+			return err
+		}
+		if necesidades[c.NecesidadID] {
+			return errEntrada(fmt.Sprintf("necesidad %d repetida", c.NecesidadID))
+		}
+		necesidades[c.NecesidadID] = true
+	}
+	if err := validarPesos(e.Pesos); err != nil {
+		return err
+	}
+	return validarParametros(e.Parametros)
+}
+
+// validarCandidato rejects per-candidate values that would produce a negative or out-of-range
+// score term (every term is meant to live in [0,1]).
+func validarCandidato(c CandidatoV1) error {
+	switch {
+	case !finito(c.Urgencia) || c.Urgencia < 0 || c.Urgencia > 1:
+		return errEntrada(fmt.Sprintf("necesidad %d: urgencia fuera de [0,1]", c.NecesidadID))
+	case c.Deficit != nil && (!finito(*c.Deficit) || *c.Deficit < 0):
+		return errEntrada(fmt.Sprintf("necesidad %d: deficit negativo", c.NecesidadID))
+	case c.DiasDesdeUltimaDonacion < 0:
+		return errEntrada(fmt.Sprintf("necesidad %d: diasDesdeUltimaDonacion negativo", c.NecesidadID))
+	case c.Cumplimiento != nil && (c.Cumplimiento.Entregadas < 0 || c.Cumplimiento.Fallidas < 0):
+		return errEntrada(fmt.Sprintf("necesidad %d: cumplimiento negativo", c.NecesidadID))
 	}
 	return nil
 }
+
+// validarPesos: an override replaces all five weights, so each must be finite and non-negative and
+// at least one positive (all zero would score every pair 0 and assign nothing).
+func validarPesos(p *assign.Pesos) error {
+	if p == nil {
+		return nil
+	}
+	pesos := []float64{p.Deficit, p.Urgencia, p.Proximidad, p.Espera, p.Cumplimiento}
+	suma := 0.0
+	for _, w := range pesos {
+		if !finito(w) || w < 0 {
+			return errEntrada("pesos: cada peso debe ser un numero >= 0")
+		}
+		suma += w
+	}
+	if suma <= 0 {
+		return errEntrada("pesos: al menos un peso debe ser > 0")
+	}
+	return nil
+}
+
+// validarParametros rejects overrides that divide by zero or flip a term's sign in the scoring
+// (distanciaMediaKm, esperaMaximaDias, deficitMaximo and cumplimientoPseudoObs are denominators).
+// distanciaMaximaKm = 0 stays valid: it disables the distance cut-off.
+func validarParametros(v *ParametrosV1) error {
+	if v == nil {
+		return nil
+	}
+	positivo := func(nombre string, x *float64) error {
+		if x != nil && (!finito(*x) || *x <= 0) {
+			return errEntrada(fmt.Sprintf("parametros.%s debe ser > 0", nombre))
+		}
+		return nil
+	}
+	noNegativo := func(nombre string, x *float64) error {
+		if x != nil && (!finito(*x) || *x < 0) {
+			return errEntrada(fmt.Sprintf("parametros.%s debe ser >= 0", nombre))
+		}
+		return nil
+	}
+	for _, err := range []error{
+		positivo("distanciaMediaKm", v.DistanciaMediaKm),
+		noNegativo("distanciaMaximaKm", v.DistanciaMaximaKm),
+		positivo("deficitMaximo", v.DeficitMaximo),
+		noNegativo("penalizacionNoAsignar", v.PenalizacionNoAsignar),
+		noNegativo("radioResolucionKm", v.RadioResolucionKm),
+		positivo("cumplimientoPseudoObs", v.CumplimientoPseudoObs),
+	} {
+		if err != nil {
+			return err
+		}
+	}
+	if v.EsperaMaximaDias != nil && *v.EsperaMaximaDias <= 0 {
+		return errEntrada("parametros.esperaMaximaDias debe ser > 0")
+	}
+	if p := v.CumplimientoPrior; p != nil && (!finito(*p) || *p < 0 || *p > 1) {
+		return errEntrada("parametros.cumplimientoPrior debe estar en [0,1]")
+	}
+	return nil
+}
+
+func finito(x float64) bool { return !math.IsNaN(x) && !math.IsInf(x, 0) }
 
 func coordenadaValida(lat, lng float64) bool {
 	if math.IsNaN(lat) || math.IsNaN(lng) || math.IsInf(lat, 0) || math.IsInf(lng, 0) {
