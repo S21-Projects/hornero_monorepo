@@ -31,7 +31,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  * Real Spring/H2 context (not Mockito) so the delegation is proven end-to-end, not by a stub.
  */
 @DataJpaTest
-@Import({OrganizacionService.class, AcreditacionService.class})
+@Import({OrganizacionService.class, org.example.organizacion.radio.RadioCensalNoConfiguradoClient.class, AcreditacionService.class})
 @org.springframework.boot.test.mock.mockito.MockBean(org.example.actividad.ActividadService.class)
 @RecordApplicationEvents
 class OrganizacionServiceValidarRechazarTest {

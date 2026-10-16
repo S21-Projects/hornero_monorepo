@@ -126,6 +126,12 @@ app:
       cron: ${EVIDENCIA_BARRIDO_CRON:0 50 3 * * *}
   worker:
     url: ${WORKER_URL:}
+  radios:
+    # Hourly backfill of organizaciones.codigo_radio through the worker (POST /v1/radio).
+    backfill:
+      enabled: ${RADIOS_BACKFILL_ENABLED:true}
+      cron: ${RADIOS_BACKFILL_CRON:0 15 * * * *}
+      max-por-corrida: ${RADIOS_BACKFILL_MAX:500}
   seed:
     # Production creates no demo data. SEED_DEMO_DATA=true (local/e2e only) adds demo users, orgs,
     # necesidades and donaciones. With it off, SUPER_ADMIN_EMAIL/SUPER_ADMIN_PASSWORD are required
