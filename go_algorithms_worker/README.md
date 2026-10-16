@@ -6,8 +6,10 @@ entrypoint the MS calls for a ronda.
 
 `metrics` stays a batch job on purpose: census radios do not move and coverage changes slowly, so
 it is recomputed on a schedule and the MS only ever reads flat numbers. `serve` is a long-lived
-process specifically so RENACOM (and the optional census CSV) load once at startup (AD-2) instead
-of once per request — the solver itself (`internal/assign`) is unchanged either way. Keeping the
+process, and it needs no dataset: the MS computes each candidate's live deficit from its database at
+ronda time and sends it (`deficitFuente` `PROVISTO`); a candidate without one resolves to `NEUTRAL`.
+The CSVs below only feed the offline `metrics` / `assign` subcommands, and `serve --data` for
+experiments. The solver itself (`internal/assign`) is unchanged either way. Keeping the
 geospatial work here means the Java MS never grows a PostGIS dependency, which matters on the
 Raspberry Pi deployment.
 
@@ -49,9 +51,10 @@ go run . metrics --poblacion data/poblacion-radios.csv --json
 go run . assign --input testdata/ronda-v1/request.json
 
 # The AD-1 HTTP entrypoint: POST /v1/ronda, GET /healthz. This is what
-# docker-compose.yml's `worker` service runs; --poblacion is the same
-# optional census CSV as above (AD-2's documented NEUTRAL fallback applies
-# equally here when it is not mounted).
+# docker-compose.yml's `worker` service runs, with no CSV: candidates without a deficit from the
+# MS resolve to NEUTRAL. --data/--poblacion/--provincia are optional and restore the old
+# CSV-backed RADIO / CERCANO fallbacks (local experiments only; the image ships no CSV).
+go run . serve --addr :8090
 go run . serve --addr :8090 --data data/renacom.csv [--poblacion data/poblacion-radios.csv] [--provincia "Córdoba"]
 ```
 
@@ -74,7 +77,7 @@ When that file sits next to `renacom.csv`, `renacom.Cargar` uses it instead of t
 declared code (matched by `Identificador`); without it the declared code is kept.
 
 **Vulnerability override.** When `data/vulnerabilidad-radios.csv` sits next to `renacom.csv`,
-`geo.Cargar` (used by `serve`, `assign` and the AD-2 resolver) reads its `vulnerabilidad`
+`geo.Cargar` (used by `assign`, `serve --data` and the AD-2 resolver) reads its `vulnerabilidad`
 column and uses it as the per-radio number of the score's deficit term, in place of the
 ReNaCoM-only `deficit` (so it also works without `--poblacion`). The precedence is unchanged
 (request-provided value > RADIO > CERCANO > NEUTRAL) and so is the normalization

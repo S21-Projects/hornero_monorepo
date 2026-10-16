@@ -23,13 +23,10 @@ WORKDIR /app
 RUN apk add --no-cache wget
 
 COPY --from=builder /app/algorithms ./algorithms
-COPY data ./data
 
 EXPOSE 8090
 
-# POBLACION_CSV is optional (AD-2): when unset every candidate resolves to
-# NEUTRAL, which the worker logs at startup. It cannot be a plain ENTRYPOINT
-# arg because exec-form ENTRYPOINT does not expand environment variables, so
-# this wraps the fixed args in a shell that only adds --poblacion when the
-# path is actually set and mounted.
-ENTRYPOINT ["/bin/sh", "-c", "exec ./algorithms serve --addr :8090 --data data/renacom.csv ${POBLACION_CSV:+--poblacion \"$POBLACION_CSV\"}"]
+# No scoring data ships in the image: the MS computes each candidate's live deficit from the
+# database, and a candidate without one resolves to NEUTRAL. The CSVs under data/ only feed the
+# offline `metrics` / `assign` subcommands.
+ENTRYPOINT ["./algorithms", "serve", "--addr", ":8090"]
