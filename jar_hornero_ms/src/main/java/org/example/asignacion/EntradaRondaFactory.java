@@ -58,7 +58,10 @@ public class EntradaRondaFactory {
         e.setLatitud(d.getLatitud());
         e.setLongitud(d.getLongitud());
         e.setCategoria(d.getCategoria() != null ? d.getCategoria().name() : null);
-        e.setDiasEnFondo(d.getFechaOferta() != null ? (int) ChronoUnit.DAYS.between(d.getFechaOferta(), hoy) : 0);
+        // Clamped at 0: a date stamped later than `hoy` (e.g. UTC vs Buenos Aires near midnight) must
+        // never become a negative count, which the worker rejects with 400.
+        e.setDiasEnFondo(d.getFechaOferta() != null
+                ? (int) Math.max(0, ChronoUnit.DAYS.between(d.getFechaOferta(), hoy)) : 0);
         e.setOrganizacionesExcluidas(exclusionesPorDonacion.getOrDefault(d.getId(), List.of()));
         e.setArticuloIds(d.getLineas().stream().map(linea -> linea.getArticulo().getId()).toList());
         return e;
@@ -79,7 +82,7 @@ public class EntradaRondaFactory {
         c.setDeficit(organizacion.getCodigoRadio() != null ? vulnerabilidadPorRadio.get(organizacion.getCodigoRadio()) : null);
         c.setUrgencia(UrgenciaCalculator.calcular(n.getPrioridad(), n.getFechaVencimiento(), hoy));
         c.setDiasDesdeUltimaDonacion(
-                diasDesdeUltimaDonacionPorOrganizacion.getOrDefault(organizacion.getId(), ESPERA_MAXIMA_DIAS_DEFECTO).intValue());
+                (int) Math.max(0, diasDesdeUltimaDonacionPorOrganizacion.getOrDefault(organizacion.getId(), ESPERA_MAXIMA_DIAS_DEFECTO)));
         c.setCategoriasAceptadas(n.getCategoria() != null ? List.of(n.getCategoria().name()) : List.of());
         c.setCategoriasPermitidas(acreditacionService.categoriasPermitidas(organizacion.getNivel())
                 .stream().map(CategoriaAlimento::name).toList());
