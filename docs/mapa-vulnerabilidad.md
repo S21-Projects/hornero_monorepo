@@ -98,6 +98,22 @@ The ronda computes this value from the current database each time it runs (chang
   and logs one WARN: run `make importar-poblacion`.
 - Estado and necesidad changes show up in the next ronda with no rebuild; only the population is static.
 
+#### Where `codigo_radio` comes from
+
+Imported ReNaCoM organizaciones get their 2022 radio at import time. Platform organizaciones get it
+from the worker (`POST /v1/radio`, point-in-polygon over the simplified 2022 radios):
+
+- **On create and edit**: `OrganizacionService` resolves the radio synchronously from the coordinates
+  before saving, only when they are set or changed (an edit that leaves them untouched does not call
+  the worker). It is best-effort: with the worker down, a timeout (1 s connect, 2 s read) or no radio
+  found, the organizacion is saved with `codigo_radio` null. A moved point never keeps the radio of its
+  old location.
+- **Hourly backfill** (`RadioCensalBackfillJob`, minute 15, up to 500 per run): fills organizaciones
+  that have coordinates and no radio, never overwriting an existing one, and skips any row that
+  changed meanwhile. It covers the first fill after deploy and every create or edit whose lookup
+  failed. Organizaciones outside every radio are retried each run. Disable it with
+  `RADIOS_BACKFILL_ENABLED=false`; tune it with `RADIOS_BACKFILL_CRON` and `RADIOS_BACKFILL_MAX`.
+
 ## Rendering
 
 Implemented in `ts_hornero_astro/src/pages/mapa.astro` with the islands

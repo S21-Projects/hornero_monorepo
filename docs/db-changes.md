@@ -22,6 +22,8 @@ production DB) — check the "Applied to" line before running anything twice.
 
 **Rollback**: `DROP TABLE poblacion_radio;` (rondas fall back to NEUTRAL deficits).
 
+**Note**: the same change starts writing `organizaciones.codigo_radio` for platform organizaciones (on create, edit and an hourly backfill). The column already exists, so there is no schema change and nothing to run for it.
+
 **Applied to**:
 - [ ] Local dev DB
 - [ ] Pi production DB
