@@ -67,17 +67,17 @@ Deploy-order risk: PR1 and PR2a MUST be deployed together. After PR1 alone, the 
 
 ## Phase 4: PR3 - MS radio resolution on create/edit and backfill (Unit 4)
 
-- [ ] 4.1 RED: `HttpRadioCensalClientTest` with `MockRestServiceServer`: 200 -> `Optional.of(code)`, 404 -> empty, 500/timeout -> empty, never throws (AD-11). Under `jar_hornero_ms/src/test/java/.../organizacion/radio/`.
-- [ ] 4.2 GREEN: create package `org.example.organizacion.radio` in `jar_hornero_ms/src/main/java/`: `RadioCensalClient` (`Optional<String> resolver(lat, lng)`), `HttpRadioCensalClient` (connect 1s, read 2s), `NoConfiguradoRadioCensalClient`, `RadioCensalConfig` on `app.worker.url` (pattern of `AsignadorConfig`).
-- [ ] 4.3 RED: `OrganizacionServiceTest` additions - crear with both coords resolves and saves radio; worker down/empty -> saved with null radio ("Worker down does not block saving"); editar with changed lat/lng refreshes (or nulls) radio ("Edit to new coordinates refreshes"); editar with unchanged coords does not call the client (AD-12).
-- [ ] 4.4 GREEN: modify `OrganizacionService` (`crear`, `editar`) to resolve synchronously before save, only when coords are set/changed; failure -> `codigo_radio` null, never blocks.
-- [ ] 4.5 RED: `RadioCensalBackfillJobTest` 1-2 tests - fills only orgs with coords and null radio, leaves existing radios untouched; a failing resolution leaves the org null and continues ("Backfill fills only missing radios").
-- [ ] 4.6 GREEN: create `RadioCensalBackfillJob` (`@Scheduled` cron default `0 15 * * * *`, enabled flag property, max 500 per run, per-row `TransactionTemplate`, skips optimistic-lock conflicts) (AD-13). Add properties with defaults to `jar_hornero_ms/src/main/resources/application.properties`.
-- [ ] 4.7 Verify on `make up-local`: create an org with coordinates via BFF -> `codigo_radio` set; stop worker -> create succeeds with null; restart, wait/trigger backfill run (property temporarily set to a short cron through env, not committed) -> filled. Full `mvn test`.
-- [ ] 4.8 Docs: `docs/mapa-vulnerabilidad.md` (resolution on create/edit, backfill), `docs/db-changes.md` (no schema change, note), `docs/acciones-pendientes-equipo.md` (Pi deploy steps: `make migrate` for V011, `make importar-poblacion`, deploy PR1 + PR2a together, then PR2b, then PR3; backfill runs hourly).
-- [ ] 4.9 Commits: `feat(ms): add radio censal client`; `feat(ms): resolve radio on organizacion create and edit`; `feat(ms): backfill missing radios hourly`; `docs: add Pi deploy steps for live rondas`.
+- [x] 4.1 RED: `HttpRadioCensalClientTest` with `MockRestServiceServer`: 200 -> `Optional.of(code)`, 404 -> empty, 500/timeout -> empty, never throws (AD-11). Under `jar_hornero_ms/src/test/java/.../organizacion/radio/`.
+- [x] 4.2 GREEN: create package `org.example.organizacion.radio` in `jar_hornero_ms/src/main/java/`: `RadioCensalClient` (`Optional<String> resolver(lat, lng)`), `HttpRadioCensalClient` (connect 1s, read 2s), `NoConfiguradoRadioCensalClient`, `RadioCensalConfig` on `app.worker.url` (pattern of `AsignadorConfig`).
+- [x] 4.3 RED: `OrganizacionServiceTest` additions - crear with both coords resolves and saves radio; worker down/empty -> saved with null radio ("Worker down does not block saving"); editar with changed lat/lng refreshes (or nulls) radio ("Edit to new coordinates refreshes"); editar with unchanged coords does not call the client (AD-12).
+- [x] 4.4 GREEN: modify `OrganizacionService` (`crear`, `editar`) to resolve synchronously before save, only when coords are set/changed; failure -> `codigo_radio` null, never blocks.
+- [x] 4.5 RED: `RadioCensalBackfillJobTest` 1-2 tests - fills only orgs with coords and null radio, leaves existing radios untouched; a failing resolution leaves the org null and continues ("Backfill fills only missing radios").
+- [x] 4.6 GREEN: create `RadioCensalBackfillJob` (`@Scheduled` cron default `0 15 * * * *`, enabled flag property, max 500 per run, per-row `TransactionTemplate`, skips optimistic-lock conflicts) (AD-13). Add properties with defaults to `jar_hornero_ms/src/main/resources/application.properties`.
+- [x] 4.7 Verify on `make up-local`: create an org with coordinates via BFF -> `codigo_radio` set; stop worker -> create succeeds with null; restart, wait/trigger backfill run (property temporarily set to a short cron through env, not committed) -> filled. Full `mvn test`.
+- [x] 4.8 Docs: `docs/mapa-vulnerabilidad.md` (resolution on create/edit, backfill), `docs/db-changes.md` (no schema change, note), `docs/acciones-pendientes-equipo.md` (Pi deploy steps: `make migrate` for V011, `make importar-poblacion`, deploy PR1 + PR2a together, then PR2b, then PR3; backfill runs hourly).
+- [x] 4.9 Commits: `feat(ms): add radio censal client`; `feat(ms): resolve radio on organizacion create and edit`; `feat(ms): backfill missing radios hourly`; `docs: add Pi deploy steps for live rondas`.
 
 ## Phase 5: Final verification
 
-- [ ] 5.1 After the last PR is on the target branch, with `make up-local` running: `make e2e` once. Fix only regressions caused by this change.
-- [ ] 5.2 Per-service sanity: `mvn test` (MS), `go test ./... && go vet ./...` (worker). Report observed results honestly in the apply report.
+- [x] 5.1 (ran once: 99/102 passed; the 3 failures are all scenario 2 and come from a pre-existing UTC vs America/Argentina date mismatch between 21:00 and 24:00 ART, not from this change - see the apply report) After the last PR is on the target branch, with `make up-local` running: `make e2e` once. Fix only regressions caused by this change.
+- [x] 5.2 Per-service sanity: `mvn test` (MS), `go test ./... && go vet ./...` (worker). Report observed results honestly in the apply report.
