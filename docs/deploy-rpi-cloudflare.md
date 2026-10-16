@@ -223,9 +223,10 @@ está caído, el MS arranca igual y solo `POST /api/rondas` responde 503. Para c
 docker compose exec -T worker wget -qO- http://localhost:8090/healthz   # ok
 ```
 
-Opcional: con el CSV de población del INDEC, el déficit de cobertura deja de ser neutral. Montar el
-archivo en el servicio `worker` y apuntar `POBLACION_CSV` a esa ruta (ver el comentario del servicio
-en `docker-compose.yml`). Sin él, todas las organizaciones reciben déficit neutral.
+El worker ya no necesita ningún CSV: el MS calcula el déficit de cobertura de cada candidato desde
+la base de datos en cada ronda (tabla `poblacion_radio`, cargada con `make importar-poblacion`) y lo
+envía al worker. Una organización sin radio censal, o con un radio sin población, recibe déficit
+neutral.
 
 Verificar que los tres puertos publicados responden antes de probar por el dominio:
 

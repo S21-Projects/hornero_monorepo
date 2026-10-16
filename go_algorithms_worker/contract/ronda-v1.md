@@ -122,8 +122,9 @@ copies change together, in the same commit, whenever this contract changes.
   `assign.PesosPorDefecto` is now `{deficit: 0.30, urgencia: 0.25, proximidad: 0.17, espera: 0.13,
   cumplimiento: 0.15}` (previously `{0.35, 0.30, 0.20, 0.15}` with no compliance term).
 - `deficitFuente` is one of `PROVISTO | RADIO | CERCANO | NEUTRAL` (AD-2) — which rule resolved
-  this candidate's coverage deficit. Until the INDEC population CSV is mounted (`POBLACION_CSV`),
-  every candidate resolves to `NEUTRAL` — a known, documented limitation, not a bug.
+  this candidate's coverage deficit. The MS sends the live per-radio `deficit` of each candidate (`PROVISTO`);
+  `serve` loads no CSV by default, so a candidate without one (no radio, or a radio without
+  population) resolves to `NEUTRAL`. `RADIO` / `CERCANO` only apply when `serve` or `assign` is given `--data`.
 - `sinAsignar` always lists every unmatched donación id explicitly — never omitted.
 - `pesos`/`parametros` echo back the values actually applied (defaults merged with any request
   override), for explainability/audit. `parametros.cumplimientoPseudoObs` is new in slice 6a.
