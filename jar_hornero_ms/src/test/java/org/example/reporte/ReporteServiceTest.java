@@ -53,7 +53,7 @@ import static org.mockito.Mockito.verify;
 /** Report-flow rules against real repositories (H2); only the activity log is mocked. */
 @DataJpaTest
 @Import({ReporteService.class, AcreditacionService.class, VerificacionService.class, ReporteCierre.class,
-        ReclamoService.class, OrganizacionService.class, LimitesReclamo.class, LimitesReporte.class})
+        ReclamoService.class, OrganizacionService.class, org.example.organizacion.radio.RadioCensalNoConfiguradoClient.class, LimitesReclamo.class, LimitesReporte.class})
 @MockBean(ActividadService.class)
 class ReporteServiceTest {
 

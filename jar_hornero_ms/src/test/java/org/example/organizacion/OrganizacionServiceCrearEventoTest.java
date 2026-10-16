@@ -24,7 +24,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  * `ORGANIZACION_REGISTRADA` with `nivelAntes = null, nivelDespues = N0`.
  */
 @DataJpaTest
-@Import({OrganizacionService.class, AcreditacionService.class})
+@Import({OrganizacionService.class, org.example.organizacion.radio.RadioCensalNoConfiguradoClient.class, AcreditacionService.class})
 @org.springframework.boot.test.mock.mockito.MockBean(org.example.actividad.ActividadService.class)
 class OrganizacionServiceCrearEventoTest {
 

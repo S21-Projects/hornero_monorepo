@@ -49,7 +49,7 @@ import static org.mockito.Mockito.verify;
 
 /** Claim-flow rules against real repositories (H2); only the activity log is mocked. */
 @DataJpaTest
-@Import({ReclamoService.class, OrganizacionService.class, AcreditacionService.class, VerificacionService.class,
+@Import({ReclamoService.class, OrganizacionService.class, org.example.organizacion.radio.RadioCensalNoConfiguradoClient.class, AcreditacionService.class, VerificacionService.class,
         ReporteCierre.class, LimitesReclamo.class})
 @MockBean(ActividadService.class)
 class ReclamoServiceTest {

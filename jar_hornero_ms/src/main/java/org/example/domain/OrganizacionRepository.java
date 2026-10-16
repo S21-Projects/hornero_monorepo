@@ -51,6 +51,14 @@ public interface OrganizacionRepository extends JpaRepository<Organizacion, Long
             @org.springframework.data.repository.query.Param("minLng") double minLng,
             @org.springframework.data.repository.query.Param("maxLng") double maxLng);
 
+    /** Organizaciones with coordinates but no census radio yet: the work list of the radio backfill. */
+    @org.springframework.data.jpa.repository.Query("""
+            select o from Organizacion o
+            where o.codigoRadio is null and o.latitud is not null and o.longitud is not null
+            order by o.id
+            """)
+    List<Organizacion> findPendientesDeRadio(Pageable pageable);
+
     List<Organizacion> findByReferente_Id(Long referenteId);
 
     Optional<Organizacion> findByIdAndReferente_Id(Long id, Long referenteId);

@@ -57,6 +57,9 @@ class OrganizacionServiceTest {
     @Mock
     private org.springframework.context.ApplicationEventPublisher eventPublisher;
 
+    @Mock
+    private org.example.organizacion.radio.RadioCensalClient radioCensalClient;
+
     @InjectMocks
     private OrganizacionService organizacionService;
 
@@ -92,6 +95,40 @@ class OrganizacionServiceTest {
         assertThat(response.getReferenteEmail()).isEqualTo("ref@test.com");
         assertThat(response.getNombre()).isEqualTo("Org Test");
         verify(organizacionRepository).save(any(Organizacion.class));
+    }
+
+    // --- codigo_radio resolution (rondas-datos-vivos) ---
+
+    private CrearOrganizacionRequest crearRequestConCoordenadas() {
+        return new CrearOrganizacionRequest(
+                "Org Test", TipoOrganizacion.COMEDOR, "d", "Calle 123", -34.0, -58.0, null, null, null);
+    }
+
+    @Test
+    void crear_resolvesCodigoRadioFromTheCoordinates() {
+        when(usuarioRepository.findById(1L)).thenReturn(Optional.of(referente));
+        when(organizacionRepository.save(any(Organizacion.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(radioCensalClient.resolver(-34.0, -58.0)).thenReturn(Optional.of("020070101"));
+
+        organizacionService.crear(crearRequestConCoordenadas(), 1L);
+
+        ArgumentCaptor<Organizacion> saved = ArgumentCaptor.forClass(Organizacion.class);
+        verify(organizacionRepository).save(saved.capture());
+        assertThat(saved.getValue().getCodigoRadio()).isEqualTo("020070101");
+    }
+
+    @Test
+    void crear_whenRadioCannotBeResolved_stillSavesWithNullRadio() {
+        when(usuarioRepository.findById(1L)).thenReturn(Optional.of(referente));
+        when(organizacionRepository.save(any(Organizacion.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(radioCensalClient.resolver(-34.0, -58.0)).thenReturn(Optional.empty());
+
+        OrganizacionResponse response = organizacionService.crear(crearRequestConCoordenadas(), 1L);
+
+        ArgumentCaptor<Organizacion> saved = ArgumentCaptor.forClass(Organizacion.class);
+        verify(organizacionRepository).save(saved.capture());
+        assertThat(saved.getValue().getCodigoRadio()).isNull();
+        assertThat(response.getNombre()).isEqualTo("Org Test");
     }
 
     @Test
@@ -521,6 +558,58 @@ class OrganizacionServiceTest {
         assertThat(org.getAceptaDonacionesPendiente()).isFalse();
         assertThat(org.getInfoPublicaPendienteEn()).isNotNull();
         assertThat(response.getInfoPublicaPendienteEn()).isNotNull();
+    }
+
+    private Organizacion organizacionConRadio() {
+        Organizacion org = new Organizacion();
+        org.setId(5L);
+        org.setReferente(referente);
+        org.setLatitud(-34.0);
+        org.setLongitud(-58.0);
+        org.setCodigoRadio("020070101");
+        when(organizacionRepository.findById(5L)).thenReturn(Optional.of(org));
+        when(organizacionRepository.save(any(Organizacion.class))).thenAnswer(inv -> inv.getArgument(0));
+        return org;
+    }
+
+    @Test
+    void actualizar_changedCoordinates_refreshesTheRadio() {
+        Organizacion org = organizacionConRadio();
+        when(radioCensalClient.resolver(-31.4, -58.0)).thenReturn(Optional.of("140140101"));
+        org.example.organizacion.dto.ActualizarOrganizacionRequest request =
+                new org.example.organizacion.dto.ActualizarOrganizacionRequest();
+        request.setLatitud(-31.4);
+
+        organizacionService.actualizar(5L, request, 1L);
+
+        assertThat(org.getCodigoRadio()).isEqualTo("140140101");
+    }
+
+    @Test
+    void actualizar_changedCoordinatesNotResolved_clearsTheStaleRadio() {
+        Organizacion org = organizacionConRadio();
+        when(radioCensalClient.resolver(-34.0, -57.0)).thenReturn(Optional.empty());
+        org.example.organizacion.dto.ActualizarOrganizacionRequest request =
+                new org.example.organizacion.dto.ActualizarOrganizacionRequest();
+        request.setLongitud(-57.0);
+
+        organizacionService.actualizar(5L, request, 1L);
+
+        assertThat(org.getCodigoRadio()).isNull();
+    }
+
+    @Test
+    void actualizar_unchangedCoordinates_doesNotCallTheWorker() {
+        Organizacion org = organizacionConRadio();
+        org.example.organizacion.dto.ActualizarOrganizacionRequest request =
+                new org.example.organizacion.dto.ActualizarOrganizacionRequest();
+        request.setNombre("Nuevo nombre");
+        request.setLatitud(-34.0);
+
+        organizacionService.actualizar(5L, request, 1L);
+
+        verifyNoInteractions(radioCensalClient);
+        assertThat(org.getCodigoRadio()).isEqualTo("020070101");
     }
 
     @Test

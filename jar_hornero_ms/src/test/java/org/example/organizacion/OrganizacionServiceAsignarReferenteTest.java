@@ -27,7 +27,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  * `nivel`/`estado`/`validada` byte-identical — this is a non-accreditation event.
  */
 @DataJpaTest
-@Import({OrganizacionService.class, AcreditacionService.class})
+@Import({OrganizacionService.class, org.example.organizacion.radio.RadioCensalNoConfiguradoClient.class, AcreditacionService.class})
 @org.springframework.boot.test.mock.mockito.MockBean(org.example.actividad.ActividadService.class)
 class OrganizacionServiceAsignarReferenteTest {
 

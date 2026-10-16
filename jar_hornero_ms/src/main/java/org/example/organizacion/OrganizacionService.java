@@ -19,6 +19,7 @@ import org.example.organizacion.dto.AsignarReferenteRequest;
 import org.example.organizacion.dto.CrearOrganizacionRequest;
 import org.example.organizacion.dto.OrganizacionMapaResponse;
 import org.example.organizacion.dto.OrganizacionResponse;
+import org.example.organizacion.radio.RadioCensalClient;
 import org.example.user.Administrador;
 import org.example.user.Referente;
 import org.example.user.Usuario;
@@ -36,6 +37,7 @@ import java.text.Normalizer;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 @Service
@@ -58,6 +60,7 @@ public class OrganizacionService {
     private final AcreditacionService acreditacionService;
     private final ActividadService actividadService;
     private final ApplicationEventPublisher eventPublisher;
+    private final RadioCensalClient radioCensalClient;
 
     @Transactional
     public OrganizacionResponse crear(CrearOrganizacionRequest request, Long referenteUserId) {
@@ -81,6 +84,7 @@ public class OrganizacionService {
         organizacion.setDireccion(request.getDireccion());
         organizacion.setLatitud(request.getLatitud());
         organizacion.setLongitud(request.getLongitud());
+        organizacion.setCodigoRadio(resolverRadio(organizacion.getLatitud(), organizacion.getLongitud()));
         organizacion.setEstado(EstadoOrganizacion.PENDIENTE);
         organizacion.setReferente(referente);
 
@@ -333,12 +337,20 @@ public class OrganizacionService {
         if (request.getSitioWebUrl() != null) campos.add("sitioWebPendiente");
         if (request.getDonacionDirectaUrl() != null) campos.add("donacionDirectaPendiente");
 
+        Double latitudAnterior = organizacion.getLatitud();
+        Double longitudAnterior = organizacion.getLongitud();
+
         if (request.getNombre() != null) organizacion.setNombre(request.getNombre());
         if (request.getTipo() != null) organizacion.setTipo(request.getTipo());
         if (request.getDescripcion() != null) organizacion.setDescripcion(request.getDescripcion());
         if (request.getDireccion() != null) organizacion.setDireccion(request.getDireccion());
         if (request.getLatitud() != null) organizacion.setLatitud(request.getLatitud());
         if (request.getLongitud() != null) organizacion.setLongitud(request.getLongitud());
+        // A moved point must not keep the radio of its previous location: re-resolve, or clear it.
+        if (!Objects.equals(latitudAnterior, organizacion.getLatitud())
+                || !Objects.equals(longitudAnterior, organizacion.getLongitud())) {
+            organizacion.setCodigoRadio(resolverRadio(organizacion.getLatitud(), organizacion.getLongitud()));
+        }
         if (request.getProfileImageKey() != null) organizacion.setProfileImageKey(request.getProfileImageKey());
         if (request.getBannerKey() != null) organizacion.setBannerKey(request.getBannerKey());
 
@@ -368,6 +380,17 @@ public class OrganizacionService {
         actividadService.registrar(Registro.de(TipoActividad.ORGANIZACION_ACTUALIZADA)
                 .entidad("ORGANIZACION", orgId).detalle("campos: " + String.join(", ", campos)));
         return toResponseAutenticado(saved);
+    }
+
+    /**
+     * Best-effort 2022 census radio of a point (rondas-datos-vivos): {@code null} without both
+     * coordinates, or when the worker is down or finds no radio. Never blocks the write.
+     */
+    private String resolverRadio(Double latitud, Double longitud) {
+        if (latitud == null || longitud == null) {
+            return null;
+        }
+        return radioCensalClient.resolver(latitud, longitud).orElse(null);
     }
 
     /**
