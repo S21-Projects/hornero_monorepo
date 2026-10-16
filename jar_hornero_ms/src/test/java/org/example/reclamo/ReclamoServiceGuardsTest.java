@@ -132,7 +132,8 @@ class ReclamoServiceGuardsTest {
         UsuarioRepository userRepo = mock(UsuarioRepository.class);
         OrganizacionService orgService = new OrganizacionService(orgRepo, userRepo,
                 mock(AcreditacionService.class), mock(ActividadService.class),
-                mock(org.springframework.context.ApplicationEventPublisher.class));
+                mock(org.springframework.context.ApplicationEventPublisher.class),
+                mock(org.example.organizacion.radio.RadioCensalClient.class));
         Referente ana = referente();
         when(userRepo.findByIdForUpdate(7L)).thenReturn(Optional.of(ana));
         when(orgRepo.countByReferente_IdAndEstadoNot(anyLong(), any())).thenReturn(0L);
@@ -152,7 +153,8 @@ class ReclamoServiceGuardsTest {
         UsuarioRepository userRepo = mock(UsuarioRepository.class);
         OrganizacionService orgService = new OrganizacionService(orgRepo, userRepo,
                 mock(AcreditacionService.class), mock(ActividadService.class),
-                mock(org.springframework.context.ApplicationEventPublisher.class));
+                mock(org.springframework.context.ApplicationEventPublisher.class),
+                mock(org.example.organizacion.radio.RadioCensalClient.class));
         Referente ana = referente();
         when(userRepo.findByIdForUpdate(7L)).thenReturn(Optional.of(ana));
         when(orgRepo.countByReferente_IdAndEstadoNot(anyLong(), any())).thenReturn(3L);
