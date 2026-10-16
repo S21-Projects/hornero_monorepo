@@ -77,6 +77,12 @@ copies change together, in the same commit, whenever this contract changes.
   coordinate must be finite and within `[-90, 90]` / `[-180, 180]`. `categoria` and
   `categoriasAceptadas`/`categoriasPermitidas` are free-text pass-through — an unrecognized value
   is never rejected, it is simply never matched by a candidate that does not list it.
+- Numeric values that would break the score are rejected with `400 ENTRADA_INVALIDA`:
+  `distanciaMediaKm`, `esperaMaximaDias`, `deficitMaximo` and `cumplimientoPseudoObs` must be `> 0`;
+  `distanciaMaximaKm`, `penalizacionNoAsignar` and `radioResolucionKm` `>= 0`;
+  `cumplimientoPrior` in `[0, 1]`; `pesos` all `>= 0` with at least one `> 0`; `urgencia` in
+  `[0, 1]`; `deficit`, `diasEnFondo`, `diasDesdeUltimaDonacion` and `cumplimiento` counts `>= 0`;
+  donation `id` and `necesidadId` unique within the request.
 
 ## Response — 200
 

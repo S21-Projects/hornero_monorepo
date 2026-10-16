@@ -77,7 +77,7 @@ vulnerabilidad       = deficitCobertura * (1 + necesidadesAbiertas / comedores)
 - The multiplier form is a first proposal and is expected to be tuned.
 
 `vulnerabilidad` replaces the current per-radio `deficit` input of the ronda score
-(`go_algorithms_worker/internal/assign/scoring.go`, weight 0.35).
+(`go_algorithms_worker/internal/assign/scoring.go`, weight 0.30).
 
 ## Rendering
 
