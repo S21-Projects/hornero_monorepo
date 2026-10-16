@@ -40,11 +40,14 @@ class EntradaRondaFactoryTest {
     @Mock
     private CumplimientoCalculator cumplimientoCalculator;
 
+    @Mock
+    private VulnerabilidadCalculator vulnerabilidadCalculator;
+
     private EntradaRondaFactory entradaRondaFactory;
 
     @BeforeEach
     void setUp() {
-        entradaRondaFactory = new EntradaRondaFactory(acreditacionService, cumplimientoCalculator);
+        entradaRondaFactory = new EntradaRondaFactory(acreditacionService, cumplimientoCalculator, vulnerabilidadCalculator);
         org.mockito.Mockito.lenient().when(acreditacionService.categoriasPermitidas(any()))
                 .thenReturn(Set.of(CategoriaAlimento.NO_PERECEDERO));
     }
@@ -95,6 +98,41 @@ class EntradaRondaFactoryTest {
         assertThat(entrada.getCandidatos().get(0).getCumplimiento()).isNull();
     }
 
+    // ─── rondas-datos-vivos: live vulnerability per radio ───────────────────────────────────────
+
+    @Test
+    void candidateWithRadioAndLiveValue_getsCodigoRadioAndDeficit() {
+        Organizacion org = organizacion(8L);
+        org.setCodigoRadio("020010101");
+        Necesidad necesidad = necesidad(40L, org);
+        LocalDate hoy = LocalDate.of(2026, 10, 10);
+        when(cumplimientoCalculator.calcular()).thenReturn(Map.of());
+        when(vulnerabilidadCalculator.calcular(hoy)).thenReturn(Map.of("020010101", 2.25));
+
+        EntradaRondaV1 entrada = entradaRondaFactory.crear(List.of(), List.of(necesidad), Map.of(), Map.of(), hoy);
+
+        assertThat(entrada.getCandidatos().get(0).getCodigoRadio()).isEqualTo("020010101");
+        assertThat(entrada.getCandidatos().get(0).getDeficit()).isEqualTo(2.25);
+    }
+
+    @Test
+    void candidateWithoutLiveValue_omitsDeficitSoTheWorkerAnswersNeutral() {
+        Organizacion sinPoblacion = organizacion(8L);
+        sinPoblacion.setCodigoRadio("020010199");
+        Organizacion sinRadio = organizacion(9L);
+        when(cumplimientoCalculator.calcular()).thenReturn(Map.of());
+        when(vulnerabilidadCalculator.calcular(any())).thenReturn(Map.of("020010101", 2.25));
+
+        EntradaRondaV1 entrada = entradaRondaFactory.crear(
+                List.of(), List.of(necesidad(40L, sinPoblacion), necesidad(41L, sinRadio)),
+                Map.of(), Map.of(), LocalDate.now());
+
+        assertThat(entrada.getCandidatos().get(0).getCodigoRadio()).isEqualTo("020010199");
+        assertThat(entrada.getCandidatos().get(0).getDeficit()).isNull();
+        assertThat(entrada.getCandidatos().get(1).getCodigoRadio()).isNull();
+        assertThat(entrada.getCandidatos().get(1).getDeficit()).isNull();
+    }
+
     private Articulo articulo(long id) {
         Articulo a = new Articulo();
         a.setId(id);
@@ -102,6 +140,25 @@ class EntradaRondaFactoryTest {
         a.setCategoria(CategoriaAlimento.NO_PERECEDERO);
         a.setActivo(true);
         return a;
+    }
+
+    @Test
+    void dateStampedAfterHoy_neverSendsNegativeDays() {
+        // A donation stamped with a later date than the ronda's `hoy` (UTC vs Buenos Aires near
+        // midnight) must not send negative day counts: the worker rejects them with 400.
+        LocalDate hoy = LocalDate.of(2026, 10, 15);
+        Donacion d = new Donacion();
+        d.setId(1L);
+        d.setFechaOferta(hoy.plusDays(1));
+        d.setLineas(List.of());
+        Necesidad necesidad = necesidad(10L, organizacion(7L));
+        when(cumplimientoCalculator.calcular()).thenReturn(Map.of());
+
+        EntradaRondaV1 entrada = entradaRondaFactory.crear(
+                List.of(d), List.of(necesidad), Map.of(7L, -1L), Map.of(), hoy);
+
+        assertThat(entrada.getDonaciones().get(0).getDiasEnFondo()).isZero();
+        assertThat(entrada.getCandidatos().get(0).getDiasDesdeUltimaDonacion()).isZero();
     }
 
     // ─── catalogo-articulos — work unit D: articulo ids on both sides of the entrada ───────────
