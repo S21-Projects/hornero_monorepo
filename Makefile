@@ -1,4 +1,4 @@
-.PHONY: up down up-local seed backup restore-check migrate e2e coverage mapa-datos mapa-fixture importar-renacom
+.PHONY: up down up-local seed backup restore-check migrate e2e coverage mapa-datos mapa-fixture importar-renacom importar-poblacion
 
 ## Docker only — two modes, both full-stack including Postgres.
 ## The Pi runs docker compose directly, not through this Makefile
@@ -99,3 +99,10 @@ importar-renacom: backup
 	mkdir -p scripts/mapa/out
 	duckdb < scripts/mapa/importar-renacom.sql
 	$(PSQL) < scripts/mapa/out/importar-renacom.sql
+
+# Reload poblacion_radio (population per census radio, the denominator of the live ronda
+# vulnerability) from go_algorithms_worker/data/poblacion-radios.csv. Needs V011 applied first
+# (`make migrate`). Backs up first; idempotent (truncate and reload in one transaction).
+# Local stack: make importar-poblacion ENV_FILE=.env.local. See scripts/mapa/README.md.
+importar-poblacion: backup
+	scripts/mapa/importar-poblacion.sh | $(PSQL)

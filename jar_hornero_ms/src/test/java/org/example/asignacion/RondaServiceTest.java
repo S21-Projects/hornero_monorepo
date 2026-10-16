@@ -94,6 +94,9 @@ class RondaServiceTest {
     private CumplimientoCalculator cumplimientoCalculator;
 
     @Mock
+    private VulnerabilidadCalculator vulnerabilidadCalculator;
+
+    @Mock
     private AsignadorClient asignadorClient;
 
     @Mock
@@ -117,7 +120,7 @@ class RondaServiceTest {
     @BeforeEach
     void setUp() {
         Clock clock = Clock.fixed(NOW, ZoneOffset.UTC);
-        entradaRondaFactory = new EntradaRondaFactory(acreditacionService, cumplimientoCalculator);
+        entradaRondaFactory = new EntradaRondaFactory(acreditacionService, cumplimientoCalculator, vulnerabilidadCalculator);
         lenient().when(cumplimientoCalculator.calcular()).thenReturn(java.util.Map.of());
         rondaService = new RondaService(donacionRepository, necesidadRepository, asignacionRepository,
                 rondaRepository, entradaRondaFactory, asignadorClient, usuarioRepository, clock, transactionManager, actividadService, eventPublisher);

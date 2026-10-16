@@ -79,6 +79,25 @@ vulnerabilidad       = deficitCobertura * (1 + necesidadesAbiertas / comedores)
 `vulnerabilidad` replaces the current per-radio `deficit` input of the ronda score
 (`go_algorithms_worker/internal/assign/scoring.go`, weight 0.30).
 
+### Live vulnerability in rondas
+
+The ronda computes this value from the current database each time it runs (change
+`rondas-datos-vivos`), instead of reading numbers baked into the worker image:
+
+- The MS runs one grouped query per ronda (`PoblacionRadioRepository.zonasConComedores`) over
+  `organizaciones` (APROBADA and SIN_RECLAMAR with coordinates and `codigo_radio`; PENDIENTE,
+  RECHAZADA and INACTIVA are excluded), their open necesidades (ABIERTA or EN_PROGRESO, not past
+  `fecha_vencimiento`, the same definition as `/organizaciones/mapa`) and `poblacion_radio`.
+- `VulnerabilidadCalculator` applies the formula above in Java (median with `percentile_cont(0.5)`
+  semantics) and `EntradaRondaFactory` sends each candidate its `codigoRadio` and `deficit`. The
+  worker records `deficitFuente = PROVISTO`.
+- `asistentes_declarados` takes no part in the formula.
+- **NEUTRAL cases**: an organizacion without `codigo_radio`, or whose radio has no row in
+  `poblacion_radio` (or zero habitantes), is sent without `deficit`; the worker answers the neutral
+  1.0 and records NEUTRAL in `deficitFuente`. An empty `poblacion_radio` makes every candidate NEUTRAL
+  and logs one WARN: run `make importar-poblacion`.
+- Estado and necesidad changes show up in the next ronda with no rebuild; only the population is static.
+
 ## Rendering
 
 Implemented in `ts_hornero_astro/src/pages/mapa.astro` with the islands
