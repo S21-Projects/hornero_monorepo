@@ -126,7 +126,7 @@ public class DonacionService {
         d.setDonante(donante);
         d.setObservaciones(dto.getObservaciones());
         d.cambiarEstado(EstadoDonacion.OFRECIDA, clock);
-        d.setFechaOferta(LocalDate.now());
+        d.setFechaOferta(LocalDate.now(clock));
         d.setModalidad(modalidad);
 
         if (modalidad == ModalidadDonacion.FONDO_COMUN) {

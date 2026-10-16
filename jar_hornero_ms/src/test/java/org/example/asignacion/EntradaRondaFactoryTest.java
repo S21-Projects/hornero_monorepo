@@ -142,6 +142,25 @@ class EntradaRondaFactoryTest {
         return a;
     }
 
+    @Test
+    void dateStampedAfterHoy_neverSendsNegativeDays() {
+        // A donation stamped with a later date than the ronda's `hoy` (UTC vs Buenos Aires near
+        // midnight) must not send negative day counts: the worker rejects them with 400.
+        LocalDate hoy = LocalDate.of(2026, 10, 15);
+        Donacion d = new Donacion();
+        d.setId(1L);
+        d.setFechaOferta(hoy.plusDays(1));
+        d.setLineas(List.of());
+        Necesidad necesidad = necesidad(10L, organizacion(7L));
+        when(cumplimientoCalculator.calcular()).thenReturn(Map.of());
+
+        EntradaRondaV1 entrada = entradaRondaFactory.crear(
+                List.of(d), List.of(necesidad), Map.of(7L, -1L), Map.of(), hoy);
+
+        assertThat(entrada.getDonaciones().get(0).getDiasEnFondo()).isZero();
+        assertThat(entrada.getCandidatos().get(0).getDiasDesdeUltimaDonacion()).isZero();
+    }
+
     // ─── catalogo-articulos — work unit D: articulo ids on both sides of the entrada ───────────
 
     @Test
