@@ -1,0 +1,21 @@
+@startuml
+' Hornero — Casos de uso del Planificador (procesos programados)
+!include _estilo.iuml
+
+actor "Planificador\n(tiempo)" as Planificador
+
+rectangle "Hornero" {
+  usecase "CU-11\nAsignar donaciones\ndel fondo común" as CU11
+  usecase "CU-15\nVencer donaciones\nsin respuesta" as CU15
+  usecase "Devolver donación\nal fondo común" as Devolver
+  usecase "Registrar evento\nen la bitácora" as Bitacora
+}
+
+Planificador --> CU11
+Planificador --> CU15
+
+CU11 ..> Bitacora : <<include>>
+CU15 ..> Bitacora : <<include>>
+CU15 ..> Devolver : <<include>>
+
+@enduml

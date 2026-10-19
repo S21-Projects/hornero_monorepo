@@ -1,0 +1,56 @@
+@startuml
+!include _estilo.iuml
+
+actor "Administrador" as Admin
+participant "Panel web" as Web
+participant "BFF" as BFF
+participant "Backend" as Back
+database "Base de datos" as DB
+participant "Correo" as Mail
+actor "Referente" as Ref
+
+== Elevar o reducir nivel de acreditación (CU-09) ==
+
+Admin -> Web : Abre el legajo de la organización\ny elige el nivel destino
+Web -> BFF : Cambiar nivel (destino, motivo)
+BFF -> Back : Cambiar nivel (destino, motivo)
+activate Back
+Back -> Back : Verificar que el actor\nsea administrador
+Back -> DB : Leer organización y nivel actual
+
+alt organización importada sin reclamar
+  Back --> Web : Rechazo: no admite cambios de nivel\nhasta ser reclamada
+else el destino no es un escalón contiguo
+  Back --> Web : Rechazo: transición inválida
+else subir de nivel
+  Back -> DB : Leer evidencias de la organización
+  Back -> Back : Verificar que cada requisito del nivel destino\ny de los inferiores tenga evidencia\nAPROBADA y vigente
+  alt falta algún requisito
+    Back --> Web : Rechazo: faltan requisitos\naprobados y vigentes
+  else requisitos completos
+    group misma transacción
+      Back -> DB : Guardar el nuevo nivel
+      Back -> DB : Proyectar el estado público\n(APROBADA si el nivel es N1 o superior)
+      Back -> DB : Registrar evento NIVEL_ELEVADO\n(nivel anterior, nivel nuevo, actor)
+    end
+    Back -> Mail : Notificar el cambio de nivel
+    Mail --> Ref : Correo con el nuevo nivel
+    Back --> Web : Nivel actualizado
+  end
+else bajar de nivel
+  alt sin motivo
+    Back --> Web : Rechazo: el motivo es obligatorio
+  else con motivo
+    group misma transacción
+      Back -> DB : Guardar el nuevo nivel
+      Back -> DB : Proyectar el estado público
+      Back -> DB : Registrar evento NIVEL_REDUCIDO\n(nivel anterior, nivel nuevo, actor, motivo)
+    end
+    Back -> Mail : Notificar el cambio de nivel
+    Mail --> Ref : Correo con el nuevo nivel y el motivo
+    Back --> Web : Nivel actualizado
+  end
+end
+deactivate Back
+
+@enduml

@@ -42,6 +42,10 @@ package "Organización y acreditación" {
     - validada : Boolean
     - estado : EstadoOrganizacion
     - nivel : NivelAcreditacion
+    - origen : OrigenOrganizacion
+    - origenId : String
+    - asistentesDeclarados : Integer
+    - codigoRadio : String
     - profileImageKey : String
     - bannerKey : String
     - aceptaDonaciones : Boolean
@@ -92,6 +96,28 @@ package "Organización y acreditación" {
   class AcreditacionReplay {
     + {static} reconstruir(eventos : List<OrganizacionEvento>) : NivelAcreditacion
   }
+
+  class ReclamoOrganizacion {
+    - id : Long
+    - rol : RolReclamo
+    - telefono : String
+    - mensaje : String
+    - evidenciaKeys : List<String>
+    - estado : EstadoReclamo
+    - motivoRechazo : String
+    - creadoEn : Instant
+    - resueltoEn : Instant
+  }
+
+  class ReporteOrganizacion {
+    - id : Long
+    - motivo : MotivoReporte
+    - detalle : String
+    - estado : EstadoReporte
+    - notaResolucion : String
+    - creadoEn : Instant
+    - resueltoEn : Instant
+  }
 }
 
 package "Catálogo de artículos" {
@@ -128,6 +154,7 @@ package "Necesidades y donaciones" {
     - fechaOferta : LocalDate
     - fechaEntrega : LocalDate
     - estado : EstadoDonacion
+    - estadoDesde : Instant
     - observaciones : String
     - confirmadaDonanteEn : Instant
     - confirmadaReferenteEn : Instant
@@ -175,6 +202,7 @@ package "Asignación" {
     - ejecutadaEn : Instant
     - finalizadaEn : Instant
     - ejecutadaPor : Long
+    - origen : OrigenRonda
     - estado : EstadoRonda
     - error : String
     - versionContrato : int
@@ -203,7 +231,33 @@ package "Asignación" {
     - terminoUrgencia : double
     - terminoProximidad : double
     - terminoEspera : double
-    - terminoCumplimiento : double
+    - terminoCumplimiento : Double
+    - deficitFuente : String
+    - codigoRadio : String
+  }
+
+  class PoblacionRadio {
+    - codigoRadio : String
+    - habitantes : int
+  }
+}
+
+package "Trazabilidad" {
+  class Actividad {
+    - id : Long
+    - ocurridoEn : Instant
+    - actorUsuarioId : Long
+    - actorTipo : TipoActor
+    - accion : TipoActividad
+    - resultado : ResultadoActividad
+    - entidadTipo : String
+    - entidadId : Long
+    - detalle : String
+    - antes : String
+    - despues : String
+    - motivo : String
+    - ip : String
+    - emailIntento : String
   }
 }
 
@@ -224,5 +278,14 @@ Necesidad "1" *-- "1..*" NecesidadArticulo : solicita >
 NecesidadArticulo "0..*" --> "1" Articulo : refiere a >
 Donacion "1" *-- "1..*" DonacionLinea : contiene >
 DonacionLinea "0..*" --> "1" Articulo : refiere a >
+ReclamoOrganizacion "0..*" --> "1" Organizacion : reclama >
+ReclamoOrganizacion "0..*" --> "1" Referente : referente >
+ReclamoOrganizacion "0..*" --> "0..1" Administrador : resueltoPor >
+ReporteOrganizacion "0..*" --> "1" Organizacion : reporta >
+ReporteOrganizacion "0..*" --> "0..1" Organizacion : organizacionDuplicada >
+ReporteOrganizacion "0..*" --> "1" Usuario : reportante >
+ReporteOrganizacion "0..*" --> "0..1" Administrador : resueltoPor >
+Organizacion "0..*" ..> "0..1" PoblacionRadio : codigoRadio >
+Actividad "0..*" ..> "0..1" Donacion : entidadId (entidadTipo = DONACION) >
 
 @enduml

@@ -1,0 +1,134 @@
+@startuml
+hide circle
+skinparam linetype ortho
+skinparam shadowing false
+skinparam defaultFontName Helvetica
+skinparam defaultFontSize 12
+skinparam entity {
+  BackgroundColor #FFFFFF
+  BorderColor #444444
+  FontColor #111111
+}
+
+entity "usuarios" as usuarios {
+  * id : BIGINT <<PK>>
+  --
+  * tipo : VARCHAR <<discriminador>>
+  * nombre : VARCHAR
+  * email : VARCHAR <<único>>
+  * password : VARCHAR <<hash BCrypt>>
+  * activo : BOOLEAN
+  * email_verificado : BOOLEAN
+}
+
+entity "organizaciones" as organizaciones {
+  * id : BIGINT <<PK>>
+  --
+  * nombre : VARCHAR
+  slug : VARCHAR <<único>> (N)
+  descripcion : VARCHAR(1000) (N)
+  tipo : VARCHAR <<enum TipoOrganizacion>> (N)
+  direccion : VARCHAR (N)
+  latitud : DOUBLE (N)
+  longitud : DOUBLE (N)
+  * validada : BOOLEAN
+  estado : VARCHAR <<enum EstadoOrganizacion>> (N)
+  nivel : VARCHAR <<enum NivelAcreditacion>> (N)
+  origen : VARCHAR <<enum OrigenOrganizacion>> (N)
+  origen_id : VARCHAR (N) <<id en el registro de origen>>
+  asistentes_declarados : INTEGER (N)
+  codigo_radio : VARCHAR(9) (N) <<radio censal 2022>>
+  administrador_id : BIGINT <<FK>> (N)
+  referente_id : BIGINT <<FK>> (N)
+  profile_image_key : VARCHAR (N)
+  banner_key : VARCHAR (N)
+  acepta_donaciones : BOOLEAN (N)
+  sitio_web_url : VARCHAR(500) (N)
+  donacion_directa_url : VARCHAR(500) (N)
+  .. snapshot pendiente de aprobación ..
+  acepta_donaciones_pendiente : BOOLEAN (N)
+  sitio_web_url_pendiente : VARCHAR(500) (N)
+  donacion_directa_url_pendiente : VARCHAR(500) (N)
+  info_publica_pendiente_en : TIMESTAMP (N)
+}
+
+entity "organizacion_evidencia" as evidencia {
+  * id : BIGINT <<PK>>
+  --
+  * organizacion_id : BIGINT <<FK>>
+  * requisito : VARCHAR <<enum RequisitoAcreditacion>>
+  * tipo_evidencia : VARCHAR <<DECLARACION | FOTO | DOCUMENTO>>
+  object_key : VARCHAR (N)
+  declaracion : VARCHAR(2000) (N)
+  valido_desde : DATE (N)
+  valido_hasta : DATE (N) <<null = no vence>>
+  * estado : VARCHAR <<PENDIENTE | APROBADA | OBSERVADA | REEMPLAZADA>>
+  * cargado_por : BIGINT
+  * cargado_en : TIMESTAMP
+  revisado_por : BIGINT (N)
+  revisado_en : TIMESTAMP (N)
+  observacion : VARCHAR(1000) (N)
+}
+
+entity "organizacion_evento" as evento {
+  * id : BIGINT <<PK>>
+  --
+  * organizacion_id : BIGINT <<FK>>
+  * tipo : VARCHAR <<enum TipoEventoOrganizacion>>
+  * ocurrido_en : TIMESTAMP
+  actor_usuario_id : BIGINT (N) <<id suelto, sin FK>>
+  actor_tipo : VARCHAR (N)
+  nivel_antes : VARCHAR (N)
+  nivel_despues : VARCHAR (N)
+  requisito : VARCHAR (N)
+  evidencia_id : BIGINT (N) <<id suelto, sin FK>>
+  motivo : VARCHAR(1000) (N)
+  payload : TEXT (N) <<JSON canónico>>
+}
+
+entity "reclamos_organizacion" as reclamos {
+  * id : BIGINT <<PK>>
+  --
+  * organizacion_id : BIGINT <<FK>>
+  * referente_id : BIGINT <<FK>>
+  * rol : VARCHAR <<enum RolReclamo>>
+  telefono : VARCHAR (N)
+  mensaje : VARCHAR (N)
+  * estado : VARCHAR <<enum EstadoReclamo>>
+  motivo_rechazo : VARCHAR(1000) (N)
+  resuelto_por_id : BIGINT <<FK>> (N)
+  * creado_en : TIMESTAMP
+  resuelto_en : TIMESTAMP (N)
+}
+
+entity "reclamo_organizacion_evidencias" as reclamoEvidencias {
+  * reclamo_id : BIGINT <<FK>>
+  * object_key : VARCHAR
+}
+
+entity "reportes_organizacion" as reportes {
+  * id : BIGINT <<PK>>
+  --
+  * organizacion_id : BIGINT <<FK>>
+  * reportante_id : BIGINT <<FK>>
+  * motivo : VARCHAR <<enum MotivoReporte>>
+  organizacion_duplicada_id : BIGINT <<FK>> (N)
+  detalle : VARCHAR (N)
+  * estado : VARCHAR <<enum EstadoReporte>>
+  nota_resolucion : VARCHAR (N)
+  resuelto_por_id : BIGINT <<FK>> (N)
+  * creado_en : TIMESTAMP
+  resuelto_en : TIMESTAMP (N)
+}
+
+usuarios ||--o{ organizaciones : "valida\n(administrador_id)"
+usuarios ||--o{ organizaciones : "es referente de\n(referente_id)"
+organizaciones ||--o{ evidencia : "presenta"
+organizaciones ||--o{ evento : "registra"
+organizaciones ||--o{ reclamos : "es reclamada en"
+usuarios ||--o{ reclamos : "reclama\n(referente_id)"
+reclamos ||--o{ reclamoEvidencias : "adjunta"
+organizaciones ||--o{ reportes : "es reportada en"
+usuarios ||--o{ reportes : "reporta\n(reportante_id)"
+
+@enduml

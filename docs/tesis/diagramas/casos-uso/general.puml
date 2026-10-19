@@ -1,7 +1,7 @@
 @startuml
 ' Hornero — Diagrama de casos de uso
 ' CU-01 a CU-06 provienen de la entrega de analista.
-' CU-07 a CU-13 incorporan acreditación progresiva, trazabilidad y asignación.
+' CU-07 a CU-19 incorporan acreditación progresiva, trazabilidad, asignación y reasignación.
 ' Vista consolidada; el detalle por actor está en los archivos hermanos.
 
 !include _estilo.iuml
@@ -23,12 +23,20 @@ rectangle "Hornero" {
   usecase "CU-11\nAsignar donaciones\ndel fondo común" as CU11
   usecase "CU-12\nVerificar correo\nelectrónico" as CU12
   usecase "CU-13\nValidar entrega con\ncódigo de un solo uso" as CU13
+  usecase "CU-14\nAceptar o rechazar\ndonación recibida" as CU14
+  usecase "CU-15\nVencer donaciones\nsin respuesta" as CU15
+  usecase "CU-16\nReclamar organización\nimportada" as CU16
+  usecase "CU-17\nResolver reclamo\nde organización" as CU17
+  usecase "CU-18\nReportar organización" as CU18
+  usecase "CU-19\nResolver reporte\nde organización" as CU19
+  usecase "Devolver donación\nal fondo común" as Devolver
   usecase "Registrar evento\nen la bitácora" as Bitacora
   usecase "Verificar requisitos\ndel nivel" as VerificarReq
 }
 
 actor "Administrador" as Admin
-actor "Motor de asignación\n(proceso por lotes)" as Motor
+actor "Planificador\n(tiempo)" as Planificador
+actor "Motor de asignación\n(servicio interno)" as Motor
 
 Visitante --> CU04
 Visitante --> CU01
@@ -37,6 +45,7 @@ Donante --> CU05
 Donante --> CU13
 Donante --> CU04
 Donante --> CU12
+Donante --> CU18
 
 Referente --> CU03
 Referente --> CU06
@@ -44,13 +53,22 @@ Referente --> CU07
 Referente --> CU12
 Referente --> CU10
 Referente --> CU13
+Referente --> CU14
+Referente --> CU16
+Referente --> CU18
 
 CU02 <-- Admin
 CU08 <-- Admin
 CU09 <-- Admin
 CU10 <-- Admin
+CU11 <-- Admin
+CU17 <-- Admin
+CU19 <-- Admin
 
-CU11 <-- Motor
+CU11 <-- Planificador
+CU15 <-- Planificador
+
+CU11 --> Motor
 
 CU02 ..> Bitacora : <<include>>
 CU07 ..> Bitacora : <<include>>
@@ -59,8 +77,14 @@ CU09 ..> Bitacora : <<include>>
 CU09 ..> VerificarReq : <<include>>
 CU11 ..> Bitacora : <<include>>
 CU13 ..> Bitacora : <<include>>
+CU14 ..> Bitacora : <<include>>
+CU15 ..> Bitacora : <<include>>
+CU17 ..> Bitacora : <<include>>
+CU19 ..> Bitacora : <<include>>
 CU05 ..> CU13 : <<include>>
 CU03 ..> VerificarReq : <<include>>
 CU05 ..> CU11 : <<extend>>\n(donación al fondo común)
+Devolver ..> CU14 : <<extend>>\n(rechazo de una propuesta)
+CU15 ..> Devolver : <<include>>
 
 @enduml
