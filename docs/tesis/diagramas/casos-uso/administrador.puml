@@ -9,18 +9,31 @@ rectangle "Hornero" {
   usecase "CU-08\nAuditar evidencia\npresentada" as CU08
   usecase "CU-09\nElevar o reducir\nnivel de acreditación" as CU09
   usecase "CU-10\nExportar legajo\nde acreditación" as CU10
+  usecase "CU-11\nAsignar donaciones\ndel fondo común" as CU11
+  usecase "CU-17\nResolver reclamo\nde organización" as CU17
+  usecase "CU-19\nResolver reporte\nde organización" as CU19
   usecase "Registrar evento\nen la bitácora" as Bitacora
   usecase "Verificar requisitos\ndel nivel" as VerificarReq
 }
+
+actor "Motor de asignación\n(servicio interno)" as Motor
 
 Admin --> CU02
 Admin --> CU08
 Admin --> CU09
 Admin --> CU10
+Admin --> CU11
+Admin --> CU17
+Admin --> CU19
+
+CU11 --> Motor
 
 CU02 ..> Bitacora : <<include>>
 CU08 ..> Bitacora : <<include>>
 CU09 ..> Bitacora : <<include>>
 CU09 ..> VerificarReq : <<include>>
+CU11 ..> Bitacora : <<include>>
+CU17 ..> Bitacora : <<include>>
+CU19 ..> Bitacora : <<include>>
 
 @enduml

@@ -34,6 +34,10 @@ entity "organizaciones" as organizaciones {
   * validada : BOOLEAN
   estado : VARCHAR <<enum EstadoOrganizacion>> (N)
   nivel : VARCHAR <<enum NivelAcreditacion>> (N)
+  origen : VARCHAR <<enum OrigenOrganizacion>> (N)
+  origen_id : VARCHAR (N) <<id en el registro de origen>>
+  asistentes_declarados : INTEGER (N)
+  codigo_radio : VARCHAR(9) (N) <<radio censal 2022>>
   administrador_id : BIGINT <<FK>> (N)
   referente_id : BIGINT <<FK>> (N)
   profile_image_key : VARCHAR (N)
@@ -122,6 +126,7 @@ entity "donaciones" as donaciones {
   fecha_oferta : DATE (N)
   fecha_entrega : DATE (N)
   * estado : VARCHAR <<enum EstadoDonacion>>
+  estado_desde : TIMESTAMP (N) <<inicio del estado actual>>
   observaciones : VARCHAR(1000) (N)
   confirmada_donante_en : TIMESTAMP (N)
   confirmada_referente_en : TIMESTAMP (N)
@@ -167,7 +172,8 @@ entity "rondas" as rondas {
   --
   * ejecutada_en : TIMESTAMP
   finalizada_en : TIMESTAMP (N)
-  * ejecutada_por : BIGINT <<id suelto, sin FK>>
+  ejecutada_por : BIGINT (N) <<id suelto, sin FK; null si es automática>>
+  * origen : VARCHAR <<MANUAL | AUTOMATICA>>
   * estado : VARCHAR <<enum EstadoRonda>>
   error : VARCHAR(1000) (N)
   * version_contrato : INTEGER
@@ -201,7 +207,68 @@ entity "asignaciones" as asignaciones {
   * termino_urgencia : DOUBLE
   * termino_proximidad : DOUBLE
   * termino_espera : DOUBLE
-  * termino_cumplimiento : DOUBLE
+  termino_cumplimiento : DOUBLE (N)
+  deficit_fuente : VARCHAR (N) <<PROVISTO | RADIO | CERCANO | NEUTRAL>>
+  codigo_radio : VARCHAR (N)
+}
+
+entity "poblacion_radio" as poblacion {
+  * codigo_radio : VARCHAR(9) <<PK>>
+  --
+  * habitantes : INTEGER
+}
+
+entity "actividad" as actividad {
+  * id : BIGINT <<PK>>
+  --
+  * ocurrido_en : TIMESTAMP
+  actor_usuario_id : BIGINT (N) <<id suelto, sin FK>>
+  * actor_tipo : VARCHAR <<enum TipoActor>>
+  * accion : VARCHAR <<enum TipoActividad>>
+  * resultado : VARCHAR <<EXITO | FALLO>>
+  entidad_tipo : VARCHAR (N) <<p. ej. DONACION>>
+  entidad_id : BIGINT (N) <<id suelto, sin FK>>
+  detalle : VARCHAR (N)
+  antes : VARCHAR (N) <<estado anterior>>
+  despues : VARCHAR (N) <<estado posterior>>
+  motivo : VARCHAR (N)
+  ip : VARCHAR (N)
+  email_intento : VARCHAR (N)
+}
+
+entity "reclamos_organizacion" as reclamos {
+  * id : BIGINT <<PK>>
+  --
+  * organizacion_id : BIGINT <<FK>>
+  * referente_id : BIGINT <<FK>>
+  * rol : VARCHAR <<enum RolReclamo>>
+  telefono : VARCHAR (N)
+  mensaje : VARCHAR (N)
+  * estado : VARCHAR <<enum EstadoReclamo>>
+  motivo_rechazo : VARCHAR(1000) (N)
+  resuelto_por_id : BIGINT <<FK>> (N)
+  * creado_en : TIMESTAMP
+  resuelto_en : TIMESTAMP (N)
+}
+
+entity "reclamo_organizacion_evidencias" as reclamoEvidencias {
+  * reclamo_id : BIGINT <<FK>>
+  * object_key : VARCHAR
+}
+
+entity "reportes_organizacion" as reportes {
+  * id : BIGINT <<PK>>
+  --
+  * organizacion_id : BIGINT <<FK>>
+  * reportante_id : BIGINT <<FK>>
+  * motivo : VARCHAR <<enum MotivoReporte>>
+  organizacion_duplicada_id : BIGINT <<FK>> (N)
+  detalle : VARCHAR (N)
+  * estado : VARCHAR <<enum EstadoReporte>>
+  nota_resolucion : VARCHAR (N)
+  resuelto_por_id : BIGINT <<FK>> (N)
+  * creado_en : TIMESTAMP
+  resuelto_en : TIMESTAMP (N)
 }
 
 usuarios ||--o{ organizaciones : "valida\n(administrador_id)"
@@ -220,5 +287,12 @@ necesidades ||--o{ necesidadArticulos : "solicita"
 articulos ||--o{ necesidadArticulos : "es solicitado en"
 donaciones ||--o{ donacionLineas : "contiene"
 articulos ||--o{ donacionLineas : "es donado en"
+poblacion |o..o{ organizaciones : "habitantes del radio\n(codigo_radio, sin FK)"
+donaciones ||..o{ actividad : "historial de estados\n(entidad_tipo = DONACION, sin FK)"
+organizaciones ||--o{ reclamos : "es reclamada en"
+usuarios ||--o{ reclamos : "reclama\n(referente_id)"
+reclamos ||--o{ reclamoEvidencias : "adjunta"
+organizaciones ||--o{ reportes : "es reportada en"
+usuarios ||--o{ reportes : "reporta\n(reportante_id)"
 
 @enduml
