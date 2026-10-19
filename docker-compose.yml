@@ -9,6 +9,7 @@ x-logging: &logging
 services:
   postgres:
     logging: *logging
+    restart: unless-stopped
     image: postgres:16-alpine
     environment:
       POSTGRES_DB: "${DB_NAME:-hornero}"
@@ -31,6 +32,7 @@ services:
 
   ms:
     logging: *logging
+    restart: unless-stopped
     build:
       context: ./jar_hornero_ms
     ports:
@@ -117,6 +119,7 @@ services:
   # answers 503 WORKER_NO_DISPONIBLE.
   worker:
     logging: *logging
+    restart: unless-stopped
     build:
       context: ./go_algorithms_worker
     networks:
@@ -130,6 +133,7 @@ services:
 
   bff:
     logging: *logging
+    restart: unless-stopped
     build:
       context: ./ts_hornero_bff
     ports:
@@ -163,6 +167,7 @@ services:
 
   astro:
     logging: *logging
+    restart: unless-stopped
     build:
       context: ./ts_hornero_astro
       args:
@@ -199,6 +204,7 @@ services:
 
   admin:
     logging: *logging
+    restart: unless-stopped
     build:
       context: ./ts_hornero_admin
       args:
