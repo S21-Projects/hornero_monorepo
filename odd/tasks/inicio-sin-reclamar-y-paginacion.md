@@ -97,6 +97,22 @@ Out of scope: BFF public/admin split, PostGIS, changing `/mapa` (vulnerability p
 - T0: commit `ba2a45f`.
 - T1: commit `9a1e55f`. Dense areas (GBA) hit the cap: T2 must show a "zoom in" hint when `truncated`.
 
+## Delivery
+
+Strategy `ask-on-risk`; chain strategy chosen by the user: `stacked-to-main` (base `develop`).
+Slice branches pushed to origin, each PR based on the previous one:
+
+1. `feat/inicio-sin-reclamar-01-chip` — `ba2a45f` (T0), ~181 lines.
+2. `feat/inicio-sin-reclamar-02-zona-endpoint` — `9a1e55f`, `8f75442` (T1), ~385 lines.
+3. `feat/inicio-sin-reclamar-03-viewport-astro` — `6d735e2`, `2b65a0b` (T2), ~494 lines.
+4. `feat/inicio-sin-reclamar-04-referentes-paginacion` — `b2c1521`, `99c1e25` (T3), ~689 lines,
+   `size:exception` (single MS+BFF+admin contract change).
+5. `feat/inicio-sin-reclamar-05-admin-paginacion` — `e241c7f`, `f62506e` (T4), ~1147 lines,
+   `size:exception` (one commit, 43 files, coordinated contract change).
+6. `feat/inicio-sin-reclamar-06-donaciones-estado` — `0fc0745`, `6db2dd6` (T5), ~405 lines.
+
+PRs not opened yet: `gh` is not authenticated locally.
+
 ## Next step
 
 Decide delivery chain strategy before any PR.
