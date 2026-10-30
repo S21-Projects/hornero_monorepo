@@ -46,9 +46,12 @@ Out of scope: BFF public/admin split, PostGIS, changing `/mapa` (vulnerability p
 - [x] T0 — Home chip "Sin reclamar" (first version: SSR fetch of `/organizaciones/mapa`, list cap 30,
   gray pins). Route: delegated (2+ files). Checks: astro build PASS, astro check 0 errors.
   User tested it in the browser. Superseded in part by T2 (no SSR fetch).
-- [ ] T1 — MS + BFF: `GET /organizaciones/mapa/zona?minLat&maxLat&minLng&maxLng` (public) returning
-  `OrgMapa` pins (APROBADA + SIN_RECLAMAR) inside the box, with a hard cap and a `truncated` flag;
-  lat/lng index script; tests. Route: delegated (MS+BFF, 2+ files).
+- [x] T1 — MS + BFF: `GET /organizaciones/mapa/zona?minLat&maxLat&minLng&maxLng` (public) returning
+  `{pins: OrgMapa[], truncated}` (APROBADA + SIN_RECLAMAR, inclusive box, cap 500, order by id,
+  `max-age=60`); `V012__organizaciones_lat_lng_idx.sql`; global 400 for type mismatches.
+  Route: delegated (MS+BFF, 2+ files). Checks: `mvn test` 1073/0 failures; BFF `npm test` 420/420;
+  `npm run lint` fails on base (313 pre-existing errors, new spec clean). Smoke: Gran Buenos Aires box
+  returns 500 pins + truncated=true; `minLat=abc` → 400. Commit `9a1e55f`.
 - [ ] T2 — Astro home: drop the SSR fetch of all pins; when the chip is on, fetch the viewport from
   the browser on `moveend` (debounced), skip below a min zoom with a hint, loading indicator,
   clustering; "Mi ubicación" button (port admin `useGeolocation`, `geolocation=(self)`), list
@@ -71,8 +74,9 @@ Out of scope: BFF public/admin split, PostGIS, changing `/mapa` (vulnerability p
 
 ## Progress / evidence
 
-- T0: commit pending (first commit of this branch).
+- T0: commit `ba2a45f`.
+- T1: commit `9a1e55f`. Dense areas (GBA) hit the cap: T2 must show a "zoom in" hint when `truncated`.
 
 ## Next step
 
-Commit T0, then delegate T1.
+Delegate T2.
