@@ -1,13 +1,15 @@
-import { useMemo, useState } from 'react';
-import { SearchNormal1, ArrowRight, Location, Routing } from 'iconsax-reactjs';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { SearchNormal1, ArrowRight, Location, Routing, Gps } from 'iconsax-reactjs';
 import { Card } from '../ui/card';
 import { Pill } from '../ui/pill';
 import { Button } from '../ui/button';
 import { Avatar } from '../ui/avatar';
 import { EmptyState } from '../ui/empty-state';
-import LeafletMap, { type MapMarkerData } from './leaflet-map';
+import LeafletMap, { type MapMarkerData, type MapViewport } from './leaflet-map';
 import { TIPO_ORGANIZACION_LABELS, TIPO_ORGANIZACION_OPTIONS, type TipoOrganizacion } from '../../lib/tipos-organizacion';
 import { sortByDistance, formatDistance, CORDOBA_CENTER } from '../../lib/geo';
+import { useGeolocation } from '../../lib/useGeolocation';
+import { boundsKey, fetchZona, snapBounds, type ZonaResult } from '../../lib/mapaZona';
 import type { Org } from '../../lib/types';
 
 const FILTER_OPTIONS = [
@@ -19,6 +21,14 @@ type OrgWithDistance = Org & { distanceKm?: number };
 
 /** Unclaimed orgs span the whole country: cap how many cards hit the DOM (the map still shows all). */
 const SIN_RECLAMAR_LIST_CAP = 30;
+
+/**
+ * Below this zoom the viewport covers more than ~40 km across, which would always hit the
+ * server's 500-pin cap: skip the request and ask the visitor to zoom in instead.
+ */
+const MIN_ZOOM_SIN_RECLAMAR = 11;
+const ZONA_DEBOUNCE_MS = 300;
+const ZONA_CACHE_MAX = 40;
 
 const PUBLIC_BFF_URL = import.meta.env.PUBLIC_BFF_URL ?? '';
 const PUBLIC_SPA_URL = import.meta.env.PUBLIC_SPA_URL ?? '';
@@ -94,25 +104,77 @@ function OrgCard({
 
 interface HomeMapExplorerProps {
   orgs: Org[];
-  /** Unclaimed orgs (ReNaCoM census); shown only while the "Sin reclamar" chip is on. */
-  sinReclamar?: Org[];
 }
 
-export default function HomeMapExplorer({ orgs, sinReclamar = [] }: HomeMapExplorerProps) {
+export default function HomeMapExplorer({ orgs }: HomeMapExplorerProps) {
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [activeFilter, setActiveFilter] = useState<string>('');
   const [query, setQuery] = useState('');
   const [showSinReclamar, setShowSinReclamar] = useState(false);
 
-  // Sort by distance from Córdoba center (no geolocation in public-only slice 1).
-  const sortedOrgs = useMemo<OrgWithDistance[]>(
-    () => sortByDistance(orgs, CORDOBA_CENTER),
-    [orgs],
-  );
-  const sortedSinReclamar = useMemo<OrgWithDistance[]>(
-    () => sortByDistance(sinReclamar, CORDOBA_CENTER),
-    [sinReclamar],
-  );
+  const [viewport, setViewport] = useState<MapViewport | null>(null);
+  const [zona, setZona] = useState<ZonaResult>({ orgs: [], truncated: false });
+  const [zonaLoading, setZonaLoading] = useState(false);
+  const [zonaError, setZonaError] = useState(false);
+  const zonaCache = useRef(new Map<string, ZonaResult>());
+
+  const geo = useGeolocation();
+  // Distances are measured from the visitor once located, otherwise from Córdoba.
+  const origin = geo.hasUserPosition ? geo.position : CORDOBA_CENTER;
+
+  const zoomTooLow = viewport != null && viewport.zoom < MIN_ZOOM_SIN_RECLAMAR;
+
+  // Fetch unclaimed pins for the visible box: debounced, stale requests aborted, small cache.
+  useEffect(() => {
+    if (!showSinReclamar || viewport == null || zoomTooLow) {
+      setZonaLoading(false);
+      return;
+    }
+    const box = snapBounds(viewport);
+    const key = boundsKey(box);
+    const cached = zonaCache.current.get(key);
+    if (cached) {
+      setZona(cached);
+      setZonaError(false);
+      setZonaLoading(false);
+      return;
+    }
+
+    const controller = new AbortController();
+    setZonaLoading(true);
+    const timer = setTimeout(() => {
+      fetchZona(box, controller.signal)
+        .then((result) => {
+          if (zonaCache.current.size >= ZONA_CACHE_MAX) {
+            zonaCache.current.delete(zonaCache.current.keys().next().value as string);
+          }
+          zonaCache.current.set(key, result);
+          setZona(result);
+          setZonaError(false);
+          setZonaLoading(false);
+        })
+        .catch((e) => {
+          if (controller.signal.aborted) return;
+          console.error(e);
+          setZonaError(true);
+          setZonaLoading(false);
+        });
+    }, ZONA_DEBOUNCE_MS);
+
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
+  }, [showSinReclamar, viewport, zoomTooLow]);
+
+  const sortedOrgs = useMemo<OrgWithDistance[]>(() => sortByDistance(orgs, origin), [orgs, origin]);
+  const sortedSinReclamar = useMemo<OrgWithDistance[]>(() => {
+    const verifiedIds = new Set(orgs.map((o) => o.id));
+    return sortByDistance(
+      zona.orgs.filter((o) => !verifiedIds.has(o.id)),
+      origin,
+    );
+  }, [zona, orgs, origin]);
 
   const visibleOrgs = useMemo<OrgWithDistance[]>(() => {
     const q = query.trim().toLowerCase();
@@ -154,14 +216,28 @@ export default function HomeMapExplorer({ orgs, sinReclamar = [] }: HomeMapExplo
       ?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
   }
 
+  const statusMessages = [
+    showSinReclamar && zoomTooLow && 'Acercá el mapa para ver las organizaciones sin reclamar',
+    showSinReclamar && !zoomTooLow && zonaLoading && 'Buscando organizaciones sin reclamar…',
+    showSinReclamar && !zoomTooLow && zonaError && 'No pudimos cargar las organizaciones sin reclamar. Probá mover el mapa para reintentar.',
+    showSinReclamar && !zoomTooLow && !zonaLoading && !zonaError && zona.truncated &&
+      'Hay más organizaciones en esta zona: acercá el mapa para verlas todas',
+    geo.status === 'denied' && 'No pudimos acceder a tu ubicación. Revisá los permisos del navegador.',
+    geo.status === 'unsupported' && 'Tu navegador no permite obtener la ubicación.',
+  ].filter((m): m is string => typeof m === 'string');
+
   return (
     <div className="flex h-[calc(100dvh-60px)] flex-col">
       <div className="relative flex-1 overflow-hidden">
         <LeafletMap
           markers={markers}
-          center={CORDOBA_CENTER}
+          center={origin}
           zoom={13}
           fitToMarkers
+          clusterMarkers
+          userPosition={geo.hasUserPosition ? geo.position : null}
+          recenterSignal={geo.fixCount}
+          onViewportChange={setViewport}
           selectedId={selectedId}
           onMarkerSelect={(id) => selectOrg(id as number)}
         />
@@ -229,26 +305,60 @@ export default function HomeMapExplorer({ orgs, sinReclamar = [] }: HomeMapExplo
                 </button>
               );
             })}
-            {sinReclamar.length > 0 && (
-              <button
-                type="button"
-                aria-pressed={showSinReclamar}
-                onClick={() => setShowSinReclamar((v) => !v)}
-                className="cursor-pointer border-0 bg-transparent p-0"
-                style={{
-                  padding: '9px 15px',
-                  borderRadius: 999,
-                  fontWeight: 800,
-                  fontSize: 13,
-                  background: showSinReclamar ? 'var(--earth)' : 'var(--card)',
-                  color: showSinReclamar ? '#fff' : 'var(--ink-2)',
-                  boxShadow: showSinReclamar ? 'none' : 'var(--sh-1)',
-                }}
-              >
-                Sin reclamar
-              </button>
-            )}
+          <button
+              type="button"
+              aria-pressed={showSinReclamar}
+              onClick={() => setShowSinReclamar((v) => !v)}
+              className="cursor-pointer border-0 bg-transparent p-0"
+              style={{
+                padding: '9px 15px',
+                borderRadius: 999,
+                fontWeight: 800,
+                fontSize: 13,
+                background: showSinReclamar ? 'var(--earth)' : 'var(--card)',
+                color: showSinReclamar ? '#fff' : 'var(--ink-2)',
+                boxShadow: showSinReclamar ? 'none' : 'var(--sh-1)',
+              }}
+            >
+              Sin reclamar
+            </button>
+            <button
+              type="button"
+              aria-label="Usar mi ubicación"
+              disabled={geo.status === 'requesting'}
+              onClick={() => geo.request()}
+              className="cursor-pointer border-0 bg-transparent p-0"
+              style={{
+                padding: '9px 15px',
+                borderRadius: 999,
+                fontWeight: 800,
+                fontSize: 13,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+                background: geo.hasUserPosition ? 'var(--earth)' : 'var(--card)',
+                color: geo.hasUserPosition ? '#fff' : 'var(--ink-2)',
+                boxShadow: geo.hasUserPosition ? 'none' : 'var(--sh-1)',
+              }}
+            >
+              <Gps size={16} color={geo.hasUserPosition ? '#fff' : 'var(--ink-2)'} />
+              {geo.status === 'requesting' ? 'Buscando…' : 'Mi ubicación'}
+            </button>
           </div>
+
+          {statusMessages.length > 0 && (
+            <div role="status" className="flex flex-col items-start gap-1.5">
+              {statusMessages.map((m) => (
+                <span
+                  key={m}
+                  className="rounded-[var(--r-pill)] bg-[var(--card)] px-3.5 py-1.5 text-[12.5px] font-bold text-[var(--ink-2)]"
+                  style={{ boxShadow: 'var(--sh-1)' }}
+                >
+                  {m}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* bottom sheet */}
