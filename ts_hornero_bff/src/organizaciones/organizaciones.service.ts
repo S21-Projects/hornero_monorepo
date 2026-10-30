@@ -39,9 +39,19 @@ export class OrganizacionesService {
     return data;
   }
 
-  async listarTodas(accessToken: string) {
+  async listarTodas(
+    accessToken: string,
+    params: {
+      sinReferente?: string;
+      referenteIds?: string;
+      q?: string;
+      page?: string;
+      size?: string;
+      sort?: string;
+    } = {},
+  ) {
     const { data } = await this.httpService.axiosRef.get(
-      `${this.msUrl}/api/organizaciones/todas`,
+      `${this.msUrl}/api/organizaciones/todas${buildQuery(params)}`,
       { headers: this.authHeaders(accessToken) },
     );
     return data;
@@ -60,7 +70,12 @@ export class OrganizacionesService {
     return data;
   }
 
-  async listarValidadas(accessToken?: string, page?: string, size?: string, sort?: string) {
+  async listarValidadas(
+    accessToken?: string,
+    page?: string,
+    size?: string,
+    sort?: string,
+  ) {
     const url = `${this.msUrl}/api/organizaciones${buildQuery({ page, size, sort })}`;
     const { data } = await this.httpService.axiosRef.get(
       url,
@@ -69,7 +84,12 @@ export class OrganizacionesService {
     return data;
   }
 
-  async listarPendientes(accessToken: string, page?: string, size?: string, sort?: string) {
+  async listarPendientes(
+    accessToken: string,
+    page?: string,
+    size?: string,
+    sort?: string,
+  ) {
     const url = `${this.msUrl}/api/organizaciones/pendientes${buildQuery({ page, size, sort })}`;
     const { data } = await this.httpService.axiosRef.get(url, {
       headers: this.authHeaders(accessToken),
@@ -84,7 +104,12 @@ export class OrganizacionesService {
     return data;
   }
 
-  async mapaZona(minLat?: string, maxLat?: string, minLng?: string, maxLng?: string) {
+  async mapaZona(
+    minLat?: string,
+    maxLat?: string,
+    minLng?: string,
+    maxLng?: string,
+  ) {
     const url = `${this.msUrl}/api/organizaciones/mapa/zona${buildQuery({ minLat, maxLat, minLng, maxLng })}`;
     const { data } = await this.httpService.axiosRef.get(url);
     return data;

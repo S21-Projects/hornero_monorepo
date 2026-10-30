@@ -87,6 +87,24 @@ public interface OrganizacionRepository extends JpaRepository<Organizacion, Long
             """)
     List<Organizacion> findPendientesDeRadio(Pageable pageable);
 
+    /**
+     * Admin listing filtered by referente presence / referente ids / lowercased name pattern. The caller
+     * passes {@code '%'} for "no name filter" and a one-element sentinel list when {@code filtrarReferentes}
+     * is false (an empty IN list is not portable).
+     */
+    @org.springframework.data.jpa.repository.Query("""
+            select o from Organizacion o
+            where (:sinReferente = false or o.referente is null)
+              and (:filtrarReferentes = false or o.referente.id in :referenteIds)
+              and lower(o.nombre) like :patron escape '\\'
+            """)
+    Page<Organizacion> buscarAdmin(
+            @org.springframework.data.repository.query.Param("sinReferente") boolean sinReferente,
+            @org.springframework.data.repository.query.Param("filtrarReferentes") boolean filtrarReferentes,
+            @org.springframework.data.repository.query.Param("referenteIds") java.util.Collection<Long> referenteIds,
+            @org.springframework.data.repository.query.Param("patron") String patron,
+            Pageable pageable);
+
     List<Organizacion> findByReferente_Id(Long referenteId);
 
     Optional<Organizacion> findByIdAndReferente_Id(Long id, Long referenteId);
