@@ -71,15 +71,16 @@ public class DonacionController {
         return PageData.from(donacionService.findMias(donanteId, pageable));
     }
 
-    @Operation(summary = "List donations received by my organization(s), optionally filtered by one")
+    @Operation(summary = "List donations received by my organization(s), optionally filtered by one organization and/or by estado (repeat or comma-separate)")
     @GetMapping("/mi-organizacion")
     @PreAuthorize("hasRole('REFERENTE')")
     public PageData<DonacionResponse> findDeMiOrganizacion(
             @RequestParam(required = false) Long organizacionId,
+            @RequestParam(required = false) List<EstadoDonacion> estado,
             @PageableDefault(size = 20, sort = {"fechaOferta", "id"}, direction = Sort.Direction.DESC) Pageable pageable) {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         Long referenteId = (Long) auth.getPrincipal();
-        return PageData.from(donacionService.findDeMisOrganizaciones(referenteId, organizacionId, pageable));
+        return PageData.from(donacionService.findDeMisOrganizaciones(referenteId, organizacionId, estado, pageable));
     }
 
     @Operation(summary = "List active (non-terminal) donations for admin oversight, paginated, searchable and filterable by stale (estancadas=true)")

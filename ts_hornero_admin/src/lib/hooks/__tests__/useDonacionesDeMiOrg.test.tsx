@@ -59,6 +59,31 @@ describe('useDonacionesDeMiOrg', () => {
     });
   });
 
+  it('sends the estado filter comma-joined and keeps it in the query key', async () => {
+    vi.mocked(api.get).mockResolvedValue({
+      data: { content: [], number: 0, size: 100, totalElements: 0, totalPages: 0 },
+    });
+    const wrapper = createWrapper();
+
+    const { result } = renderHook(
+      () => useDonacionesDeMiOrg({ page: 0, size: 100, estado: ['OFRECIDA', 'EN_CAMINO'] }),
+      { wrapper },
+    );
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    renderHook(() => useDonacionesDeMiOrg({ page: 0, size: 100, estado: ['OFRECIDA'] }), {
+      wrapper,
+    });
+    await waitFor(() => expect(api.get).toHaveBeenCalledTimes(2));
+
+    expect(api.get).toHaveBeenNthCalledWith(1, '/donaciones/mi-organizacion', {
+      params: { page: 0, size: 100, estado: 'OFRECIDA,EN_CAMINO' },
+    });
+    // Different filter => different cache entry => a second request, not a cache hit.
+    expect(api.get).toHaveBeenNthCalledWith(2, '/donaciones/mi-organizacion', {
+      params: { page: 0, size: 100, estado: 'OFRECIDA' },
+    });
+  });
+
   it('does not fetch when disabled', () => {
     renderHook(() => useDonacionesDeMiOrg({ enabled: false }), { wrapper: createWrapper() });
 

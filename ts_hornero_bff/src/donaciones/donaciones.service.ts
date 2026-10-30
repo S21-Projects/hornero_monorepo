@@ -79,8 +79,9 @@ export class DonacionesService {
     page?: string,
     size?: string,
     sort?: string,
+    estado?: string,
   ) {
-    const url = `${this.msUrl}/api/donaciones/mi-organizacion${buildQuery({ organizacionId, page, size, sort })}`;
+    const url = `${this.msUrl}/api/donaciones/mi-organizacion${buildQuery({ organizacionId, page, size, sort, estado })}`;
     const { data } = await this.httpService.axiosRef.get(url, {
       headers: this.authHeaders(accessToken),
     });

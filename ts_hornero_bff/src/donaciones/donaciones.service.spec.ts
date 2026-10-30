@@ -109,6 +109,26 @@ describe('DonacionesService', () => {
     });
   });
 
+  describe('findDeMiOrganizacion estado filter', () => {
+    it('forwards a comma-separated estado list to the MS', async () => {
+      httpService.axiosRef.get.mockResolvedValue({ data: { content: [] } });
+
+      await service.findDeMiOrganizacion(
+        'token-123',
+        undefined,
+        '0',
+        '100',
+        undefined,
+        'OFRECIDA,EN_CAMINO',
+      );
+
+      expect(httpService.axiosRef.get).toHaveBeenCalledWith(
+        'http://ms:8081/api/donaciones/mi-organizacion?page=0&size=100&estado=OFRECIDA%2CEN_CAMINO',
+        { headers: { Authorization: 'Bearer token-123' } },
+      );
+    });
+  });
+
   describe('decidir', () => {
     it('PATCHes the MS /decision endpoint with a Bearer header', async () => {
       const data = { id: 1, estado: 'ACEPTADA' };

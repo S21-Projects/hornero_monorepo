@@ -190,10 +190,10 @@ class DonacionServiceTest {
         Donacion d1 = donacionFor(1L, miOrganizacion);
         Donacion d2 = donacionFor(2L, miOrganizacion);
 
-        when(donacionRepository.findByOrganizacion_Referente_Id(1L, pageable))
+        when(donacionRepository.findByOrganizacion_Referente_Id(eq(1L), eq(false), any(), eq(pageable)))
                 .thenReturn(new PageImpl<>(List.of(d1, d2), pageable, 45));
 
-        Page<DonacionResponse> result = donacionService.findDeMisOrganizaciones(1L, null, pageable);
+        Page<DonacionResponse> result = donacionService.findDeMisOrganizaciones(1L, null, null, pageable);
 
         assertThat(result.getContent()).hasSize(2);
         assertThat(result.getContent()).allSatisfy(r -> assertThat(r.organizacionId()).isEqualTo(10L));
@@ -205,22 +205,23 @@ class DonacionServiceTest {
     void findDeMisOrganizaciones_withOrgIdFilter_scopesToThatOrg() {
         Pageable pageable = PageRequest.of(1, 5);
         when(organizacionRepository.findByIdAndReferente_Id(10L, 1L)).thenReturn(Optional.of(miOrganizacion));
-        when(donacionRepository.findByOrganizacionId(10L, pageable))
+        when(donacionRepository.findByOrganizacionIdYEstados(eq(10L), eq(false), any(), eq(pageable)))
                 .thenReturn(new PageImpl<>(List.of(donacionFor(1L, miOrganizacion)), pageable, 6));
 
-        Page<DonacionResponse> result = donacionService.findDeMisOrganizaciones(1L, 10L, pageable);
+        Page<DonacionResponse> result = donacionService.findDeMisOrganizaciones(1L, 10L, null, pageable);
 
         assertThat(result.getContent()).hasSize(1);
         assertThat(result.getNumber()).isEqualTo(1);
-        verify(donacionRepository).findByOrganizacionId(10L, pageable);
-        verify(donacionRepository, org.mockito.Mockito.never()).findByOrganizacion_Referente_Id(org.mockito.ArgumentMatchers.anyLong(), any(Pageable.class));
+        verify(donacionRepository).findByOrganizacionIdYEstados(eq(10L), eq(false), any(), eq(pageable));
+        verify(donacionRepository, org.mockito.Mockito.never()).findByOrganizacion_Referente_Id(
+                org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.anyBoolean(), any(), any(Pageable.class));
     }
 
     @Test
     void findDeMisOrganizaciones_foreignOrgIdFilter_throwsForbidden() {
         when(organizacionRepository.findByIdAndReferente_Id(20L, 1L)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> donacionService.findDeMisOrganizaciones(1L, 20L, PageRequest.of(0, 20)))
+        assertThatThrownBy(() -> donacionService.findDeMisOrganizaciones(1L, 20L, null, PageRequest.of(0, 20)))
                 .isInstanceOf(ResponseStatusException.class)
                 .hasMessageContaining("403");
     }
@@ -228,12 +229,50 @@ class DonacionServiceTest {
     @Test
     void findDeMisOrganizaciones_noOrgs_returnsEmptyPage() {
         Pageable pageable = PageRequest.of(0, 20);
-        when(donacionRepository.findByOrganizacion_Referente_Id(1L, pageable)).thenReturn(Page.empty(pageable));
+        when(donacionRepository.findByOrganizacion_Referente_Id(eq(1L), eq(false), any(), eq(pageable)))
+                .thenReturn(Page.empty(pageable));
 
-        Page<DonacionResponse> result = donacionService.findDeMisOrganizaciones(1L, null, pageable);
+        Page<DonacionResponse> result = donacionService.findDeMisOrganizaciones(1L, null, null, pageable);
 
         assertThat(result.getContent()).isEmpty();
         assertThat(result.getTotalElements()).isZero();
+    }
+
+    @Test
+    void findDeMisOrganizaciones_withEstados_passesTheFilterToTheRepository() {
+        Pageable pageable = PageRequest.of(0, 100);
+        List<EstadoDonacion> estados = List.of(EstadoDonacion.OFRECIDA, EstadoDonacion.EN_CAMINO);
+        when(donacionRepository.findByOrganizacion_Referente_Id(1L, true, estados, pageable))
+                .thenReturn(new PageImpl<>(List.of(donacionFor(1L, miOrganizacion)), pageable, 1));
+
+        Page<DonacionResponse> result = donacionService.findDeMisOrganizaciones(1L, null, estados, pageable);
+
+        assertThat(result.getContent()).hasSize(1);
+        verify(donacionRepository).findByOrganizacion_Referente_Id(1L, true, estados, pageable);
+    }
+
+    @Test
+    void findDeMisOrganizaciones_emptyEstados_isTreatedAsNoFilter() {
+        Pageable pageable = PageRequest.of(0, 20);
+        when(donacionRepository.findByOrganizacion_Referente_Id(eq(1L), eq(false), any(), eq(pageable)))
+                .thenReturn(Page.empty(pageable));
+
+        donacionService.findDeMisOrganizaciones(1L, null, List.of(), pageable);
+
+        verify(donacionRepository).findByOrganizacion_Referente_Id(eq(1L), eq(false), any(), eq(pageable));
+    }
+
+    @Test
+    void findDeMisOrganizaciones_withOrgIdAndEstados_scopesBothFilters() {
+        Pageable pageable = PageRequest.of(0, 100);
+        List<EstadoDonacion> estados = List.of(EstadoDonacion.OFRECIDA);
+        when(organizacionRepository.findByIdAndReferente_Id(10L, 1L)).thenReturn(Optional.of(miOrganizacion));
+        when(donacionRepository.findByOrganizacionIdYEstados(10L, true, estados, pageable))
+                .thenReturn(Page.empty(pageable));
+
+        donacionService.findDeMisOrganizaciones(1L, 10L, estados, pageable);
+
+        verify(donacionRepository).findByOrganizacionIdYEstados(10L, true, estados, pageable);
     }
 
     // --- N13: notification events (published inside the transaction, handled after commit) ---

@@ -100,6 +100,7 @@ export class DonacionesController {
     @Query('page') page?: string,
     @Query('size') size?: string,
     @Query('sort') sort?: string,
+    @Query('estado') estado?: string,
   ) {
     return this.donacionesService.findDeMiOrganizacion(
       this.getToken(req),
@@ -107,6 +108,7 @@ export class DonacionesController {
       page,
       size,
       sort,
+      estado,
     );
   }
 
