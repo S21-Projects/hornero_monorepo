@@ -94,6 +94,38 @@ describe('OrganizacionesService', () => {
     });
   });
 
+  describe('listarTodas', () => {
+    it('forwards filters and paging to the MS with the Bearer header, comma intact', async () => {
+      const data = { data: { totalElements: 0, content: [] } };
+      httpService.axiosRef.get.mockResolvedValue({ data });
+
+      const result = await service.listarTodas('tok', {
+        sinReferente: 'true',
+        referenteIds: '1,2,3',
+        q: 'sol y luna',
+        page: '2',
+        size: '20',
+      });
+
+      expect(httpService.axiosRef.get).toHaveBeenCalledWith(
+        'http://ms:8081/api/organizaciones/todas?sinReferente=true&referenteIds=1%2C2%2C3&q=sol+y+luna&page=2&size=20',
+        { headers: { Authorization: 'Bearer tok' } },
+      );
+      expect(result).toEqual(data);
+    });
+
+    it('sends no query string when no params are given', async () => {
+      httpService.axiosRef.get.mockResolvedValue({ data: {} });
+
+      await service.listarTodas('tok');
+
+      expect(httpService.axiosRef.get).toHaveBeenCalledWith(
+        'http://ms:8081/api/organizaciones/todas',
+        { headers: { Authorization: 'Bearer tok' } },
+      );
+    });
+  });
+
   describe('misOrganizaciones', () => {
     it('forwards the Bearer header to the MS mia endpoint', async () => {
       const data = [{ id: 1 }, { id: 2 }];

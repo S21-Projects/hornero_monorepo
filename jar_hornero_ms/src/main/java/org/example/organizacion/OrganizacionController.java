@@ -90,11 +90,15 @@ public class OrganizacionController {
         return PageData.from(organizacionService.listarPendientes(pageable));
     }
 
-    @Operation(summary = "List all organizations, any estado/referente (admin only)")
+    @Operation(summary = "List all organizations, any estado/referente, paged and filterable (admin only)")
     @GetMapping("/todas")
     @PreAuthorize("hasRole('ADMINISTRADOR')")
-    public List<OrganizacionResponse> listarTodas() {
-        return organizacionService.listarTodas();
+    public PageData<OrganizacionResponse> listarTodas(
+            @RequestParam(required = false) Boolean sinReferente,
+            @RequestParam(required = false) List<Long> referenteIds,
+            @RequestParam(required = false) String q,
+            @PageableDefault(size = 20, sort = "id") Pageable pageable) {
+        return PageData.from(organizacionService.listarTodas(sinReferente, referenteIds, q, pageable));
     }
 
     @Operation(summary = "Get organization by slug (access policy enforced by service)")
