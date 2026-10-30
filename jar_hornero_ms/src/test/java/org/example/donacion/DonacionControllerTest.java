@@ -1,6 +1,7 @@
 package org.example.donacion;
 
 import org.example.auth.JwtService;
+import org.example.domain.EstadoDonacion;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -150,7 +151,7 @@ class DonacionControllerTest {
     @Test
     void getMiOrganizacion_pagedWithDefaultSortAndEnvelope() throws Exception {
         ArgumentCaptor<Pageable> captor = ArgumentCaptor.forClass(Pageable.class);
-        when(donacionService.findDeMisOrganizaciones(eq(7L), eq(10L), captor.capture()))
+        when(donacionService.findDeMisOrganizaciones(eq(7L), eq(10L), any(), captor.capture()))
                 .thenReturn(new PageImpl<>(List.of(buildResponse(1L, "Arroz", "Comedor")), PageRequest.of(1, 5), 11));
 
         var referenteAuth = new UsernamePasswordAuthenticationToken(
@@ -167,6 +168,39 @@ class DonacionControllerTest {
         assertThat(captor.getValue().getPageSize()).isEqualTo(5);
         assertThat(captor.getValue().getSort().getOrderFor("fechaOferta").getDirection())
                 .isEqualTo(Sort.Direction.DESC);
+    }
+
+    @Test
+    void getMiOrganizacion_repeatedAndCommaSeparatedEstado_areBoundToTheEnumList() throws Exception {
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<List<EstadoDonacion>> captor = ArgumentCaptor.forClass(List.class);
+        when(donacionService.findDeMisOrganizaciones(eq(7L), any(), captor.capture(), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of()));
+        var referenteAuth = new UsernamePasswordAuthenticationToken(
+                7L, null, List.of(new SimpleGrantedAuthority("ROLE_REFERENTE")));
+
+        mockMvc.perform(get("/api/donaciones/mi-organizacion")
+                        .param("estado", "OFRECIDA", "EN_CAMINO")
+                        .with(authentication(referenteAuth)))
+                .andExpect(status().isOk());
+        mockMvc.perform(get("/api/donaciones/mi-organizacion")
+                        .param("estado", "OFRECIDA,EN_CAMINO")
+                        .with(authentication(referenteAuth)))
+                .andExpect(status().isOk());
+
+        assertThat(captor.getAllValues()).allSatisfy(v ->
+                assertThat(v).containsExactly(EstadoDonacion.OFRECIDA, EstadoDonacion.EN_CAMINO));
+    }
+
+    @Test
+    void getMiOrganizacion_invalidEstado_isBadRequest() throws Exception {
+        var referenteAuth = new UsernamePasswordAuthenticationToken(
+                7L, null, List.of(new SimpleGrantedAuthority("ROLE_REFERENTE")));
+
+        mockMvc.perform(get("/api/donaciones/mi-organizacion")
+                        .param("estado", "NOPE")
+                        .with(authentication(referenteAuth)))
+                .andExpect(status().isBadRequest());
     }
 
     // ─── GET /activas: admin-only paginated active-donations list ────────────

@@ -41,6 +41,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Set;
@@ -234,14 +235,22 @@ public class DonacionService {
                 .map(this::toActivaResponse);
     }
 
-    public Page<DonacionResponse> findDeMisOrganizaciones(Long referenteId, Long organizacionId, Pageable pageable) {
+    /**
+     * Donations received by the referente's organizaciones, newest first. {@code estados} (null or
+     * empty = all) keeps only donations in those estados, so the dashboard action lists are not hidden
+     * by pagination.
+     */
+    public Page<DonacionResponse> findDeMisOrganizaciones(Long referenteId, Long organizacionId,
+                                                          List<EstadoDonacion> estados, Pageable pageable) {
+        boolean filtrarEstados = estados != null && !estados.isEmpty();
+        Collection<EstadoDonacion> estadosParam = filtrarEstados ? estados : List.of(EstadoDonacion.OFRECIDA);
         if (organizacionId != null) {
             Organizacion org = organizacionRepository.findByIdAndReferente_Id(organizacionId, referenteId)
                     .orElseThrow(() -> new ResponseStatusException(HttpStatus.FORBIDDEN, "Access denied"));
-            return donacionRepository.findByOrganizacionId(org.getId(), pageable)
+            return donacionRepository.findByOrganizacionIdYEstados(org.getId(), filtrarEstados, estadosParam, pageable)
                     .map(this::toResponse);
         }
-        return donacionRepository.findByOrganizacion_Referente_Id(referenteId, pageable)
+        return donacionRepository.findByOrganizacion_Referente_Id(referenteId, filtrarEstados, estadosParam, pageable)
                 .map(this::toResponse);
     }
 

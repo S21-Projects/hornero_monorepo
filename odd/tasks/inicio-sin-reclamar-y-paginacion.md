@@ -69,7 +69,18 @@ Out of scope: BFF public/admin split, PostGIS, changing `/mapa` (vulnerability p
   Commit `b2c1521`.
 - [x] T4 — Admin pagination sweep: `useOrgNombre` (size 100 cap), `/donaciones/mi-organizacion`
   (grows unbounded), page-0-only summaries in `reclamos.tsx`, users search limited to the current
-  page. Route: delegated.
+  page. Route: delegated. Done: `/donaciones/mi-organizacion` paginated (MS + BFF + admin), `useOrgNombre`
+  size-100 cap, reclamos summaries and user search fixed. Checks: `mvn test` 1099/0; BFF 430 passed;
+  admin 609 passed, build OK. Commit `e241c7f`. Regression found: the dashboard action lists only saw
+  the current page (fixed in T5).
+- [x] T5 — Fix T4 regression: `mi-organizacion` accepts an optional `estado` filter (comma-separated or
+  repeated `EstadoDonacion`, invalid value -> 400); the referente dashboard action lists ("pendientes de
+  decisión" = OFRECIDA, "para confirmar entrega" = ACEPTADA/EN_CAMINO/PENDIENTE_CONFIRMACION) query it
+  server-side at size 100 with a "Mostrando N de M" note; the history keeps its Pager. Delivery
+  verification (`useVerificarCodigo`) now invalidates `['donaciones']`. Bruno `donaciones/mi-organizacion.bru`.
+  Route: delegated (2+ non-trivial files across MS/BFF/admin). Checks: `mvn test` 1106/0; BFF `npm test`
+  432 passed, `npx eslint` on changed files reports the same 53 pre-existing type-aware errors before and
+  after; admin `npm test` 612 passed, build OK, lint 0 errors (3 pre-existing warnings). Commit `a5951fe`.
 
 ## Acceptance criteria
 
@@ -88,4 +99,4 @@ Out of scope: BFF public/admin split, PostGIS, changing `/mapa` (vulnerability p
 
 ## Next step
 
-Ask the user about T5, then decide delivery (chain strategy) before any PR.
+Decide delivery chain strategy before any PR.

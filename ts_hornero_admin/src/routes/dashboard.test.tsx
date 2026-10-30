@@ -195,10 +195,44 @@ describe('DashboardPage', () => {
 
     expect(screen.getByText(/Página 1 de 3 · 45 resultados/)).toBeInTheDocument();
     expect(screen.getByText(/de esta página \(45 en total\)/)).toBeInTheDocument();
-    expect(useDonacionesDeMiOrg).toHaveBeenLastCalledWith({ page: 0, size: 20 });
+    expect(useDonacionesDeMiOrg).toHaveBeenCalledWith({ page: 0, size: 20 });
 
     await user.click(screen.getByRole('button', { name: 'Página siguiente' }));
 
-    expect(useDonacionesDeMiOrg).toHaveBeenLastCalledWith({ page: 1, size: 20 });
+    expect(useDonacionesDeMiOrg).toHaveBeenCalledWith({ page: 1, size: 20 });
+  });
+
+  it('queries the action lists server-side by estado, independent of the history page', () => {
+    mockOrganizacion([organizacion]);
+    mockNecesidades(necesidades);
+    mockDonaciones(donaciones);
+
+    render(<MemoryRouter><DashboardPage /></MemoryRouter>);
+
+    expect(useDonacionesDeMiOrg).toHaveBeenCalledWith({ page: 0, size: 100, estado: ['OFRECIDA'] });
+    expect(useDonacionesDeMiOrg).toHaveBeenCalledWith({
+      page: 0,
+      size: 100,
+      estado: expect.arrayContaining(['ACEPTADA', 'EN_CAMINO', 'PENDIENTE_CONFIRMACION']),
+    });
+  });
+
+  it('shows an actionable donación that is not on the current history page, with a "showing N of M" note', () => {
+    mockOrganizacion([organizacion]);
+    mockNecesidades(necesidades);
+    vi.mocked(useDonacionesDeMiOrg).mockImplementation(((opts?: { estado?: string[] }) => {
+      const data = opts?.estado?.includes('OFRECIDA') && opts.estado.length === 1
+        ? makePage(
+            [{ id: 90, estado: 'OFRECIDA', necesidadId: 1, organizacionId: 7, donanteName: 'Ana Pendiente' }],
+            { totalElements: 130, size: 100 },
+          )
+        : makePage([], { totalElements: 0 });
+      return { data, isLoading: false, isError: false, isFetching: false };
+    }) as unknown as typeof useDonacionesDeMiOrg);
+
+    render(<MemoryRouter><DashboardPage /></MemoryRouter>);
+
+    expect(screen.getByText('Ana Pendiente')).toBeInTheDocument();
+    expect(screen.getByText(/Mostrando 1 de 130/)).toBeInTheDocument();
   });
 });

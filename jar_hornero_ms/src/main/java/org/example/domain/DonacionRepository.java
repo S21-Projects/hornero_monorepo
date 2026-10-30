@@ -43,11 +43,33 @@ public interface DonacionRepository extends JpaRepository<Donacion, Long> {
     @Query("SELECT d FROM Donacion d JOIN FETCH d.donante JOIN FETCH d.necesidad n JOIN FETCH n.organizacion WHERE n.organizacion.id = :orgId")
     List<Donacion> findByOrganizacionId(@Param("orgId") Long orgId);
 
+    /**
+     * Donations of every organización of a referente, optionally limited to some estados. The caller
+     * passes a one-element sentinel list when {@code filtrarEstados} is false (an empty IN list is not
+     * portable).
+     */
     @Query(
-            value = "SELECT d FROM Donacion d JOIN FETCH d.donante WHERE d.necesidad.organizacion.referente.id = :referenteId",
+            value = "SELECT d FROM Donacion d JOIN FETCH d.donante WHERE d.necesidad.organizacion.referente.id = :referenteId"
+                    + " AND (:filtrarEstados = false OR d.estado IN :estados)",
             countQuery = "SELECT COUNT(d) FROM Donacion d WHERE d.necesidad.organizacion.referente.id = :referenteId"
+                    + " AND (:filtrarEstados = false OR d.estado IN :estados)"
     )
-    Page<Donacion> findByOrganizacion_Referente_Id(@Param("referenteId") Long referenteId, Pageable pageable);
+    Page<Donacion> findByOrganizacion_Referente_Id(@Param("referenteId") Long referenteId,
+                                                    @Param("filtrarEstados") boolean filtrarEstados,
+                                                    @Param("estados") Collection<EstadoDonacion> estados,
+                                                    Pageable pageable);
+
+    /** Same as {@link #findByOrganizacion_Referente_Id} but scoped to one organización. */
+    @Query(
+            value = "SELECT d FROM Donacion d JOIN FETCH d.donante JOIN FETCH d.necesidad n JOIN FETCH n.organizacion WHERE n.organizacion.id = :orgId"
+                    + " AND (:filtrarEstados = false OR d.estado IN :estados)",
+            countQuery = "SELECT COUNT(d) FROM Donacion d WHERE d.necesidad.organizacion.id = :orgId"
+                    + " AND (:filtrarEstados = false OR d.estado IN :estados)"
+    )
+    Page<Donacion> findByOrganizacionIdYEstados(@Param("orgId") Long orgId,
+                                                 @Param("filtrarEstados") boolean filtrarEstados,
+                                                 @Param("estados") Collection<EstadoDonacion> estados,
+                                                 Pageable pageable);
 
     @Query(
             value = "SELECT d FROM Donacion d JOIN FETCH d.donante JOIN FETCH d.necesidad n JOIN FETCH n.organizacion WHERE n.organizacion.id = :orgId",

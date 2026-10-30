@@ -264,12 +264,56 @@ class DonacionRepositoryTest {
         }
         crearDonacion("Org Ajena", "Donante Ajeno", "n", EstadoDonacion.OFRECIDA);
 
-        Page<Donacion> primera = donacionRepository.findByOrganizacion_Referente_Id(referente.getId(), PageRequest.of(0, 2));
-        Page<Donacion> segunda = donacionRepository.findByOrganizacion_Referente_Id(referente.getId(), PageRequest.of(1, 2));
+        Page<Donacion> primera = donacionRepository.findByOrganizacion_Referente_Id(referente.getId(), false, List.of(EstadoDonacion.OFRECIDA), PageRequest.of(0, 2));
+        Page<Donacion> segunda = donacionRepository.findByOrganizacion_Referente_Id(referente.getId(), false, List.of(EstadoDonacion.OFRECIDA), PageRequest.of(1, 2));
 
         assertThat(primera.getTotalElements()).isEqualTo(3);
         assertThat(primera.getContent()).hasSize(2);
         assertThat(segunda.getContent()).hasSize(1);
+    }
+
+    @Test
+    void findByOrganizacion_Referente_Id_filtersByEstados_andCountsOnlyMatches() {
+        org.example.user.Referente referente = new org.example.user.Referente();
+        referente.setNombre("Ref Estados");
+        referente.setEmail("ref.estados@test.com");
+        referente.setPassword("hash");
+        referente.setActivo(true);
+        referente = (org.example.user.Referente) usuarioRepository.save(referente);
+        EstadoDonacion[] estados = {EstadoDonacion.OFRECIDA, EstadoDonacion.EN_CAMINO, EstadoDonacion.ENTREGADA};
+        for (int i = 0; i < estados.length; i++) {
+            Donacion d = crearDonacion("Org Est " + i, "Donante Est " + i, "n", estados[i]);
+            Organizacion org = d.getNecesidad().getOrganizacion();
+            org.setReferente(referente);
+            organizacionRepository.saveAndFlush(org);
+        }
+
+        Page<Donacion> filtrada = donacionRepository.findByOrganizacion_Referente_Id(
+                referente.getId(), true, List.of(EstadoDonacion.OFRECIDA, EstadoDonacion.EN_CAMINO), PageRequest.of(0, 20));
+        Page<Donacion> sinFiltro = donacionRepository.findByOrganizacion_Referente_Id(
+                referente.getId(), false, List.of(EstadoDonacion.OFRECIDA), PageRequest.of(0, 20));
+
+        assertThat(filtrada.getTotalElements()).isEqualTo(2);
+        assertThat(filtrada.getContent()).extracting(Donacion::getEstado)
+                .containsExactlyInAnyOrder(EstadoDonacion.OFRECIDA, EstadoDonacion.EN_CAMINO);
+        assertThat(sinFiltro.getTotalElements()).isEqualTo(3);
+    }
+
+    @Test
+    void findByOrganizacionIdYEstados_filtersByEstados() {
+        Donacion ofrecida = crearDonacion("Org Filtro", "Donante A", "n", EstadoDonacion.OFRECIDA);
+        Long orgId = ofrecida.getNecesidad().getOrganizacion().getId();
+
+        Page<Donacion> match = donacionRepository.findByOrganizacionIdYEstados(
+                orgId, true, List.of(EstadoDonacion.OFRECIDA), PageRequest.of(0, 20));
+        Page<Donacion> noMatch = donacionRepository.findByOrganizacionIdYEstados(
+                orgId, true, List.of(EstadoDonacion.ENTREGADA), PageRequest.of(0, 20));
+        Page<Donacion> all = donacionRepository.findByOrganizacionIdYEstados(
+                orgId, false, List.of(EstadoDonacion.ENTREGADA), PageRequest.of(0, 20));
+
+        assertThat(match.getTotalElements()).isEqualTo(1);
+        assertThat(noMatch.getTotalElements()).isZero();
+        assertThat(all.getTotalElements()).isEqualTo(1);
     }
 
 
