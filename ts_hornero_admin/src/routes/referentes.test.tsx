@@ -92,4 +92,48 @@ describe('ReferentesPage (paginated organizaciones)', () => {
       { enabled: false },
     );
   });
+
+  it('asks the server for referentes only, and for the active ones separately for the dropdown', () => {
+    renderPage();
+
+    expect(useUsuarios).toHaveBeenCalledWith({ page: 0, size: 20, tipo: 'REFERENTE', q: '' });
+    expect(useUsuarios).toHaveBeenCalledWith({ page: 0, size: 100, tipo: 'REFERENTE', activo: true });
+  });
+
+  it('debounces the referente search into the q param and resets to the first page', () => {
+    renderPage();
+
+    fireEvent.change(screen.getByLabelText('Buscar referente'), { target: { value: ' ana ' } });
+    expect(useUsuarios).not.toHaveBeenCalledWith(expect.objectContaining({ q: 'ana' }));
+
+    act(() => { vi.advanceTimersByTime(300); });
+
+    expect(useUsuarios).toHaveBeenLastCalledWith({ page: 0, size: 100, tipo: 'REFERENTE', activo: true });
+    expect(useUsuarios).toHaveBeenCalledWith({ page: 0, size: 20, tipo: 'REFERENTE', q: 'ana' });
+  });
+
+  it('feeds the reassignment dropdown from the active-referentes query, not the visible page', () => {
+    vi.mocked(useUsuarios).mockImplementation(((params: { activo?: boolean }) =>
+      params.activo
+        ? ok(makePage([referente(1, 'Ana'), referente(99, 'Zulema')]))
+        : ok(makePage([referente(1, 'Ana')]))
+    ) as unknown as typeof useUsuarios);
+    renderPage();
+
+    fireEvent.click(screen.getAllByRole('button', { expanded: false, name: /Ana|Sin referente/ })[0]);
+
+    expect(screen.getAllByRole('option', { name: /Zulema \(zulema@test\.com\)/ }).length).toBeGreaterThan(0);
+  });
+
+  it('shows a no-match message when the referente search returns nothing', () => {
+    vi.mocked(useUsuarios).mockImplementation(((params: { q?: string }) =>
+      ok(makePage(params.q ? [] : [referente(1, 'Ana')]))
+    ) as unknown as typeof useUsuarios);
+    renderPage();
+
+    fireEvent.change(screen.getByLabelText('Buscar referente'), { target: { value: 'zzz' } });
+    act(() => { vi.advanceTimersByTime(300); });
+
+    expect(screen.getByText(/Ningún referente coincide/)).toBeInTheDocument();
+  });
 });

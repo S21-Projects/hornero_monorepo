@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @Tag(name = "Usuarios", description = "User management")
@@ -30,8 +31,11 @@ public class UsuarioController {
     @GetMapping
     @PreAuthorize("hasRole('ADMINISTRADOR')")
     public PageData<UsuarioResponse> getAll(
+            @RequestParam(required = false) TipoUsuario tipo,
+            @RequestParam(required = false) Boolean activo,
+            @RequestParam(required = false) String q,
             @PageableDefault(size = 20, sort = "id") Pageable pageable) {
-        return PageData.from(usuarioService.findAll(pageable));
+        return PageData.from(usuarioService.findAll(tipo, activo, q, pageable));
     }
 
     @PatchMapping("/{id}/activo")

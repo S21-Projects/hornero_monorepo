@@ -64,8 +64,8 @@ class NecesidadControllerTest {
     void listar_withPaginationParams_returnsPagedEnvelope() throws Exception {
         var pageable = PageRequest.of(1, 5);
         var content = List.of(
-                new NecesidadResponse(1L, "Desc 1", "ALTA", "ABIERTA", null, null, 1L, null, List.of()),
-                new NecesidadResponse(2L, "Desc 2", "MEDIA", "ABIERTA", null, null, 1L, null, List.of())
+                new NecesidadResponse(1L, "Desc 1", "ALTA", "ABIERTA", null, null, 1L, "Comedor Sol", null, List.of()),
+                new NecesidadResponse(2L, "Desc 2", "MEDIA", "ABIERTA", null, null, 1L, "Comedor Sol", null, List.of())
         );
         // Keep offset+pageSize <= total to avoid PageImpl normalisation: offset=5, size=5 <= 10
         var page = new PageImpl<>(content, pageable, 10L);
@@ -81,6 +81,7 @@ class NecesidadControllerTest {
                 .andExpect(jsonPath("$.message").exists())
                 .andExpect(jsonPath("$.timestamp").exists())
                 .andExpect(jsonPath("$.data.content").isArray())
+                .andExpect(jsonPath("$.data.content[0].organizacionNombre").value("Comedor Sol"))
                 .andExpect(jsonPath("$.data.number").value(1))
                 .andExpect(jsonPath("$.data.size").value(5))
                 .andExpect(jsonPath("$.data.totalElements").value(10))

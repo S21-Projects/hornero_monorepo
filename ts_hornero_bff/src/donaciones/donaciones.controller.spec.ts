@@ -106,6 +106,9 @@ describe('DonacionesController', () => {
       expect(service.findDeMiOrganizacion).toHaveBeenCalledWith(
         'token-123',
         undefined,
+        undefined,
+        undefined,
+        undefined,
       );
       expect(result).toBe(donaciones);
     });
@@ -122,6 +125,29 @@ describe('DonacionesController', () => {
       expect(service.findDeMiOrganizacion).toHaveBeenCalledWith(
         'token-123',
         '10',
+        undefined,
+        undefined,
+        undefined,
+      );
+    });
+
+    it('forwards page, size and sort to the service', async () => {
+      service.findDeMiOrganizacion.mockResolvedValue({ content: [] });
+
+      await controller.findDeMiOrganizacion(
+        requestWithToken('token-123'),
+        '10',
+        '2',
+        '20',
+        'fechaOferta,desc',
+      );
+
+      expect(service.findDeMiOrganizacion).toHaveBeenCalledWith(
+        'token-123',
+        '10',
+        '2',
+        '20',
+        'fechaOferta,desc',
       );
     });
 
