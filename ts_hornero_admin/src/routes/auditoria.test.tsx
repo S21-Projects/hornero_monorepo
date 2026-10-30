@@ -100,11 +100,18 @@ describe('AuditoriaPage — task 4b.3/4b.4 (cross-org audit queue screen)', () =
 
     const dropdowns = screen.getAllByRole('button', { name: /todos/i });
     fireEvent.click(dropdowns[1]); // requisito dropdown
-    fireEvent.click(screen.getByRole('option', { name: 'NO_DISCRIMINACION' }));
+    fireEvent.click(screen.getByRole('option', { name: 'Sin discriminación' }));
 
     expect(useColaAuditoria).toHaveBeenLastCalledWith(
       expect.objectContaining({ page: 0, requisito: 'NO_DISCRIMINACION' }),
     );
+  });
+
+  it('shows the human requisito label in the table, not the raw code', () => {
+    render(<AuditoriaPage />, { wrapper: Wrapper });
+
+    expect(screen.getByText('Sin discriminación')).toBeInTheDocument();
+    expect(screen.queryByText('NO_DISCRIMINACION')).not.toBeInTheDocument();
   });
 
   it('renders the pager when there is more than one page', () => {
