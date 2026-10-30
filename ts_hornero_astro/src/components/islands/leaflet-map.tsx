@@ -14,6 +14,8 @@ export interface MapMarkerData {
   banner?: string;
   /** Highlights the marker (gold) when active/selected. */
   active?: boolean;
+  /** Muted pin for organizations nobody has claimed yet. */
+  unclaimed?: boolean;
 }
 
 export interface LeafletMapProps {
@@ -36,8 +38,12 @@ export interface LeafletMapProps {
   style?: CSSProperties;
 }
 
-function pinIcon(active: boolean): L.DivIcon {
-  const color = active ? 'var(--sun, #D4A017)' : 'var(--horn, #C85A20)';
+function pinIcon(active: boolean, unclaimed = false): L.DivIcon {
+  const color = active
+    ? 'var(--sun, #D4A017)'
+    : unclaimed
+      ? 'var(--ink-3, #9A8F85)'
+      : 'var(--horn, #C85A20)';
   return L.divIcon({
     className: 'hornero-pin',
     html: `
@@ -132,7 +138,7 @@ export default function LeafletMap({
   style,
 }: LeafletMapProps) {
   const icons = useMemo(
-    () => ({ active: pinIcon(true), idle: pinIcon(false) }),
+    () => ({ active: pinIcon(true), idle: pinIcon(false), unclaimed: pinIcon(false, true) }),
     [],
   );
 
@@ -160,7 +166,7 @@ export default function LeafletMap({
           <Marker
             key={m.id}
             position={[m.lat, m.lng]}
-            icon={isActive ? icons.active : icons.idle}
+            icon={isActive ? icons.active : m.unclaimed ? icons.unclaimed : icons.idle}
             zIndexOffset={isActive ? 1000 : 0}
             eventHandlers={{
               click: () => onMarkerSelect?.(m.id),
