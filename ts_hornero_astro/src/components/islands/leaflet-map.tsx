@@ -1,7 +1,10 @@
 import { useEffect, useMemo, useRef, type CSSProperties } from 'react';
 import L from 'leaflet';
 import { MapContainer, TileLayer, Marker, Popup, useMap, useMapEvents } from 'react-leaflet';
+import MarkerClusterGroup from 'react-leaflet-cluster';
 import 'leaflet/dist/leaflet.css';
+import 'leaflet.markercluster/dist/MarkerCluster.css';
+import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
 import type { LatLng } from '../../lib/geo';
 
 export interface MapMarkerData {
@@ -16,6 +19,14 @@ export interface MapMarkerData {
   active?: boolean;
   /** Muted pin for organizations nobody has claimed yet. */
   unclaimed?: boolean;
+}
+
+export interface MapViewport {
+  minLat: number;
+  maxLat: number;
+  minLng: number;
+  maxLng: number;
+  zoom: number;
 }
 
 export interface LeafletMapProps {
@@ -35,6 +46,10 @@ export interface LeafletMapProps {
   recenterSignal?: number;
   /** Map click: returns coordinates (location picker). */
   onMapClick?: (latlng: LatLng) => void;
+  /** Group nearby markers into clusters (dense lists). */
+  clusterMarkers?: boolean;
+  /** Fired once when the map is ready and after every pan/zoom. */
+  onViewportChange?: (viewport: MapViewport) => void;
   style?: CSSProperties;
 }
 
@@ -123,6 +138,30 @@ function MapClickHandler({ onMapClick }: { onMapClick: (latlng: LatLng) => void 
   return null;
 }
 
+function ViewportReporter({ onViewportChange }: { onViewportChange: (v: MapViewport) => void }) {
+  const map = useMap();
+  const callback = useRef(onViewportChange);
+  callback.current = onViewportChange;
+
+  const report = useMemo(
+    () => () => {
+      const b = map.getBounds();
+      callback.current({
+        minLat: b.getSouth(),
+        maxLat: b.getNorth(),
+        minLng: b.getWest(),
+        maxLng: b.getEast(),
+        zoom: map.getZoom(),
+      });
+    },
+    [map],
+  );
+
+  useMapEvents({ moveend: report, zoomend: report });
+  useEffect(report, [report]);
+  return null;
+}
+
 export default function LeafletMap({
   markers = [],
   center,
@@ -135,12 +174,50 @@ export default function LeafletMap({
   interactive = true,
   recenterSignal,
   onMapClick,
+  clusterMarkers = false,
+  onViewportChange,
   style,
 }: LeafletMapProps) {
   const icons = useMemo(
     () => ({ active: pinIcon(true), idle: pinIcon(false), unclaimed: pinIcon(false, true) }),
     [],
   );
+
+  const markerNodes = markers.map((m) => {
+    const isActive = m.active || m.id === selectedId;
+    return (
+      <Marker
+        key={m.id}
+        position={[m.lat, m.lng]}
+        icon={isActive ? icons.active : m.unclaimed ? icons.unclaimed : icons.idle}
+        zIndexOffset={isActive ? 1000 : 0}
+        eventHandlers={{
+          click: () => onMarkerSelect?.(m.id),
+        }}
+      >
+        {(m.banner || m.label || m.sub) && (
+          <Popup minWidth={200}>
+            {m.banner && (
+              <img
+                src={m.banner}
+                alt=""
+                style={{
+                  width: '100%',
+                  height: 90,
+                  objectFit: 'cover',
+                  borderRadius: 6,
+                  marginBottom: 6,
+                  display: 'block',
+                }}
+              />
+            )}
+            {m.label && <strong>{m.label}</strong>}
+            {m.sub && <div style={{ color: 'var(--ink-2)' }}>{m.sub}</div>}
+          </Popup>
+        )}
+      </Marker>
+    );
+  });
 
   return (
     <MapContainer
@@ -160,45 +237,18 @@ export default function LeafletMap({
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
       />
 
-      {markers.map((m) => {
-        const isActive = m.active || m.id === selectedId;
-        return (
-          <Marker
-            key={m.id}
-            position={[m.lat, m.lng]}
-            icon={isActive ? icons.active : m.unclaimed ? icons.unclaimed : icons.idle}
-            zIndexOffset={isActive ? 1000 : 0}
-            eventHandlers={{
-              click: () => onMarkerSelect?.(m.id),
-            }}
-          >
-            {(m.banner || m.label || m.sub) && (
-              <Popup minWidth={200}>
-                {m.banner && (
-                  <img
-                    src={m.banner}
-                    alt=""
-                    style={{
-                      width: '100%',
-                      height: 90,
-                      objectFit: 'cover',
-                      borderRadius: 6,
-                      marginBottom: 6,
-                      display: 'block',
-                    }}
-                  />
-                )}
-                {m.label && <strong>{m.label}</strong>}
-                {m.sub && <div style={{ color: 'var(--ink-2)' }}>{m.sub}</div>}
-              </Popup>
-            )}
-          </Marker>
-        );
-      })}
+      {clusterMarkers ? (
+        <MarkerClusterGroup chunkedLoading maxClusterRadius={50}>
+          {markerNodes}
+        </MarkerClusterGroup>
+      ) : (
+        markerNodes
+      )}
 
       {userPosition && <Marker position={[userPosition.lat, userPosition.lng]} icon={userIcon} />}
 
       {onMapClick && <MapClickHandler onMapClick={onMapClick} />}
+      {onViewportChange && <ViewportReporter onViewportChange={onViewportChange} />}
 
       <MapController
         center={center}

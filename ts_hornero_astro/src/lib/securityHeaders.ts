@@ -88,8 +88,8 @@ export function securityHeaders(
     'X-Content-Type-Options': 'nosniff',
     'X-Frame-Options': 'DENY',
     'Referrer-Policy': 'strict-origin-when-cross-origin',
-    // The public site never asks for geolocation (see HomeMapExplorer) or the camera.
-    'Permissions-Policy': 'geolocation=(), camera=(), microphone=(), payment=()',
+    // Geolocation only on explicit user action (the home map's "Mi ubicación" button); never the camera.
+    'Permissions-Policy': 'geolocation=(self), camera=(), microphone=(), payment=()',
     [cspHeader]: buildCsp(publicBffUrl, scriptHashes),
   };
 }
