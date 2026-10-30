@@ -10,6 +10,24 @@ production DB) — check the "Applied to" line before running anything twice.
 
 ---
 
+## 2026-10-29 — `organizaciones (latitud, longitud)`: index for the map viewport query
+
+**Reason**: the public home loads map pins per viewport (`GET /api/organizaciones/mapa/zona`, a lat/lng box filter) now that the table holds thousands of imported organizaciones. Without an index every pan is a sequential scan.
+
+**Before**: no index on `organizaciones.latitud` / `organizaciones.longitud`.
+
+**Migration**: `scripts/sql/V012__organizaciones_lat_lng_idx.sql` (run `make migrate`). `CREATE INDEX IF NOT EXISTS idx_organizaciones_lat_lng ON organizaciones (latitud, longitud)`. Additive, perf-only and safe before or after deploying the new MS image (the endpoint works without it, only slower). The entity does not declare it (`ddl-auto=update` would not manage it consistently with the script), and `EsquemaVerificador` has no check.
+
+**After**: `\d organizaciones` lists `idx_organizaciones_lat_lng` btree (latitud, longitud).
+
+**Rollback**: `DROP INDEX IF EXISTS idx_organizaciones_lat_lng;`
+
+**Applied to**:
+- [ ] Local dev DB
+- [ ] Pi production DB
+
+---
+
 ## 2026-10-15 — `poblacion_radio`: population per census radio (rondas-datos-vivos)
 
 **Reason**: rondas compute the vulnerability `deficit` from the current database instead of numbers baked into the worker image. The population per 2022 census radio is the one input the database did not have.

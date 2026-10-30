@@ -6,6 +6,9 @@ import org.example.domain.EstadoOrganizacion;
 import org.example.domain.OrigenOrganizacion;
 import org.example.domain.TipoOrganizacion;
 import org.example.organizacion.dto.OrganizacionMapaResponse;
+import org.example.organizacion.dto.OrganizacionMapaZonaResponse;
+import org.springframework.web.server.ResponseStatusException;
+import org.springframework.http.HttpStatus;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
@@ -55,5 +58,31 @@ class OrganizacionControllerMapaSecurityTest {
                 .andExpect(jsonPath("$.data[0].necesidadesAbiertas").value(2));
 
         verify(organizacionService).listarMapa();
+    }
+
+    @Test
+    void anonymousCanReadMapaZonaWithShortCache() throws Exception {
+        when(organizacionService.listarMapaZona(-35.0, -34.0, -59.0, -58.0)).thenReturn(
+                new OrganizacionMapaZonaResponse(List.of(new OrganizacionMapaResponse(
+                        1L, "comedor-x-1", "Comedor X", TipoOrganizacion.COMEDOR, EstadoOrganizacion.SIN_RECLAMAR,
+                        OrigenOrganizacion.RENACOM, -34.6, -58.4, 0L)), true));
+
+        mockMvc.perform(get("/api/organizaciones/mapa/zona")
+                        .param("minLat", "-35").param("maxLat", "-34")
+                        .param("minLng", "-59").param("maxLng", "-58"))
+                .andExpect(status().isOk())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header()
+                        .string("Cache-Control", "max-age=60, public"))
+                .andExpect(jsonPath("$.data.pins[0].slug").value("comedor-x-1"))
+                .andExpect(jsonPath("$.data.truncated").value(true));
+    }
+
+    @Test
+    void mapaZonaAnswers400WhenTheServiceRejectsTheBox() throws Exception {
+        when(organizacionService.listarMapaZona(null, null, null, null))
+                .thenThrow(new ResponseStatusException(HttpStatus.BAD_REQUEST, "obligatorios"));
+
+        mockMvc.perform(get("/api/organizaciones/mapa/zona"))
+                .andExpect(status().isBadRequest());
     }
 }
