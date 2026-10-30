@@ -204,10 +204,16 @@ export class UploadController {
   }
 
   private async assertOwnership(orgId: number, token: string): Promise<void> {
-    const orgs = await this.organizacionesService.misOrganizaciones(token);
+    const body: unknown =
+      await this.organizacionesService.misOrganizaciones(token);
+    // The MS wraps every response as { status, message, data, ... }; tolerate a bare array too.
+    const orgs =
+      body && typeof body === 'object' && !Array.isArray(body)
+        ? (body as { data?: unknown }).data
+        : body;
     const owns =
       Array.isArray(orgs) &&
-      orgs.some((org: { id: number }) => org.id === orgId);
+      orgs.some((org: { id: number }) => org?.id === orgId);
     if (!owns) throw new ForbiddenException('You do not own this organization');
   }
 }
