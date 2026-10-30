@@ -52,10 +52,13 @@ Out of scope: BFF public/admin split, PostGIS, changing `/mapa` (vulnerability p
   Route: delegated (MS+BFF, 2+ files). Checks: `mvn test` 1073/0 failures; BFF `npm test` 420/420;
   `npm run lint` fails on base (313 pre-existing errors, new spec clean). Smoke: Gran Buenos Aires box
   returns 500 pins + truncated=true; `minLat=abc` → 400. Commit `9a1e55f`.
-- [ ] T2 — Astro home: drop the SSR fetch of all pins; when the chip is on, fetch the viewport from
+- [x] T2 — Astro home: drop the SSR fetch of all pins; when the chip is on, fetch the viewport from
   the browser on `moveend` (debounced), skip below a min zoom with a hint, loading indicator,
   clustering; "Mi ubicación" button (port admin `useGeolocation`, `geolocation=(self)`), list
-  sorted by user position. Route: delegated.
+  sorted by user position. Route: delegated. Done: `react-leaflet-cluster@4.1.3`, min zoom 11, debounce
+  300 ms, 0.02° box snapping + 40-box cache, pins replaced per viewport. Checks: astro build PASS,
+  astro check 0 errors; home HTML 1 MB → 17 KB with no SIN_RECLAMAR data; header
+  `geolocation=(self)` served. Commit `6d735e2`.
 - [ ] T3 — Admin referentes: paginated, searchable "Sin referente" list and per-referente orgs from
   a paginated/filtered MS endpoint instead of `/organizaciones/todas`. Route: delegated.
 - [ ] T4 — Admin pagination sweep: `useOrgNombre` (size 100 cap), `/donaciones/mi-organizacion`
@@ -79,4 +82,4 @@ Out of scope: BFF public/admin split, PostGIS, changing `/mapa` (vulnerability p
 
 ## Next step
 
-Delegate T2.
+Delegate T3.
