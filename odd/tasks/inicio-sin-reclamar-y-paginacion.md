@@ -80,7 +80,7 @@ Out of scope: BFF public/admin split, PostGIS, changing `/mapa` (vulnerability p
   verification (`useVerificarCodigo`) now invalidates `['donaciones']`. Bruno `donaciones/mi-organizacion.bru`.
   Route: delegated (2+ non-trivial files across MS/BFF/admin). Checks: `mvn test` 1106/0; BFF `npm test`
   432 passed, `npx eslint` on changed files reports the same 53 pre-existing type-aware errors before and
-  after; admin `npm test` 612 passed, build OK, lint 0 errors (3 pre-existing warnings). Commit `a5951fe`.
+  after; admin `npm test` 612 passed, build OK, lint 0 errors (3 pre-existing warnings). Commit `0fc0745`.
 
 ## Acceptance criteria
 
