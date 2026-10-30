@@ -1,6 +1,6 @@
 import { Outlet, Link, NavLink, useLocation } from 'react-router-dom';
 import { ErrorBoundary } from 'react-error-boundary';
-import { Grid1, Buildings2, Box, People, Profile2User, Gift, SearchNormal1, Setting2, ClipboardTick, Refresh2, Activity, Shop } from 'iconsax-reactjs';
+import { Grid1, Buildings2, Box, People, Profile2User, Gift, SearchNormal1, Setting2, ClipboardTick, ShieldTick, Refresh2, Activity, Shop } from 'iconsax-reactjs';
 import { useAuthStore } from '../store/auth.store';
 import type { UserRole } from '../store/auth.store';
 import { AppErrorFallback } from './AppErrorFallback';
@@ -37,6 +37,7 @@ const NAV_LINKS: Record<UserRole, NavItem[]> = {
     { to: '/dashboard', label: 'Dashboard', icon: <Grid1 size={ICON_SIZE} /> },
     { to: '/needs', label: 'Necesidades', icon: <Box size={ICON_SIZE} /> },
     { to: '/mis-organizaciones', label: 'Mis organizaciones', icon: <Buildings2 size={ICON_SIZE} /> },
+    { to: '/acreditacion', label: 'Acreditación', icon: <ShieldTick size={ICON_SIZE} /> },
     { to: '/prefs', label: 'Preferencias', icon: <Setting2 size={ICON_SIZE} /> },
   ],
   DONANTE: [

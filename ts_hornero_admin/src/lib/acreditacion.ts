@@ -43,3 +43,19 @@ export const NIVEL_LADDER: NivelLadderEntry[] = [
       'plataforma.',
   },
 ];
+
+const REQUISITO_LABELS: Record<string, string> = {
+  SERVICIO_REGULAR_GRATUITO: 'Servicio regular y gratuito',
+  NO_DISCRIMINACION: 'Sin discriminación',
+  SEDE_INSCRIPTA_INDIVIDUALMENTE: 'Sede inscripta individualmente',
+  CONDICIONES_SANITARIAS_ADECUADAS: 'Condiciones sanitarias adecuadas',
+  SIN_KIOSCO_MISMO_DOMICILIO: 'Sin kiosco en el mismo domicilio',
+  RADIO_50KM_BANCO_ALIMENTOS: 'Hasta 50 km del Banco de Alimentos',
+  PERSONERIA_JURIDICA_O_AVAL: 'Personería jurídica o aval',
+  ACEPTA_AUDITORIAS_SIN_AVISO: 'Acepta auditorías sin aviso',
+};
+
+/** Human Spanish label for a requisito code; unknown codes fall back to the raw code. */
+export function requisitoLabel(codigo: string): string {
+  return REQUISITO_LABELS[codigo] ?? codigo;
+}
