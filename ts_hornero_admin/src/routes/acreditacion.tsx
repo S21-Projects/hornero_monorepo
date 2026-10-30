@@ -8,6 +8,7 @@ import { EvidenciaForm } from '../components/acreditacion/EvidenciaForm';
 import { EvidenciaArchivo } from '../components/acreditacion/EvidenciaArchivo';
 import { useMisOrganizaciones } from '../lib/hooks/useMisOrganizaciones';
 import { useLegajo } from '../lib/hooks/useAcreditacion';
+import { requisitoLabel } from '../lib/acreditacion';
 import type { RequisitoEnLegajo } from '../types/domain';
 
 const ESTADO_LABEL: Record<string, string> = {
@@ -27,7 +28,7 @@ function RequisitoRow({ organizacionId, requisito }: { organizacionId: number; r
   return (
     <Card style={{ padding: 16 }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
-        <Text variant="body">{requisito.requisito}</Text>
+        <Text variant="body">{requisitoLabel(requisito.requisito)}</Text>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <Text variant="micro" color="ink-3">{ESTADO_LABEL[requisito.estado] ?? requisito.estado}</Text>
           {requisito.expirada && <Text variant="micro" color="urgent">Vencida</Text>}

@@ -64,3 +64,23 @@ describe('AppShell route-level ErrorBoundary', () => {
     expect(screen.getByRole('link', { name: 'Auditoría' })).toHaveAttribute('href', '/auditoria');
   });
 });
+
+describe('AppShell Acreditación nav entry', () => {
+  it('shows an "Acreditación" link to /acreditacion for REFERENTE', () => {
+    useAuthStore.setState({
+      user: { userId: 2, email: 'ref@test.com', nombre: 'Ref', tipo: 'REFERENTE', emailVerificado: true },
+    });
+    render(<RouterProvider router={buildRouter()} />);
+
+    expect(screen.getByRole('link', { name: 'Acreditación' })).toHaveAttribute('href', '/acreditacion');
+  });
+
+  it('does not show it for DONANTE', () => {
+    useAuthStore.setState({
+      user: { userId: 3, email: 'don@test.com', nombre: 'Don', tipo: 'DONANTE', emailVerificado: true },
+    });
+    render(<RouterProvider router={buildRouter()} />);
+
+    expect(screen.queryByRole('link', { name: 'Acreditación' })).not.toBeInTheDocument();
+  });
+});
