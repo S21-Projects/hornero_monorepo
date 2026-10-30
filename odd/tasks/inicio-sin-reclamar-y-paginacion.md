@@ -67,7 +67,7 @@ Out of scope: BFF public/admin split, PostGIS, changing `/mapa` (vulnerability p
   Smoke: anonymous `/organizaciones/todas` → 401. Limitation: `/usuarios` has no `tipo`/`q` filter,
   so referente search and the reassign dropdown only cover the current page (moved to T4).
   Commit `b2c1521`.
-- [ ] T4 — Admin pagination sweep: `useOrgNombre` (size 100 cap), `/donaciones/mi-organizacion`
+- [x] T4 — Admin pagination sweep: `useOrgNombre` (size 100 cap), `/donaciones/mi-organizacion`
   (grows unbounded), page-0-only summaries in `reclamos.tsx`, users search limited to the current
   page. Route: delegated.
 
@@ -88,4 +88,4 @@ Out of scope: BFF public/admin split, PostGIS, changing `/mapa` (vulnerability p
 
 ## Next step
 
-Delegate T4.
+Ask the user about T5, then decide delivery (chain strategy) before any PR.
