@@ -35,6 +35,34 @@ public interface OrganizacionRepository extends JpaRepository<Organizacion, Long
             @org.springframework.data.repository.query.Param("hoy") java.time.LocalDate hoy);
 
     /**
+     * Same pin projection as {@link #findMapa} restricted to a lat/lng box and a page, so the public map
+     * can load one viewport at a time. Ordered by id for a stable cut when the box holds more than a page.
+     */
+    @org.springframework.data.jpa.repository.Query("""
+            select new org.example.organizacion.dto.OrganizacionMapaResponse(
+                o.id, o.slug, o.nombre, o.tipo, o.estado,
+                coalesce(o.origen, org.example.domain.OrigenOrganizacion.PLATAFORMA), o.latitud, o.longitud,
+                (select count(n) from Necesidad n
+                  where n.organizacion = o
+                    and n.estado in :estadosAbiertos
+                    and (n.fechaVencimiento is null or n.fechaVencimiento >= :hoy)))
+            from Organizacion o
+            where o.estado in :estados
+              and o.latitud between :minLat and :maxLat and o.longitud between :minLng and :maxLng
+            order by o.id
+            """)
+    List<org.example.organizacion.dto.OrganizacionMapaResponse> findMapaEnCaja(
+            @org.springframework.data.repository.query.Param("estados") java.util.Collection<EstadoOrganizacion> estados,
+            @org.springframework.data.repository.query.Param("estadosAbiertos")
+                    java.util.Collection<EstadoNecesidad> estadosAbiertos,
+            @org.springframework.data.repository.query.Param("hoy") java.time.LocalDate hoy,
+            @org.springframework.data.repository.query.Param("minLat") double minLat,
+            @org.springframework.data.repository.query.Param("maxLat") double maxLat,
+            @org.springframework.data.repository.query.Param("minLng") double minLng,
+            @org.springframework.data.repository.query.Param("maxLng") double maxLng,
+            Pageable pageable);
+
+    /**
      * Platform (non-imported) approved organizaciones inside a lat/lng box, the coarse pre-filter of the
      * "already on Hornero" picker; the exact distance is computed in Java (no PostGIS).
      */

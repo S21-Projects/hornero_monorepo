@@ -18,6 +18,7 @@ import org.example.organizacion.dto.ActualizarOrganizacionRequest;
 import org.example.organizacion.dto.AsignarReferenteRequest;
 import org.example.organizacion.dto.CrearOrganizacionRequest;
 import org.example.organizacion.dto.OrganizacionMapaResponse;
+import org.example.organizacion.dto.OrganizacionMapaZonaResponse;
 import org.example.organizacion.dto.OrganizacionResponse;
 import org.example.organizacion.radio.RadioCensalClient;
 import org.example.user.Administrador;
@@ -25,6 +26,7 @@ import org.example.user.Referente;
 import org.example.user.Usuario;
 import org.example.user.UsuarioRepository;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
@@ -45,6 +47,8 @@ import java.util.stream.Collectors;
 public class OrganizacionService {
 
     public static final int CAP_ORGANIZACIONES = 3;
+    /** Hard cap of pins per viewport request; one more is fetched to know whether the box was cut. */
+    public static final int MAX_PINES_ZONA = 500;
     private static final List<EstadoOrganizacion> ESTADOS_EN_MAPA =
             List.of(EstadoOrganizacion.APROBADA, EstadoOrganizacion.SIN_RECLAMAR);
 
@@ -112,6 +116,38 @@ public class OrganizacionService {
     @Transactional(readOnly = true)
     public List<OrganizacionMapaResponse> listarMapa() {
         return organizacionRepository.findMapa(ESTADOS_EN_MAPA, ESTADOS_NECESIDAD_ABIERTA, LocalDate.now());
+    }
+
+    /**
+     * Map pins inside a lat/lng box (a viewport). Antimeridian-crossing boxes are not supported: the client
+     * must keep {@code min <= max} on both axes. At most {@link #MAX_PINES_ZONA} pins are returned.
+     */
+    @Transactional(readOnly = true)
+    public OrganizacionMapaZonaResponse listarMapaZona(Double minLat, Double maxLat, Double minLng, Double maxLng) {
+        validarCaja(minLat, maxLat, minLng, maxLng);
+        List<OrganizacionMapaResponse> encontrados = organizacionRepository.findMapaEnCaja(
+                ESTADOS_EN_MAPA, ESTADOS_NECESIDAD_ABIERTA, LocalDate.now(),
+                minLat, maxLat, minLng, maxLng, PageRequest.of(0, MAX_PINES_ZONA + 1));
+        boolean truncated = encontrados.size() > MAX_PINES_ZONA;
+        return new OrganizacionMapaZonaResponse(
+                truncated ? encontrados.subList(0, MAX_PINES_ZONA) : encontrados, truncated);
+    }
+
+    private static void validarCaja(Double minLat, Double maxLat, Double minLng, Double maxLng) {
+        if (minLat == null || maxLat == null || minLng == null || maxLng == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "minLat, maxLat, minLng y maxLng son obligatorios");
+        }
+        // Negated comparisons so NaN is rejected too.
+        boolean latValida = minLat >= -90 && minLat <= 90 && maxLat >= -90 && maxLat <= 90;
+        boolean lngValida = minLng >= -180 && minLng <= 180 && maxLng >= -180 && maxLng <= 180;
+        if (!latValida || !lngValida) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Latitud fuera de [-90, 90] o longitud fuera de [-180, 180]");
+        }
+        if (minLat > maxLat || minLng > maxLng) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "El mínimo no puede superar al máximo");
+        }
     }
 
     @Transactional(readOnly = true)

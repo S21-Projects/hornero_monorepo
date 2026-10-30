@@ -70,6 +70,30 @@ describe('OrganizacionesService', () => {
     });
   });
 
+  describe('mapaZona', () => {
+    it('forwards the four box params to the public MS endpoint without credentials', async () => {
+      const data = { data: { pins: [], truncated: false } };
+      httpService.axiosRef.get.mockResolvedValue({ data });
+
+      const result = await service.mapaZona('-35', '-34', '-59', '-58');
+
+      expect(httpService.axiosRef.get).toHaveBeenCalledWith(
+        'http://ms:8081/api/organizaciones/mapa/zona?minLat=-35&maxLat=-34&minLng=-59&maxLng=-58',
+      );
+      expect(result).toEqual(data);
+    });
+
+    it('omits missing params so the MS answers 400', async () => {
+      httpService.axiosRef.get.mockResolvedValue({ data: {} });
+
+      await service.mapaZona('-35', undefined, '-59', '-58');
+
+      expect(httpService.axiosRef.get).toHaveBeenCalledWith(
+        'http://ms:8081/api/organizaciones/mapa/zona?minLat=-35&minLng=-59&maxLng=-58',
+      );
+    });
+  });
+
   describe('misOrganizaciones', () => {
     it('forwards the Bearer header to the MS mia endpoint', async () => {
       const data = [{ id: 1 }, { id: 2 }];
