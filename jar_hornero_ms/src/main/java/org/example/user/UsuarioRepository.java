@@ -1,6 +1,8 @@
 package org.example.user;
 
 import jakarta.persistence.LockModeType;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
@@ -15,6 +17,23 @@ import java.util.Optional;
 public interface UsuarioRepository extends JpaRepository<Usuario, Long> {
 
     Optional<Usuario> findByEmail(String email);
+
+    /**
+     * Admin listing filtered by user type, active flag and a lowercased name/email pattern. The caller passes
+     * {@code '%'} for "no text filter" and any class (ignored) when {@code filtrarTipo} is false.
+     */
+    @Query("""
+            select u from Usuario u
+            where (:filtrarTipo = false or type(u) = :clase)
+              and (:soloActivos = false or u.activo = true)
+              and (lower(u.nombre) like :patron escape '\\' or lower(u.email) like :patron escape '\\')
+            """)
+    Page<Usuario> buscarAdmin(
+            @Param("filtrarTipo") boolean filtrarTipo,
+            @Param("clase") Class<? extends Usuario> clase,
+            @Param("soloActivos") boolean soloActivos,
+            @Param("patron") String patron,
+            Pageable pageable);
 
     /** N9: one PK-index probe per authenticated request; no entity is loaded. */
     boolean existsByIdAndActivoTrue(Long id);

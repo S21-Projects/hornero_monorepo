@@ -52,6 +52,7 @@ class NecesidadServicePageTest {
     void setUp() {
         organizacion = new Organizacion();
         organizacion.setId(1L);
+        organizacion.setNombre("Comedor Sol");
     }
 
     private Necesidad buildNecesidad(Long id) {
@@ -83,6 +84,7 @@ class NecesidadServicePageTest {
         assertThat(result.getTotalPages()).isEqualTo(3); // ceil(15/5)
         assertThat(result.getContent()).hasSize(5);
         assertThat(result.getContent().get(0).organizacionId()).isEqualTo(1L);
+        assertThat(result.getContent().get(0).organizacionNombre()).isEqualTo("Comedor Sol");
     }
 
     @Test

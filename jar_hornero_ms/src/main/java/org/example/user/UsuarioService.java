@@ -26,9 +26,35 @@ public class UsuarioService {
     private final RefreshTokenService refreshTokenService;
     private final ActividadService actividadService;
 
-    public Page<UsuarioResponse> findAll(Pageable pageable) {
-        return usuarioRepository.findAll(pageable)
+    /**
+     * Admin listing, paged. Filters combine with AND: {@code tipo} keeps one user type, {@code activo=true}
+     * keeps active accounts only, {@code q} is a case-insensitive "nombre or email contains". Any may be null.
+     */
+    public Page<UsuarioResponse> findAll(TipoUsuario tipo, Boolean activo, String q, Pageable pageable) {
+        return usuarioRepository.buscarAdmin(
+                        tipo != null,
+                        claseDe(tipo),
+                        Boolean.TRUE.equals(activo),
+                        patronContiene(q),
+                        pageable)
                 .map(this::toResponse);
+    }
+
+    private static Class<? extends Usuario> claseDe(TipoUsuario tipo) {
+        if (tipo == null) return Usuario.class;
+        return switch (tipo) {
+            case ADMINISTRADOR -> Administrador.class;
+            case REFERENTE -> Referente.class;
+            case DONANTE -> Donante.class;
+        };
+    }
+
+    /** Lowercased LIKE pattern for "contains", with LIKE wildcards in the input escaped (escape char is '\\'). */
+    private static String patronContiene(String q) {
+        if (q == null || q.isBlank()) return "%";
+        String escapado = q.trim().toLowerCase()
+                .replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_");
+        return "%" + escapado + "%";
     }
 
     @Transactional

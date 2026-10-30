@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { AsyncSection } from '../components/AsyncSection';
 import { Badge } from '../components/Badge';
 import { Text } from '../components/ui/Typography';
@@ -22,6 +22,7 @@ const ROLE_LABEL: Record<string, string> = {
 };
 
 const PAGE_SIZE = 20;
+const SEARCH_DEBOUNCE_MS = 300;
 
 /** Placeholder domain the MS gives to an anonymized account (RFC 2606 reserved TLD). */
 const esAnonimo = (u: Usuario) => u.email.endsWith('@anonimo.invalid');
@@ -29,26 +30,27 @@ const esAnonimo = (u: Usuario) => u.email.endsWith('@anonimo.invalid');
 export default function UsersPage() {
   const [page, setPage] = useState(0);
   const [search, setSearch] = useState('');
+  const [q, setQ] = useState('');
   const [pendiente, setPendiente] = useState<{ id: number; activo: boolean } | null>(null);
   const [motivo, setMotivo] = useState('');
   const [anonimizando, setAnonimizando] = useState<number | null>(null);
-  const { data, isLoading, isError, isFetching } = useUsuarios({ page, size: PAGE_SIZE });
+  const { data, isLoading, isError, isFetching } = useUsuarios({ page, size: PAGE_SIZE, q });
   usePageClamp(page, setPage, data?.totalPages);
   const toggleActivo = useToggleActivo();
   const anonimizar = useAnonimizarUsuario();
   const myId = useAuthStore((s) => s.user?.userId);
 
   const usuarios = data?.content ?? [];
-  // NOTE: search filters only the current server-fetched page (server-paginated,
-  // size 20); the `Pager`'s result-count caption still reflects the unfiltered
-  // page total, not the filtered count. Same root cause as BACKLOG-03.
-  const filtered = search.trim()
-    ? usuarios.filter(
-        (u) =>
-          u.nombre.toLowerCase().includes(search.trim().toLowerCase()) ||
-          u.email.toLowerCase().includes(search.trim().toLowerCase()),
-      )
-    : usuarios;
+
+  // Debounce the search into the server `q` param (covers every user, not just this page);
+  // back to the first page whenever it changes.
+  useEffect(() => {
+    const handle = setTimeout(() => {
+      setQ(search.trim());
+      setPage(0);
+    }, SEARCH_DEBOUNCE_MS);
+    return () => clearTimeout(handle);
+  }, [search]);
 
   const columns: Column<Usuario>[] = [
     { key: 'nombre', header: 'Nombre', render: (u) => <Text variant="body">{u.nombre}</Text> },
@@ -86,13 +88,14 @@ export default function UsersPage() {
       <AsyncSection
         isLoading={isLoading}
         isError={isError}
-        isEmpty={usuarios.length === 0}
+        // With an active search keep the table (and its search box) on screen so it can be cleared.
+        isEmpty={usuarios.length === 0 && !q}
         emptyLabel="No hay usuarios"
       >
         <div style={{ marginTop: 20 }}>
           <PaginatedTable
             columns={columns}
-            rows={filtered}
+            rows={usuarios}
             rowKey={(u) => u.id}
             page={data ?? { number: 0, size: PAGE_SIZE, totalElements: 0, totalPages: 0 }}
             onPageChange={setPage}

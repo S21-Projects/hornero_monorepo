@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useNecesidad } from '../lib/hooks/useNecesidad';
-import { useOrgNombre } from '../lib/hooks/useOrgNombre';
 import { useCrearDonacion } from '../lib/hooks/useCrearDonacion';
 import { mapDonacionError } from '../lib/hooks/mapDonacionError';
 import { LineaArticuloEditor } from '../components/donacion/LineaArticuloEditor';
@@ -19,7 +18,6 @@ export default function NecesidadDetallePage() {
   const numId = id ? Number(id) : undefined;
 
   const { data: necesidad, isLoading, isError, error } = useNecesidad(numId);
-  const { getNombre } = useOrgNombre();
   const mutation = useCrearDonacion();
 
   const [observaciones, setObservaciones] = useState('');
@@ -73,7 +71,7 @@ export default function NecesidadDetallePage() {
               <Text variant="h2" style={{ marginBottom: 12 }}>{necesidad.descripcion}</Text>
 
               <Text variant="body-sm" color="ink-2" style={{ marginBottom: 4 }}>
-                Organización: {getNombre(necesidad.organizacionId)}
+                Organización: {necesidad.organizacionNombre ?? 'Organización'}
               </Text>
 
               {necesidad.fechaPublicacion && (

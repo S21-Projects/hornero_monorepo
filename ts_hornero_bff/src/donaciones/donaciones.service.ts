@@ -73,10 +73,14 @@ export class DonacionesService {
     return data;
   }
 
-  async findDeMiOrganizacion(accessToken: string, organizacionId?: string) {
-    const url = organizacionId
-      ? `${this.msUrl}/api/donaciones/mi-organizacion?organizacionId=${organizacionId}`
-      : `${this.msUrl}/api/donaciones/mi-organizacion`;
+  async findDeMiOrganizacion(
+    accessToken: string,
+    organizacionId?: string,
+    page?: string,
+    size?: string,
+    sort?: string,
+  ) {
+    const url = `${this.msUrl}/api/donaciones/mi-organizacion${buildQuery({ organizacionId, page, size, sort })}`;
     const { data } = await this.httpService.axiosRef.get(url, {
       headers: this.authHeaders(accessToken),
     });

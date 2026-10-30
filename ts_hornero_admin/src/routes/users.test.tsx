@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { render, screen, act, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import UsersPage from './users';
 import { useUsuarios } from '../lib/hooks/useUsuarios';
@@ -138,5 +138,50 @@ describe('UsersPage (N15: anonimizar)', () => {
     render(<UsersPage />);
 
     expect(screen.getByText(/Reasigná cada organización/)).toBeInTheDocument();
+  });
+});
+
+describe('UsersPage (server-side search)', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.mocked(useUsuarios).mockImplementation(((params: { q?: string }) => ({
+      data: {
+        content: params.q ? [] : [usuario()],
+        number: 0, size: 20, totalElements: params.q ? 0 : 1, totalPages: params.q ? 0 : 1,
+      },
+      isLoading: false, isError: false, isFetching: false,
+    })) as unknown as typeof useUsuarios);
+    vi.mocked(useToggleActivo).mockReturnValue({
+      mutate, isPending: false, isError: false, variables: undefined, error: null,
+    } as unknown as ReturnType<typeof useToggleActivo>);
+    vi.mocked(useAnonimizarUsuario).mockReturnValue({
+      mutate: anonimizar, isPending: false, isError: false, variables: undefined, error: null,
+    } as unknown as ReturnType<typeof useAnonimizarUsuario>);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('debounces the search into the server q param and resets to the first page', () => {
+    render(<UsersPage />);
+    expect(useUsuarios).toHaveBeenLastCalledWith({ page: 0, size: 20, q: '' });
+
+    fireEvent.change(screen.getByLabelText('Buscar por nombre o email'), { target: { value: ' dora ' } });
+    expect(useUsuarios).not.toHaveBeenCalledWith(expect.objectContaining({ q: 'dora' }));
+
+    act(() => { vi.advanceTimersByTime(300); });
+
+    expect(useUsuarios).toHaveBeenLastCalledWith({ page: 0, size: 20, q: 'dora' });
+  });
+
+  it('keeps the search box and shows the no-match label when the server returns nothing', () => {
+    render(<UsersPage />);
+
+    fireEvent.change(screen.getByLabelText('Buscar por nombre o email'), { target: { value: 'zzz' } });
+    act(() => { vi.advanceTimersByTime(300); });
+
+    expect(screen.getByLabelText('Buscar por nombre o email')).toBeInTheDocument();
+    expect(screen.getByText('No hay usuarios que coincidan con la búsqueda')).toBeInTheDocument();
   });
 });

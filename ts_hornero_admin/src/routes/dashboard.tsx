@@ -1,7 +1,9 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { AsyncSection } from '../components/AsyncSection';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
+import { Pager } from '../components/ui/Pager';
 import { Text } from '../components/ui/Typography';
 import { ChartCard } from '../components/panel/ChartCard';
 import { ChartEmptyState } from '../components/panel/ChartEmptyState';
@@ -11,6 +13,7 @@ import { useMisOrganizaciones } from '../lib/hooks/useMisOrganizaciones';
 import { useNecesidadesDeOrg } from '../lib/hooks/useNecesidadesDeOrg';
 import { useDonacionesDeMiOrg } from '../lib/hooks/useDonacionesDeMiOrg';
 import { useDecidirDonacion } from '../lib/hooks/useDecidirDonacion';
+import { usePageClamp } from '../lib/hooks/usePageClamp';
 import { necesidadesPorEstado, donacionesPorEstado } from '../lib/metricas';
 import { formatFecha, formatLineas } from '../lib/format';
 import { Badge } from '../components/Badge';
@@ -23,6 +26,9 @@ import type { Donacion } from '../types/domain';
 // (spec `donacion-entrega-codigo`). Mirrors CONFIRMABLE_ESTADOS in routes/mis-donaciones.tsx
 // (donante side).
 const CONFIRMABLE_ESTADOS = new Set(['ACEPTADA', 'EN_CAMINO', 'PENDIENTE_CONFIRMACION']);
+
+/** Donations are listed newest first, one page at a time (the MS caps a page at 100). */
+const DONACIONES_PAGE_SIZE = 20;
 
 interface DonacionAccionableRowProps {
   donacion: Donacion;
@@ -139,23 +145,26 @@ export default function DashboardPage() {
   // `Pager` doesn't apply here. `/necesidades` defaults to a page size of 20 at
   // the MS; widen to 100 so the "por estado" breakdown reflects the real
   // distribution for orgs with up to 100 needs instead of silently truncating.
-  // Same stopgap precedent as `useOrgNombre` (BACKLOG-02) and `admin.tsx`
-  // (`deriveAdminSummary`, size:100). TODO [tech-debt] BACKLOG-04: replace with
-  // a dedicated aggregation endpoint if an org can exceed 100 needs.
+  // TODO [tech-debt] BACKLOG-04: replace with a dedicated aggregation endpoint
+  // if an org can exceed 100 needs.
   const necesidades = useNecesidadesDeOrg(primaryOrg?.id, { size: 100 });
-  const donaciones = useDonacionesDeMiOrg();
+  const [donacionesPage, setDonacionesPage] = useState(0);
+  const donaciones = useDonacionesDeMiOrg({ page: donacionesPage, size: DONACIONES_PAGE_SIZE });
+  usePageClamp(donacionesPage, setDonacionesPage, donaciones.data?.totalPages);
 
   const isLoading = organizaciones.isLoading || necesidades.isLoading || donaciones.isLoading;
   const isError = organizaciones.isError || necesidades.isError || donaciones.isError;
 
   const necesidadesContent = necesidades.data?.content ?? [];
   const hasNecesidades = necesidadesContent.length > 0;
-  const hasDonaciones = (donaciones.data?.length ?? 0) > 0;
+  const donacionesContent = donaciones.data?.content ?? [];
+  const hasDonaciones = donacionesContent.length > 0;
+  const donacionesPaginadas = (donaciones.data?.totalPages ?? 0) > 1;
 
   const necesidadesData = necesidadesPorEstado(necesidadesContent);
-  const donacionesData = donacionesPorEstado(donaciones.data ?? []);
-  const donacionesAccionables = (donaciones.data ?? []).filter((d) => d.estado === 'OFRECIDA');
-  const donacionesParaConfirmar = (donaciones.data ?? []).filter(
+  const donacionesData = donacionesPorEstado(donacionesContent);
+  const donacionesAccionables = donacionesContent.filter((d) => d.estado === 'OFRECIDA');
+  const donacionesParaConfirmar = donacionesContent.filter(
     (d) => CONFIRMABLE_ESTADOS.has(d.estado) && !d.confirmadaReferenteEn,
   );
 
@@ -184,7 +193,14 @@ export default function DashboardPage() {
               <ChartEmptyState message="Todavía no hay necesidades cargadas." />
             )}
           </ChartCard>
-          <ChartCard title="Donaciones recibidas" subtitle="Estado de las donaciones recibidas por tu organización">
+          <ChartCard
+            title="Donaciones recibidas"
+            subtitle={
+              donacionesPaginadas
+                ? `Estado de las donaciones de esta página (${donaciones.data?.totalElements ?? 0} en total)`
+                : 'Estado de las donaciones recibidas por tu organización'
+            }
+          >
             {hasDonaciones ? (
               <MetricPieChart data={donacionesData} />
             ) : (
@@ -213,6 +229,10 @@ export default function DashboardPage() {
               ))}
             </div>
           </div>
+        )}
+
+        {donaciones.data && (
+          <Pager page={donaciones.data} onPageChange={setDonacionesPage} disabled={donaciones.isFetching} />
         )}
       </div>
     </AsyncSection>

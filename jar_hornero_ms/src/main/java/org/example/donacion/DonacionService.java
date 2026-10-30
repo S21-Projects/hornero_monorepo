@@ -234,17 +234,15 @@ public class DonacionService {
                 .map(this::toActivaResponse);
     }
 
-    public List<DonacionResponse> findDeMisOrganizaciones(Long referenteId, Long organizacionId) {
+    public Page<DonacionResponse> findDeMisOrganizaciones(Long referenteId, Long organizacionId, Pageable pageable) {
         if (organizacionId != null) {
             Organizacion org = organizacionRepository.findByIdAndReferente_Id(organizacionId, referenteId)
                     .orElseThrow(() -> new ResponseStatusException(HttpStatus.FORBIDDEN, "Access denied"));
-            return donacionRepository.findByOrganizacionId(org.getId()).stream()
-                    .map(this::toResponse)
-                    .collect(Collectors.toList());
+            return donacionRepository.findByOrganizacionId(org.getId(), pageable)
+                    .map(this::toResponse);
         }
-        return donacionRepository.findByOrganizacion_Referente_Id(referenteId).stream()
-                .map(this::toResponse)
-                .collect(Collectors.toList());
+        return donacionRepository.findByOrganizacion_Referente_Id(referenteId, pageable)
+                .map(this::toResponse);
     }
 
     @Transactional

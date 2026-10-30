@@ -54,4 +54,40 @@ describe('UsuariosController', () => {
       expect(service.anonimizar).not.toHaveBeenCalled();
     });
   });
+
+  describe('findAll', () => {
+    it('is restricted to ADMINISTRADOR', () => {
+      expect(rolesOf('findAll')).toEqual([Role.ADMINISTRADOR]);
+    });
+
+    it('forwards the filters and paging with the cookie token', async () => {
+      service.findAll.mockResolvedValue({ content: [] });
+
+      const res = await controller.findAll(
+        requestWithToken('tok'),
+        'REFERENTE',
+        'true',
+        'ana',
+        '1',
+        '20',
+        'id,asc',
+      );
+
+      expect(service.findAll).toHaveBeenCalledWith('tok', {
+        tipo: 'REFERENTE',
+        activo: 'true',
+        q: 'ana',
+        page: '1',
+        size: '20',
+        sort: 'id,asc',
+      });
+      expect(res).toEqual({ content: [] });
+    });
+
+    it('rejects a request without access_token', () => {
+      expect(() => controller.findAll(requestWithToken())).toThrow(
+        UnauthorizedException,
+      );
+    });
+  });
 });

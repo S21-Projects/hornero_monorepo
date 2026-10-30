@@ -20,6 +20,7 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
@@ -142,6 +143,30 @@ class DonacionControllerTest {
         Sort.Order fechaOfertaOrder = sort.getOrderFor("fechaOferta");
         assertThat(fechaOfertaOrder).isNotNull();
         assertThat(fechaOfertaOrder.getDirection()).isEqualTo(Sort.Direction.DESC);
+    }
+
+    // ─── GET /mi-organizacion: paged, defaults to fechaOferta DESC, scoped to the caller ──────
+
+    @Test
+    void getMiOrganizacion_pagedWithDefaultSortAndEnvelope() throws Exception {
+        ArgumentCaptor<Pageable> captor = ArgumentCaptor.forClass(Pageable.class);
+        when(donacionService.findDeMisOrganizaciones(eq(7L), eq(10L), captor.capture()))
+                .thenReturn(new PageImpl<>(List.of(buildResponse(1L, "Arroz", "Comedor")), PageRequest.of(1, 5), 11));
+
+        var referenteAuth = new UsernamePasswordAuthenticationToken(
+                7L, null, List.of(new SimpleGrantedAuthority("ROLE_REFERENTE")));
+
+        mockMvc.perform(get("/api/donaciones/mi-organizacion")
+                        .param("organizacionId", "10").param("page", "1").param("size", "5")
+                        .with(authentication(referenteAuth)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.totalElements").value(11))
+                .andExpect(jsonPath("$.data.totalPages").value(3))
+                .andExpect(jsonPath("$.data.number").value(1));
+
+        assertThat(captor.getValue().getPageSize()).isEqualTo(5);
+        assertThat(captor.getValue().getSort().getOrderFor("fechaOferta").getDirection())
+                .isEqualTo(Sort.Direction.DESC);
     }
 
     // ─── GET /activas: admin-only paginated active-donations list ────────────
