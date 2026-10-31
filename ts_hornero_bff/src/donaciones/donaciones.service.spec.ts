@@ -65,7 +65,9 @@ describe('DonacionesService', () => {
 
   describe('findDeMiOrganizacion', () => {
     it('forwards the access token as a Bearer header to the MS mi-organizacion endpoint', async () => {
-      const data = [{ id: 1, organizacionId: 10, estado: 'OFRECIDA' }];
+      const data = {
+        content: [{ id: 1, organizacionId: 10, estado: 'OFRECIDA' }],
+      };
       httpService.axiosRef.get.mockResolvedValue({ data });
 
       const result = await service.findDeMiOrganizacion('token-123');
@@ -85,6 +87,23 @@ describe('DonacionesService', () => {
 
       expect(httpService.axiosRef.get).toHaveBeenCalledWith(
         'http://ms:8081/api/donaciones/mi-organizacion?organizacionId=10',
+        { headers: { Authorization: 'Bearer token-123' } },
+      );
+    });
+
+    it('forwards page, size and sort to the MS', async () => {
+      httpService.axiosRef.get.mockResolvedValue({ data: { content: [] } });
+
+      await service.findDeMiOrganizacion(
+        'token-123',
+        '10',
+        '2',
+        '20',
+        'fechaOferta,desc',
+      );
+
+      expect(httpService.axiosRef.get).toHaveBeenCalledWith(
+        'http://ms:8081/api/donaciones/mi-organizacion?organizacionId=10&page=2&size=20&sort=fechaOferta%2Cdesc',
         { headers: { Authorization: 'Bearer token-123' } },
       );
     });

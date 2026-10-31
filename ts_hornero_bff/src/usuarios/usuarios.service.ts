@@ -19,8 +19,18 @@ export class UsuariosService {
     return { Authorization: `Bearer ${accessToken}` };
   }
 
-  async findAll(accessToken: string, page?: string, size?: string, sort?: string) {
-    const url = `${this.msUrl}/api/usuarios${buildQuery({ page, size, sort })}`;
+  async findAll(
+    accessToken: string,
+    params: {
+      tipo?: string;
+      activo?: string;
+      q?: string;
+      page?: string;
+      size?: string;
+      sort?: string;
+    } = {},
+  ) {
+    const url = `${this.msUrl}/api/usuarios${buildQuery(params)}`;
     const { data } = await this.httpService.axiosRef.get(url, {
       headers: this.authHeaders(accessToken),
     });

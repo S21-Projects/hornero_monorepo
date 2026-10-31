@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import DashboardPage from './dashboard';
 import { useMisOrganizaciones } from '../lib/hooks/useMisOrganizaciones';
@@ -42,9 +43,10 @@ function mockNecesidades(data: Necesidad[] | undefined, overrides = {}) {
 
 function mockDonaciones(data: Donacion[] | undefined, overrides = {}) {
   vi.mocked(useDonacionesDeMiOrg).mockReturnValue({
-    data,
+    data: data ? makePage(data) : undefined,
     isLoading: false,
     isError: false,
+    isFetching: false,
     ...overrides,
   } as ReturnType<typeof useDonacionesDeMiOrg>);
 }
@@ -176,5 +178,27 @@ describe('DashboardPage', () => {
     render(<MemoryRouter><DashboardPage /></MemoryRouter>);
 
     expect(screen.getByText('5 kg Arroz, 6 paquetes Fideos')).toBeInTheDocument();
+  });
+
+  it('pages the donaciones: shows a pager and requests the next page', async () => {
+    const user = userEvent.setup();
+    mockOrganizacion([organizacion]);
+    mockNecesidades(necesidades);
+    vi.mocked(useDonacionesDeMiOrg).mockReturnValue({
+      data: makePage(donaciones, { totalElements: 45, size: 20 }),
+      isLoading: false,
+      isError: false,
+      isFetching: false,
+    } as ReturnType<typeof useDonacionesDeMiOrg>);
+
+    render(<MemoryRouter><DashboardPage /></MemoryRouter>);
+
+    expect(screen.getByText(/Página 1 de 3 · 45 resultados/)).toBeInTheDocument();
+    expect(screen.getByText(/de esta página \(45 en total\)/)).toBeInTheDocument();
+    expect(useDonacionesDeMiOrg).toHaveBeenLastCalledWith({ page: 0, size: 20 });
+
+    await user.click(screen.getByRole('button', { name: 'Página siguiente' }));
+
+    expect(useDonacionesDeMiOrg).toHaveBeenLastCalledWith({ page: 1, size: 20 });
   });
 });

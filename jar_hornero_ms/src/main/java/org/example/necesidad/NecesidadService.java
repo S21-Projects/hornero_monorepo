@@ -321,6 +321,7 @@ public class NecesidadService {
                 n.getFechaPublicacion(),
                 n.getFechaVencimiento(),
                 n.getOrganizacion().getId(),
+                n.getOrganizacion().getNombre(),
                 n.getCategoria(),
                 n.getArticulos().stream()
                         .map(na -> new NecesidadArticuloResponse(

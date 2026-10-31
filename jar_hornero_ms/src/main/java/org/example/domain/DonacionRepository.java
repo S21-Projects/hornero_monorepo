@@ -43,8 +43,11 @@ public interface DonacionRepository extends JpaRepository<Donacion, Long> {
     @Query("SELECT d FROM Donacion d JOIN FETCH d.donante JOIN FETCH d.necesidad n JOIN FETCH n.organizacion WHERE n.organizacion.id = :orgId")
     List<Donacion> findByOrganizacionId(@Param("orgId") Long orgId);
 
-    @Query("SELECT d FROM Donacion d JOIN FETCH d.donante WHERE d.necesidad.organizacion.referente.id = :referenteId")
-    List<Donacion> findByOrganizacion_Referente_Id(@Param("referenteId") Long referenteId);
+    @Query(
+            value = "SELECT d FROM Donacion d JOIN FETCH d.donante WHERE d.necesidad.organizacion.referente.id = :referenteId",
+            countQuery = "SELECT COUNT(d) FROM Donacion d WHERE d.necesidad.organizacion.referente.id = :referenteId"
+    )
+    Page<Donacion> findByOrganizacion_Referente_Id(@Param("referenteId") Long referenteId, Pageable pageable);
 
     @Query(
             value = "SELECT d FROM Donacion d JOIN FETCH d.donante JOIN FETCH d.necesidad n JOIN FETCH n.organizacion WHERE n.organizacion.id = :orgId",
