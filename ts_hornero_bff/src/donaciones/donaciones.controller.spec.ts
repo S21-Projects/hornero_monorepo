@@ -109,6 +109,7 @@ describe('DonacionesController', () => {
         undefined,
         undefined,
         undefined,
+        undefined,
       );
       expect(result).toBe(donaciones);
     });
@@ -125,6 +126,7 @@ describe('DonacionesController', () => {
       expect(service.findDeMiOrganizacion).toHaveBeenCalledWith(
         'token-123',
         '10',
+        undefined,
         undefined,
         undefined,
         undefined,
@@ -148,6 +150,29 @@ describe('DonacionesController', () => {
         '2',
         '20',
         'fechaOferta,desc',
+        undefined,
+      );
+    });
+
+    it('forwards the estado filter to the service', async () => {
+      service.findDeMiOrganizacion.mockResolvedValue({ content: [] });
+
+      await controller.findDeMiOrganizacion(
+        requestWithToken('token-123'),
+        undefined,
+        '0',
+        '100',
+        undefined,
+        'OFRECIDA,EN_CAMINO',
+      );
+
+      expect(service.findDeMiOrganizacion).toHaveBeenCalledWith(
+        'token-123',
+        undefined,
+        '0',
+        '100',
+        undefined,
+        'OFRECIDA,EN_CAMINO',
       );
     });
 
