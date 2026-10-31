@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { AnimatePresence, motion } from 'motion/react';
 import { ArrowDown2, ArrowUp2 } from 'iconsax-reactjs';
@@ -11,7 +11,7 @@ import { Input } from '../components/ui/Input';
 import { Pager } from '../components/ui/Pager';
 import { Text } from '../components/ui/Typography';
 import { useUsuarios } from '../lib/hooks/useUsuarios';
-import { useTodasOrganizaciones } from '../lib/hooks/useTodasOrganizaciones';
+import { useOrganizacionesAdmin } from '../lib/hooks/useOrganizacionesAdmin';
 import { usePageClamp } from '../lib/hooks/usePageClamp';
 import { useAsignarReferente } from '../lib/hooks/useAsignarReferente';
 import { useAdminInfoPublica } from '../lib/hooks/useAdminInfoPublica';
@@ -144,22 +144,23 @@ function OrgRow({ org, referentesActivos }: OrgRowProps) {
 }
 
 const PAGE_SIZE = 20;
+/** The MS caps a page at 100; one page of referentes (<= 20) holds at most 3 organizaciones each. */
+const ORGS_REFERENTES_SIZE = 100;
+const SEARCH_DEBOUNCE_MS = 300;
 
 export default function ReferentesPage() {
   const [page, setPage] = useState(0);
   const [search, setSearch] = useState('');
+  const [sinPage, setSinPage] = useState(0);
+  const [qInput, setQInput] = useState('');
+  const [q, setQ] = useState('');
   const usuariosQuery = useUsuarios({ page, size: PAGE_SIZE });
-  const orgsQuery = useTodasOrganizaciones();
-
-  const isLoading = usuariosQuery.isLoading || orgsQuery.isLoading;
-  const isError = usuariosQuery.isError || orgsQuery.isError;
 
   usePageClamp(page, setPage, usuariosQuery.data?.totalPages);
   const usuariosPage = usuariosQuery.data;
   const allReferentes = (usuariosPage?.content ?? []).filter((u) => u.tipo === 'REFERENTE');
-  // NOTE: search filters only the current server-fetched page (server-paginated,
-  // size 20); the `Pager`'s result-count caption still reflects the unfiltered
-  // page total, not the filtered count. Same root cause as BACKLOG-03.
+  // NOTE: /usuarios has no search param yet, so this filters only the current
+  // server-fetched page; the `Pager` caption still reflects the unfiltered total.
   const referentes = search.trim()
     ? allReferentes.filter(
         (r) =>
@@ -167,24 +168,39 @@ export default function ReferentesPage() {
           r.email.toLowerCase().includes(search.trim().toLowerCase()),
       )
     : allReferentes;
-  // NOTE: "activos" pool for the reassignment dropdown is scoped to the current
-  // page of `useUsuarios` (server-paginated). If referentes ever exceed one
-  // page, an active referente on another page won't appear as an assignment
-  // option here. Acceptable for now — tracked as tech debt alongside BACKLOG-02.
+  // NOTE: the reassignment dropdown only offers the referentes of the current
+  // page of `useUsuarios` (no server-side referente search/list to draw from).
   const referentesActivos = allReferentes.filter((r) => r.activo);
-  const orgs = orgsQuery.data ?? [];
 
+  // Organizaciones of the referentes on this page, in one bounded request.
+  const referenteIds = allReferentes.map((r) => r.id);
+  const orgsReferentesQuery = useOrganizacionesAdmin(
+    { page: 0, size: ORGS_REFERENTES_SIZE, referenteIds },
+    { enabled: referenteIds.length > 0 },
+  );
   const orgsPorReferente = new Map<number, OrganizacionAdmin[]>();
-  const sinReferente: OrganizacionAdmin[] = [];
-  for (const org of orgs) {
-    if (org.referenteId == null) {
-      sinReferente.push(org);
-      continue;
-    }
+  for (const org of orgsReferentesQuery.data?.content ?? []) {
+    if (org.referenteId == null) continue;
     const bucket = orgsPorReferente.get(org.referenteId) ?? [];
     bucket.push(org);
     orgsPorReferente.set(org.referenteId, bucket);
   }
+
+  // Debounce the name search into the server `q` param; back to page 0 when it changes.
+  useEffect(() => {
+    const handle = setTimeout(() => {
+      setQ(qInput.trim());
+      setSinPage(0);
+    }, SEARCH_DEBOUNCE_MS);
+    return () => clearTimeout(handle);
+  }, [qInput]);
+
+  const sinQuery = useOrganizacionesAdmin({ page: sinPage, size: PAGE_SIZE, sinReferente: true, q });
+  usePageClamp(sinPage, setSinPage, sinQuery.data?.totalPages);
+  const sinReferente = sinQuery.data?.content ?? [];
+
+  const isLoading = usuariosQuery.isLoading || (referenteIds.length > 0 && orgsReferentesQuery.isLoading);
+  const isError = usuariosQuery.isError || orgsReferentesQuery.isError;
 
   return (
     <div>
@@ -203,17 +219,18 @@ export default function ReferentesPage() {
         />
       </div>
 
-      <AsyncSection
-        isLoading={isLoading}
-        isError={isError}
-        isEmpty={allReferentes.length === 0 && orgs.length === 0}
-      >
-        {referentes.length === 0 && allReferentes.length > 0 && (
-          <Text variant="body-sm" color="ink-2" style={{ marginBottom: 16 }}>
-            No hay referentes en esta página que coincidan con la búsqueda — probá con otra.
-          </Text>
-        )}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <AsyncSection
+          isLoading={isLoading}
+          isError={isError}
+          isEmpty={allReferentes.length === 0}
+          emptyLabel="No hay referentes en esta página"
+        >
+          {referentes.length === 0 && allReferentes.length > 0 && (
+            <Text variant="body-sm" color="ink-2">
+              No hay referentes en esta página que coincidan con la búsqueda — probá con otra.
+            </Text>
+          )}
           {referentes.map((referente) => {
             const misOrgs = orgsPorReferente.get(referente.id) ?? [];
             return (
@@ -234,25 +251,40 @@ export default function ReferentesPage() {
               </Card>
             );
           })}
-
-          <Card style={{ padding: 20, border: '1.5px dashed var(--line)' }}>
-            <Text variant="title" color="urgent" style={{ marginBottom: 8 }}>
-              Sin referente ({sinReferente.length})
-            </Text>
-            {sinReferente.length === 0 ? (
-              <Text variant="body-sm" color="ink-3">No hay organizaciones sin referente.</Text>
-            ) : (
-              sinReferente.map((org) => (
-                <OrgRow key={org.id} org={org} referentesActivos={referentesActivos} />
-              ))
-            )}
-          </Card>
-        </div>
+        </AsyncSection>
 
         {usuariosPage && (
           <Pager page={usuariosPage} onPageChange={setPage} disabled={usuariosQuery.isFetching} />
         )}
-      </AsyncSection>
+
+        <Card style={{ padding: 20, border: '1.5px dashed var(--line)' }}>
+          <Text variant="title" color="urgent" style={{ marginBottom: 8 }}>
+            Sin referente{sinQuery.data ? ` (${sinQuery.data.totalElements})` : ''}
+          </Text>
+          <div style={{ maxWidth: 360, marginBottom: 8 }}>
+            <Input
+              type="search"
+              value={qInput}
+              onChange={(e) => setQInput(e.target.value)}
+              placeholder="Buscar organización por nombre"
+              aria-label="Buscar organización sin referente"
+            />
+          </div>
+          <AsyncSection
+            isLoading={sinQuery.isLoading}
+            isError={sinQuery.isError}
+            isEmpty={sinReferente.length === 0}
+            emptyLabel={q ? 'Ninguna organización coincide con la búsqueda' : 'No hay organizaciones sin referente'}
+          >
+            {sinReferente.map((org) => (
+              <OrgRow key={org.id} org={org} referentesActivos={referentesActivos} />
+            ))}
+            {sinQuery.data && (
+              <Pager page={sinQuery.data} onPageChange={setSinPage} disabled={sinQuery.isFetching} />
+            )}
+          </AsyncSection>
+        </Card>
+      </div>
     </div>
   );
 }

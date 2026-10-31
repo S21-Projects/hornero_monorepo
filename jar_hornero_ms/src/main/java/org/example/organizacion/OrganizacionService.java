@@ -231,12 +231,38 @@ public class OrganizacionService {
                 .collect(Collectors.toList());
     }
 
+    /** Upper bound of {@code referenteIds} per request: the admin sends the referentes of one page (<= 100). */
+    public static final int MAX_REFERENTE_IDS = 100;
+    private static final List<Long> SIN_IDS = List.of(-1L);
+
+    /**
+     * Admin listing, paged. Filters combine with AND: {@code sinReferente=true} keeps organizaciones with no
+     * referente, {@code referenteIds} keeps those of the given referentes, {@code q} is a case-insensitive
+     * "name contains". Any of them may be null/empty (= no filter).
+     */
     @Transactional(readOnly = true)
-    public List<OrganizacionResponse> listarTodas() {
-        return organizacionRepository.findAll()
-                .stream()
-                .map(this::toResponseAutenticado)
-                .collect(Collectors.toList());
+    public Page<OrganizacionResponse> listarTodas(Boolean sinReferente, List<Long> referenteIds, String q,
+                                                  Pageable pageable) {
+        boolean filtrarReferentes = referenteIds != null && !referenteIds.isEmpty();
+        if (filtrarReferentes && referenteIds.size() > MAX_REFERENTE_IDS) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "referenteIds admite como máximo " + MAX_REFERENTE_IDS + " ids");
+        }
+        return organizacionRepository.buscarAdmin(
+                        Boolean.TRUE.equals(sinReferente),
+                        filtrarReferentes,
+                        filtrarReferentes ? referenteIds : SIN_IDS,
+                        patronContiene(q),
+                        pageable)
+                .map(this::toResponseAutenticado);
+    }
+
+    /** Lowercased LIKE pattern for "contains", with LIKE wildcards in the input escaped (escape char is '\\'). */
+    private static String patronContiene(String q) {
+        if (q == null || q.isBlank()) return "%";
+        String escapado = q.trim().toLowerCase()
+                .replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_");
+        return "%" + escapado + "%";
     }
 
 

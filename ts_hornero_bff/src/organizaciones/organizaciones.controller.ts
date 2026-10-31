@@ -52,10 +52,26 @@ export class OrganizacionesController {
   @Roles(Role.ADMINISTRADOR)
   @Get('todas')
   @ApiOperation({
-    summary: 'List all organizations, any estado/referente (admin only)',
+    summary:
+      'List all organizations, any estado/referente, paged and filterable (admin only)',
   })
-  listarTodas(@Req() req: Request) {
-    return this.organizacionesService.listarTodas(this.getToken(req));
+  listarTodas(
+    @Req() req: Request,
+    @Query('sinReferente') sinReferente?: string,
+    @Query('referenteIds') referenteIds?: string,
+    @Query('q') q?: string,
+    @Query('page') page?: string,
+    @Query('size') size?: string,
+    @Query('sort') sort?: string,
+  ) {
+    return this.organizacionesService.listarTodas(this.getToken(req), {
+      sinReferente,
+      referenteIds,
+      q,
+      page,
+      size,
+      sort,
+    });
   }
 
   @Public()
@@ -80,7 +96,12 @@ export class OrganizacionesController {
     @Query('size') size?: string,
     @Query('sort') sort?: string,
   ) {
-    return this.organizacionesService.listarPendientes(this.getToken(req), page, size, sort);
+    return this.organizacionesService.listarPendientes(
+      this.getToken(req),
+      page,
+      size,
+      sort,
+    );
   }
 
   @Roles(Role.ADMINISTRADOR)
@@ -102,7 +123,8 @@ export class OrganizacionesController {
   @Header('Cache-Control', 'public, max-age=300')
   @Get('mapa')
   @ApiOperation({
-    summary: 'Lightweight list for the public map (approved + unclaimed, with coordinates)',
+    summary:
+      'Lightweight list for the public map (approved + unclaimed, with coordinates)',
   })
   mapa() {
     return this.organizacionesService.mapa();
@@ -113,7 +135,8 @@ export class OrganizacionesController {
   @Header('Cache-Control', 'public, max-age=60')
   @Get('mapa/zona')
   @ApiOperation({
-    summary: 'Public map pins inside a lat/lng box (capped, with a truncated flag)',
+    summary:
+      'Public map pins inside a lat/lng box (capped, with a truncated flag)',
   })
   mapaZona(
     @Query('minLat') minLat?: string,
