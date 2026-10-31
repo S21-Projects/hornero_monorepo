@@ -36,6 +36,15 @@ describe('UploadController', () => {
       user: { tipo: Role.ADMINISTRADOR },
     }) as unknown as Request;
 
+  // Real MS response shape (ApiResponseAdvice): the list lives under `data`.
+  const envelope = (data: unknown) => ({
+    status: 200,
+    message: 'OK',
+    timestamp: '2026-10-30T00:00:00',
+    data,
+    errors: null,
+  });
+
   const file = { originalname: 'photo.jpg' } as Express.Multer.File;
 
   beforeEach(async () => {
@@ -48,7 +57,9 @@ describe('UploadController', () => {
         .mockResolvedValue('reclamo-evidencia/5/7/1-key'),
     };
     authService = { verificarSesion: jest.fn().mockResolvedValue({}) };
-    reclamosService = { verificarReclamable: jest.fn().mockResolvedValue(undefined) };
+    reclamosService = {
+      verificarReclamable: jest.fn().mockResolvedValue(undefined),
+    };
     organizacionesService = {
       misOrganizaciones: jest.fn(),
       actualizar: jest.fn().mockResolvedValue({}),
@@ -72,11 +83,22 @@ describe('UploadController', () => {
   });
 
   describe('assertOwnership (via uploadOrgProfile)', () => {
-    it('allows the upload when the org id is present in the misOrganizaciones array', async () => {
-      organizacionesService.misOrganizaciones.mockResolvedValue([
-        { id: 2 },
-        { id: 5 },
-      ]);
+    it('allows the upload when the org id is present in the envelope-wrapped misOrganizaciones response', async () => {
+      organizacionesService.misOrganizaciones.mockResolvedValue(
+        envelope([{ id: 2 }, { id: 5 }]),
+      );
+
+      const result = await controller.uploadOrgProfile(
+        5,
+        file,
+        requestWithToken(),
+      );
+
+      expect(result).toEqual({ key: 'org-profile/1-key' });
+    });
+
+    it('still accepts a bare array (tolerated for safety)', async () => {
+      organizacionesService.misOrganizaciones.mockResolvedValue([{ id: 5 }]);
 
       const result = await controller.uploadOrgProfile(
         5,
@@ -88,10 +110,9 @@ describe('UploadController', () => {
     });
 
     it('rejects the upload when the org id is not owned by the referente', async () => {
-      organizacionesService.misOrganizaciones.mockResolvedValue([
-        { id: 2 },
-        { id: 5 },
-      ]);
+      organizacionesService.misOrganizaciones.mockResolvedValue(
+        envelope([{ id: 2 }, { id: 5 }]),
+      );
 
       await expect(
         controller.uploadOrgProfile(99, file, requestWithToken()),
@@ -99,7 +120,7 @@ describe('UploadController', () => {
     });
 
     it('rejects the upload when misOrganizaciones returns an empty array', async () => {
-      organizacionesService.misOrganizaciones.mockResolvedValue([]);
+      organizacionesService.misOrganizaciones.mockResolvedValue(envelope([]));
 
       await expect(
         controller.uploadOrgProfile(5, file, requestWithToken()),
@@ -144,7 +165,9 @@ describe('UploadController', () => {
 
   describe('POST upload/org-evidencia/:id', () => {
     it('allows the owning referente to upload', async () => {
-      organizacionesService.misOrganizaciones.mockResolvedValue([{ id: 5 }]);
+      organizacionesService.misOrganizaciones.mockResolvedValue(
+        envelope([{ id: 5 }]),
+      );
 
       const result = await controller.uploadOrgEvidencia(
         5,
@@ -157,7 +180,9 @@ describe('UploadController', () => {
     });
 
     it('rejects a non-owning referente', async () => {
-      organizacionesService.misOrganizaciones.mockResolvedValue([{ id: 2 }]);
+      organizacionesService.misOrganizaciones.mockResolvedValue(
+        envelope([{ id: 2 }]),
+      );
 
       await expect(
         controller.uploadOrgEvidencia(99, file, requestWithToken()),
@@ -178,7 +203,9 @@ describe('UploadController', () => {
     });
 
     it('never persists the key against the organizacion — evidence linking happens via cargarEvidencia', async () => {
-      organizacionesService.misOrganizaciones.mockResolvedValue([{ id: 5 }]);
+      organizacionesService.misOrganizaciones.mockResolvedValue(
+        envelope([{ id: 5 }]),
+      );
 
       await controller.uploadOrgEvidencia(5, file, requestWithToken());
 
@@ -197,17 +224,29 @@ describe('UploadController', () => {
     });
 
     it.each([
-      ['org-profile', (c: UploadController, r: Request) => c.uploadOrgProfile(1, file, r)],
-      ['org-banner', (c: UploadController, r: Request) => c.uploadOrgBanner(1, file, r)],
-      ['org-evidencia', (c: UploadController, r: Request) => c.uploadOrgEvidencia(1, file, r)],
-    ])('%s: admin token of an inactive user is rejected, nothing uploaded', async (_n, call) => {
-      await expect(call(controller, requestAsAdmin())).rejects.toBe(inactive);
+      [
+        'org-profile',
+        (c: UploadController, r: Request) => c.uploadOrgProfile(1, file, r),
+      ],
+      [
+        'org-banner',
+        (c: UploadController, r: Request) => c.uploadOrgBanner(1, file, r),
+      ],
+      [
+        'org-evidencia',
+        (c: UploadController, r: Request) => c.uploadOrgEvidencia(1, file, r),
+      ],
+    ])(
+      '%s: admin token of an inactive user is rejected, nothing uploaded',
+      async (_n, call) => {
+        await expect(call(controller, requestAsAdmin())).rejects.toBe(inactive);
 
-      expect(authService.verificarSesion).toHaveBeenCalledWith('admin-token');
-      expect(uploadService.uploadOrgProfile).not.toHaveBeenCalled();
-      expect(uploadService.uploadOrgBanner).not.toHaveBeenCalled();
-      expect(uploadService.uploadOrgEvidencia).not.toHaveBeenCalled();
-    });
+        expect(authService.verificarSesion).toHaveBeenCalledWith('admin-token');
+        expect(uploadService.uploadOrgProfile).not.toHaveBeenCalled();
+        expect(uploadService.uploadOrgBanner).not.toHaveBeenCalled();
+        expect(uploadService.uploadOrgEvidencia).not.toHaveBeenCalled();
+      },
+    );
   });
   describe('uploadReclamoEvidencia', () => {
     const asReferente = (userId = '7') =>
@@ -236,14 +275,21 @@ describe('UploadController', () => {
     it('checks with the MS that the organizacion is claimable before writing anything', async () => {
       await controller.uploadReclamoEvidencia(5, file, asReferente());
 
-      expect(reclamosService.verificarReclamable).toHaveBeenCalledWith(5, 'token-123');
+      expect(reclamosService.verificarReclamable).toHaveBeenCalledWith(
+        5,
+        'token-123',
+      );
       expect(
         reclamosService.verificarReclamable.mock.invocationCallOrder[0],
-      ).toBeLessThan(uploadService.uploadReclamoEvidencia.mock.invocationCallOrder[0]);
+      ).toBeLessThan(
+        uploadService.uploadReclamoEvidencia.mock.invocationCallOrder[0],
+      );
     });
 
     it('never writes to storage when the MS refuses the claim (404/409)', async () => {
-      reclamosService.verificarReclamable.mockRejectedValue(new ConflictException());
+      reclamosService.verificarReclamable.mockRejectedValue(
+        new ConflictException(),
+      );
 
       await expect(
         controller.uploadReclamoEvidencia(5, file, asReferente()),
@@ -253,9 +299,13 @@ describe('UploadController', () => {
 
     it('is rate limited per client IP (10 uploads per minute)', () => {
       const handler = UploadController.prototype.uploadReclamoEvidencia;
-      expect(Reflect.getMetadata(THROTTLER_LIMIT + 'default', handler)).toBe(10);
+      expect(Reflect.getMetadata(THROTTLER_LIMIT + 'default', handler)).toBe(
+        10,
+      );
       const guards = Reflect.getMetadata('__guards__', handler) as unknown[];
-      expect(guards.map((g) => (g as { name: string }).name)).toContain('ClientIpThrottlerGuard');
+      expect(guards.map((g) => (g as { name: string }).name)).toContain(
+        'ClientIpThrottlerGuard',
+      );
     });
 
     it('rejects a missing file and never writes', async () => {
