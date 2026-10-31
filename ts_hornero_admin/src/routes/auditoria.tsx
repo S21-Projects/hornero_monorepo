@@ -8,6 +8,7 @@ import type { Column } from '../components/ui/PaginatedTable';
 import { Text } from '../components/ui/Typography';
 import { AuditQueue } from '../components/acreditacion/AuditQueue';
 import { useColaAuditoria } from '../lib/hooks/useColaAuditoria';
+import { requisitoLabel } from '../lib/acreditacion';
 import { usePageClamp } from '../lib/hooks/usePageClamp';
 import { NivelAcreditacion, RequisitoAcreditacion, TipoEvidencia } from '../types/domain';
 import type {
@@ -25,7 +26,7 @@ const NIVEL_OPTIONS = [
 ];
 const REQUISITO_OPTIONS = [
   { value: '', label: 'Todos los requisitos' },
-  ...Object.values(RequisitoAcreditacion).map((r) => ({ value: r, label: r })),
+  ...Object.values(RequisitoAcreditacion).map((r) => ({ value: r, label: requisitoLabel(r) })),
 ];
 const TIPO_OPTIONS = [
   { value: '', label: 'Todos los tipos' },
@@ -97,7 +98,7 @@ export default function AuditoriaPage() {
     {
       key: 'requisito',
       header: 'Requisito',
-      render: (r) => <Text variant="body-sm">{r.requisito}</Text>,
+      render: (r) => <Text variant="body-sm">{requisitoLabel(r.requisito)}</Text>,
     },
     {
       key: 'tipo',

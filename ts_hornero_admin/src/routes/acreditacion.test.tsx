@@ -120,6 +120,25 @@ describe('AcreditacionPage — task 2.24 (AD-12 follow-up)', () => {
     expect(screen.getByTestId('evidencia-archivo')).toHaveTextContent('org-evidencia/5/doc.pdf');
   });
 
+  it('renders human labels for requisito codes and falls back to the raw code when unknown', () => {
+    vi.mocked(useLegajo).mockReturnValue({
+      data: buildLegajo([
+        BASE_REQUISITO,
+        { ...BASE_REQUISITO, requisito: 'SERVICIO_REGULAR_GRATUITO' },
+        { ...BASE_REQUISITO, requisito: 'CODIGO_NUEVO' as never },
+      ]),
+      isLoading: false,
+      isError: false,
+    } as ReturnType<typeof useLegajo>);
+
+    render(<AcreditacionPage />, { wrapper: Wrapper });
+
+    expect(screen.getByText('Sin discriminación')).toBeInTheDocument();
+    expect(screen.getByText('Servicio regular y gratuito')).toBeInTheDocument();
+    expect(screen.queryByText('NO_DISCRIMINACION')).not.toBeInTheDocument();
+    expect(screen.getByText('CODIGO_NUEVO')).toBeInTheDocument();
+  });
+
   it('does not render EvidenciaArchivo for a DECLARACION requisito', () => {
     vi.mocked(useLegajo).mockReturnValue({
       data: buildLegajo([BASE_REQUISITO]),
