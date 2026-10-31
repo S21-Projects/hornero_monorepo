@@ -17,6 +17,9 @@ const FILTER_OPTIONS = [
 
 type OrgWithDistance = Org & { distanceKm?: number };
 
+/** Unclaimed orgs span the whole country: cap how many cards hit the DOM (the map still shows all). */
+const SIN_RECLAMAR_LIST_CAP = 30;
+
 const PUBLIC_BFF_URL = import.meta.env.PUBLIC_BFF_URL ?? '';
 const PUBLIC_SPA_URL = import.meta.env.PUBLIC_SPA_URL ?? '';
 
@@ -61,7 +64,7 @@ function OrgCard({
             >
               <Location size={14} color="var(--ink-3)" />
               <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {org.direccion ?? 'Córdoba'}
+                {org.direccion ?? (org.estado === 'SIN_RECLAMAR' ? 'Sin dirección registrada' : 'Córdoba')}
               </span>
               {org.distanceKm != null && (
                 <span style={{ color: 'var(--horn)', fontWeight: 800, flexShrink: 0 }}>
@@ -74,6 +77,7 @@ function OrgCard({
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
           <Pill variant="cat">{TIPO_ORGANIZACION_LABELS[org.tipo as TipoOrganizacion] ?? org.tipo}</Pill>
+          {org.estado === 'SIN_RECLAMAR' && <Pill variant="closed">Sin reclamar</Pill>}
           {org.aceptaDonaciones && <Pill variant="ghost">Recibe donaciones</Pill>}
         </div>
 
@@ -90,27 +94,42 @@ function OrgCard({
 
 interface HomeMapExplorerProps {
   orgs: Org[];
+  /** Unclaimed orgs (ReNaCoM census); shown only while the "Sin reclamar" chip is on. */
+  sinReclamar?: Org[];
 }
 
-export default function HomeMapExplorer({ orgs }: HomeMapExplorerProps) {
+export default function HomeMapExplorer({ orgs, sinReclamar = [] }: HomeMapExplorerProps) {
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [activeFilter, setActiveFilter] = useState<string>('');
   const [query, setQuery] = useState('');
+  const [showSinReclamar, setShowSinReclamar] = useState(false);
 
   // Sort by distance from Córdoba center (no geolocation in public-only slice 1).
   const sortedOrgs = useMemo<OrgWithDistance[]>(
     () => sortByDistance(orgs, CORDOBA_CENTER),
     [orgs],
   );
+  const sortedSinReclamar = useMemo<OrgWithDistance[]>(
+    () => sortByDistance(sinReclamar, CORDOBA_CENTER),
+    [sinReclamar],
+  );
 
   const visibleOrgs = useMemo<OrgWithDistance[]>(() => {
     const q = query.trim().toLowerCase();
-    return sortedOrgs.filter(
-      (o) =>
-        (activeFilter === '' || o.tipo === activeFilter) &&
-        (q === '' || o.nombre.toLowerCase().includes(q)),
-    );
-  }, [sortedOrgs, activeFilter, query]);
+    const matches = (o: OrgWithDistance) =>
+      (activeFilter === '' || o.tipo === activeFilter) &&
+      (q === '' || o.nombre.toLowerCase().includes(q));
+    // Verified orgs always come first so unclaimed ones never push them out of the list.
+    return [
+      ...sortedOrgs.filter(matches),
+      ...(showSinReclamar ? sortedSinReclamar.filter(matches) : []),
+    ];
+  }, [sortedOrgs, sortedSinReclamar, showSinReclamar, activeFilter, query]);
+
+  const listedOrgs = useMemo<OrgWithDistance[]>(() => {
+    let unclaimed = 0;
+    return visibleOrgs.filter((o) => o.estado !== 'SIN_RECLAMAR' || ++unclaimed <= SIN_RECLAMAR_LIST_CAP);
+  }, [visibleOrgs]);
 
   const markers = useMemo<MapMarkerData[]>(
     () =>
@@ -122,6 +141,7 @@ export default function HomeMapExplorer({ orgs }: HomeMapExplorerProps) {
           lng: o.longitud as number,
           label: o.nombre,
           sub: o.direccion,
+          unclaimed: o.estado === 'SIN_RECLAMAR',
           banner: o.bannerKey ? `${PUBLIC_BFF_URL}/images?key=${o.bannerKey}` : undefined,
         })),
     [visibleOrgs],
@@ -209,6 +229,25 @@ export default function HomeMapExplorer({ orgs }: HomeMapExplorerProps) {
                 </button>
               );
             })}
+            {sinReclamar.length > 0 && (
+              <button
+                type="button"
+                aria-pressed={showSinReclamar}
+                onClick={() => setShowSinReclamar((v) => !v)}
+                className="cursor-pointer border-0 bg-transparent p-0"
+                style={{
+                  padding: '9px 15px',
+                  borderRadius: 999,
+                  fontWeight: 800,
+                  fontSize: 13,
+                  background: showSinReclamar ? 'var(--earth)' : 'var(--card)',
+                  color: showSinReclamar ? '#fff' : 'var(--ink-2)',
+                  boxShadow: showSinReclamar ? 'none' : 'var(--sh-1)',
+                }}
+              >
+                Sin reclamar
+              </button>
+            )}
           </div>
         </div>
 
@@ -257,6 +296,11 @@ export default function HomeMapExplorer({ orgs }: HomeMapExplorerProps) {
               <ArrowRight size={15} color="var(--sky)" />
             </a>
           </div>
+          {listedOrgs.length < visibleOrgs.length && (
+            <p className="mb-2 text-[12.5px] font-bold text-[var(--ink-3)]">
+              Mostrando las {SIN_RECLAMAR_LIST_CAP} organizaciones sin reclamar más cercanas. Todas se ven en el mapa.
+            </p>
+          )}
           <div
             className="scrollbar-none flex gap-4 overflow-x-auto px-3 pb-3.5 pt-2.5 sm:px-5"
             style={{
@@ -266,7 +310,7 @@ export default function HomeMapExplorer({ orgs }: HomeMapExplorerProps) {
             {visibleOrgs.length === 0 ? (
               <EmptyState variant="no-comedores" />
             ) : (
-              visibleOrgs.map((org) => (
+              listedOrgs.map((org) => (
                 <OrgCard
                   key={org.id}
                   org={org}
