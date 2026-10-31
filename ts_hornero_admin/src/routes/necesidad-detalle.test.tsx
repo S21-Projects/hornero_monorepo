@@ -4,7 +4,6 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import NecesidadDetallePage from './necesidad-detalle';
 import { useNecesidad } from '../lib/hooks/useNecesidad';
-import { useOrgNombre } from '../lib/hooks/useOrgNombre';
 import { useCrearDonacion } from '../lib/hooks/useCrearDonacion';
 import { useArticulos } from '../lib/hooks/useArticulos';
 import type { Articulo, Necesidad } from '../types/domain';
@@ -14,7 +13,6 @@ import type { Articulo, Necesidad } from '../types/domain';
 // guaranteed compatible (decision 6 — the MS still enforces ARTICULO_INCOMPATIBLE server-side for
 // any stale/race case).
 vi.mock('../lib/hooks/useNecesidad', () => ({ useNecesidad: vi.fn() }));
-vi.mock('../lib/hooks/useOrgNombre', () => ({ useOrgNombre: vi.fn() }));
 vi.mock('../lib/hooks/useCrearDonacion', () => ({ useCrearDonacion: vi.fn() }));
 vi.mock('../lib/hooks/useArticulos', () => ({ useArticulos: vi.fn() }));
 
@@ -27,6 +25,7 @@ const necesidad: Necesidad = {
   prioridad: 'URGENTE',
   estado: 'ABIERTA',
   organizacionId: 3,
+  organizacionNombre: 'Comedor Sol',
   articulos: [{ id: 1, nombre: 'Arroz', unidad: 'KG', categoria: 'NO_PERECEDERO' }],
 };
 
@@ -51,10 +50,6 @@ describe('NecesidadDetallePage — DIRECTA línea editor', () => {
       isError: false,
       error: null,
     } as unknown as ReturnType<typeof useNecesidad>);
-    vi.mocked(useOrgNombre).mockReturnValue({
-      getNombre: () => 'Comedor Sol',
-      isLoading: false,
-    } as ReturnType<typeof useOrgNombre>);
     vi.mocked(useArticulos).mockReturnValue({
       data: [ARROZ, YOGUR],
       isLoading: false,
@@ -67,6 +62,12 @@ describe('NecesidadDetallePage — DIRECTA línea editor', () => {
       isSuccess: false,
       error: null,
     } as unknown as ReturnType<typeof useCrearDonacion>);
+  });
+
+  it('shows the organizacion name carried by the necesidad', () => {
+    renderPage();
+
+    expect(screen.getByText(/Organización: Comedor Sol/)).toBeInTheDocument();
   });
 
   it('restricts the línea editor to the necesidad requested articulos', () => {
@@ -133,10 +134,6 @@ describe('NecesidadDetallePage — DIRECTA línea editor', () => {
 // D2/N4: a VENCIDA / CUMPLIDA necesidad no longer takes donations (the MS answers 409).
 describe('NecesidadDetallePage — closed necesidad', () => {
   beforeEach(() => {
-    vi.mocked(useOrgNombre).mockReturnValue({
-      getNombre: () => 'Comedor Sol',
-      isLoading: false,
-    } as ReturnType<typeof useOrgNombre>);
     vi.mocked(useArticulos).mockReturnValue({
       data: [ARROZ],
       isLoading: false,

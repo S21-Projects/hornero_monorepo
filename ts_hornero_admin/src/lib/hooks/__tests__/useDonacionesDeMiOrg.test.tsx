@@ -24,7 +24,13 @@ describe('useDonacionesDeMiOrg', () => {
   });
 
   it('calls the BFF donaciones/mi-organizacion route without an /api prefix', async () => {
-    const donaciones = [{ id: 1, organizacionId: 10, estado: 'OFRECIDA' }];
+    const donaciones = {
+      content: [{ id: 1, organizacionId: 10, estado: 'OFRECIDA' }],
+      number: 0,
+      size: 20,
+      totalElements: 1,
+      totalPages: 1,
+    };
     vi.mocked(api.get).mockResolvedValue({ data: donaciones });
 
     const { result } = renderHook(() => useDonacionesDeMiOrg(), {
@@ -33,8 +39,30 @@ describe('useDonacionesDeMiOrg', () => {
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
 
-    expect(api.get).toHaveBeenCalledWith('/donaciones/mi-organizacion');
+    expect(api.get).toHaveBeenCalledWith('/donaciones/mi-organizacion', { params: {} });
     expect(result.current.data).toEqual(donaciones);
+  });
+
+  it('sends the requested page and size', async () => {
+    vi.mocked(api.get).mockResolvedValue({
+      data: { content: [], number: 2, size: 20, totalElements: 41, totalPages: 3 },
+    });
+
+    const { result } = renderHook(() => useDonacionesDeMiOrg({ page: 2, size: 20 }), {
+      wrapper: createWrapper(),
+    });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+    expect(api.get).toHaveBeenCalledWith('/donaciones/mi-organizacion', {
+      params: { page: 2, size: 20 },
+    });
+  });
+
+  it('does not fetch when disabled', () => {
+    renderHook(() => useDonacionesDeMiOrg({ enabled: false }), { wrapper: createWrapper() });
+
+    expect(api.get).not.toHaveBeenCalled();
   });
 
   it('surfaces the error when the request fails', async () => {

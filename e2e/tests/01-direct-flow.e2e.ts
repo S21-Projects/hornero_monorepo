@@ -20,9 +20,10 @@ describe('Scenario 1 - DIRECTA donation, happy path to ENTREGADA', () => {
 
   it('is OFRECIDA and visible to the referente of the target org', async () => {
     expect(await estadoDe(donacionId)).toBe('OFRECIDA');
-    const res = await referente.get('/donaciones/mi-organizacion');
+    // Paged now (newest first); size=100 keeps the fresh donation on the first page.
+    const res = await referente.get('/donaciones/mi-organizacion?size=100');
     expect(res.status).toBe(200);
-    expect((res.data as any[]).map((d) => d.id)).toContain(donacionId);
+    expect(((res.data.content ?? res.data) as any[]).map((d) => d.id)).toContain(donacionId);
   });
 
   it('appears in the donante own list', async () => {

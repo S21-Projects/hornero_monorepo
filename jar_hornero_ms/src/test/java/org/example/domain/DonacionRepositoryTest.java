@@ -248,6 +248,31 @@ class DonacionRepositoryTest {
     }
 
 
+    @Test
+    void findByOrganizacion_Referente_Id_pagesOnlyDonationsOfThatReferentesOrgs_withTotalCount() {
+        org.example.user.Referente referente = new org.example.user.Referente();
+        referente.setNombre("Ref Paginado");
+        referente.setEmail("ref.paginado@test.com");
+        referente.setPassword("hash");
+        referente.setActivo(true);
+        referente = (org.example.user.Referente) usuarioRepository.save(referente);
+        for (int i = 0; i < 3; i++) {
+            Donacion d = crearDonacion("Org Ref " + i, "Donante Ref " + i, "n", EstadoDonacion.OFRECIDA);
+            Organizacion org = d.getNecesidad().getOrganizacion();
+            org.setReferente(referente);
+            organizacionRepository.saveAndFlush(org);
+        }
+        crearDonacion("Org Ajena", "Donante Ajeno", "n", EstadoDonacion.OFRECIDA);
+
+        Page<Donacion> primera = donacionRepository.findByOrganizacion_Referente_Id(referente.getId(), PageRequest.of(0, 2));
+        Page<Donacion> segunda = donacionRepository.findByOrganizacion_Referente_Id(referente.getId(), PageRequest.of(1, 2));
+
+        assertThat(primera.getTotalElements()).isEqualTo(3);
+        assertThat(primera.getContent()).hasSize(2);
+        assertThat(segunda.getContent()).hasSize(1);
+    }
+
+
     // ── N12: estancadas filter ──────────────────────────────────────────────────────────────
 
     private Donacion conEstadoDesde(EstadoDonacion estado, Duration hace) {

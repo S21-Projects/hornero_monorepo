@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useNecesidades } from '../lib/hooks/useNecesidades';
-import { useOrgNombre } from '../lib/hooks/useOrgNombre';
 import { usePageClamp } from '../lib/hooks/usePageClamp';
 import { PRIORIDAD, CATEGORIA_ALIMENTO, UNIDAD_ARTICULO, FALLBACK_BADGE } from '../lib/domain-ui';
 import { formatFecha } from '../lib/format';
@@ -17,7 +16,6 @@ export default function ExplorarPage() {
   const [page, setPage] = useState(0);
   const { data, isLoading, isError, isFetching } = useNecesidades({ page, size: PAGE_SIZE });
   usePageClamp(page, setPage, data?.totalPages);
-  const { getNombre } = useOrgNombre();
 
   const necesidades = data?.content ?? [];
   const abiertas = necesidades.filter((n) => n.estado === 'ABIERTA');
@@ -47,7 +45,7 @@ export default function ExplorarPage() {
                 </div>
                 <Text variant="title" style={{ marginBottom: 6 }}>{n.descripcion}</Text>
                 <Text variant="body-sm" color="ink-2" style={{ marginBottom: 4 }}>
-                  {getNombre(n.organizacionId)}
+                  {n.organizacionNombre ?? 'Organización'}
                 </Text>
                 {n.fechaVencimiento && (
                   <Text variant="caption" color="ink-3" style={{ marginBottom: 12 }}>

@@ -175,6 +175,8 @@ export interface Necesidad {
   fechaPublicacion?: string;
   fechaVencimiento?: string;
   organizacionId: number;
+  /** MS `NecesidadResponse.organizacionNombre`; absent on older responses. */
+  organizacionNombre?: string;
   /** Requested articulos (feature catalogo-articulos, decision 6); `categoria` is derived from
    * these. Absent on pre-catalog responses. */
   articulos?: NecesidadArticulo[];

@@ -1,5 +1,9 @@
 package org.example.donacion;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.example.actividad.ActividadService;
 import org.example.actividad.TipoActividad;
 import org.example.auth.VerificacionService;
@@ -182,44 +186,54 @@ class DonacionServiceTest {
 
     @Test
     void findDeMisOrganizaciones_noOrgIdFilter_returnsAcrossAllOwnedOrgs() {
+        Pageable pageable = PageRequest.of(0, 20);
         Donacion d1 = donacionFor(1L, miOrganizacion);
         Donacion d2 = donacionFor(2L, miOrganizacion);
 
-        when(donacionRepository.findByOrganizacion_Referente_Id(1L)).thenReturn(List.of(d1, d2));
+        when(donacionRepository.findByOrganizacion_Referente_Id(1L, pageable))
+                .thenReturn(new PageImpl<>(List.of(d1, d2), pageable, 45));
 
-        List<DonacionResponse> result = donacionService.findDeMisOrganizaciones(1L, null);
+        Page<DonacionResponse> result = donacionService.findDeMisOrganizaciones(1L, null, pageable);
 
-        assertThat(result).hasSize(2);
-        assertThat(result).allSatisfy(r -> assertThat(r.organizacionId()).isEqualTo(10L));
+        assertThat(result.getContent()).hasSize(2);
+        assertThat(result.getContent()).allSatisfy(r -> assertThat(r.organizacionId()).isEqualTo(10L));
+        assertThat(result.getTotalElements()).isEqualTo(45);
+        assertThat(result.getTotalPages()).isEqualTo(3);
     }
 
     @Test
     void findDeMisOrganizaciones_withOrgIdFilter_scopesToThatOrg() {
+        Pageable pageable = PageRequest.of(1, 5);
         when(organizacionRepository.findByIdAndReferente_Id(10L, 1L)).thenReturn(Optional.of(miOrganizacion));
-        when(donacionRepository.findByOrganizacionId(10L)).thenReturn(List.of(donacionFor(1L, miOrganizacion)));
+        when(donacionRepository.findByOrganizacionId(10L, pageable))
+                .thenReturn(new PageImpl<>(List.of(donacionFor(1L, miOrganizacion)), pageable, 6));
 
-        List<DonacionResponse> result = donacionService.findDeMisOrganizaciones(1L, 10L);
+        Page<DonacionResponse> result = donacionService.findDeMisOrganizaciones(1L, 10L, pageable);
 
-        assertThat(result).hasSize(1);
-        org.mockito.Mockito.verify(donacionRepository).findByOrganizacionId(10L);
+        assertThat(result.getContent()).hasSize(1);
+        assertThat(result.getNumber()).isEqualTo(1);
+        verify(donacionRepository).findByOrganizacionId(10L, pageable);
+        verify(donacionRepository, org.mockito.Mockito.never()).findByOrganizacion_Referente_Id(org.mockito.ArgumentMatchers.anyLong(), any(Pageable.class));
     }
 
     @Test
     void findDeMisOrganizaciones_foreignOrgIdFilter_throwsForbidden() {
         when(organizacionRepository.findByIdAndReferente_Id(20L, 1L)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> donacionService.findDeMisOrganizaciones(1L, 20L))
+        assertThatThrownBy(() -> donacionService.findDeMisOrganizaciones(1L, 20L, PageRequest.of(0, 20)))
                 .isInstanceOf(ResponseStatusException.class)
                 .hasMessageContaining("403");
     }
 
     @Test
-    void findDeMisOrganizaciones_noOrgs_returnsEmptyList() {
-        when(donacionRepository.findByOrganizacion_Referente_Id(1L)).thenReturn(List.of());
+    void findDeMisOrganizaciones_noOrgs_returnsEmptyPage() {
+        Pageable pageable = PageRequest.of(0, 20);
+        when(donacionRepository.findByOrganizacion_Referente_Id(1L, pageable)).thenReturn(Page.empty(pageable));
 
-        List<DonacionResponse> result = donacionService.findDeMisOrganizaciones(1L, null);
+        Page<DonacionResponse> result = donacionService.findDeMisOrganizaciones(1L, null, pageable);
 
-        assertThat(result).isEmpty();
+        assertThat(result.getContent()).isEmpty();
+        assertThat(result.getTotalElements()).isZero();
     }
 
     // --- N13: notification events (published inside the transaction, handled after commit) ---

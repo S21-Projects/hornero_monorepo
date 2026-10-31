@@ -97,10 +97,16 @@ export class DonacionesController {
   findDeMiOrganizacion(
     @Req() req: Request,
     @Query('organizacionId') organizacionId?: string,
+    @Query('page') page?: string,
+    @Query('size') size?: string,
+    @Query('sort') sort?: string,
   ) {
     return this.donacionesService.findDeMiOrganizacion(
       this.getToken(req),
       organizacionId,
+      page,
+      size,
+      sort,
     );
   }
 

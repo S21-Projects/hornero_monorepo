@@ -9,33 +9,61 @@ import { MetricBarChart, MetricPieChart } from '../components/panel/MetricCharts
 import { useOrganizacionesPendientes } from '../lib/hooks/useOrganizacionesPendientes';
 import { useUsuarios } from '../lib/hooks/useUsuarios';
 import { deriveAdminSummary } from '../lib/deriveAdminSummary';
-import { usuariosPorRol, countByField } from '../lib/metricas';
+import type { UsuarioCounts } from '../lib/deriveAdminSummary';
+import { ROLE_LABELS } from '../lib/metricas';
+import type { CountItem } from '../lib/metricas';
+import type { UserRole } from '../store/auth.store';
 
 const ACTIVO_LABELS: Record<string, string> = {
   true: 'Activos',
   false: 'Inactivos',
 };
 
+const ROLES: UserRole[] = ['ADMINISTRADOR', 'REFERENTE', 'DONANTE'];
+
 export default function AdminPage() {
   const pendientes = useOrganizacionesPendientes();
-  // size:100 — a single reshaped fetch feeds the charts, the active count,
-  // and totalUserCount (free via totalElements); no separate probe request.
-  // TODO [tech-debt]: replace with MS ?activo= filter or dedicated aggregation
-  // endpoint — see backlog.
-  const usuarios = useUsuarios({ page: 0, size: 100 });
+  // Counts only: each query asks for one row and reads `totalElements`, so the
+  // numbers stay exact however many users exist (no page-size cap).
+  const admins = useUsuarios({ page: 0, size: 1, tipo: 'ADMINISTRADOR' });
+  const referentes = useUsuarios({ page: 0, size: 1, tipo: 'REFERENTE' });
+  const donantes = useUsuarios({ page: 0, size: 1, tipo: 'DONANTE' });
+  const activos = useUsuarios({ page: 0, size: 1, activo: true });
+  const porRolQueries = [admins, referentes, donantes];
 
-  const isLoading = pendientes.isLoading || usuarios.isLoading;
-  const isError = pendientes.isError || usuarios.isError;
+  const isLoading = pendientes.isLoading || porRolQueries.some((q) => q.isLoading) || activos.isLoading;
+  const isError = pendientes.isError || porRolQueries.some((q) => q.isError) || activos.isError;
 
-  const summary =
-    pendientes.data != null && usuarios.data != null
-      ? deriveAdminSummary(pendientes.data, usuarios.data)
+  const countsListos = porRolQueries.every((q) => q.data != null) && activos.data != null;
+  const usuarioCounts: UsuarioCounts | null =
+    countsListos
+      ? {
+          porRol: {
+            ADMINISTRADOR: admins.data?.totalElements ?? 0,
+            REFERENTE: referentes.data?.totalElements ?? 0,
+            DONANTE: donantes.data?.totalElements ?? 0,
+          },
+          activos: activos.data?.totalElements ?? 0,
+        }
       : null;
 
-  const usuariosContent = usuarios.data?.content ?? [];
-  const hasUsuarios = usuariosContent.length > 0;
-  const usuariosPorRolData = usuariosPorRol(usuariosContent);
-  const usuariosPorActivoData = countByField(usuariosContent, 'activo', ACTIVO_LABELS);
+  const summary =
+    pendientes.data != null && usuarioCounts != null ? deriveAdminSummary(pendientes.data, usuarioCounts) : null;
+
+  const hasUsuarios = (summary?.totalUserCount ?? 0) > 0;
+  const usuariosPorRolData: CountItem[] = ROLES.map((rol) => ({
+    key: rol,
+    label: ROLE_LABELS[rol],
+    value: usuarioCounts?.porRol[rol] ?? 0,
+  }));
+  const usuariosPorActivoData: CountItem[] = [
+    { key: 'true', label: ACTIVO_LABELS.true, value: summary?.activeUserCount ?? 0 },
+    {
+      key: 'false',
+      label: ACTIVO_LABELS.false,
+      value: (summary?.totalUserCount ?? 0) - (summary?.activeUserCount ?? 0),
+    },
+  ];
 
   return (
     <AsyncSection
@@ -77,11 +105,6 @@ export default function AdminPage() {
           <Card style={{ padding: 20 }}>
             <Text variant="caption">Usuarios activos</Text>
             <Text variant="stat" style={{ marginTop: 8 }}>{summary?.activeUserCount ?? '—'}</Text>
-            {summary?.activeUserCountIsPartial && (
-              <Text variant="micro" color="ink-3" style={{ marginTop: 4 }}>
-                Sobre los primeros {usuariosContent.length}
-              </Text>
-            )}
           </Card>
         </div>
 

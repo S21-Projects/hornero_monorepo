@@ -31,14 +31,27 @@ export class UsuariosController {
 
   @Roles(Role.ADMINISTRADOR)
   @Get()
-  @ApiOperation({ summary: 'List all users (ADMINISTRADOR only)' })
+  @ApiOperation({
+    summary:
+      'List users, paged and filterable by tipo / activo / q (ADMINISTRADOR only)',
+  })
   findAll(
     @Req() req: Request,
+    @Query('tipo') tipo?: string,
+    @Query('activo') activo?: string,
+    @Query('q') q?: string,
     @Query('page') page?: string,
     @Query('size') size?: string,
     @Query('sort') sort?: string,
   ) {
-    return this.usuariosService.findAll(this.getToken(req), page, size, sort);
+    return this.usuariosService.findAll(this.getToken(req), {
+      tipo,
+      activo,
+      q,
+      page,
+      size,
+      sort,
+    });
   }
 
   @Roles(Role.ADMINISTRADOR)

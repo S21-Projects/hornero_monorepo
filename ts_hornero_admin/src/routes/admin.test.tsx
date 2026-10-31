@@ -23,13 +23,19 @@ function mockPendientes(data: OrganizacionAdmin[] | undefined, overrides = {}) {
   } as ReturnType<typeof useOrganizacionesPendientes>);
 }
 
+/** The page asks for counts only (size 1 + tipo/activo filters), so answer each filter with its total. */
 function mockUsuarios(data: Usuario[] | undefined, overrides = {}) {
-  vi.mocked(useUsuarios).mockReturnValue({
-    data: data ? makePage(data, { totalElements: data.length }) : undefined,
-    isLoading: false,
-    isError: false,
-    ...overrides,
-  } as ReturnType<typeof useUsuarios>);
+  vi.mocked(useUsuarios).mockImplementation(((params?: { tipo?: string; activo?: boolean }) => {
+    const matching = (data ?? []).filter(
+      (u) => (!params?.tipo || u.tipo === params.tipo) && (!params?.activo || u.activo),
+    );
+    return {
+      data: data ? makePage([], { totalElements: matching.length, size: 1 }) : undefined,
+      isLoading: false,
+      isError: false,
+      ...overrides,
+    };
+  }) as unknown as typeof useUsuarios);
 }
 
 const pendientes: OrganizacionAdmin[] = [
@@ -69,6 +75,23 @@ describe('AdminPage', () => {
     expect(screen.getByText('Usuarios por rol')).toBeInTheDocument();
     expect(screen.getByText('Usuarios activos vs. inactivos')).toBeInTheDocument();
     expect(screen.queryByText('Todavía no hay usuarios cargados.')).not.toBeInTheDocument();
+  });
+
+  it('asks for counts only, one query per role plus the active ones', () => {
+    mockPendientes(pendientes);
+    mockUsuarios(usuarios);
+
+    render(<MemoryRouter><AdminPage /></MemoryRouter>);
+
+    const calls = vi.mocked(useUsuarios).mock.calls.map(([params]) => params);
+    expect(calls).toEqual(
+      expect.arrayContaining([
+        { page: 0, size: 1, tipo: 'ADMINISTRADOR' },
+        { page: 0, size: 1, tipo: 'REFERENTE' },
+        { page: 0, size: 1, tipo: 'DONANTE' },
+        { page: 0, size: 1, activo: true },
+      ]),
+    );
   });
 
   it('renders a chart empty state when there are no usuarios', () => {

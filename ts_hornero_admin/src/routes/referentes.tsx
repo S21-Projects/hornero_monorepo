@@ -148,32 +148,27 @@ const PAGE_SIZE = 20;
 const ORGS_REFERENTES_SIZE = 100;
 const SEARCH_DEBOUNCE_MS = 300;
 
+/** The MS caps a page at 100: enough referentes to fill the reassignment dropdown. */
+const REFERENTES_ACTIVOS_SIZE = 100;
+
 export default function ReferentesPage() {
   const [page, setPage] = useState(0);
-  const [search, setSearch] = useState('');
+  const [refInput, setRefInput] = useState('');
+  const [refQ, setRefQ] = useState('');
   const [sinPage, setSinPage] = useState(0);
   const [qInput, setQInput] = useState('');
   const [q, setQ] = useState('');
-  const usuariosQuery = useUsuarios({ page, size: PAGE_SIZE });
+  const usuariosQuery = useUsuarios({ page, size: PAGE_SIZE, tipo: 'REFERENTE', q: refQ });
+  // Reassignment dropdown: active referentes regardless of the page/search above.
+  const activosQuery = useUsuarios({ page: 0, size: REFERENTES_ACTIVOS_SIZE, tipo: 'REFERENTE', activo: true });
 
   usePageClamp(page, setPage, usuariosQuery.data?.totalPages);
   const usuariosPage = usuariosQuery.data;
-  const allReferentes = (usuariosPage?.content ?? []).filter((u) => u.tipo === 'REFERENTE');
-  // NOTE: /usuarios has no search param yet, so this filters only the current
-  // server-fetched page; the `Pager` caption still reflects the unfiltered total.
-  const referentes = search.trim()
-    ? allReferentes.filter(
-        (r) =>
-          r.nombre.toLowerCase().includes(search.trim().toLowerCase()) ||
-          r.email.toLowerCase().includes(search.trim().toLowerCase()),
-      )
-    : allReferentes;
-  // NOTE: the reassignment dropdown only offers the referentes of the current
-  // page of `useUsuarios` (no server-side referente search/list to draw from).
-  const referentesActivos = allReferentes.filter((r) => r.activo);
+  const referentes = usuariosPage?.content ?? [];
+  const referentesActivos = activosQuery.data?.content ?? [];
 
   // Organizaciones of the referentes on this page, in one bounded request.
-  const referenteIds = allReferentes.map((r) => r.id);
+  const referenteIds = referentes.map((r) => r.id);
   const orgsReferentesQuery = useOrganizacionesAdmin(
     { page: 0, size: ORGS_REFERENTES_SIZE, referenteIds },
     { enabled: referenteIds.length > 0 },
@@ -186,7 +181,16 @@ export default function ReferentesPage() {
     orgsPorReferente.set(org.referenteId, bucket);
   }
 
-  // Debounce the name search into the server `q` param; back to page 0 when it changes.
+  // Debounce the referente search into the server `q` param; back to page 0 when it changes.
+  useEffect(() => {
+    const handle = setTimeout(() => {
+      setRefQ(refInput.trim());
+      setPage(0);
+    }, SEARCH_DEBOUNCE_MS);
+    return () => clearTimeout(handle);
+  }, [refInput]);
+
+  // Same for the organization search of the "Sin referente" card.
   useEffect(() => {
     const handle = setTimeout(() => {
       setQ(qInput.trim());
@@ -212,8 +216,8 @@ export default function ReferentesPage() {
       <div style={{ maxWidth: 360, marginBottom: 16 }}>
         <Input
           type="search"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          value={refInput}
+          onChange={(e) => setRefInput(e.target.value)}
           placeholder="Buscar referente por nombre o email"
           aria-label="Buscar referente"
         />
@@ -223,12 +227,13 @@ export default function ReferentesPage() {
         <AsyncSection
           isLoading={isLoading}
           isError={isError}
-          isEmpty={allReferentes.length === 0}
-          emptyLabel="No hay referentes en esta página"
+          // With an active search keep the section on screen so the empty-result message can show.
+          isEmpty={referentes.length === 0 && !refQ}
+          emptyLabel="No hay referentes"
         >
-          {referentes.length === 0 && allReferentes.length > 0 && (
+          {referentes.length === 0 && refQ && (
             <Text variant="body-sm" color="ink-2">
-              No hay referentes en esta página que coincidan con la búsqueda — probá con otra.
+              Ningún referente coincide con la búsqueda — probá con otra.
             </Text>
           )}
           {referentes.map((referente) => {
