@@ -11,6 +11,7 @@ import org.example.organizacion.dto.ActualizarOrganizacionRequest;
 import org.example.organizacion.dto.AsignarReferenteRequest;
 import org.example.organizacion.dto.CrearOrganizacionRequest;
 import org.example.organizacion.dto.OrganizacionMapaResponse;
+import org.example.organizacion.dto.OrganizacionMapaZonaResponse;
 import org.example.organizacion.dto.OrganizacionResponse;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
@@ -67,6 +68,18 @@ public class OrganizacionController {
         return ResponseEntity.ok()
                 .cacheControl(org.springframework.http.CacheControl.maxAge(java.time.Duration.ofMinutes(5)).cachePublic())
                 .body(mapaCache.obtener(organizacionService::listarMapa));
+    }
+
+    @Operation(summary = "Public map pins inside a lat/lng box (viewport), capped; truncated=true when the box held more")
+    @GetMapping("/mapa/zona")
+    public ResponseEntity<OrganizacionMapaZonaResponse> mapaZona(
+            @RequestParam(required = false) Double minLat,
+            @RequestParam(required = false) Double maxLat,
+            @RequestParam(required = false) Double minLng,
+            @RequestParam(required = false) Double maxLng) {
+        return ResponseEntity.ok()
+                .cacheControl(org.springframework.http.CacheControl.maxAge(java.time.Duration.ofSeconds(60)).cachePublic())
+                .body(organizacionService.listarMapaZona(minLat, maxLat, minLng, maxLng));
     }
 
     @Operation(summary = "List pending organizations (admin only)")

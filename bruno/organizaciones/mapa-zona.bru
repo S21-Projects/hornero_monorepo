@@ -1,0 +1,17 @@
+meta {
+  name: Mapa por zona
+  type: http
+  seq: 8
+}
+
+get {
+  url: {{bffUrl}}/organizaciones/mapa/zona?minLat=-35&maxLat=-34&minLng=-59&maxLng=-58
+  auth: none
+}
+
+docs {
+  Public. Map pins (APROBADA + SIN_RECLAMAR) inside a lat/lng box, i.e. a map viewport.
+  Response data: `{ pins: [...], truncated: boolean }`, at most 500 pins; `truncated` is true when
+  the box held more, so zoom in. All four params are required; lat in [-90, 90], lng in
+  [-180, 180], min <= max, otherwise 400. Boxes crossing the antimeridian are not supported.
+}
