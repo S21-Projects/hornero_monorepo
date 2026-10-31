@@ -2,7 +2,7 @@
 import Layout from '../layouts/Layout.astro';
 import HomeMapExplorer from '../components/islands/HomeMapExplorer';
 import { publicFetch } from '../lib/publicFetch';
-import type { Org, OrgMapa, PageData } from '../lib/types';
+import type { Org, PageData } from '../lib/types';
 
 let orgs: Org[] = [];
 try {
@@ -12,29 +12,6 @@ try {
 } catch (e) {
   // BFF unavailable at build time or runtime — render with empty list
   orgs = [];
-}
-
-// Unclaimed (ReNaCoM-imported) orgs come from the lightweight map endpoint; APROBADA ones
-// are already in `orgs`, so only SIN_RECLAMAR is kept to avoid duplicates.
-let sinReclamar: Org[] = [];
-try {
-  const pins = await publicFetch<OrgMapa[]>('/organizaciones/mapa');
-  sinReclamar = pins
-    .filter((p) => p.estado === 'SIN_RECLAMAR')
-    .map((p) => ({
-      id: p.id,
-      slug: p.slug,
-      nombre: p.nombre,
-      tipo: p.tipo,
-      estado: p.estado,
-      origen: p.origen,
-      latitud: p.latitud,
-      longitud: p.longitud,
-      validada: false,
-    }));
-} catch (e) {
-  // Optional layer — the home still works without it
-  sinReclamar = [];
 }
 
 const PUBLIC_SPA_URL = import.meta.env.PUBLIC_SPA_URL ?? '';
@@ -47,7 +24,7 @@ const CRITERIOS = [
 ---
 
 <Layout title="El Hornero — Comedores Córdoba">
-  <HomeMapExplorer client:only="react" orgs={orgs} sinReclamar={sinReclamar} />
+  <HomeMapExplorer client:only="react" orgs={orgs} />
 
   <!-- ── Fondo común ──────────────────────────────────────────────────── -->
   <section class="border-t border-[var(--line-soft)] bg-[var(--card-2)]">
