@@ -108,6 +108,22 @@ export class OrganizacionesController {
     return this.organizacionesService.mapa();
   }
 
+  // Viewport pins; the MS validates the box and caps the result. Declared before ':slug' like 'mapa'.
+  @Public()
+  @Header('Cache-Control', 'public, max-age=60')
+  @Get('mapa/zona')
+  @ApiOperation({
+    summary: 'Public map pins inside a lat/lng box (capped, with a truncated flag)',
+  })
+  mapaZona(
+    @Query('minLat') minLat?: string,
+    @Query('maxLat') maxLat?: string,
+    @Query('minLng') minLng?: string,
+    @Query('maxLng') maxLng?: string,
+  ) {
+    return this.organizacionesService.mapaZona(minLat, maxLat, minLng, maxLng);
+  }
+
   @Public()
   @Get(':slug')
   @ApiOperation({ summary: 'Get organization by slug (public)' })

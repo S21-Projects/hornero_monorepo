@@ -84,6 +84,12 @@ export class OrganizacionesService {
     return data;
   }
 
+  async mapaZona(minLat?: string, maxLat?: string, minLng?: string, maxLng?: string) {
+    const url = `${this.msUrl}/api/organizaciones/mapa/zona${buildQuery({ minLat, maxLat, minLng, maxLng })}`;
+    const { data } = await this.httpService.axiosRef.get(url);
+    return data;
+  }
+
   async findBySlug(slug: string) {
     const { data } = await this.httpService.axiosRef.get(
       `${this.msUrl}/api/organizaciones/${slug}`,

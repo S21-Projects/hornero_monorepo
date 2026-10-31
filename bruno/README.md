@@ -47,6 +47,7 @@ sent automatically.
 | organizaciones  | Mi organizacion    | GET    | /organizaciones/mia           | cookie        |
 | organizaciones  | Listar validadas   | GET    | /organizaciones               | cookie        |
 | organizaciones  | Listar pendientes  | GET    | /organizaciones/pendientes    | admin         |
+| organizaciones  | Mapa por zona      | GET    | /organizaciones/mapa/zona     | public        |
 | organizaciones  | Validar            | PATCH  | /organizaciones/:id/validar   | admin         |
 
 Admin-only endpoints require logging in as an ADMIN user. Set `orgId` on the
