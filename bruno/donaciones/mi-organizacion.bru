@@ -1,0 +1,28 @@
+meta {
+  name: Donaciones de mi organizacion
+  type: http
+  seq: 11
+}
+
+get {
+  url: {{bffUrl}}/donaciones/mi-organizacion
+  auth: none
+}
+
+params:query {
+  ~organizacionId: 1
+  ~page: 0
+  ~size: 20
+  ~estado: OFRECIDA,EN_CAMINO
+}
+
+headers {
+  Cookie: access_token={{accessToken}}
+}
+
+docs {
+  Protected — referente only. Paginated donations received by the referente's
+  organizations, newest first. Optional `organizacionId` scopes to one of them;
+  optional `estado` (comma-separated EstadoDonacion values) keeps only those
+  estados. An unknown estado answers 400.
+}

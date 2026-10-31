@@ -75,6 +75,8 @@ export function useVerificarCodigo(donacionId: number | undefined) {
       ),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: entregaQueryKey(donacionId) });
+      // Verifying can move the donación (EN_CAMINO -> ENTREGADA), which the dashboard action lists show.
+      void queryClient.invalidateQueries({ queryKey: ['donaciones'] });
     },
   });
 }

@@ -30,6 +30,26 @@ const CONFIRMABLE_ESTADOS = new Set(['ACEPTADA', 'EN_CAMINO', 'PENDIENTE_CONFIRM
 /** Donations are listed newest first, one page at a time (the MS caps a page at 100). */
 const DONACIONES_PAGE_SIZE = 20;
 
+// The action lists are filtered server-side by estado (and fetched at the MS page cap) so an
+// actionable donation is never hidden on a later page of the general history.
+const ACCIONABLES_PAGE_SIZE = 100;
+const ESTADOS_PENDIENTES_DECISION = ['OFRECIDA'];
+const ESTADOS_PARA_CONFIRMAR = [...CONFIRMABLE_ESTADOS];
+
+interface TruncatedNoteProps {
+  page?: { content: unknown[]; totalElements: number };
+}
+
+/** "Showing N of M" hint for an action list that exceeds the page cap. */
+function TruncatedNote({ page }: TruncatedNoteProps) {
+  if (!page || page.totalElements <= page.content.length) return null;
+  return (
+    <Text variant="caption" color="ink-3" style={{ marginTop: 8 }}>
+      Mostrando {page.content.length} de {page.totalElements}. Resolvé estas para ver las siguientes.
+    </Text>
+  );
+}
+
 interface DonacionAccionableRowProps {
   donacion: Donacion;
 }
@@ -151,9 +171,29 @@ export default function DashboardPage() {
   const [donacionesPage, setDonacionesPage] = useState(0);
   const donaciones = useDonacionesDeMiOrg({ page: donacionesPage, size: DONACIONES_PAGE_SIZE });
   usePageClamp(donacionesPage, setDonacionesPage, donaciones.data?.totalPages);
+  const pendientes = useDonacionesDeMiOrg({
+    page: 0,
+    size: ACCIONABLES_PAGE_SIZE,
+    estado: ESTADOS_PENDIENTES_DECISION,
+  });
+  const paraConfirmar = useDonacionesDeMiOrg({
+    page: 0,
+    size: ACCIONABLES_PAGE_SIZE,
+    estado: ESTADOS_PARA_CONFIRMAR,
+  });
 
-  const isLoading = organizaciones.isLoading || necesidades.isLoading || donaciones.isLoading;
-  const isError = organizaciones.isError || necesidades.isError || donaciones.isError;
+  const isLoading =
+    organizaciones.isLoading ||
+    necesidades.isLoading ||
+    donaciones.isLoading ||
+    pendientes.isLoading ||
+    paraConfirmar.isLoading;
+  const isError =
+    organizaciones.isError ||
+    necesidades.isError ||
+    donaciones.isError ||
+    pendientes.isError ||
+    paraConfirmar.isError;
 
   const necesidadesContent = necesidades.data?.content ?? [];
   const hasNecesidades = necesidadesContent.length > 0;
@@ -163,8 +203,10 @@ export default function DashboardPage() {
 
   const necesidadesData = necesidadesPorEstado(necesidadesContent);
   const donacionesData = donacionesPorEstado(donacionesContent);
-  const donacionesAccionables = donacionesContent.filter((d) => d.estado === 'OFRECIDA');
-  const donacionesParaConfirmar = donacionesContent.filter(
+  // The estado filter is applied by the MS; the client re-checks it and drops the donations the
+  // referente already confirmed (not a filterable column).
+  const donacionesAccionables = (pendientes.data?.content ?? []).filter((d) => d.estado === 'OFRECIDA');
+  const donacionesParaConfirmar = (paraConfirmar.data?.content ?? []).filter(
     (d) => CONFIRMABLE_ESTADOS.has(d.estado) && !d.confirmadaReferenteEn,
   );
 
@@ -217,6 +259,7 @@ export default function DashboardPage() {
                 <DonacionAccionableRow key={d.id} donacion={d} />
               ))}
             </div>
+            <TruncatedNote page={pendientes.data} />
           </div>
         )}
 
@@ -228,6 +271,7 @@ export default function DashboardPage() {
                 <DonacionEntregaRow key={d.id} donacion={d} />
               ))}
             </div>
+            <TruncatedNote page={paraConfirmar.data} />
           </div>
         )}
 
