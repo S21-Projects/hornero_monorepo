@@ -59,8 +59,14 @@ Out of scope: BFF public/admin split, PostGIS, changing `/mapa` (vulnerability p
   300 ms, 0.02° box snapping + 40-box cache, pins replaced per viewport. Checks: astro build PASS,
   astro check 0 errors; home HTML 1 MB → 17 KB with no SIN_RECLAMAR data; header
   `geolocation=(self)` served. Commit `6d735e2`.
-- [ ] T3 — Admin referentes: paginated, searchable "Sin referente" list and per-referente orgs from
-  a paginated/filtered MS endpoint instead of `/organizaciones/todas`. Route: delegated.
+- [x] T3 — Admin referentes: paginated, searchable "Sin referente" list and per-referente orgs from
+  a paginated/filtered MS endpoint instead of `/organizaciones/todas`. Route: delegated. Done:
+  `/organizaciones/todas` now returns `PageData` with `sinReferente`, `referenteIds` (≤100), `q`;
+  admin `useOrganizacionesAdmin` replaces `useTodasOrganizaciones`. Checks: `mvn test` 1084/0;
+  BFF 423 passed; admin 601 passed, build OK, lint 0 errors; prettier fixed on the two BFF files.
+  Smoke: anonymous `/organizaciones/todas` → 401. Limitation: `/usuarios` has no `tipo`/`q` filter,
+  so referente search and the reassign dropdown only cover the current page (moved to T4).
+  Commit `b2c1521`.
 - [ ] T4 — Admin pagination sweep: `useOrgNombre` (size 100 cap), `/donaciones/mi-organizacion`
   (grows unbounded), page-0-only summaries in `reclamos.tsx`, users search limited to the current
   page. Route: delegated.
@@ -82,4 +88,4 @@ Out of scope: BFF public/admin split, PostGIS, changing `/mapa` (vulnerability p
 
 ## Next step
 
-Delegate T3.
+Delegate T4.
