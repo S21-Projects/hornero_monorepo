@@ -1,6 +1,5 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
-import { AsyncSection } from '../components/AsyncSection';
 import { Badge } from '../components/Badge';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
@@ -10,12 +9,13 @@ import type { Column } from '../components/ui/PaginatedTable';
 import { Text } from '../components/ui/Typography';
 import { PageHeader } from '../components/ui/PageHeader';
 import {
-  useArticulos,
+  useArticulosAdmin,
   useCrearArticulo,
   useDesactivarArticulo,
   useEditarArticulo,
   useReactivarArticulo,
 } from '../lib/hooks/useArticulos';
+import { usePageClamp } from '../lib/hooks/usePageClamp';
 import { mapArticuloError } from '../lib/hooks/mapArticuloError';
 import { ACTIVO, CATEGORIA_ALIMENTO, FALLBACK_BADGE, UNIDAD_ARTICULO } from '../lib/domain-ui';
 import { CategoriaAlimento, UnidadArticulo } from '../types/domain';
@@ -127,26 +127,44 @@ function ArticuloForm({ idPrefix, initial, submitLabel, isPending, errorMessage,
  * necesidad item catalog: list (filterable by categoría, optionally including deactivated items),
  * create, edit, and deactivate (never a hard delete — decision 3 of the feature doc).
  */
+const PAGE_SIZE = 10;
+const SEARCH_DEBOUNCE_MS = 300;
+
 export default function CatalogoPage() {
   const [mostrarInactivos, setMostrarInactivos] = useState(false);
   const [categoriaFiltro, setCategoriaFiltro] = useState<'' | CategoriaAlimento>('');
   const [search, setSearch] = useState('');
+  const [q, setQ] = useState('');
+  const [page, setPage] = useState(0);
+  const [pageSize, setPageSize] = useState(PAGE_SIZE);
   const [creando, setCreando] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [confirmandoId, setConfirmandoId] = useState<number | null>(null);
 
-  const { data, isLoading, isError } = useArticulos(mostrarInactivos);
+  // Search, category and "include inactive" are server-side filters; every change goes back to page 0.
+  const { data, isLoading, isError, isFetching, refetch } = useArticulosAdmin({
+    page,
+    size: pageSize,
+    q,
+    categoria: categoriaFiltro || undefined,
+    incluirInactivos: mostrarInactivos,
+  });
+  usePageClamp(page, setPage, data?.totalPages);
   const crear = useCrearArticulo();
   const editar = useEditarArticulo();
   const desactivar = useDesactivarArticulo();
   const reactivar = useReactivarArticulo();
 
-  const articulos = data ?? [];
-  const filtered = articulos.filter((a) => {
-    if (categoriaFiltro && a.categoria !== categoriaFiltro) return false;
-    if (search.trim() && !a.nombre.toLowerCase().includes(search.trim().toLowerCase())) return false;
-    return true;
-  });
+  // Debounce the typed search into the server `q` param.
+  useEffect(() => {
+    const handle = setTimeout(() => {
+      setQ(search.trim());
+      setPage(0);
+    }, SEARCH_DEBOUNCE_MS);
+    return () => clearTimeout(handle);
+  }, [search]);
+
+  const articulos = data?.content ?? [];
 
   function handleCrear(input: ArticuloInput) {
     crear.mutate(input, { onSuccess: () => setCreando(false) });
@@ -209,21 +227,22 @@ export default function CatalogoPage() {
         )}
       </Card>
 
-      <AsyncSection
-        isLoading={isLoading}
-        isError={isError}
-        isEmpty={!isLoading && articulos.length === 0}
-        emptyLabel="No hay artículos en el catálogo"
-      >
+      <>
         <div style={{ marginTop: 20 }}>
           <PaginatedTable
             columns={columns}
-            rows={filtered}
+            rows={articulos}
             rowKey={(a) => a.id}
-            page={{ number: 0, size: Math.max(filtered.length, 1), totalElements: filtered.length, totalPages: 1 }}
-            onPageChange={() => {}}
+            page={data ?? { number: 0, size: pageSize, totalElements: 0, totalPages: 0 }}
+            onPageChange={setPage}
+            isLoading={isLoading}
+            isError={isError}
+            onRetry={() => { void refetch(); }}
+            isFetching={isFetching}
+            pageSize={pageSize}
+            onPageSizeChange={(n) => { setPageSize(n); setPage(0); }}
             search={{ value: search, onChange: setSearch, placeholder: 'Buscar por nombre' }}
-            emptyLabel="No hay artículos que coincidan"
+            emptyLabel={q || categoriaFiltro ? 'No hay artículos que coincidan' : 'No hay artículos en el catálogo'}
             toolbar={
               <>
                 <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -231,7 +250,10 @@ export default function CatalogoPage() {
                   <select
                     aria-label="Filtrar por categoría"
                     value={categoriaFiltro}
-                    onChange={(e) => setCategoriaFiltro(e.target.value as '' | CategoriaAlimento)}
+                    onChange={(e) => {
+                      setCategoriaFiltro(e.target.value as '' | CategoriaAlimento);
+                      setPage(0);
+                    }}
                     style={selectStyle}
                   >
                     <option value="">Todas las categorías</option>
@@ -244,7 +266,10 @@ export default function CatalogoPage() {
                   <input
                     type="checkbox"
                     checked={mostrarInactivos}
-                    onChange={(e) => setMostrarInactivos(e.target.checked)}
+                    onChange={(e) => {
+                      setMostrarInactivos(e.target.checked);
+                      setPage(0);
+                    }}
                   />
                   <Text variant="body-sm">Mostrar inactivos</Text>
                 </label>
@@ -317,7 +342,7 @@ export default function CatalogoPage() {
             }
           />
         </div>
-      </AsyncSection>
+      </>
     </div>
   );
 }

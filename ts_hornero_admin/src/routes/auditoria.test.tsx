@@ -51,7 +51,7 @@ function pageOf(content: EvidenciaEnColaResponse[], overrides: Partial<{ number:
   return {
     content,
     number: overrides.number ?? 0,
-    size: 20,
+    size: 10,
     totalElements: overrides.totalElements ?? content.length,
     totalPages: overrides.totalPages ?? 1,
   };

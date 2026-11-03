@@ -1,9 +1,9 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, within } from '@testing-library/react';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { render, screen, fireEvent, within, act } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import CatalogoPage from './catalogo';
 import {
-  useArticulos,
+  useArticulosAdmin,
   useCrearArticulo,
   useEditarArticulo,
   useDesactivarArticulo,
@@ -12,7 +12,7 @@ import {
 import type { Articulo } from '../types/domain';
 
 vi.mock('../lib/hooks/useArticulos', () => ({
-  useArticulos: vi.fn(),
+  useArticulosAdmin: vi.fn(),
   useCrearArticulo: vi.fn(),
   useEditarArticulo: vi.fn(),
   useDesactivarArticulo: vi.fn(),
@@ -22,13 +22,15 @@ vi.mock('../lib/hooks/useArticulos', () => ({
 const ARROZ: Articulo = { id: 1, nombre: 'Arroz', categoria: 'NO_PERECEDERO', unidad: 'KG', activo: true };
 const YOGUR: Articulo = { id: 2, nombre: 'Yogur', categoria: 'REFRIGERADO', unidad: 'LITRO', activo: true };
 
-function mockArticulos(data: Articulo[] | undefined, overrides: Record<string, unknown> = {}) {
-  vi.mocked(useArticulos).mockReturnValue({
-    data,
+function mockArticulos(content: Articulo[] | undefined, overrides: Record<string, unknown> = {}) {
+  vi.mocked(useArticulosAdmin).mockReturnValue({
+    data: content && { content, number: 0, size: 10, totalElements: content.length, totalPages: 1 },
     isLoading: false,
     isError: false,
+    isFetching: false,
+    refetch: vi.fn(),
     ...overrides,
-  } as ReturnType<typeof useArticulos>);
+  } as unknown as ReturnType<typeof useArticulosAdmin>);
 }
 
 function mockMutation(overrides: Record<string, unknown> = {}) {
@@ -68,22 +70,70 @@ describe('CatalogoPage', () => {
     expect(within(yogurRow).getByText('litro')).toBeInTheDocument();
   });
 
-  it('shows the loading state', () => {
+  it('shows skeleton rows with the toolbar visible on first load', () => {
     mockArticulos(undefined, { isLoading: true });
     renderPage();
 
-    expect(screen.getByText(/Cargando/)).toBeInTheDocument();
+    expect(screen.getAllByTestId('table-skeleton-row').length).toBeGreaterThan(0);
+    expect(screen.getByLabelText('Buscar por nombre')).toBeInTheDocument();
   });
 
-  it('filters the list by categoría', () => {
+  it('shows an error panel and retries the query', () => {
+    const refetch = vi.fn();
+    mockArticulos(undefined, { isError: true, refetch });
     renderPage();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Intentar de nuevo' }));
+    expect(refetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows the progress bar while refetching with the previous rows still visible', () => {
+    mockArticulos([ARROZ], { isFetching: true });
+    renderPage();
+
+    expect(screen.getByText('Arroz')).toBeInTheDocument();
+    expect(screen.getByRole('progressbar', { name: 'Actualizando resultados' })).toBeInTheDocument();
+  });
+
+  it('queries the server by categoría and resets to the first page (no client-side filtering)', () => {
+    renderPage();
+    expect(useArticulosAdmin).toHaveBeenLastCalledWith({
+      page: 0, size: 10, q: '', categoria: undefined, incluirInactivos: false,
+    });
 
     fireEvent.change(screen.getByLabelText('Filtrar por categoría'), {
       target: { value: 'REFRIGERADO' },
     });
 
-    expect(screen.queryByText('Arroz')).not.toBeInTheDocument();
-    expect(screen.getByText('Yogur')).toBeInTheDocument();
+    expect(useArticulosAdmin).toHaveBeenLastCalledWith({
+      page: 0, size: 10, q: '', categoria: 'REFRIGERADO', incluirInactivos: false,
+    });
+    // The page renders exactly what the server returned.
+    expect(screen.getByText('Arroz')).toBeInTheDocument();
+  });
+
+  it('asks the server for inactive articulos when "Mostrar inactivos" is checked', () => {
+    renderPage();
+
+    fireEvent.click(screen.getByLabelText('Mostrar inactivos'));
+
+    expect(useArticulosAdmin).toHaveBeenLastCalledWith(expect.objectContaining({ incluirInactivos: true, page: 0 }));
+  });
+
+  describe('debounced search', () => {
+    beforeEach(() => { vi.useFakeTimers(); });
+    afterEach(() => { vi.useRealTimers(); });
+
+    it('sends the trimmed text as q after 300ms', () => {
+      renderPage();
+
+      fireEvent.change(screen.getByLabelText('Buscar por nombre'), { target: { value: ' yog ' } });
+      expect(useArticulosAdmin).not.toHaveBeenCalledWith(expect.objectContaining({ q: 'yog' }));
+
+      act(() => { vi.advanceTimersByTime(300); });
+
+      expect(useArticulosAdmin).toHaveBeenLastCalledWith(expect.objectContaining({ q: 'yog', page: 0 }));
+    });
   });
 
   it('creates an articulo from the "Nuevo artículo" form', () => {

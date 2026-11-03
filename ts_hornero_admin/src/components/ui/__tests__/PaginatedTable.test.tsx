@@ -175,4 +175,145 @@ describe('PaginatedTable', () => {
     expect(screen.getByText('Detalle de Banana')).toBeInTheDocument();
     expect(screen.queryByText('Detalle de Manzana')).not.toBeInTheDocument();
   });
+
+  describe('row click', () => {
+    const frutas: Fruta[] = [{ id: 1, nombre: 'Banana' }, { id: 2, nombre: 'Manzana' }];
+    const page = { number: 0, size: 20, totalElements: 2, totalPages: 1 };
+
+    it('calls onRowClick when clicking anywhere on the row', async () => {
+      const user = userEvent.setup();
+      const onRowClick = vi.fn();
+      render(
+        <PaginatedTable columns={frutaColumns} rows={frutas} rowKey={(f) => f.id} page={page}
+          onPageChange={vi.fn()} onRowClick={onRowClick} />,
+      );
+
+      await user.click(screen.getByText('Manzana'));
+
+      expect(onRowClick).toHaveBeenCalledWith(frutas[1]);
+    });
+
+    it('opens with Enter and Space on the focused row', async () => {
+      const user = userEvent.setup();
+      const onRowClick = vi.fn();
+      render(
+        <PaginatedTable columns={frutaColumns} rows={frutas} rowKey={(f) => f.id} page={page}
+          onPageChange={vi.fn()} onRowClick={onRowClick} />,
+      );
+      const row = screen.getByText('Banana').closest('tr') as HTMLElement;
+      row.focus();
+
+      await user.keyboard('{Enter}');
+      await user.keyboard(' ');
+
+      expect(onRowClick).toHaveBeenCalledTimes(2);
+      expect(onRowClick).toHaveBeenCalledWith(frutas[0]);
+    });
+
+    it('does not trigger the row when a button inside it is used', async () => {
+      const user = userEvent.setup();
+      const onRowClick = vi.fn();
+      const inner = vi.fn();
+      render(
+        <PaginatedTable columns={frutaColumns} rows={frutas} rowKey={(f) => f.id} page={page}
+          onPageChange={vi.fn()} onRowClick={onRowClick}
+          rowActions={(f) => <button onClick={inner}>Editar {f.nombre}</button>} />,
+      );
+
+      await user.click(screen.getByRole('button', { name: 'Editar Banana' }));
+      screen.getByRole('button', { name: 'Editar Banana' }).focus();
+      await user.keyboard('{Enter}');
+
+      expect(inner).toHaveBeenCalledTimes(2);
+      expect(onRowClick).not.toHaveBeenCalled();
+    });
+
+    it('highlights the selected row', () => {
+      render(
+        <PaginatedTable columns={frutaColumns} rows={frutas} rowKey={(f) => f.id} page={page}
+          onPageChange={vi.fn()} onRowClick={vi.fn()} selectedKey={2} />,
+      );
+
+      expect(screen.getByText('Manzana').closest('tr')).toHaveAttribute('data-selected', 'true');
+      expect(screen.getByText('Banana').closest('tr')).not.toHaveAttribute('data-selected');
+    });
+
+    it('rows are not interactive without onRowClick', () => {
+      render(
+        <PaginatedTable columns={frutaColumns} rows={frutas} rowKey={(f) => f.id} page={page}
+          onPageChange={vi.fn()} />,
+      );
+
+      expect(screen.getByText('Banana').closest('tr')).not.toHaveAttribute('tabindex');
+    });
+  });
+
+  describe('loading states', () => {
+    const meta = { number: 0, size: 10, totalElements: 0, totalPages: 0 };
+    const frutas: Fruta[] = [{ id: 1, nombre: 'Banana' }];
+
+    it('shows skeleton rows on first load while header and toolbar stay visible', () => {
+      render(
+        <PaginatedTable
+          columns={frutaColumns}
+          rows={[]}
+          rowKey={(f) => f.id}
+          page={meta}
+          onPageChange={vi.fn()}
+          search={{ value: '', onChange: vi.fn(), placeholder: 'Buscar fruta' }}
+          isLoading
+          emptyLabel="Sin frutas"
+        />,
+      );
+
+      expect(screen.getAllByTestId('table-skeleton-row').length).toBeGreaterThan(0);
+      expect(screen.getByText('Nombre')).toBeInTheDocument();
+      expect(screen.getByLabelText('Buscar fruta')).toBeInTheDocument();
+      expect(screen.queryByText('Sin frutas')).not.toBeInTheDocument();
+    });
+
+    it('keeps previous rows, shows a progress bar and marks the table busy while refetching', () => {
+      render(
+        <PaginatedTable
+          columns={frutaColumns}
+          rows={frutas}
+          rowKey={(f) => f.id}
+          page={{ ...meta, totalElements: 1, totalPages: 1 }}
+          onPageChange={vi.fn()}
+          isFetching
+        />,
+      );
+
+      expect(screen.getByText('Banana')).toBeInTheDocument();
+      expect(screen.getByRole('progressbar', { name: 'Actualizando resultados' })).toBeInTheDocument();
+      expect(screen.getByRole('table').parentElement).toHaveAttribute('aria-busy', 'true');
+      expect(screen.queryByTestId('table-skeleton-row')).not.toBeInTheDocument();
+    });
+
+    it('does not show the progress bar when idle', () => {
+      render(
+        <PaginatedTable columns={frutaColumns} rows={frutas} rowKey={(f) => f.id} page={meta} onPageChange={vi.fn()} />,
+      );
+      expect(screen.queryByRole('progressbar')).not.toBeInTheDocument();
+    });
+
+    it('shows an error panel with a retry action', async () => {
+      const onRetry = vi.fn();
+      render(
+        <PaginatedTable
+          columns={frutaColumns}
+          rows={[]}
+          rowKey={(f) => f.id}
+          page={meta}
+          onPageChange={vi.fn()}
+          isError
+          onRetry={onRetry}
+        />,
+      );
+
+      expect(screen.getByText('Algo salió mal')).toBeInTheDocument();
+      await userEvent.click(screen.getByRole('button', { name: 'Intentar de nuevo' }));
+      expect(onRetry).toHaveBeenCalledTimes(1);
+    });
+  });
 });

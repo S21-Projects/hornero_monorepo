@@ -164,4 +164,35 @@ class ArticuloServiceTest {
                 .isEqualTo(org.example.actividad.TipoActividad.ARTICULO_DESACTIVADO);
         org.assertj.core.api.Assertions.assertThat(captor.getValue().entidadId()).isEqualTo(4L);
     }
+
+    @Test
+    void listarAdmin_sinFiltros_buscaTodoIncluyendoSoloActivosPorDefecto() {
+        org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(0, 10);
+        when(articuloRepository.buscarAdmin(org.mockito.ArgumentMatchers.anyBoolean(),
+                org.mockito.ArgumentMatchers.anyBoolean(), any(), org.mockito.ArgumentMatchers.anyString(), any()))
+                .thenReturn(new org.springframework.data.domain.PageImpl<>(List.of(articulo(1L, "Arroz", true)), pageable, 1));
+
+        org.springframework.data.domain.Page<ArticuloResponse> result =
+                articuloService.listarAdmin(false, null, null, pageable);
+
+        assertThat(result.getContent()).extracting(ArticuloResponse::nombre).containsExactly("Arroz");
+        verify(articuloRepository).buscarAdmin(
+                org.mockito.ArgumentMatchers.eq(true), org.mockito.ArgumentMatchers.eq(false),
+                any(), org.mockito.ArgumentMatchers.eq("%"), org.mockito.ArgumentMatchers.eq(pageable));
+    }
+
+    @Test
+    void listarAdmin_conFiltros_pasaCategoriaInactivosYPatronEscapado() {
+        org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(1, 25);
+        when(articuloRepository.buscarAdmin(org.mockito.ArgumentMatchers.anyBoolean(),
+                org.mockito.ArgumentMatchers.anyBoolean(), any(), org.mockito.ArgumentMatchers.anyString(), any()))
+                .thenReturn(org.springframework.data.domain.Page.empty(pageable));
+
+        articuloService.listarAdmin(true, CategoriaAlimento.REFRIGERADO, "  100%_Leche ", pageable);
+
+        verify(articuloRepository).buscarAdmin(
+                org.mockito.ArgumentMatchers.eq(false), org.mockito.ArgumentMatchers.eq(true),
+                org.mockito.ArgumentMatchers.eq(CategoriaAlimento.REFRIGERADO),
+                org.mockito.ArgumentMatchers.eq("%100\\%\\_leche%"), org.mockito.ArgumentMatchers.eq(pageable));
+    }
 }

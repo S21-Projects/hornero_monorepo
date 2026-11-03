@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { AsyncSection } from '../components/AsyncSection';
 import { Badge } from '../components/Badge';
 import { Button } from '../components/ui/Button';
 import { Dropdown } from '../components/ui/Dropdown';
@@ -19,7 +18,7 @@ import type {
   TabCola,
 } from '../types/domain';
 
-const PAGE_SIZE = 20;
+const PAGE_SIZE = 10;
 
 const NIVEL_OPTIONS = [
   { value: '', label: 'Todos los niveles' },
@@ -162,19 +161,18 @@ export default function AuditoriaPage() {
         />
       </div>
 
-      <AsyncSection
-        isLoading={cola.isLoading}
-        isError={cola.isError}
-        isEmpty={rows.length === 0}
-        emptyLabel={
-          tab === 'PENDIENTES' ? 'No hay evidencia pendiente de auditoría' : 'No hay evidencia vencida'
-        }
-      >
+      <>
         <div style={{ marginTop: 20 }}>
           <PaginatedTable
             columns={columns}
             rows={rows}
             rowKey={(r) => r.id}
+            isLoading={cola.isLoading}
+            isError={cola.isError}
+            onRetry={() => { void cola.refetch(); }}
+            emptyLabel={
+              tab === 'PENDIENTES' ? 'No hay evidencia pendiente de auditoría' : 'No hay evidencia vencida'
+            }
             page={cola.data ?? { number: 0, size: PAGE_SIZE, totalElements: 0, totalPages: 0 }}
             onPageChange={setPage}
             isFetching={cola.isFetching}
@@ -200,7 +198,7 @@ export default function AuditoriaPage() {
             )}
           />
         </div>
-      </AsyncSection>
+      </>
     </div>
   );
 }

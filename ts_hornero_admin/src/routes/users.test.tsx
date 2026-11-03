@@ -19,52 +19,70 @@ const usuario = (over = {}) => ({
   id: 7, nombre: 'Dora Donante', email: 'dora@test.com', tipo: 'DONANTE', activo: true, ...over,
 });
 
+const abrir = async (user: ReturnType<typeof userEvent.setup>, nombre = 'Dora Donante') => {
+  await user.click(screen.getByText(nombre));
+};
+
 describe('UsersPage (M2: optional motivo)', () => {
   beforeEach(() => {
     mutate.mockReset();
     anonimizar.mockReset();
+    mutate.mockImplementation((_v, opts) => opts?.onSuccess?.());
+    anonimizar.mockImplementation((_v, opts) => opts?.onSuccess?.());
     vi.mocked(useUsuarios).mockReturnValue({
-      data: { content: [usuario()], number: 0, size: 20, totalElements: 1, totalPages: 1 },
+      data: { content: [usuario()], number: 0, size: 10, totalElements: 1, totalPages: 1 },
       isLoading: false, isError: false, isFetching: false,
     } as unknown as ReturnType<typeof useUsuarios>);
     vi.mocked(useToggleActivo).mockReturnValue({
-      mutate, isPending: false, isError: false, variables: undefined, error: null,
+      mutate, isPending: false, isError: false, variables: undefined, error: null, reset: vi.fn(),
     } as unknown as ReturnType<typeof useToggleActivo>);
     vi.mocked(useAnonimizarUsuario).mockReturnValue({
-      mutate: anonimizar, isPending: false, isError: false, variables: undefined, error: null,
+      mutate: anonimizar, isPending: false, isError: false, variables: undefined, error: null, reset: vi.fn(),
     } as unknown as ReturnType<typeof useAnonimizarUsuario>);
   });
 
-  it('asks for an optional motivo and sends it with the toggle', async () => {
+  it('opens the drawer from a click on the row and shows the account info', async () => {
     const user = userEvent.setup();
     render(<UsersPage />);
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
 
-    await user.click(screen.getByRole('button', { name: 'Desactivar' }));
-    expect(mutate).not.toHaveBeenCalled();
+    await user.click(screen.getByText('dora@test.com'));
+
+    const dialog = screen.getByRole('dialog', { name: 'Dora Donante' });
+    expect(dialog).toHaveTextContent('Donante');
+    expect(dialog).toHaveTextContent('dora@test.com');
+  });
+
+  it('sends the optional motivo with the toggle and closes', async () => {
+    const user = userEvent.setup();
+    render(<UsersPage />);
+    await abrir(user);
+
     await user.type(screen.getByLabelText('Motivo (opcional)'), 'abuso reiterado');
-    await user.click(screen.getByRole('button', { name: 'Confirmar' }));
+    await user.click(screen.getByRole('button', { name: 'Desactivar' }));
 
-    expect(mutate).toHaveBeenCalledWith({ id: 7, activo: false, motivo: 'abuso reiterado' });
+    expect(mutate).toHaveBeenCalledWith({ id: 7, activo: false, motivo: 'abuso reiterado' }, expect.anything());
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 
   it('omits motivo when left blank', async () => {
     const user = userEvent.setup();
     render(<UsersPage />);
+    await abrir(user);
 
     await user.click(screen.getByRole('button', { name: 'Desactivar' }));
-    await user.click(screen.getByRole('button', { name: 'Confirmar' }));
 
-    expect(mutate).toHaveBeenCalledWith({ id: 7, activo: false });
+    expect(mutate).toHaveBeenCalledWith({ id: 7, activo: false }, expect.anything());
   });
 
-  it('cancel closes the form without mutating', async () => {
+  it('closing the drawer does not mutate', async () => {
     const user = userEvent.setup();
     render(<UsersPage />);
+    await abrir(user);
 
-    await user.click(screen.getByRole('button', { name: 'Desactivar' }));
-    await user.click(screen.getByRole('button', { name: 'Cancelar' }));
+    await user.keyboard('{Escape}');
 
-    expect(screen.queryByLabelText('Motivo (opcional)')).not.toBeInTheDocument();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     expect(mutate).not.toHaveBeenCalled();
   });
 });
@@ -73,6 +91,8 @@ describe('UsersPage (N15: anonimizar)', () => {
   beforeEach(() => {
     mutate.mockReset();
     anonimizar.mockReset();
+    mutate.mockImplementation((_v, opts) => opts?.onSuccess?.());
+    anonimizar.mockImplementation((_v, opts) => opts?.onSuccess?.());
     useAuthStore.setState({ user: { userId: 1, email: 'a@a.com', nombre: 'Admin', tipo: 'ADMINISTRADOR', emailVerificado: true } });
     vi.mocked(useUsuarios).mockReturnValue({
       data: {
@@ -81,53 +101,72 @@ describe('UsersPage (N15: anonimizar)', () => {
           usuario({ id: 8, nombre: 'Usuario eliminado', email: 'eliminado-x@anonimo.invalid', activo: false }),
           usuario({ id: 1, nombre: 'Admin', email: 'a@a.com', tipo: 'ADMINISTRADOR' }),
         ],
-        number: 0, size: 20, totalElements: 3, totalPages: 1,
+        number: 0, size: 10, totalElements: 3, totalPages: 1,
       },
       isLoading: false, isError: false, isFetching: false,
     } as unknown as ReturnType<typeof useUsuarios>);
     vi.mocked(useToggleActivo).mockReturnValue({
-      mutate, isPending: false, isError: false, variables: undefined, error: null,
+      mutate, isPending: false, isError: false, variables: undefined, error: null, reset: vi.fn(),
     } as unknown as ReturnType<typeof useToggleActivo>);
     vi.mocked(useAnonimizarUsuario).mockReturnValue({
-      mutate: anonimizar, isPending: false, isError: false, variables: undefined, error: null,
+      mutate: anonimizar, isPending: false, isError: false, variables: undefined, error: null, reset: vi.fn(),
     } as unknown as ReturnType<typeof useAnonimizarUsuario>);
   });
 
-  it('explains the action is irreversible and only mutates after confirming', async () => {
+  it('explains the action is irreversible and needs ANONIMIZAR typed before it mutates', async () => {
     const user = userEvent.setup();
     render(<UsersPage />);
+    await abrir(user);
 
-    await user.click(screen.getAllByRole('button', { name: 'Anonimizar' })[0]);
+    await user.click(screen.getByRole('button', { name: 'Anonimizar' }));
 
     expect(screen.getByRole('alertdialog')).toHaveTextContent(/no se puede deshacer/i);
     expect(screen.getByRole('alertdialog')).toHaveTextContent('Dora Donante');
-    expect(anonimizar).not.toHaveBeenCalled();
+    const confirmar = screen.getByRole('button', { name: 'Anonimizar definitivamente' });
+    expect(confirmar).toBeDisabled();
 
-    await user.click(screen.getByRole('button', { name: 'Anonimizar definitivamente' }));
+    await user.type(screen.getByLabelText(/Escribí ANONIMIZAR/), 'anonimizar');
+    expect(confirmar).toBeDisabled();
+    await user.clear(screen.getByLabelText(/Escribí ANONIMIZAR/));
+    await user.type(screen.getByLabelText(/Escribí ANONIMIZAR/), 'ANONIMIZAR');
+    expect(confirmar).toBeEnabled();
+    await user.click(confirmar);
 
-    expect(anonimizar).toHaveBeenCalledWith(7);
-    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+    expect(anonimizar).toHaveBeenCalledWith(7, expect.anything());
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 
-  it('cancel closes the confirmation without mutating', async () => {
+  it('Volver leaves the confirmation without mutating', async () => {
     const user = userEvent.setup();
     render(<UsersPage />);
+    await abrir(user);
 
-    await user.click(screen.getAllByRole('button', { name: 'Anonimizar' })[0]);
-    await user.click(screen.getByRole('button', { name: 'Cancelar' }));
+    await user.click(screen.getByRole('button', { name: 'Anonimizar' }));
+    await user.click(screen.getByRole('button', { name: 'Volver' }));
 
     expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
     expect(anonimizar).not.toHaveBeenCalled();
   });
 
-  it('is disabled for your own account and for an already anonymized one', () => {
+  it('offers no actions for your own account', async () => {
+    const user = userEvent.setup();
     render(<UsersPage />);
+    await abrir(user, 'Admin');
 
-    const botones = screen.getAllByRole('button', { name: 'Anonimizar' });
-    expect(botones).toHaveLength(3);
-    expect(botones[0]).toBeEnabled();
-    expect(botones[1]).toBeDisabled(); // anonymized
-    expect(botones[2]).toBeDisabled(); // myself
+    const dialog = screen.getByRole('dialog', { name: 'Admin' });
+    expect(dialog).toHaveTextContent(/No podés modificar tu propia cuenta/);
+    expect(screen.queryByRole('button', { name: 'Desactivar' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Anonimizar' })).not.toBeInTheDocument();
+  });
+
+  it('offers no actions for an already anonymized account', async () => {
+    const user = userEvent.setup();
+    render(<UsersPage />);
+    await abrir(user, 'Usuario eliminado');
+
+    expect(screen.getByRole('dialog')).toHaveTextContent(/ya fue anonimizada/);
+    expect(screen.queryByRole('button', { name: 'Activar' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Anonimizar' })).not.toBeInTheDocument();
   });
 
   it('shows the mapped error under the row', () => {
@@ -147,15 +186,15 @@ describe('UsersPage (server-side search)', () => {
     vi.mocked(useUsuarios).mockImplementation(((params: { q?: string }) => ({
       data: {
         content: params.q ? [] : [usuario()],
-        number: 0, size: 20, totalElements: params.q ? 0 : 1, totalPages: params.q ? 0 : 1,
+        number: 0, size: 10, totalElements: params.q ? 0 : 1, totalPages: params.q ? 0 : 1,
       },
       isLoading: false, isError: false, isFetching: false,
     })) as unknown as typeof useUsuarios);
     vi.mocked(useToggleActivo).mockReturnValue({
-      mutate, isPending: false, isError: false, variables: undefined, error: null,
+      mutate, isPending: false, isError: false, variables: undefined, error: null, reset: vi.fn(),
     } as unknown as ReturnType<typeof useToggleActivo>);
     vi.mocked(useAnonimizarUsuario).mockReturnValue({
-      mutate: anonimizar, isPending: false, isError: false, variables: undefined, error: null,
+      mutate: anonimizar, isPending: false, isError: false, variables: undefined, error: null, reset: vi.fn(),
     } as unknown as ReturnType<typeof useAnonimizarUsuario>);
   });
 
@@ -165,14 +204,14 @@ describe('UsersPage (server-side search)', () => {
 
   it('debounces the search into the server q param and resets to the first page', () => {
     render(<UsersPage />);
-    expect(useUsuarios).toHaveBeenLastCalledWith({ page: 0, size: 20, q: '' });
+    expect(useUsuarios).toHaveBeenLastCalledWith({ page: 0, size: 10, q: '' });
 
     fireEvent.change(screen.getByLabelText('Buscar por nombre o email'), { target: { value: ' dora ' } });
     expect(useUsuarios).not.toHaveBeenCalledWith(expect.objectContaining({ q: 'dora' }));
 
     act(() => { vi.advanceTimersByTime(300); });
 
-    expect(useUsuarios).toHaveBeenLastCalledWith({ page: 0, size: 20, q: 'dora' });
+    expect(useUsuarios).toHaveBeenLastCalledWith({ page: 0, size: 10, q: 'dora' });
   });
 
   it('keeps the search box and shows the no-match label when the server returns nothing', () => {
@@ -183,5 +222,86 @@ describe('UsersPage (server-side search)', () => {
 
     expect(screen.getByLabelText('Buscar por nombre o email')).toBeInTheDocument();
     expect(screen.getByText('No hay usuarios que coincidan con la búsqueda')).toBeInTheDocument();
+  });
+});
+
+describe('UsersPage (loading states)', () => {
+  const idle = { mutate, isPending: false, isError: false, variables: undefined, error: null, reset: vi.fn() };
+  beforeEach(() => {
+    vi.mocked(useToggleActivo).mockReturnValue(idle as unknown as ReturnType<typeof useToggleActivo>);
+    vi.mocked(useAnonimizarUsuario).mockReturnValue(idle as unknown as ReturnType<typeof useAnonimizarUsuario>);
+  });
+
+  it('shows skeleton rows with the search box visible on first load', () => {
+    vi.mocked(useUsuarios).mockReturnValue({
+      data: undefined, isLoading: true, isError: false, isFetching: true, refetch: vi.fn(),
+    } as unknown as ReturnType<typeof useUsuarios>);
+    render(<UsersPage />);
+
+    expect(screen.getAllByTestId('table-skeleton-row').length).toBeGreaterThan(0);
+    expect(screen.getByLabelText('Buscar por nombre o email')).toBeInTheDocument();
+  });
+
+  it('keeps previous rows and shows the progress bar while refetching', () => {
+    vi.mocked(useUsuarios).mockReturnValue({
+      data: { content: [usuario()], number: 0, size: 10, totalElements: 1, totalPages: 1 },
+      isLoading: false, isError: false, isFetching: true, refetch: vi.fn(),
+    } as unknown as ReturnType<typeof useUsuarios>);
+    render(<UsersPage />);
+
+    expect(screen.getByText('Dora Donante')).toBeInTheDocument();
+    expect(screen.getByRole('progressbar', { name: 'Actualizando resultados' })).toBeInTheDocument();
+  });
+
+  it('shows an error panel and retries the query', async () => {
+    const refetch = vi.fn();
+    vi.mocked(useUsuarios).mockReturnValue({
+      data: undefined, isLoading: false, isError: true, isFetching: false, refetch,
+    } as unknown as ReturnType<typeof useUsuarios>);
+    render(<UsersPage />);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Intentar de nuevo' }));
+    expect(refetch).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('UsersPage (drawer mutation feedback)', () => {
+  beforeEach(() => {
+    mutate.mockReset();
+    anonimizar.mockReset();
+    vi.mocked(useUsuarios).mockReturnValue({
+      data: { content: [usuario()], number: 0, size: 10, totalElements: 1, totalPages: 1 },
+      isLoading: false, isError: false, isFetching: false,
+    } as unknown as ReturnType<typeof useUsuarios>);
+    vi.mocked(useAnonimizarUsuario).mockReturnValue({
+      mutate: anonimizar, isPending: false, isError: false, variables: undefined, error: null, reset: vi.fn(),
+    } as unknown as ReturnType<typeof useAnonimizarUsuario>);
+  });
+
+  it('disables the drawer actions while the toggle is pending', async () => {
+    vi.mocked(useToggleActivo).mockReturnValue({
+      mutate, isPending: true, isError: false, variables: undefined, error: null, reset: vi.fn(),
+    } as unknown as ReturnType<typeof useToggleActivo>);
+    const user = userEvent.setup();
+    render(<UsersPage />);
+    await abrir(user);
+
+    const busy = screen.getAllByRole('button').filter((b) => b.getAttribute('aria-busy') === 'true');
+    expect(busy).toHaveLength(1);
+    expect(busy[0]).toBeDisabled();
+    expect(screen.getAllByRole('button', { name: 'Cerrar' }).some((b) => (b as HTMLButtonElement).disabled)).toBe(true);
+  });
+
+  it('keeps the drawer open and shows the error inline when the toggle fails', async () => {
+    mutate.mockImplementation(() => undefined);
+    vi.mocked(useToggleActivo).mockReturnValue({
+      mutate, isPending: false, isError: true, variables: undefined, error: new Error('x'), reset: vi.fn(),
+    } as unknown as ReturnType<typeof useToggleActivo>);
+    const user = userEvent.setup();
+    render(<UsersPage />);
+    await abrir(user);
+
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+    expect(screen.getByRole('alert')).toHaveTextContent('No se pudo completar la acción');
   });
 });

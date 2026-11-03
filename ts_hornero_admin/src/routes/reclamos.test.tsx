@@ -58,6 +58,10 @@ function renderPage() {
   return render(<MemoryRouter><ReclamosPage /></MemoryRouter>);
 }
 
+function openDrawer() {
+  fireEvent.click(screen.getByText('Comedor X'));
+}
+
 describe('ReclamosPage (admin queue)', () => {
   beforeEach(() => {
     APROBAR.mockReset().mockResolvedValue(ROW);
@@ -78,7 +82,7 @@ describe('ReclamosPage (admin queue)', () => {
   it('lists the pending claims with comedor, lugar, solicitante and fecha, plus the count', () => {
     renderPage();
 
-    expect(useReclamosPendientes).toHaveBeenCalledWith({ page: 0, size: 20 });
+    expect(useReclamosPendientes).toHaveBeenCalledWith({ page: 0, size: 10 });
     expect(screen.getByText('1 pendientes')).toBeInTheDocument();
     expect(screen.getByText('Comedor X')).toBeInTheDocument();
     expect(screen.getByText('Calle 1, Córdoba')).toBeInTheDocument();
@@ -95,13 +99,15 @@ describe('ReclamosPage (admin queue)', () => {
     expect(screen.getByText('0 pendientes')).toBeInTheDocument();
   });
 
-  it('opens the detail with the claimant, rol, load n/3, phone, message and evidence', () => {
+  it('opens a drawer from any click on the row with the claimant, rol, load n/3, phone, message and evidence', () => {
     renderPage();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Ver detalle' }));
+    fireEvent.click(screen.getByText('Calle 1, Córdoba'));
 
+    expect(screen.getByRole('dialog', { name: 'Comedor X' })).toBeInTheDocument();
     expect(useReclamo).toHaveBeenCalledWith(9);
-    expect(screen.getByText(/Ana Pérez · ana@test.com/)).toBeInTheDocument();
+    expect(screen.getByText('ana@test.com')).toBeInTheDocument();
     expect(screen.getByText('Responsable / coordinador/a')).toBeInTheDocument();
     expect(screen.getByText('2/3')).toBeInTheDocument();
     expect(screen.getByText('351 555 1234')).toBeInTheDocument();
@@ -109,9 +115,29 @@ describe('ReclamosPage (admin queue)', () => {
     expect(screen.getByText('archivo:reclamo-evidencia/4/7/1.jpg')).toBeInTheDocument();
   });
 
+  it('closes the drawer with Esc', () => {
+    renderPage();
+    openDrawer();
+
+    fireEvent.keyDown(document, { key: 'Escape' });
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it('warns and blocks the approval when the claimant is at the organizaciones cap', () => {
+    vi.mocked(useReclamo).mockReturnValue({
+      data: { ...ROW, organizacionesACargo: 3 }, isLoading: false, isError: false, refetch: vi.fn(),
+    } as unknown as ReturnType<typeof useReclamo>);
+    renderPage();
+    openDrawer();
+
+    expect(screen.getByRole('alert')).toHaveTextContent(/máximo de 3 organizaciones/);
+    expect(screen.getByRole('button', { name: 'Aprobar y asignar' })).toBeDisabled();
+  });
+
   it('approves and assigns, then closes the detail', async () => {
     renderPage();
-    fireEvent.click(screen.getByRole('button', { name: 'Ver detalle' }));
+    openDrawer();
 
     fireEvent.click(screen.getByRole('button', { name: 'Aprobar y asignar' }));
 
@@ -121,12 +147,10 @@ describe('ReclamosPage (admin queue)', () => {
 
   it('requires a motivo to reject', async () => {
     renderPage();
-    fireEvent.click(screen.getByRole('button', { name: 'Ver detalle' }));
+    openDrawer();
 
     fireEvent.click(screen.getByRole('button', { name: 'Rechazar…' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Confirmar rechazo' }));
-
-    expect(screen.getByText('El motivo es obligatorio')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Confirmar rechazo' })).toBeDisabled();
     expect(RECHAZAR).not.toHaveBeenCalled();
 
     fireEvent.change(screen.getByLabelText('Motivo del rechazo'), { target: { value: '  No se pudo verificar  ' } });
@@ -137,10 +161,10 @@ describe('ReclamosPage (admin queue)', () => {
 
   it('can back out of the rejection without sending anything', () => {
     renderPage();
-    fireEvent.click(screen.getByRole('button', { name: 'Ver detalle' }));
+    openDrawer();
     fireEvent.click(screen.getByRole('button', { name: 'Rechazar…' }));
 
-    fireEvent.click(screen.getByRole('button', { name: 'Cancelar' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Volver' }));
 
     expect(screen.getByRole('button', { name: 'Aprobar y asignar' })).toBeInTheDocument();
     expect(RECHAZAR).not.toHaveBeenCalled();
@@ -151,7 +175,7 @@ describe('ReclamosPage (admin queue)', () => {
       mutation(APROBAR, { response: { status: 409, data: { message: 'El referente ya alcanzó el máximo de 3 organizaciones' } } }),
     );
     renderPage();
-    fireEvent.click(screen.getByRole('button', { name: 'Ver detalle' }));
+    openDrawer();
 
     expect(screen.getByText('El solicitante ya alcanzó el máximo de 3 organizaciones a su cargo.')).toBeInTheDocument();
   });

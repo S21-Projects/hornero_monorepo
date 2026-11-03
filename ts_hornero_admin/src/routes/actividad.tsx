@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { AsyncSection } from '../components/AsyncSection';
 import { Badge } from '../components/Badge';
 import { Dropdown } from '../components/ui/Dropdown';
 import { Input } from '../components/ui/Input';
@@ -20,7 +19,7 @@ import {
 import { formatFechaHora } from '../lib/format';
 import type { Actividad } from '../types/domain';
 
-const PAGE_SIZE = 20;
+const PAGE_SIZE = 10;
 
 const ACCION_OPTIONS = [
   { value: '', label: 'Todas las acciones' },
@@ -48,7 +47,7 @@ export default function ActividadPage() {
   const [hasta, setHasta] = useState('');
 
   const usuarioId = Number(usuario);
-  const { data, isLoading, isError, isFetching } = useActividad({
+  const { data, isLoading, isError, isFetching, refetch } = useActividad({
     page,
     size: PAGE_SIZE,
     actorUsuarioId: Number.isInteger(usuarioId) && usuarioId > 0 ? usuarioId : undefined,
@@ -163,12 +162,15 @@ export default function ActividadPage() {
         description="Registro de solo lectura: no puede editarse ni borrarse desde la aplicación."
       />
 
-      <AsyncSection isLoading={isLoading} isError={isError} isEmpty={false}>
+      <>
         <div>
           <PaginatedTable
             columns={columns}
             rows={data?.content ?? []}
             rowKey={(a) => a.id}
+            isLoading={isLoading}
+            isError={isError}
+            onRetry={() => { void refetch(); }}
             page={data ?? { number: 0, size: PAGE_SIZE, totalElements: 0, totalPages: 0 }}
             onPageChange={setPage}
             isFetching={isFetching}
@@ -208,7 +210,7 @@ export default function ActividadPage() {
             }
           />
         </div>
-      </AsyncSection>
+      </>
     </div>
   );
 }

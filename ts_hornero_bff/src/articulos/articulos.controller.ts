@@ -42,6 +42,31 @@ export class ArticulosController {
   }
 
   @Roles(Role.ADMINISTRADOR)
+  @Get('admin')
+  @ApiOperation({
+    summary:
+      'Paged catalog listing filterable by q / categoria / incluirInactivos (ADMINISTRADOR only)',
+  })
+  listarAdmin(
+    @Req() req: Request,
+    @Query('q') q?: string,
+    @Query('categoria') categoria?: string,
+    @Query('incluirInactivos') incluirInactivos?: string,
+    @Query('page') page?: string,
+    @Query('size') size?: string,
+    @Query('sort') sort?: string,
+  ) {
+    return this.articulosService.listarAdmin(this.getToken(req), {
+      q,
+      categoria,
+      incluirInactivos,
+      page,
+      size,
+      sort,
+    });
+  }
+
+  @Roles(Role.ADMINISTRADOR)
   @Post()
   @HttpCode(201)
   @ApiOperation({ summary: 'Create a catalog item (ADMINISTRADOR only)' })
