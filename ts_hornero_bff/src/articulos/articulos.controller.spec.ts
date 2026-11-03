@@ -10,6 +10,7 @@ describe('ArticulosController', () => {
   let controller: ArticulosController;
   let service: {
     listar: jest.Mock;
+    listarAdmin: jest.Mock;
     crear: jest.Mock;
     actualizar: jest.Mock;
     desactivar: jest.Mock;
@@ -22,6 +23,7 @@ describe('ArticulosController', () => {
   beforeEach(async () => {
     service = {
       listar: jest.fn(),
+      listarAdmin: jest.fn(),
       crear: jest.fn(),
       actualizar: jest.fn(),
       desactivar: jest.fn(),
@@ -45,6 +47,41 @@ describe('ArticulosController', () => {
       IS_PUBLIC_KEY,
       ArticulosController.prototype[methodName],
     ) ?? false;
+
+  describe('listarAdmin', () => {
+    it('is restricted to ADMINISTRADOR and not public', () => {
+      expect(rolesOf('listarAdmin')).toEqual([Role.ADMINISTRADOR]);
+      expect(isPublic('listarAdmin')).toBe(false);
+    });
+
+    it('forwards the filters and paging with the cookie token', async () => {
+      service.listarAdmin.mockResolvedValue({ content: [] });
+
+      const res = await controller.listarAdmin(
+        requestWithToken('tok'),
+        'leche',
+        'REFRIGERADO',
+        'true',
+        '1',
+        '10',
+        'nombre,asc',
+      );
+
+      expect(service.listarAdmin).toHaveBeenCalledWith('tok', {
+        q: 'leche',
+        categoria: 'REFRIGERADO',
+        incluirInactivos: 'true',
+        page: '1',
+        size: '10',
+        sort: 'nombre,asc',
+      });
+      expect(res).toEqual({ content: [] });
+    });
+
+    it('rejects a request without an access token', () => {
+      expect(() => controller.listarAdmin(requestWithToken())).toThrow();
+    });
+  });
 
   describe('listar', () => {
     it('is public', () => {

@@ -6,6 +6,7 @@ import MockAdapter from 'axios-mock-adapter';
 import { api } from '../axios';
 import {
   useArticulos,
+  useArticulosAdmin,
   useCrearArticulo,
   useEditarArticulo,
   useDesactivarArticulo,
@@ -30,6 +31,37 @@ afterEach(() => {
 });
 
 const ARROZ = { id: 1, nombre: 'Arroz', categoria: 'NO_PERECEDERO', unidad: 'KG', activo: true };
+
+describe('useArticulosAdmin', () => {
+  const page = { content: [ARROZ], number: 0, size: 10, totalElements: 1, totalPages: 1 };
+
+  it('GETs /articulos/admin sending only the filters that are set', async () => {
+    mock.onGet('/articulos/admin').reply(200, page);
+
+    const { result } = renderHook(
+      () => useArticulosAdmin({ page: 1, size: 10, q: 'arr', categoria: 'NO_PERECEDERO', incluirInactivos: true }),
+      { wrapper: createWrapper() },
+    );
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(result.current.data).toEqual(page);
+    expect(mock.history.get[0].params).toEqual({
+      page: 1, size: 10, q: 'arr', categoria: 'NO_PERECEDERO', incluirInactivos: true,
+    });
+  });
+
+  it('omits empty filters from the query', async () => {
+    mock.onGet('/articulos/admin').reply(200, page);
+
+    const { result } = renderHook(
+      () => useArticulosAdmin({ page: 0, size: 10, q: '', incluirInactivos: false }),
+      { wrapper: createWrapper() },
+    );
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(mock.history.get[0].params).toEqual({ page: 0, size: 10 });
+  });
+});
 
 describe('useArticulos', () => {
   it('GETs /articulos with no query string by default (active only)', async () => {

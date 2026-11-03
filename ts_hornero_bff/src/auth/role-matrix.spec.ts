@@ -51,6 +51,7 @@ const EXPECTED_ACCESS: Record<string, Access> = {
   'GET /': 'any-authenticated',
   'GET /actividad': [Role.ADMINISTRADOR],
   'GET /articulos': 'public',
+  'GET /articulos/admin': [Role.ADMINISTRADOR],
   'GET /auditoria/evidencias': [Role.ADMINISTRADOR],
   'GET /auth/me': 'any-authenticated',
   'GET /donaciones': 'public',

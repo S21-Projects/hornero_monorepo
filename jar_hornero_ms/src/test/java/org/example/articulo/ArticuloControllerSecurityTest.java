@@ -155,4 +155,34 @@ class ArticuloControllerSecurityTest {
                         .with(authentication(auth(1L, "ADMINISTRADOR"))))
                 .andExpect(status().isOk());
     }
+
+    @Test
+    void getAdmin_anonymous_isForbidden() throws Exception {
+        mockMvc.perform(get("/api/articulos/admin"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void getAdmin_donante_isForbidden() throws Exception {
+        mockMvc.perform(get("/api/articulos/admin")
+                        .with(authentication(auth(1L, "DONANTE"))))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void getAdmin_administrador_isOkAndForwardsFilters() throws Exception {
+        when(articuloService.listarAdmin(org.mockito.ArgumentMatchers.eq(true),
+                org.mockito.ArgumentMatchers.eq(CategoriaAlimento.REFRIGERADO),
+                org.mockito.ArgumentMatchers.eq("leche"), org.mockito.ArgumentMatchers.any()))
+                .thenReturn(new org.springframework.data.domain.PageImpl<>(List.of(sample())));
+
+        mockMvc.perform(get("/api/articulos/admin")
+                        .param("incluirInactivos", "true")
+                        .param("categoria", "REFRIGERADO")
+                        .param("q", "leche")
+                        .param("page", "0")
+                        .param("size", "10")
+                        .with(authentication(auth(1L, "ADMINISTRADOR"))))
+                .andExpect(status().isOk());
+    }
 }
