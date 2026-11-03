@@ -26,5 +26,16 @@ public record RequisitoEnLegajo(
          * {@code ts_hornero_admin}'s authenticated evidence-file route; never exposed on a public
          * endpoint (the owning {@code /legajo} route is ADMINISTRADOR/owning-REFERENTE only).
          */
-        String objectKey) {
+        String objectKey,
+        /**
+         * When the evidence row was submitted ({@code cargadoEn}); {@code null} for FALTANTE.
+         * Lets the referente see "enviada el dd/mm".
+         */
+        Instant cargadoEn,
+        /**
+         * The auditor's free-text observation, set when the evidence was OBSERVADA; {@code null}
+         * otherwise. Shown to the owning referente so they know what to fix (the legajo route is
+         * ADMINISTRADOR/owning-REFERENTE only).
+         */
+        String observacion) {
 }

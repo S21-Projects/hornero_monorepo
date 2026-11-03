@@ -99,6 +99,39 @@ describe('UploadService', () => {
     );
   });
 
+  describe('PDF evidence', () => {
+    const PDF_BYTES = Buffer.from('%PDF-1.7\n%binary');
+    const pdfFile = (buffer: Buffer) =>
+      ({ mimetype: 'application/pdf', buffer }) as Express.Multer.File;
+
+    it('accepts a PDF on the accreditation-evidence path with its own key and ContentType', async () => {
+      const key = await service.uploadOrgEvidencia(7, pdfFile(PDF_BYTES));
+
+      expect(key).toMatch(/^org-evidencia\/7\/[0-9a-f-]{36}\.pdf$/);
+      expect(lastSentInput()).toMatchObject({ ContentType: 'application/pdf' });
+    });
+
+    it('rejects a PDF on every image-only path', async () => {
+      const file = pdfFile(PDF_BYTES);
+      await expect(service.uploadOrgProfile(3, file)).rejects.toBeInstanceOf(
+        BadRequestException,
+      );
+      await expect(service.uploadOrgBanner(3, file)).rejects.toBeInstanceOf(
+        BadRequestException,
+      );
+      await expect(
+        service.uploadReclamoEvidencia(3, 4, file),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    it('rejects a fake PDF (wrong magic bytes) on the evidence path', async () => {
+      const fake = pdfFile(Buffer.from('<html>not a pdf</html>'));
+      await expect(service.uploadOrgEvidencia(7, fake)).rejects.toBeInstanceOf(
+        BadRequestException,
+      );
+    });
+  });
+
   it('never defaults an unknown type to jpg', async () => {
     const file = {
       mimetype: 'application/octet-stream',

@@ -1,5 +1,10 @@
 import { BadRequestException } from '@nestjs/common';
-import { detectImageType, imageMimeFilter } from './image-type';
+import {
+  detectEvidenceType,
+  detectImageType,
+  evidenceMimeFilter,
+  imageMimeFilter,
+} from './image-type';
 
 const JPEG = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46]);
 const PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00]);
@@ -72,5 +77,37 @@ describe('imageMimeFilter', () => {
     expect(error).toBeInstanceOf(BadRequestException);
     expect(error.message).toMatch(/unsupported file type/i);
     expect(cb.mock.calls[0]).toHaveLength(1);
+  });
+});
+
+describe('evidence PDF support', () => {
+  const PDF = Buffer.from('%PDF-1.4 ...');
+
+  it('detectEvidenceType identifies a PDF by its header and still accepts images', () => {
+    expect(detectEvidenceType(PDF)).toEqual({
+      mimetype: 'application/pdf',
+      ext: 'pdf',
+    });
+    expect(detectEvidenceType(Buffer.from([0xff, 0xd8, 0xff, 0xe0]))).toEqual({
+      mimetype: 'image/jpeg',
+      ext: 'jpg',
+    });
+  });
+
+  it('detectEvidenceType rejects a mislabelled file; detectImageType never accepts a PDF', () => {
+    expect(detectEvidenceType(Buffer.from('PK\x03\x04 zip'))).toBeNull();
+    expect(detectEvidenceType(Buffer.from('%PDX-'))).toBeNull();
+    expect(detectImageType(PDF)).toBeNull();
+  });
+
+  it('evidenceMimeFilter allows application/pdf, imageMimeFilter does not', () => {
+    const file = { mimetype: 'application/pdf' } as Express.Multer.File;
+    const ok = jest.fn();
+    evidenceMimeFilter({}, file, ok);
+    expect(ok).toHaveBeenCalledWith(null, true);
+
+    const bad = jest.fn();
+    imageMimeFilter({}, file, bad);
+    expect(bad).toHaveBeenCalledWith(expect.any(Error));
   });
 });
