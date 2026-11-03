@@ -27,6 +27,13 @@ Out of scope: Referentes (new design version pending), Auditoría, Actividad, Ca
 - [x] T3 Control de donaciones to drawer (+ tests) — route: delegated writer
 - [x] T4 Usuarios to drawer (+ tests) — route: delegated writer
 
+### Phase B: server-side queries + loading states (user requirement 2026-11-03: "no manual filters in the front; everything queries with proper loading states"; UNCOMMITTED until approved)
+Audit result: only `catalogo.tsx` filters client-side (search + categoria over the full `useArticulos` list, single page). All other admin lists (users, control-donaciones, reclamos, ReportesCola, rondas, actividad, auditoria, referentes) already send filters/page/size as query params with `keepPreviousData`. Remaining gap everywhere: loading states (table hidden behind `AsyncSection` on first load; refetch is only an opacity dim).
+- [x] T5 PaginatedTable loading states: `isLoading` (skeleton rows, header+toolbar visible), `isFetching` (dimmed previous rows + thin indeterminate bar, `aria-busy`), `isError` + `onRetry` (StatePanel style), empty -> `emptyLabel`; reduced-motion respected. Adopt in users, control-donaciones, reclamos, ReportesCola, rondas, actividad, auditoria, referentes (replace table-wrapping `AsyncSection`). Route: delegated direct (inline here: single writer).
+- [x] T6 Catalogo server-side: MS `GET /api/articulos/admin` (paged; q, categoria, incluirInactivos; ADMINISTRADOR via @PreAuthorize), BFF `GET /articulos/admin` proxy, SPA `useArticulosAdmin` hook + debounced search (300ms, page reset), page size 10/25/50. Public `GET /articulos` unchanged (pickers).
+- [x] T7 Drawer mutation feedback audit: buttons loading/disabled while pending, errors inline (reclamos, control-donaciones, users, ReportesCola if applicable).
+- [x] T8 Final checks (admin test/lint/build, bff test/lint, ms targeted tests) recorded below.
+
 ## Acceptance
 - Clicking anywhere on a row (or Enter/Space on it) opens the drawer; actions inside a row never double-trigger.
 - Drawer: Esc / scrim / close button close it; focus moves into it and returns to the row.
@@ -38,7 +45,13 @@ Out of scope: Referentes (new design version pending), Auditoría, Actividad, Ca
 - T3: `npm test`: 107 files / 651 tests passed; `npm run lint`: clean; `npm run build`: built OK.
 - T4: `npm test`: 107 files / 653 tests passed; `npm run lint`: clean; `npm run build`: built OK.
 - Default page size is now 10 (selector 10/25/50) on reclamos, control-donaciones, users. Pre-commit: `npm test` 107 files / 653 tests passed; `npm run lint` clean; `npm run build` OK.
-- Commits: T1 0727acc.
+- Commits: T1 c386600, T2 ef5b646, T3 67d2f58, T4 ca97a52.
+
+- Phase B evidence (uncommitted):
+  - T5: PaginatedTable `isLoading`/`isError`/`onRetry`/`isFetching` (skeleton rows, retry panel, progress bar + aria-busy, reduced-motion CSS); adopted in users, control-donaciones, reclamos, ReportesCola, rondas, actividad, auditoria, catalogo. Page size default 10 also set on rondas/actividad/auditoria/ReportesCola. Referentes uses its own list + Pager (not PaginatedTable), already server-side; left as is.
+  - T6: MS `GET /api/articulos/admin` (q, categoria, incluirInactivos, page/size/sort; `@PreAuthorize` ADMINISTRADOR; SecurityConfig untouched), BFF `GET /articulos/admin`, SPA `useArticulosAdmin`; catalogo no longer filters locally. No schema change.
+  - T7: users drawer now stays open while pending (spinner/disabled), closes on success, shows error inline; Button `loading` sets aria-busy. Reclamos/control-donaciones/ReportesCola drawers already had pending + inline error.
+  - T8 checks: admin `npm test`: 107 files / 668 tests passed; `npm run lint`: clean; `npm run build`: built OK. bff `npx jest`: 52 suites / 438 tests passed (role-matrix pinned with `GET /articulos/admin`); bff `npx eslint src/articulos`: only the repo's pre-existing `no-unsafe-*` pattern errors (full-repo baseline 361 problems). ms `mvn -q test` (full): EXIT 0; new tests ArticuloServiceTest 11, ArticuloRepositoryTest 5, ArticuloControllerSecurityTest 15 passed.
 
 ## Next step
 User reviews the diff and approves commits; then follow-ups (ReportesCola to drawer, other tables).
