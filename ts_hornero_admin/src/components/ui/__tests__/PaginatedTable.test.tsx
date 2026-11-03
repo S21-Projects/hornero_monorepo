@@ -175,4 +175,76 @@ describe('PaginatedTable', () => {
     expect(screen.getByText('Detalle de Banana')).toBeInTheDocument();
     expect(screen.queryByText('Detalle de Manzana')).not.toBeInTheDocument();
   });
+
+  describe('row click', () => {
+    const frutas: Fruta[] = [{ id: 1, nombre: 'Banana' }, { id: 2, nombre: 'Manzana' }];
+    const page = { number: 0, size: 20, totalElements: 2, totalPages: 1 };
+
+    it('calls onRowClick when clicking anywhere on the row', async () => {
+      const user = userEvent.setup();
+      const onRowClick = vi.fn();
+      render(
+        <PaginatedTable columns={frutaColumns} rows={frutas} rowKey={(f) => f.id} page={page}
+          onPageChange={vi.fn()} onRowClick={onRowClick} />,
+      );
+
+      await user.click(screen.getByText('Manzana'));
+
+      expect(onRowClick).toHaveBeenCalledWith(frutas[1]);
+    });
+
+    it('opens with Enter and Space on the focused row', async () => {
+      const user = userEvent.setup();
+      const onRowClick = vi.fn();
+      render(
+        <PaginatedTable columns={frutaColumns} rows={frutas} rowKey={(f) => f.id} page={page}
+          onPageChange={vi.fn()} onRowClick={onRowClick} />,
+      );
+      const row = screen.getByText('Banana').closest('tr') as HTMLElement;
+      row.focus();
+
+      await user.keyboard('{Enter}');
+      await user.keyboard(' ');
+
+      expect(onRowClick).toHaveBeenCalledTimes(2);
+      expect(onRowClick).toHaveBeenCalledWith(frutas[0]);
+    });
+
+    it('does not trigger the row when a button inside it is used', async () => {
+      const user = userEvent.setup();
+      const onRowClick = vi.fn();
+      const inner = vi.fn();
+      render(
+        <PaginatedTable columns={frutaColumns} rows={frutas} rowKey={(f) => f.id} page={page}
+          onPageChange={vi.fn()} onRowClick={onRowClick}
+          rowActions={(f) => <button onClick={inner}>Editar {f.nombre}</button>} />,
+      );
+
+      await user.click(screen.getByRole('button', { name: 'Editar Banana' }));
+      screen.getByRole('button', { name: 'Editar Banana' }).focus();
+      await user.keyboard('{Enter}');
+
+      expect(inner).toHaveBeenCalledTimes(2);
+      expect(onRowClick).not.toHaveBeenCalled();
+    });
+
+    it('highlights the selected row', () => {
+      render(
+        <PaginatedTable columns={frutaColumns} rows={frutas} rowKey={(f) => f.id} page={page}
+          onPageChange={vi.fn()} onRowClick={vi.fn()} selectedKey={2} />,
+      );
+
+      expect(screen.getByText('Manzana').closest('tr')).toHaveAttribute('data-selected', 'true');
+      expect(screen.getByText('Banana').closest('tr')).not.toHaveAttribute('data-selected');
+    });
+
+    it('rows are not interactive without onRowClick', () => {
+      render(
+        <PaginatedTable columns={frutaColumns} rows={frutas} rowKey={(f) => f.id} page={page}
+          onPageChange={vi.fn()} />,
+      );
+
+      expect(screen.getByText('Banana').closest('tr')).not.toHaveAttribute('tabindex');
+    });
+  });
 });
