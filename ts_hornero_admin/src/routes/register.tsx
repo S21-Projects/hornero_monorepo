@@ -3,6 +3,7 @@ import type { FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Logo } from '../components/ui/Logo';
 import { Card } from '../components/ui/Card';
+import { Stepper } from '../components/ui/Stepper';
 import { Select } from '../components/ui/Select';
 import { Input } from '../components/ui/Input';
 import { Button } from '../components/ui/Button';
@@ -52,33 +53,6 @@ function currentStageIndex(step: Step): number {
     default:
       return 0;
   }
-}
-
-function StepIndicator({ stages, current }: { stages: readonly string[]; current: number }) {
-  return (
-    <ol
-      style={{
-        display: 'flex',
-        justifyContent: 'center',
-        gap: 12,
-        listStyle: 'none',
-        padding: 0,
-        marginBottom: 24,
-      }}
-    >
-      {stages.map((label, i) => (
-        <li key={label} aria-current={i === current ? 'step' : undefined}>
-          <Text
-            as="span"
-            variant="label"
-            color={i === current ? 'earth' : 'ink-3'}
-          >
-            {label}
-          </Text>
-        </li>
-      ))}
-    </ol>
-  );
 }
 
 interface FieldErrors {
@@ -315,9 +289,10 @@ export default function RegisterPage() {
       </div>
 
       {step !== 'role' && (
-        <StepIndicator
-          stages={role === 'DONANTE' ? DONANTE_STAGES : REFERENTE_STAGES}
+        <Stepper
+          steps={role === 'DONANTE' ? DONANTE_STAGES : REFERENTE_STAGES}
           current={currentStageIndex(step)}
+          allDone={step === 'done'}
         />
       )}
 

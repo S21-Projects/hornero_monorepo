@@ -27,7 +27,7 @@ export function ImageDropZone({
   const [isDragging, setIsDragging] = useState(false);
 
   const displaySrc = preview ?? currentSrc ?? null;
-  const height = aspect === 'banner' ? 100 : 120;
+  const minHeight = aspect === 'banner' ? 120 : 140;
 
   function handleDragOver(e: DragEvent<HTMLDivElement>) {
     e.preventDefault();
@@ -66,7 +66,9 @@ export function ImageDropZone({
         onDrop={handleDrop}
         style={{
           position: 'relative',
-          height,
+          minHeight,
+          padding: 16,
+          boxSizing: 'border-box',
           borderRadius: 12,
           border: `2px dashed ${isDragging ? 'var(--horn)' : 'var(--line)'}`,
           background: isDragging ? 'var(--straw)' : 'var(--card-2)',
@@ -104,7 +106,7 @@ export function ImageDropZone({
             <Text variant="caption" color="ink-3">Subiendo...</Text>
           </div>
         ) : !displaySrc ? (
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, padding: '0 16px', textAlign: 'center' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, textAlign: 'center' }}>
             <svg width={24} height={24} viewBox="0 0 24 24" fill="none" stroke="var(--ink-3)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
               <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
               <polyline points="17 8 12 3 7 8" />
@@ -113,7 +115,7 @@ export function ImageDropZone({
             <Text variant="caption" color="ink-3">
               Arrastrá una imagen o hacé click para seleccionar
             </Text>
-            <Text variant="caption" color="ink-3" style={{ opacity: 0.7 }}>{hint}</Text>
+            <Text variant="caption" color="ink-3" style={{ opacity: 0.7, fontSize: 11 }}>{hint}</Text>
           </div>
         ) : (
           <div
