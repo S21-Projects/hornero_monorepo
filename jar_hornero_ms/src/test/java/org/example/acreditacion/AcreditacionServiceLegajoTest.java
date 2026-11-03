@@ -131,6 +131,30 @@ class AcreditacionServiceLegajoTest {
                 .filter(r -> r.requisito() == RequisitoAcreditacion.NO_DISCRIMINACION)
                 .findFirst().orElseThrow();
         assertThat(requisito.estado()).isEqualTo(EstadoRequisitoLegajo.OBSERVADA);
+        assertThat(requisito.observacion()).isEqualTo("revisar foto");
+        assertThat(requisito.cargadoEn()).isNotNull();
+        assertThat(requisito.auditadoEn()).isNotNull();
+    }
+
+    @Test
+    void faltanteAndPendienteRequisitosCarryNoObservacion() {
+        acreditacionService.cargarEvidencia(organizacion,
+                RequisitoAcreditacion.NO_DISCRIMINACION, TipoEvidencia.DECLARACION, "d",
+                LocalDate.now(), null, administrador.getId());
+
+        LegajoResponse legajo = acreditacionService.legajo(organizacion.getId());
+
+        RequisitoEnLegajo pendiente = legajo.requisitos().stream()
+                .filter(r -> r.requisito() == RequisitoAcreditacion.NO_DISCRIMINACION)
+                .findFirst().orElseThrow();
+        assertThat(pendiente.observacion()).isNull();
+        assertThat(pendiente.cargadoEn()).isNotNull();
+
+        RequisitoEnLegajo faltante = legajo.requisitos().stream()
+                .filter(r -> r.requisito() == RequisitoAcreditacion.SERVICIO_REGULAR_GRATUITO)
+                .findFirst().orElseThrow();
+        assertThat(faltante.observacion()).isNull();
+        assertThat(faltante.cargadoEn()).isNull();
     }
 
     @Test

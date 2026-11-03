@@ -34,7 +34,7 @@ describe('EvidenciaArchivo', () => {
     expect(img).toHaveAttribute('src', 'blob:mock-url');
   });
 
-  it('renders an "Abrir documento" link for a non-image content type', () => {
+  it('renders a "Ver PDF" link for a PDF content type', () => {
     useEvidenciaArchivoMock.mockReturnValue({
       estado: 'ok',
       url: 'blob:mock-url',
@@ -49,8 +49,37 @@ describe('EvidenciaArchivo', () => {
       />,
     );
 
-    const link = screen.getByRole('link', { name: 'Abrir documento' });
+    const link = screen.getByRole('link', { name: 'Ver PDF' });
     expect(link).toHaveAttribute('href', 'blob:mock-url');
+  });
+
+  it('renders an "Abrir documento" link for a non-image, non-PDF content type', () => {
+    useEvidenciaArchivoMock.mockReturnValue({
+      estado: 'ok',
+      url: 'blob:mock-url',
+      contentType: 'application/octet-stream',
+    });
+
+    render(
+      <EvidenciaArchivo organizacionId={5} objectKey="org-evidencia/5/doc.bin" tipoEvidencia="DOCUMENTO" />,
+    );
+
+    expect(screen.getByRole('link', { name: 'Abrir documento' })).toBeInTheDocument();
+  });
+
+  it('renders a PDF as a link, never an img, even for a FOTO tipo', () => {
+    useEvidenciaArchivoMock.mockReturnValue({
+      estado: 'ok',
+      url: 'blob:mock-url',
+      contentType: 'application/pdf',
+    });
+
+    render(
+      <EvidenciaArchivo organizacionId={5} objectKey="org-evidencia/5/x.pdf" tipoEvidencia="FOTO" size="thumbnail" />,
+    );
+
+    expect(screen.queryByRole('img')).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Ver PDF' })).toBeInTheDocument();
   });
 
   it('renders "Archivo no disponible" when the hook reports unavailable', () => {

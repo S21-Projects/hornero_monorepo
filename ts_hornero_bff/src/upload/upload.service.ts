@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
-import { detectImageType } from './image-type.js';
+import { detectEvidenceType, detectImageType } from './image-type.js';
 
 @Injectable()
 export class UploadService {
@@ -42,7 +42,7 @@ export class UploadService {
     orgId: number,
     file: Express.Multer.File,
   ): Promise<string> {
-    return this.upload(`org-evidencia/${orgId}`, file);
+    return this.upload(`org-evidencia/${orgId}`, file, true);
   }
 
   /**
@@ -61,12 +61,17 @@ export class UploadService {
   private async upload(
     prefix: string,
     file: Express.Multer.File,
+    allowPdf = false,
   ): Promise<string> {
     // Trust the bytes, not the client-declared mimetype/filename.
-    const detected = detectImageType(file.buffer);
+    const detected = allowPdf
+      ? detectEvidenceType(file.buffer)
+      : detectImageType(file.buffer);
     if (!detected) {
       throw new BadRequestException(
-        'File content does not match an allowed image type (jpeg, png, or webp)',
+        allowPdf
+          ? 'File content does not match an allowed type (jpeg, png, webp, or pdf)'
+          : 'File content does not match an allowed image type (jpeg, png, or webp)',
       );
     }
     const key = `${prefix}/${randomUUID()}.${detected.ext}`;

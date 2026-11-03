@@ -24,7 +24,11 @@ describe('EvidenciaFilesController', () => {
       user: { tipo },
     }) as unknown as Request;
 
-  const fakeResponse = () => ({ set: jest.fn() }) as unknown as Response;
+  // Returns the bare `set` mock alongside the Response so assertions don't reference an unbound method.
+  const fakeResponse = () => {
+    const set = jest.fn();
+    return { response: { set } as unknown as Response, set };
+  };
 
   beforeEach(async () => {
     imagesService = {
@@ -48,8 +52,21 @@ describe('EvidenciaFilesController', () => {
     controller = module.get<EvidenciaFilesController>(EvidenciaFilesController);
   });
 
+  it('serves a PDF inline with nosniff', async () => {
+    imagesService.getObject.mockResolvedValue({
+      body: Readable.from([Buffer.from('%PDF-1.7')]),
+      contentType: 'application/pdf',
+    });
+    const { response, set } = fakeResponse();
+    await controller.serve(5, 'doc.pdf', requestWith(), response);
+
+    expect(set).toHaveBeenCalledWith('Content-Type', 'application/pdf');
+    expect(set).toHaveBeenCalledWith('Content-Disposition', 'inline');
+    expect(set).toHaveBeenCalledWith('X-Content-Type-Options', 'nosniff');
+  });
+
   it('streams the object when the MS confirms the row (204)', async () => {
-    const response = fakeResponse();
+    const { response, set } = fakeResponse();
     await controller.serve(
       5,
       'foto.jpg',
@@ -58,7 +75,7 @@ describe('EvidenciaFilesController', () => {
     );
 
     // Accreditation evidence: never stored by the browser or Cloudflare.
-    expect(response.set).toHaveBeenCalledWith('Cache-Control', 'private, no-store');
+    expect(set).toHaveBeenCalledWith('Cache-Control', 'private, no-store');
 
     expect(acreditacionService.verificarArchivoEvidencia).toHaveBeenCalledWith(
       5,

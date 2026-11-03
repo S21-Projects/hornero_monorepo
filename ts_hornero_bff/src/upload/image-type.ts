@@ -35,6 +35,25 @@ export function detectImageType(
   return null;
 }
 
+export interface DetectedEvidenceType {
+  mimetype: DetectedImageType['mimetype'] | 'application/pdf';
+  ext: DetectedImageType['ext'] | 'pdf';
+}
+
+/**
+ * Accreditation evidence additionally accepts PDFs, identified by the `%PDF-` header. Used only
+ * by the evidence upload path; banners, profile images and claim evidence stay image-only.
+ */
+export function detectEvidenceType(
+  buffer: Buffer | undefined,
+): DetectedEvidenceType | null {
+  if (!buffer) return null;
+  if (startsWith(buffer, 0, [0x25, 0x50, 0x44, 0x46, 0x2d])) {
+    return { mimetype: 'application/pdf', ext: 'pdf' };
+  }
+  return detectImageType(buffer);
+}
+
 const ALLOWED_MIMETYPES = ['image/jpeg', 'image/png', 'image/webp'];
 
 /**
@@ -53,6 +72,26 @@ export function imageMimeFilter(
   cb(
     new BadRequestException(
       'Unsupported file type (jpeg, png, or webp images only)',
+    ),
+  );
+}
+
+/** Like `imageMimeFilter`, but also lets `application/pdf` through (evidence upload only). */
+export function evidenceMimeFilter(
+  _req: unknown,
+  file: Express.Multer.File,
+  cb: FileFilterCallback,
+): void {
+  if (
+    ALLOWED_MIMETYPES.includes(file.mimetype) ||
+    file.mimetype === 'application/pdf'
+  ) {
+    cb(null, true);
+    return;
+  }
+  cb(
+    new BadRequestException(
+      'Unsupported file type (jpeg, png, or webp images, or PDF only)',
     ),
   );
 }

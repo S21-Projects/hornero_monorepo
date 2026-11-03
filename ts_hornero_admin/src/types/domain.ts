@@ -539,6 +539,10 @@ export interface RequisitoEnLegajo {
    * for FALTANTE requisitos.
    */
   objectKey?: string | null;
+  /** When the evidence row was submitted (ISO instant); `null`/absent for FALTANTE. */
+  cargadoEn?: string | null;
+  /** The auditor's observación when the evidence is OBSERVADA; `null`/absent otherwise. */
+  observacion?: string | null;
 }
 
 /** Mirrors `LegajoResponse` (MS) — server-assembled, proxied unmodified by the BFF (AD-11). */

@@ -21,6 +21,7 @@ import { Role } from '../common/enums/role.enum.js';
 import { OrganizacionesService } from '../organizaciones/organizaciones.service.js';
 import { ActualizarOrganizacionDto } from '../organizaciones/dto/actualizar-organizacion.dto.js';
 import { ActualizarInfoPublicaDto } from '../organizaciones/dto/actualizar-info-publica.dto.js';
+import { evidenceMimeFilter } from './image-type.js';
 import { UploadService } from './upload.service.js';
 import { ReclamosService } from '../reclamos/reclamos.service.js';
 import { ClientIpThrottlerGuard } from '../auth/guards/client-ip-throttler.guard.js';
@@ -98,7 +99,7 @@ export class UploadController {
   @Post('org-evidencia/:id')
   @Roles(Role.REFERENTE, Role.ADMINISTRADOR)
   @HttpCode(201)
-  @UseInterceptors(FileInterceptor('image'))
+  @UseInterceptors(FileInterceptor('image', { fileFilter: evidenceMimeFilter }))
   @ApiOperation({
     summary:
       'Upload an accreditation evidence file (referente owner, or admin) — the resulting key is ' +
@@ -112,7 +113,7 @@ export class UploadController {
   ): Promise<{ key: string }> {
     if (!file)
       throw new BadRequestException(
-        'Image file is required (jpeg, png, or webp, max 5 MB)',
+        'File is required (jpeg, png, webp, or pdf, max 5 MB)',
       );
 
     await this.assertSesionActiva(req);
