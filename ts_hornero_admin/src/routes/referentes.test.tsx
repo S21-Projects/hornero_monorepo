@@ -67,7 +67,7 @@ describe('ReferentesPage (paginated organizaciones)', () => {
 
     expect(screen.getByText('Sin referente (2730)')).toBeInTheDocument();
     expect(screen.getByText('Comedor Norte')).toBeInTheDocument();
-    expect(useOrganizacionesAdmin).toHaveBeenCalledWith({ page: 0, size: 20, sinReferente: true, q: '' });
+    expect(useOrganizacionesAdmin).toHaveBeenCalledWith({ page: 0, size: 10, sinReferente: true, q: '' });
   });
 
   it('debounces the org search into the q param and resets to the first page', () => {
@@ -78,7 +78,7 @@ describe('ReferentesPage (paginated organizaciones)', () => {
 
     act(() => { vi.advanceTimersByTime(300); });
 
-    expect(useOrganizacionesAdmin).toHaveBeenLastCalledWith({ page: 0, size: 20, sinReferente: true, q: 'norte' });
+    expect(useOrganizacionesAdmin).toHaveBeenLastCalledWith({ page: 0, size: 10, sinReferente: true, q: 'norte' });
   });
 
   it('does not request referente orgs when the page has no referentes', () => {
@@ -96,7 +96,7 @@ describe('ReferentesPage (paginated organizaciones)', () => {
   it('asks the server for referentes only, and for the active ones separately for the dropdown', () => {
     renderPage();
 
-    expect(useUsuarios).toHaveBeenCalledWith({ page: 0, size: 20, tipo: 'REFERENTE', q: '' });
+    expect(useUsuarios).toHaveBeenCalledWith({ page: 0, size: 10, tipo: 'REFERENTE', q: '' });
     expect(useUsuarios).toHaveBeenCalledWith({ page: 0, size: 100, tipo: 'REFERENTE', activo: true });
   });
 
@@ -109,7 +109,7 @@ describe('ReferentesPage (paginated organizaciones)', () => {
     act(() => { vi.advanceTimersByTime(300); });
 
     expect(useUsuarios).toHaveBeenLastCalledWith({ page: 0, size: 100, tipo: 'REFERENTE', activo: true });
-    expect(useUsuarios).toHaveBeenCalledWith({ page: 0, size: 20, tipo: 'REFERENTE', q: 'ana' });
+    expect(useUsuarios).toHaveBeenCalledWith({ page: 0, size: 10, tipo: 'REFERENTE', q: 'ana' });
   });
 
   it('feeds the reassignment dropdown from the active-referentes query, not the visible page', () => {

@@ -143,8 +143,19 @@ function OrgRow({ org, referentesActivos }: OrgRowProps) {
   );
 }
 
-const PAGE_SIZE = 20;
-/** The MS caps a page at 100; one page of referentes (<= 20) holds at most 3 organizaciones each. */
+const DEFAULT_PAGE_SIZE = 10;
+/** Max height of each list's scroll area: rows scroll, search and pager stay put. */
+const LIST_SCROLL_STYLE: React.CSSProperties = {
+  maxHeight: 'min(60vh, 560px)',
+  overflowY: 'auto',
+  display: 'flex',
+  flexDirection: 'column',
+  gap: 16,
+  padding: '8px 4px',
+  borderTop: '1px solid var(--line)',
+  borderBottom: '1px solid var(--line)',
+};
+/** The MS caps a page at 100; one page of referentes (<= 50) holds at most 3 organizaciones each. */
 const ORGS_REFERENTES_SIZE = 100;
 const SEARCH_DEBOUNCE_MS = 300;
 
@@ -156,9 +167,11 @@ export default function ReferentesPage() {
   const [refInput, setRefInput] = useState('');
   const [refQ, setRefQ] = useState('');
   const [sinPage, setSinPage] = useState(0);
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
+  const [sinPageSize, setSinPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [qInput, setQInput] = useState('');
   const [q, setQ] = useState('');
-  const usuariosQuery = useUsuarios({ page, size: PAGE_SIZE, tipo: 'REFERENTE', q: refQ });
+  const usuariosQuery = useUsuarios({ page, size: pageSize, tipo: 'REFERENTE', q: refQ });
   // Reassignment dropdown: active referentes regardless of the page/search above.
   const activosQuery = useUsuarios({ page: 0, size: REFERENTES_ACTIVOS_SIZE, tipo: 'REFERENTE', activo: true });
 
@@ -199,7 +212,7 @@ export default function ReferentesPage() {
     return () => clearTimeout(handle);
   }, [qInput]);
 
-  const sinQuery = useOrganizacionesAdmin({ page: sinPage, size: PAGE_SIZE, sinReferente: true, q });
+  const sinQuery = useOrganizacionesAdmin({ page: sinPage, size: sinPageSize, sinReferente: true, q });
   usePageClamp(sinPage, setSinPage, sinQuery.data?.totalPages);
   const sinReferente = sinQuery.data?.content ?? [];
 
@@ -231,6 +244,7 @@ export default function ReferentesPage() {
           isEmpty={referentes.length === 0 && !refQ}
           emptyLabel="No hay referentes"
         >
+          <div style={LIST_SCROLL_STYLE}>
           {referentes.length === 0 && refQ && (
             <Text variant="body-sm" color="ink-2">
               Ningún referente coincide con la búsqueda — probá con otra.
@@ -256,10 +270,20 @@ export default function ReferentesPage() {
               </Card>
             );
           })}
+          </div>
         </AsyncSection>
 
         {usuariosPage && (
-          <Pager page={usuariosPage} onPageChange={setPage} disabled={usuariosQuery.isFetching} />
+          <Pager
+            page={usuariosPage}
+            onPageChange={setPage}
+            disabled={usuariosQuery.isFetching}
+            pageSize={pageSize}
+            onPageSizeChange={(size) => {
+              setPageSize(size);
+              setPage(0);
+            }}
+          />
         )}
 
         <Card style={{ padding: 20, border: '1.5px dashed var(--line)' }}>
@@ -281,11 +305,22 @@ export default function ReferentesPage() {
             isEmpty={sinReferente.length === 0}
             emptyLabel={q ? 'Ninguna organización coincide con la búsqueda' : 'No hay organizaciones sin referente'}
           >
-            {sinReferente.map((org) => (
-              <OrgRow key={org.id} org={org} referentesActivos={referentesActivos} />
-            ))}
+            <div style={LIST_SCROLL_STYLE}>
+              {sinReferente.map((org) => (
+                <OrgRow key={org.id} org={org} referentesActivos={referentesActivos} />
+              ))}
+            </div>
             {sinQuery.data && (
-              <Pager page={sinQuery.data} onPageChange={setSinPage} disabled={sinQuery.isFetching} />
+              <Pager
+                page={sinQuery.data}
+                onPageChange={setSinPage}
+                disabled={sinQuery.isFetching}
+                pageSize={sinPageSize}
+                onPageSizeChange={(size) => {
+                  setSinPageSize(size);
+                  setSinPage(0);
+                }}
+              />
             )}
           </AsyncSection>
         </Card>
