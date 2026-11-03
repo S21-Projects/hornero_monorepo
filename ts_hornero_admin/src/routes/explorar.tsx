@@ -9,6 +9,7 @@ import { Badge } from '../components/Badge';
 import { Card } from '../components/ui/Card';
 import { Pager } from '../components/ui/Pager';
 import { Text } from '../components/ui/Typography';
+import { PageHeader } from '../components/ui/PageHeader';
 
 const PAGE_SIZE = 20;
 
@@ -21,8 +22,11 @@ export default function ExplorarPage() {
   const abiertas = necesidades.filter((n) => n.estado === 'ABIERTA');
 
   return (
-    <div style={{ maxWidth: 720 }}>
-      <Text variant="h2" style={{ marginBottom: 24 }}>Explorar necesidades</Text>
+    <div>
+      <PageHeader
+        title="Explorar necesidades"
+        description="Encontrá necesidades abiertas de organizaciones y elegí a cuál querés ayudar."
+      />
 
       <AsyncSection
         isLoading={isLoading}

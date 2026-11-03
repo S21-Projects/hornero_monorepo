@@ -23,25 +23,28 @@ function findGuardElementForPath(routes: RouteObject[], targetPath: string) {
 }
 
 describe('router.tsx — real route wiring', () => {
-  it('/dashboard is gated by ProtectedRoute with requireValidated (unvalidated REFERENTE must not reach it)', () => {
+  it('/dashboard is not gated by requireValidated (DashboardPage renders the pending card inside the AppShell)', () => {
     const guard = findGuardElementForPath(router.routes, '/dashboard');
 
     expect(guard).toBeDefined();
     expect((guard!.type as { name?: string }).name).toBe('ProtectedRoute');
     expect(guard!.props).toMatchObject({
       allow: ['REFERENTE'],
-      requireValidated: true,
+      requireVerified: true,
     });
+    expect((guard!.props as { requireValidated?: boolean }).requireValidated).toBeFalsy();
   });
 
-  it('/needs stays gated by ProtectedRoute with requireValidated (regression guard)', () => {
+  it('/needs is not gated by requireValidated (NeedsPage renders the pending state inside the AppShell)', () => {
     const guard = findGuardElementForPath(router.routes, '/needs');
 
     expect(guard).toBeDefined();
     expect((guard!.type as { name?: string }).name).toBe('ProtectedRoute');
     expect(guard!.props).toMatchObject({
-      requireValidated: true,
+      allow: ['ADMINISTRADOR', 'REFERENTE'],
+      requireVerified: true,
     });
+    expect((guard!.props as { requireValidated?: boolean }).requireValidated).toBeFalsy();
   });
 
   it('/acreditacion requires the REFERENTE role (evidence self-submission, no org validation required)', () => {

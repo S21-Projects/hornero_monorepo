@@ -11,6 +11,7 @@ import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
 import { Pager } from '../components/ui/Pager';
 import { Text } from '../components/ui/Typography';
+import { PageHeader } from '../components/ui/PageHeader';
 import type { Donacion } from '../types/domain';
 
 const PAGE_SIZE = 20;
@@ -112,8 +113,11 @@ export default function MisDonacionesPage() {
   const donaciones = data?.content ?? [];
 
   return (
-    <div style={{ maxWidth: 720 }}>
-      <Text variant="h2" style={{ marginBottom: 24 }}>Mis donaciones</Text>
+    <div>
+      <PageHeader
+        title="Mis donaciones"
+        description="Revisá el estado y el historial de las donaciones que realizaste."
+      />
 
       <AsyncSection
         isLoading={isLoading}

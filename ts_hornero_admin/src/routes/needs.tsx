@@ -1,9 +1,11 @@
 import { useState } from 'react';
 import { AsyncSection } from '../components/AsyncSection';
 import { Badge } from '../components/Badge';
+import { PendingValidationCard } from '../components/PendingValidationCard';
 import { Button } from '../components/ui/Button';
 import { Pager } from '../components/ui/Pager';
 import { Text } from '../components/ui/Typography';
+import { PageHeader } from '../components/ui/PageHeader';
 import { useMisOrganizaciones } from '../lib/hooks/useMisOrganizaciones';
 import { useNecesidadesDeOrg } from '../lib/hooks/useNecesidadesDeOrg';
 import { useCrearNecesidad } from '../lib/hooks/useCrearNecesidad';
@@ -17,6 +19,7 @@ import { PRIORIDAD, ESTADO_NECESIDAD, FALLBACK_BADGE } from '../lib/domain-ui';
 import { formatFecha } from '../lib/format';
 import type { Necesidad, PrioridadNecesidad, EstadoNecesidad } from '../types/domain';
 import { useNeedsViewState } from './needs-view-state';
+import { useAuthStore } from '../store/auth.store';
 
 const PAGE_SIZE = 20;
 
@@ -320,12 +323,15 @@ function RelaunchForm({ needId, orgId, onDone }: RelaunchFormProps) {
 // ---------------------------------------------------------------------------
 // NeedsPage (list view + in-page create/edit routing)
 // ---------------------------------------------------------------------------
+const NEEDS_DESCRIPTION = 'Publicá y gestioná las necesidades de tu organización.';
+
 export default function NeedsPage() {
   const { view, pendingDeleteId, goToList, goToCreate, goToEdit, armDelete, clearDelete } =
     useNeedsViewState();
 
   const orgsQuery = useMisOrganizaciones();
   const orgs = orgsQuery.data ?? [];
+  const tipo = useAuthStore((s) => s.user?.tipo);
 
   // Referentes owning >1 organización pick which one they're managing needs
   // for; single-org referentes never see the selector. Derived (not effect-set)
@@ -337,8 +343,13 @@ export default function NeedsPage() {
       ? explicitOrgId
       : (orgs[0]?.id ?? null);
 
+  // The selected org may still be pending (no org validated yet, or another
+  // owned org is validated): the page shows the pending state instead of the list.
+  const selectedOrg = orgs.find((o) => o.id === orgId);
+  const orgPendiente = selectedOrg?.validada === false;
+
   const [page, setPage] = useState(0);
-  const needsQuery = useNecesidadesDeOrg(orgId, { page, size: PAGE_SIZE });
+  const needsQuery = useNecesidadesDeOrg(orgPendiente ? null : orgId, { page, size: PAGE_SIZE });
   usePageClamp(page, setPage, needsQuery.data?.totalPages);
   const needsContent = needsQuery.data?.content ?? [];
   const eliminarMutation = useEliminarNecesidad(orgId ?? 0);
@@ -372,6 +383,17 @@ export default function NeedsPage() {
     );
   }
 
+  // The route is not gated on validation, so a REFERENTE without any
+  // organización keeps the AppShell and sees the pending state here.
+  if (orgsQuery.isSuccess && orgs.length === 0 && tipo === 'REFERENTE') {
+    return (
+      <div>
+        <PageHeader title="Mis necesidades" description={NEEDS_DESCRIPTION} />
+        <PendingValidationCard orgNombre={null} />
+      </div>
+    );
+  }
+
   if (orgsQuery.isError || !orgId) {
     return (
       <div style={{ padding: '32px 0', textAlign: 'center' }}>
@@ -397,9 +419,19 @@ export default function NeedsPage() {
     </label>
   );
 
+  if (orgPendiente) {
+    return (
+      <div>
+        <PageHeader title="Mis necesidades" description={NEEDS_DESCRIPTION} />
+        {orgSelector}
+        <PendingValidationCard orgNombre={selectedOrg?.nombre ?? ''} />
+      </div>
+    );
+  }
+
   if (view === 'create') {
     return (
-      <div style={{ maxWidth: 600, margin: '0 auto', padding: '24px 16px' }}>
+      <div style={{ maxWidth: 600 }}>
         <CreateForm orgId={orgId} onSuccess={goToList} onCancel={goToList} />
       </div>
     );
@@ -414,7 +446,7 @@ export default function NeedsPage() {
       );
     }
     return (
-      <div style={{ maxWidth: 600, margin: '0 auto', padding: '24px 16px' }}>
+      <div style={{ maxWidth: 600 }}>
         <EditForm need={editingNeed} orgId={orgId} onSuccess={goToList} onCancel={goToList} />
       </div>
     );
@@ -424,13 +456,16 @@ export default function NeedsPage() {
   const needs = needsContent;
 
   return (
-    <div style={{ maxWidth: 800, margin: '0 auto', padding: '24px 16px' }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
-        <Text variant="h2">Mis necesidades</Text>
-        <Button variant="primary" onClick={goToCreate}>
-          + Nueva necesidad
-        </Button>
-      </div>
+    <div>
+      <PageHeader
+        title="Mis necesidades"
+        description={NEEDS_DESCRIPTION}
+        actions={
+          <Button variant="primary" onClick={goToCreate}>
+            + Nueva necesidad
+          </Button>
+        }
+      />
 
       {orgSelector}
 

@@ -3,6 +3,7 @@ import { AsyncSection } from '../components/AsyncSection';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Text } from '../components/ui/Typography';
+import { PageHeader } from '../components/ui/PageHeader';
 import { ChartCard } from '../components/panel/ChartCard';
 import { ChartEmptyState } from '../components/panel/ChartEmptyState';
 import { MetricBarChart, MetricPieChart } from '../components/panel/MetricCharts';
@@ -72,9 +73,12 @@ export default function AdminPage() {
       isEmpty={false} // summary always renders counts; never an empty state
     >
       <div>
-        <Text variant="h1">Resumen</Text>
+        <PageHeader
+          title="Resumen"
+          description="Una vista general de la actividad y el estado de la plataforma."
+        />
 
-        <Card style={{ padding: 20, marginTop: 20, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
+        <Card style={{ padding: 20, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
           <div>
             <Text variant="title">Auditoría de acreditación</Text>
             <Text variant="body-sm" color="ink-3">

@@ -10,6 +10,7 @@ import { Dropdown } from '../components/ui/Dropdown';
 import { Input } from '../components/ui/Input';
 import { Pager } from '../components/ui/Pager';
 import { Text } from '../components/ui/Typography';
+import { PageHeader } from '../components/ui/PageHeader';
 import { useUsuarios } from '../lib/hooks/useUsuarios';
 import { useOrganizacionesAdmin } from '../lib/hooks/useOrganizacionesAdmin';
 import { usePageClamp } from '../lib/hooks/usePageClamp';
@@ -221,10 +222,10 @@ export default function ReferentesPage() {
 
   return (
     <div>
-      <Text variant="h1">Referentes y organizaciones</Text>
-      <Text variant="body-sm" color="ink-3" style={{ marginTop: 4, marginBottom: 20 }}>
-        Reasigná una organización a otro referente activo, o dejala sin referente.
-      </Text>
+      <PageHeader
+        title="Referentes y organizaciones"
+        description="Reasigná una organización a otro referente activo, o dejala sin referente."
+      />
 
       <div style={{ maxWidth: 360, marginBottom: 16 }}>
         <Input

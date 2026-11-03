@@ -6,6 +6,7 @@ import { Dropdown } from '../components/ui/Dropdown';
 import { PaginatedTable } from '../components/ui/PaginatedTable';
 import type { Column } from '../components/ui/PaginatedTable';
 import { Text } from '../components/ui/Typography';
+import { PageHeader } from '../components/ui/PageHeader';
 import { useDonacionesActivas } from '../lib/hooks/useDonacionesActivas';
 import { useOverrideEstadoDonacion } from '../lib/hooks/useOverrideEstadoDonacion';
 import { usePageClamp } from '../lib/hooks/usePageClamp';
@@ -232,7 +233,10 @@ export default function ControlDonacionesPage() {
 
   return (
     <div>
-      <Text variant="h1">Control de donaciones</Text>
+      <PageHeader
+        title="Control de donaciones"
+        description="Seguí y controlá el estado de todas las donaciones de la plataforma."
+      />
 
       <AsyncSection isLoading={isLoading} isError={isError} isEmpty={false}>
         <div style={{ marginTop: 20 }}>

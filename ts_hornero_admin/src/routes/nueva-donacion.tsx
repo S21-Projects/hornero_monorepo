@@ -14,6 +14,7 @@ import type { ModalidadDonacion as ModalidadDonacionType, DonacionLineaInput } f
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Text } from '../components/ui/Typography';
+import { PageHeader } from '../components/ui/PageHeader';
 
 interface ModalidadCardProps {
   value: ModalidadDonacionType;
@@ -100,7 +101,12 @@ export default function NuevaDonacionPage() {
         </Text>
       </nav>
 
-      <Text variant="h2">¿Cómo querés donar?</Text>
+      <div>
+        <PageHeader
+          title="¿Cómo querés donar?"
+          description="Elegí si querés donar directo a una necesidad o aportar al fondo común."
+        />
+      </div>
 
       {user && !user.emailVerificado && (
         <Card style={{ padding: '14px 18px', background: 'var(--medium-bg, #fff6e6)' }}>

@@ -3,6 +3,7 @@ import { AsyncSection } from '../components/AsyncSection';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Text } from '../components/ui/Typography';
+import { PageHeader } from '../components/ui/PageHeader';
 import { NivelBadge } from '../components/acreditacion/NivelBadge';
 import { EvidenciaForm } from '../components/acreditacion/EvidenciaForm';
 import { EvidenciaArchivo } from '../components/acreditacion/EvidenciaArchivo';
@@ -82,11 +83,12 @@ export default function AcreditacionPage() {
   const isError = misOrganizaciones.isError || legajo.isError;
 
   return (
-    <div style={{ maxWidth: 720, margin: '0 auto', padding: '24px 16px' }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-        <Text variant="h2">Mi acreditación</Text>
-        {legajo.data && <NivelBadge nivel={legajo.data.nivel} />}
-      </div>
+    <div>
+      <PageHeader
+        title="Mi acreditación"
+        description="Cargá la evidencia de tu organización para subir de nivel de acreditación."
+        actions={legajo.data && <NivelBadge nivel={legajo.data.nivel} />}
+      />
 
       <AsyncSection
         isLoading={isLoading}

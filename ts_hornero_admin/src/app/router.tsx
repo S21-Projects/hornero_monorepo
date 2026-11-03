@@ -178,10 +178,11 @@ export const router = createBrowserRouter([
     ],
   },
 
-  // ── REFERENTE dashboard (REFERENTE only; VALIDATED org required) ───────
-  // requireValidated: unvalidated REFERENTE → /pending-validation
+  // ── REFERENTE dashboard (REFERENTE only) ──────────────────────────────
+  // No requireValidated: an unvalidated REFERENTE stays inside the AppShell and
+  // DashboardPage renders the pending-validation card in place of the summary.
   {
-    element: <ProtectedRoute allow={['REFERENTE']} requireVerified requireValidated />,
+    element: <ProtectedRoute allow={['REFERENTE']} requireVerified />,
     children: [
       {
         element: <AppShell />,
@@ -192,10 +193,11 @@ export const router = createBrowserRouter([
     ],
   },
 
-  // ── /needs — ADMIN + validated REFERENTE ─────────────────────────────
-  // requireValidated: unvalidated REFERENTE → /pending-validation
+  // ── /needs — ADMIN + REFERENTE ────────────────────────────────────────
+  // No requireValidated: an unvalidated REFERENTE stays inside the AppShell and
+  // NeedsPage renders the pending-validation state in place of the list.
   {
-    element: <ProtectedRoute allow={['ADMINISTRADOR', 'REFERENTE']} requireVerified requireValidated />,
+    element: <ProtectedRoute allow={['ADMINISTRADOR', 'REFERENTE']} requireVerified />,
     children: [
       {
         element: <AppShell />,

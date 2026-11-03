@@ -6,6 +6,7 @@ import { Card } from '../components/ui/Card';
 import { PaginatedTable } from '../components/ui/PaginatedTable';
 import type { Column } from '../components/ui/PaginatedTable';
 import { Text } from '../components/ui/Typography';
+import { PageHeader } from '../components/ui/PageHeader';
 import { useEjecutarRonda, useFondoRonda, useHistorialRondas } from '../lib/hooks/useRondas';
 import { usePageClamp } from '../lib/hooks/usePageClamp';
 import { formatFecha } from '../lib/format';
@@ -75,12 +76,12 @@ export default function RondasPage() {
 
   return (
     <div>
-      <Text variant="h1">Rondas de asignación</Text>
-      <Text variant="body-sm" color="ink-3" style={{ marginTop: 4, display: 'block' }}>
-        Ejecutá manualmente el motor de asignación para las donaciones de fondo común en espera.
-      </Text>
+      <PageHeader
+        title="Rondas de asignación"
+        description="Ejecutá manualmente el motor de asignación para las donaciones de fondo común en espera."
+      />
 
-      <Card style={{ padding: '20px 24px', marginTop: 20 }}>
+      <Card style={{ padding: '20px 24px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16 }}>
           <div>
             <Text variant="label">Donaciones en espera</Text>

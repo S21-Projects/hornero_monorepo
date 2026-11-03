@@ -8,6 +8,7 @@ import { Input } from '../components/ui/Input';
 import { PaginatedTable } from '../components/ui/PaginatedTable';
 import type { Column } from '../components/ui/PaginatedTable';
 import { Text } from '../components/ui/Typography';
+import { PageHeader } from '../components/ui/PageHeader';
 import {
   useArticulos,
   useCrearArticulo,
@@ -185,14 +186,12 @@ export default function CatalogoPage() {
 
   return (
     <div>
-      <Text variant="h1">Catálogo de artículos</Text>
-      <Text variant="body-sm" color="ink-3" as="p" style={{ marginTop: 4 }}>
-        Gestioná los artículos que las donaciones y necesidades pueden usar. Desactivar un artículo
-        no lo elimina: deja de poder elegirse para nuevas donaciones o necesidades, pero las
-        existentes lo siguen mostrando.
-      </Text>
+      <PageHeader
+        title="Catálogo de artículos"
+        description="Gestioná los artículos que las donaciones y necesidades pueden usar. Desactivar un artículo no lo elimina: deja de poder elegirse para nuevas donaciones o necesidades, pero las existentes lo siguen mostrando."
+      />
 
-      <Card style={{ padding: '20px 24px', marginTop: 20 }}>
+      <Card style={{ padding: '20px 24px' }}>
         {creando ? (
           <ArticuloForm
             idPrefix="catalogo-crear"

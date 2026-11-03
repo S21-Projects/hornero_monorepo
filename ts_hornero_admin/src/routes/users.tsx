@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { AsyncSection } from '../components/AsyncSection';
 import { Badge } from '../components/Badge';
 import { Text } from '../components/ui/Typography';
+import { PageHeader } from '../components/ui/PageHeader';
 import { Input } from '../components/ui/Input';
 import { Button } from '../components/ui/Button';
 import { PaginatedTable } from '../components/ui/PaginatedTable';
@@ -83,7 +84,10 @@ export default function UsersPage() {
 
   return (
     <div>
-      <Text variant="h1">Usuarios</Text>
+      <PageHeader
+        title="Usuarios"
+        description="Consultá y gestioná las cuentas de todos los usuarios de la plataforma."
+      />
 
       <AsyncSection
         isLoading={isLoading}
