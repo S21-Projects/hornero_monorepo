@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
@@ -27,7 +27,7 @@ function Wrapper({ children }: { children: ReactNode }) {
 
 function donacionActivaPage(content: DonacionActiva[]) {
   return {
-    data: { content, number: 0, size: 20, totalElements: content.length, totalPages: 1 },
+    data: { content, number: 0, size: 10, totalElements: content.length, totalPages: 1 },
     isLoading: false,
     isError: false,
     isFetching: false,
@@ -146,5 +146,83 @@ describe('ControlDonacionesPage — T5 (modalidad + fase)', () => {
       expect.objectContaining({ estancadas: true, page: 0 }),
     );
     expect(screen.getByRole('button', { name: /solo estancadas/i })).toHaveAttribute('aria-pressed', 'true');
+  });
+});
+
+describe('ControlDonacionesPage — drawer', () => {
+  const mutateAsync = vi.fn();
+
+  beforeEach(() => {
+    mutateAsync.mockReset().mockResolvedValue({});
+    vi.mocked(useOverrideEstadoDonacion).mockReturnValue({
+      mutate: vi.fn(),
+      mutateAsync,
+      isPending: false,
+      isError: false,
+    } as unknown as ReturnType<typeof useOverrideEstadoDonacion>);
+    vi.mocked(useDonacionesActivas).mockReturnValue(
+      donacionActivaPage([
+        {
+          id: 7,
+          estado: 'ACEPTADA',
+          necesidadId: 1,
+          donanteNombre: 'Dora Donante',
+          organizacionNombre: 'Comedor Sol',
+          necesidadDescripcion: 'Necesitamos arroz y fideos para la semana entera de comidas',
+          estancada: true,
+          diasEnEstado: 12,
+          overrideEn: '2026-10-01T10:00:00Z',
+          overrideAdminId: 3,
+          overrideMotivo: 'Corrección manual',
+          lineas: [{ articuloId: 1, nombre: 'Arroz', unidad: 'KG', cantidad: 5 }],
+        } as DonacionActiva,
+      ]) as ReturnType<typeof useDonacionesActivas>,
+    );
+  });
+
+  it('opens the detail drawer from any click on the row, with the full detail', async () => {
+    const user = userEvent.setup();
+    render(<ControlDonacionesPage />, { wrapper: Wrapper });
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+
+    await user.click(screen.getByText('Dora Donante'));
+
+    const dialog = screen.getByRole('dialog', { name: 'Comedor Sol' });
+    expect(dialog).toHaveTextContent('Necesitamos arroz y fideos para la semana entera de comidas');
+    expect(dialog).toHaveTextContent('5 kg Arroz');
+    expect(dialog).toHaveTextContent('Corrección manual');
+    expect(screen.getByRole('alert')).toHaveTextContent(/estancada/i);
+    expect(screen.getByRole('tab', { name: 'Detalle' })).toHaveAttribute('aria-selected', 'true');
+  });
+
+  it('forces the estado from the second tab only once estado and motivo are set', async () => {
+    const user = userEvent.setup();
+    render(<ControlDonacionesPage />, { wrapper: Wrapper });
+    await user.click(screen.getByText('Dora Donante'));
+
+    await user.click(screen.getByRole('button', { name: 'Forzar estado…' }));
+    const submit = screen.getByRole('button', { name: 'Forzar estado' });
+    expect(submit).toBeDisabled();
+
+    await user.selectOptions(screen.getByLabelText('Nuevo estado'), 'CANCELADA');
+    await user.type(screen.getByLabelText(/Motivo/), '  Pedido del donante ');
+    expect(submit).toBeEnabled();
+    await user.click(submit);
+
+    expect(mutateAsync).toHaveBeenCalledWith({ id: 7, estado: 'CANCELADA', motivo: 'Pedido del donante' });
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+  });
+
+  it('closes with Cerrar without forcing anything', async () => {
+    const user = userEvent.setup();
+    render(<ControlDonacionesPage />, { wrapper: Wrapper });
+    await user.click(screen.getByText('Dora Donante'));
+
+    const cerrar = screen.getAllByRole('button', { name: 'Cerrar' });
+    await user.click(cerrar[cerrar.length - 1]); // footer button (the X comes first)
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+
+    expect(mutateAsync).not.toHaveBeenCalled();
   });
 });
