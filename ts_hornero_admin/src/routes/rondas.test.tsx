@@ -52,7 +52,7 @@ function historialPage(overrides: Partial<{ content: RondaResponse[]; totalPages
     data: {
       content: overrides.content ?? [RONDA],
       number: 0,
-      size: 20,
+      size: 10,
       totalElements: (overrides.content ?? [RONDA]).length,
       totalPages: overrides.totalPages ?? 1,
     },

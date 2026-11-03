@@ -59,7 +59,7 @@ describe('ReportesCola (admin "Reportes" tab)', () => {
   it('lists the pending reports with comedor, lugar, motivo, reportante and fecha', () => {
     render(<ReportesCola />);
 
-    expect(useReportesPendientes).toHaveBeenCalledWith({ page: 0, size: 20 });
+    expect(useReportesPendientes).toHaveBeenCalledWith({ page: 0, size: 10 });
     expect(screen.getByText('Comedor X')).toBeInTheDocument();
     expect(screen.getByText('Calle 1, Córdoba')).toBeInTheDocument();
     expect(screen.getByText('Ya está en Hornero con otro nombre')).toBeInTheDocument();

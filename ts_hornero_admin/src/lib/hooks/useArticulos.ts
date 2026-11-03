@@ -1,8 +1,9 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { QueryClient } from '@tanstack/react-query';
 import { api } from '../axios';
 import { idempotencyHeaders, useIdempotencyKey } from '../idempotency';
-import type { Articulo, ArticuloInput } from '../../types/domain';
+import type { Articulo, ArticuloInput, CategoriaAlimento } from '../../types/domain';
+import type { PageData, PageParams } from '../../types/api';
 
 const ARTICULOS_KEY = ['articulos'] as const;
 
@@ -18,6 +19,35 @@ export function useArticulos(incluirInactivos = false) {
       api
         .get<Articulo[]>('/articulos', incluirInactivos ? { params: { incluirInactivos: true } } : undefined)
         .then((r) => r.data),
+  });
+}
+
+export interface ArticulosAdminParams extends PageParams {
+  /** Case-insensitive "nombre contains". */
+  q?: string;
+  /** Only items of this category. */
+  categoria?: CategoriaAlimento;
+  /** Also list deactivated items. */
+  incluirInactivos?: boolean;
+}
+
+/**
+ * `GET /articulos/admin` (ADMINISTRADOR): the catalog screen's paged listing. Search, category and
+ * "include inactive" are server-side filters, so the query key carries them and the previous page
+ * stays on screen while the next one loads.
+ */
+export function useArticulosAdmin(params?: ArticulosAdminParams) {
+  const { q, categoria, incluirInactivos, ...paging } = params ?? {};
+  const query = {
+    ...paging,
+    ...(q ? { q } : {}),
+    ...(categoria ? { categoria } : {}),
+    ...(incluirInactivos ? { incluirInactivos: true } : {}),
+  };
+  return useQuery<PageData<Articulo>>({
+    queryKey: [...ARTICULOS_KEY, 'admin', query],
+    queryFn: () => api.get<PageData<Articulo>>('/articulos/admin', { params: query }).then((r) => r.data),
+    placeholderData: keepPreviousData,
   });
 }
 

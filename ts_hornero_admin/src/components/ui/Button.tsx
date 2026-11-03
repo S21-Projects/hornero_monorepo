@@ -41,6 +41,7 @@ export function Button({
     <button
       {...props}
       disabled={loading || !!disabled}
+      aria-busy={loading || undefined}
       className={classes}
       style={{
         alignItems: 'center',

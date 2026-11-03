@@ -4,6 +4,7 @@ import { Badge } from '../components/Badge';
 import { Button } from '../components/ui/Button';
 import { PaginatedTable } from '../components/ui/PaginatedTable';
 import type { Column } from '../components/ui/PaginatedTable';
+import { Drawer } from '../components/ui/Drawer';
 import { Text } from '../components/ui/Typography';
 import { PageHeader } from '../components/ui/PageHeader';
 import { ReclamoEvidencia } from '../components/reclamo/ReclamoEvidencia';
@@ -21,7 +22,7 @@ import { ROL_RECLAMO } from '../lib/domain-ui';
 import { formatFecha } from '../lib/format';
 import type { Reclamo } from '../types/domain';
 
-const PAGE_SIZE = 20;
+const PAGE_SIZE = 10;
 
 function Dato({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -32,138 +33,152 @@ function Dato({ label, children }: { label: string; children: React.ReactNode })
   );
 }
 
-/** Detail + decision panel of one pending claim (mockup screen 5). */
-function ReclamoDetalle({ id, onResuelto }: { id: number; onResuelto(): void }) {
+/** Detail + decision drawer of one pending claim (mockup screen 5). */
+function ReclamoDrawer({ row, onClose }: { row: Reclamo; onClose(): void }) {
+  const id = row.id;
   const detalle = useReclamo(id);
   const aprobar = useAprobarReclamo();
   const rechazar = useRechazarReclamo();
   const [rechazando, setRechazando] = useState(false);
   const [motivo, setMotivo] = useState('');
-  const [motivoError, setMotivoError] = useState(false);
 
   const r = detalle.data;
   const error = aprobar.error ?? rechazar.error;
   const ocupado = aprobar.isPending || rechazar.isPending;
+  const aCargo = r?.organizacionesACargo ?? 0;
+  const cap = r?.capOrganizaciones ?? 3;
+  const enElTope = r != null && r.organizacionesACargo != null && aCargo >= cap;
 
   async function handleAprobar() {
     try {
       await aprobar.mutateAsync({ id });
-      onResuelto();
+      onClose();
     } catch (err) {
-      void err; // surfaced below
+      void err; // surfaced in the body
     }
   }
 
   async function handleRechazar() {
-    if (!motivo.trim()) {
-      setMotivoError(true);
-      return;
-    }
-    setMotivoError(false);
+    if (!motivo.trim()) return;
     try {
       await rechazar.mutateAsync({ id, motivo: motivo.trim() });
-      onResuelto();
+      onClose();
     } catch (err) {
-      void err; // surfaced below
+      void err; // surfaced in the body
     }
   }
 
+  const footer = rechazando ? (
+    <>
+      <Button type="button" variant="ghost" disabled={ocupado} onClick={() => setRechazando(false)}>
+        Volver
+      </Button>
+      <Button type="button" variant="danger" loading={rechazar.isPending}
+        disabled={ocupado || !motivo.trim()} onClick={() => { void handleRechazar(); }}>
+        Confirmar rechazo
+      </Button>
+    </>
+  ) : (
+    <>
+      <Button type="button" variant="secondary" disabled={ocupado || !r} onClick={() => setRechazando(true)}>
+        Rechazar…
+      </Button>
+      <Button type="button" variant="primary" loading={aprobar.isPending}
+        disabled={ocupado || !r || enElTope} onClick={() => { void handleAprobar(); }}>
+        Aprobar y asignar
+      </Button>
+    </>
+  );
+
   return (
-    <AsyncSection
-      isLoading={detalle.isLoading}
-      isError={detalle.isError}
-      isEmpty={!r}
-      onRetry={() => { void detalle.refetch(); }}
+    <Drawer
+      open
+      onClose={onClose}
+      eyebrow="Reclamo de comedor"
+      title={row.organizacionNombre}
+      status={<Text variant="body-sm" color="ink-3">{row.organizacionDireccion ?? 'Sin dirección'} · {formatFecha(row.creadoEn)}</Text>}
+      footer={footer}
     >
-      {r && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16, padding: 8 }}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16 }}>
-            <Dato label="Solicitante">{r.solicitanteNombre} · {r.solicitanteEmail}</Dato>
-            <Dato label="Rol en el comedor">{ROL_RECLAMO[r.rol] ?? r.rol}</Dato>
-            <Dato label="Organizaciones a cargo">
-              {r.organizacionesACargo ?? 0}/{r.capOrganizaciones ?? 3}
-            </Dato>
+      <AsyncSection
+        isLoading={detalle.isLoading}
+        isError={detalle.isError}
+        isEmpty={!r}
+        onRetry={() => { void detalle.refetch(); }}
+      >
+        {r && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <Dato label="Solicitante">{r.solicitanteNombre}</Dato>
+            <Dato label="Email">{r.solicitanteEmail}</Dato>
             <Dato label="Teléfono">{r.telefono}</Dato>
-          </div>
+            <Dato label="Rol en el comedor">{ROL_RECLAMO[r.rol] ?? r.rol}</Dato>
+            <Dato label="Organizaciones a cargo">{aCargo}/{cap}</Dato>
 
-          {r.mensaje && <Dato label="Mensaje">{r.mensaje}</Dato>}
-
-          <div>
-            <Text variant="label" color="ink-3" as="div" style={{ marginBottom: 6 }}>Evidencia</Text>
-            <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-              {r.evidenciaKeys.map((key) => (
-                <ReclamoEvidencia
-                  key={key}
-                  organizacionId={r.organizacionId}
-                  solicitanteId={r.solicitanteId}
-                  objectKey={key}
-                />
-              ))}
-            </div>
-          </div>
-
-          {rechazando && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <label htmlFor={`motivo-${id}`}>
-                <Text as="span" variant="label" color="ink-2">Motivo del rechazo</Text>
-              </label>
-              <textarea
-                id={`motivo-${id}`}
-                value={motivo}
-                onChange={(e) => setMotivo(e.target.value)}
-                rows={3}
-                maxLength={1000}
-                style={{
-                  padding: '12px 14px', borderRadius: 'var(--r-input)', border: '1.5px solid var(--line)',
-                  fontSize: 14.5, width: '100%', fontFamily: 'inherit', resize: 'vertical',
-                }}
-              />
-              {motivoError && <Text variant="body-sm" color="urgent">El motivo es obligatorio</Text>}
-            </div>
-          )}
-
-          {error && <Text variant="body-sm" color="urgent">{mapReclamoError(error, 'admin')}</Text>}
-
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            {rechazando ? (
-              <>
-                <Button type="button" variant="danger" loading={rechazar.isPending} disabled={ocupado}
-                  onClick={() => { void handleRechazar(); }}>
-                  Confirmar rechazo
-                </Button>
-                <Button type="button" variant="ghost" disabled={ocupado}
-                  onClick={() => { setRechazando(false); setMotivoError(false); }}>
-                  Cancelar
-                </Button>
-              </>
-            ) : (
-              <>
-                <Button type="button" variant="secondary" disabled={ocupado} onClick={() => setRechazando(true)}>
-                  Rechazar…
-                </Button>
-                <Button type="button" variant="primary" loading={aprobar.isPending} disabled={ocupado}
-                  onClick={() => { void handleAprobar(); }}>
-                  Aprobar y asignar
-                </Button>
-              </>
+            {enElTope && (
+              <div role="alert" style={{
+                padding: '10px 14px', borderRadius: 'var(--r-input)', border: '1px solid var(--urgent)',
+                background: 'var(--card-2)',
+              }}>
+                <Text variant="body-sm" color="urgent">
+                  El solicitante ya alcanzó el máximo de {cap} organizaciones a su cargo: no se puede aprobar.
+                </Text>
+              </div>
             )}
+
+            {r.mensaje && <Dato label="Mensaje">{r.mensaje}</Dato>}
+
+            <div>
+              <Text variant="label" color="ink-3" as="div" style={{ marginBottom: 6 }}>Evidencia</Text>
+              <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+                {r.evidenciaKeys.map((key) => (
+                  <ReclamoEvidencia
+                    key={key}
+                    organizacionId={r.organizacionId}
+                    solicitanteId={r.solicitanteId}
+                    objectKey={key}
+                  />
+                ))}
+              </div>
+            </div>
+
+            {rechazando && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <label htmlFor={`motivo-${id}`}>
+                  <Text as="span" variant="label" color="ink-2">Motivo del rechazo</Text>
+                </label>
+                <textarea
+                  id={`motivo-${id}`}
+                  value={motivo}
+                  onChange={(e) => setMotivo(e.target.value)}
+                  rows={3}
+                  maxLength={1000}
+                  style={{
+                    padding: '12px 14px', borderRadius: 'var(--r-input)', border: '1.5px solid var(--line)',
+                    fontSize: 14.5, width: '100%', fontFamily: 'inherit', resize: 'vertical',
+                  }}
+                />
+              </div>
+            )}
+
+            {error && <Text variant="body-sm" color="urgent">{mapReclamoError(error, 'admin')}</Text>}
           </div>
-        </div>
-      )}
-    </AsyncSection>
+        )}
+      </AsyncSection>
+    </Drawer>
   );
 }
 
 /** Pending claims on unclaimed comedores (the "Reclamos" tab). */
 function ReclamosCola() {
   const [page, setPage] = useState(0);
+  const [pageSize, setPageSize] = useState(PAGE_SIZE);
   const [selectedId, setSelectedId] = useState<number | null>(null);
 
-  const cola = useReclamosPendientes({ page, size: PAGE_SIZE });
+  const cola = useReclamosPendientes({ page, size: pageSize });
   usePageClamp(page, setPage, cola.data?.totalPages);
 
   const rows = cola.data?.content ?? [];
   const total = cola.data?.totalElements ?? 0;
+  const selected = rows.find((r) => r.id === selectedId) ?? null;
 
   const columns: Column<Reclamo>[] = [
     { key: 'comedor', header: 'Comedor', render: (r) => <Text variant="body">{r.organizacionNombre}</Text> },
@@ -185,37 +200,28 @@ function ReclamosCola() {
         Pedidos de referentes para hacerse cargo de un comedor importado del registro.
       </Text>
 
-      <AsyncSection
-        isLoading={cola.isLoading}
-        isError={cola.isError}
-        isEmpty={rows.length === 0}
-        emptyLabel="No hay reclamos pendientes"
-        onRetry={() => { void cola.refetch(); }}
-      >
+      <>
         <div style={{ marginTop: 20 }}>
           <PaginatedTable
             columns={columns}
             rows={rows}
             rowKey={(r) => r.id}
-            page={cola.data ?? { number: 0, size: PAGE_SIZE, totalElements: 0, totalPages: 0 }}
+            isLoading={cola.isLoading}
+            isError={cola.isError}
+            onRetry={() => { void cola.refetch(); }}
+            emptyLabel="No hay reclamos pendientes"
+            page={cola.data ?? { number: 0, size: pageSize, totalElements: 0, totalPages: 0 }}
             onPageChange={setPage}
             isFetching={cola.isFetching}
-            rowStyle={(r) => (r.id === selectedId ? { background: 'var(--card-2)' } : undefined)}
-            rowActions={(r) => (
-              <Button
-                type="button"
-                variant="secondary"
-                size="sm"
-                onClick={() => setSelectedId((cur) => (cur === r.id ? null : r.id))}
-              >
-                {selectedId === r.id ? 'Cerrar' : 'Ver detalle'}
-              </Button>
-            )}
-            expandedKeys={selectedId != null ? new Set([selectedId]) : undefined}
-            renderRowDetail={(r) => <ReclamoDetalle id={r.id} onResuelto={() => setSelectedId(null)} />}
+            onRowClick={(r) => setSelectedId(r.id)}
+            selectedKey={selectedId ?? undefined}
+            pageSize={pageSize}
+            onPageSizeChange={(n) => { setPageSize(n); setPage(0); }}
           />
         </div>
-      </AsyncSection>
+      </>
+
+      {selected && <ReclamoDrawer row={selected} onClose={() => setSelectedId(null)} />}
     </div>
   );
 }

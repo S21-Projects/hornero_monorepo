@@ -9,6 +9,9 @@ import org.example.articulo.dto.ActualizarArticuloRequest;
 import org.example.articulo.dto.CrearArticuloRequest;
 import org.example.domain.Articulo;
 import org.example.domain.ArticuloRepository;
+import org.example.domain.CategoriaAlimento;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
@@ -32,6 +35,30 @@ public class ArticuloService {
                 ? articuloRepository.findAll()
                 : articuloRepository.findByActivoTrue();
         return articulos.stream().map(this::toResponse).toList();
+    }
+
+    /**
+     * Admin catalog listing, paged and filtered server-side. {@code categoria} keeps one category,
+     * {@code q} is a case-insensitive "nombre contains"; either may be null. Deactivated items are
+     * included only when {@code incluirInactivos} is true.
+     */
+    public Page<ArticuloResponse> listarAdmin(boolean incluirInactivos, CategoriaAlimento categoria,
+                                              String q, Pageable pageable) {
+        return articuloRepository.buscarAdmin(
+                        !incluirInactivos,
+                        categoria != null,
+                        categoria != null ? categoria : CategoriaAlimento.values()[0],
+                        patronContiene(q),
+                        pageable)
+                .map(this::toResponse);
+    }
+
+    /** Lowercased LIKE pattern for "contains", with LIKE wildcards in the input escaped (escape char is '\\'). */
+    private static String patronContiene(String q) {
+        if (q == null || q.isBlank()) return "%";
+        String escapado = q.trim().toLowerCase()
+                .replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_");
+        return "%" + escapado + "%";
     }
 
     @Transactional

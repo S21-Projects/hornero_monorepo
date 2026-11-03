@@ -62,13 +62,44 @@ describe('ArticulosService', () => {
     });
   });
 
+  describe('listarAdmin', () => {
+    it('GETs the MS admin list with the bearer token and no query when no filter is given', async () => {
+      httpService.axiosRef.get.mockResolvedValue({ data: { content: [] } });
+
+      const res = await service.listarAdmin('tok');
+
+      expect(httpService.axiosRef.get).toHaveBeenCalledWith(
+        'http://ms:8081/api/articulos/admin',
+        { headers: { Authorization: 'Bearer tok' } },
+      );
+      expect(res).toEqual({ content: [] });
+    });
+
+    it('forwards q, categoria, incluirInactivos and paging, percent-encoding the search text', async () => {
+      httpService.axiosRef.get.mockResolvedValue({ data: {} });
+
+      await service.listarAdmin('tok', {
+        q: 'leche&x=1',
+        categoria: 'REFRIGERADO',
+        incluirInactivos: 'true',
+        page: '2',
+        size: '10',
+      });
+
+      expect(httpService.axiosRef.get).toHaveBeenCalledWith(
+        'http://ms:8081/api/articulos/admin?q=leche%26x%3D1&categoria=REFRIGERADO&incluirInactivos=true&page=2&size=10',
+        { headers: { Authorization: 'Bearer tok' } },
+      );
+    });
+  });
+
   describe('crear', () => {
     it('forwards the Bearer header and the dto to the MS create endpoint', async () => {
       const data = { id: 1, nombre: 'Arroz' };
       httpService.axiosRef.post.mockResolvedValue({ data });
       const dto = { nombre: 'Arroz', categoria: 'NO_PERECEDERO', unidad: 'KG' };
 
-      const result = await service.crear(dto as any, 'token-123');
+      const result = await service.crear(dto, 'token-123');
 
       expect(httpService.axiosRef.post).toHaveBeenCalledWith(
         'http://ms:8081/api/articulos',
@@ -89,7 +120,7 @@ describe('ArticulosService', () => {
         unidad: 'KG',
       };
 
-      const result = await service.actualizar(1, dto as any, 'token-123');
+      const result = await service.actualizar(1, dto, 'token-123');
 
       expect(httpService.axiosRef.put).toHaveBeenCalledWith(
         'http://ms:8081/api/articulos/1',

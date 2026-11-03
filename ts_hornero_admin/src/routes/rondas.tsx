@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { AsyncSection } from '../components/AsyncSection';
 import { Badge } from '../components/Badge';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
@@ -12,7 +11,7 @@ import { usePageClamp } from '../lib/hooks/usePageClamp';
 import { formatFecha } from '../lib/format';
 import type { RondaResponse } from '../types/domain';
 
-const PAGE_SIZE = 20;
+const PAGE_SIZE = 10;
 
 /** `RondaController`/`RondasService` friendly error copy, per task 5f.12's status-code mapping. */
 function mensajeError(status: number | undefined): string {
@@ -129,21 +128,20 @@ export default function RondasPage() {
 
       <Text variant="h3" style={{ marginTop: 28, marginBottom: 12 }}>Historial de rondas</Text>
 
-      <AsyncSection
-        isLoading={historial.isLoading}
-        isError={historial.isError}
-        isEmpty={rows.length === 0}
-        emptyLabel="Todavía no se ejecutó ninguna ronda."
-      >
+      <>
         <PaginatedTable
           columns={columns}
           rows={rows}
           rowKey={(r) => r.id}
+          isLoading={historial.isLoading}
+          isError={historial.isError}
+          onRetry={() => { void historial.refetch(); }}
+          emptyLabel="Todavía no se ejecutó ninguna ronda."
           page={historial.data ?? { number: 0, size: PAGE_SIZE, totalElements: 0, totalPages: 0 }}
           onPageChange={setPage}
           isFetching={historial.isFetching}
         />
-      </AsyncSection>
+      </>
     </div>
   );
 }

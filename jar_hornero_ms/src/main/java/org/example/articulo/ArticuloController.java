@@ -7,6 +7,10 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.example.articulo.dto.ActualizarArticuloRequest;
 import org.example.articulo.dto.CrearArticuloRequest;
+import org.example.common.PageData;
+import org.example.domain.CategoriaAlimento;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -40,6 +44,17 @@ public class ArticuloController {
     public List<ArticuloResponse> listar(
             @RequestParam(required = false, defaultValue = "false") boolean incluirInactivos) {
         return articuloService.listar(incluirInactivos);
+    }
+
+    @Operation(summary = "Admin catalog listing: paged, filterable by categoria / q / incluirInactivos")
+    @GetMapping("/admin")
+    @PreAuthorize("hasRole('ADMINISTRADOR')")
+    public PageData<ArticuloResponse> listarAdmin(
+            @RequestParam(required = false, defaultValue = "false") boolean incluirInactivos,
+            @RequestParam(required = false) CategoriaAlimento categoria,
+            @RequestParam(required = false) String q,
+            @PageableDefault(size = 20, sort = "nombre") Pageable pageable) {
+        return PageData.from(articuloService.listarAdmin(incluirInactivos, categoria, q, pageable));
     }
 
     @Operation(summary = "Create a catalog item")
