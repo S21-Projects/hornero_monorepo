@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-import { AsyncSection } from '../components/AsyncSection';
 import { Badge } from '../components/Badge';
 import { Text } from '../components/ui/Typography';
 import { PageHeader } from '../components/ui/PageHeader';
@@ -37,6 +36,10 @@ interface UsuarioDrawerProps {
   onClose: () => void;
   onToggle: (activo: boolean, motivo: string) => void;
   onAnonimizar: () => void;
+  /** A mutation is in flight: action buttons show a spinner and everything is disabled. */
+  pending?: boolean;
+  /** Inline error from the last failed mutation. */
+  errorMessage?: string;
 }
 
 function Dato({ label, children }: { label: string; children: React.ReactNode }) {
@@ -49,7 +52,7 @@ function Dato({ label, children }: { label: string; children: React.ReactNode })
 }
 
 /** Account detail with the activate/deactivate and anonymize actions (the latter needs a typed confirmation). */
-function UsuarioDrawer({ usuario: u, isSelf, onClose, onToggle, onAnonimizar }: UsuarioDrawerProps) {
+function UsuarioDrawer({ usuario: u, isSelf, onClose, onToggle, onAnonimizar, pending, errorMessage }: UsuarioDrawerProps) {
   const [motivo, setMotivo] = useState('');
   const [anonimizando, setAnonimizando] = useState(false);
   const [confirmacion, setConfirmacion] = useState('');
@@ -64,10 +67,10 @@ function UsuarioDrawer({ usuario: u, isSelf, onClose, onToggle, onAnonimizar }: 
   } else if (anonimizando) {
     footer = (
       <>
-        <Button type="button" variant="ghost" onClick={() => { setAnonimizando(false); setConfirmacion(''); }}>
+        <Button type="button" variant="ghost" disabled={pending} onClick={() => { setAnonimizando(false); setConfirmacion(''); }}>
           Volver
         </Button>
-        <Button type="button" variant="danger" disabled={confirmacion !== CONFIRM_WORD} onClick={onAnonimizar}>
+        <Button type="button" variant="danger" loading={pending} disabled={pending || confirmacion !== CONFIRM_WORD} onClick={onAnonimizar}>
           Anonimizar definitivamente
         </Button>
       </>
@@ -75,8 +78,8 @@ function UsuarioDrawer({ usuario: u, isSelf, onClose, onToggle, onAnonimizar }: 
   } else {
     footer = (
       <>
-        <Button type="button" variant="secondary" onClick={onClose}>Cerrar</Button>
-        <Button type="button" variant={u.activo ? 'danger' : 'ok'} onClick={() => onToggle(!u.activo, motivo.trim())}>
+        <Button type="button" variant="secondary" disabled={pending} onClick={onClose}>Cerrar</Button>
+        <Button type="button" variant={u.activo ? 'danger' : 'ok'} loading={pending} disabled={pending} onClick={() => onToggle(!u.activo, motivo.trim())}>
           {u.activo ? 'Desactivar' : 'Activar'}
         </Button>
       </>
@@ -96,6 +99,12 @@ function UsuarioDrawer({ usuario: u, isSelf, onClose, onToggle, onAnonimizar }: 
         <Dato label="Rol">{ROLE_LABEL[u.tipo] ?? u.tipo}</Dato>
         <Dato label="Estado">{activoCfg.label}</Dato>
         <Dato label="Email">{u.email}</Dato>
+
+        {errorMessage && (
+          <div role="alert">
+            <Text variant="body-sm" color="urgent">{errorMessage}</Text>
+          </div>
+        )}
 
         {isSelf && (
           <InfoBox>No podés modificar tu propia cuenta (desactivarla o anonimizarla) desde acá.</InfoBox>
@@ -166,7 +175,7 @@ export default function UsersPage() {
   const [q, setQ] = useState('');
   const [pageSize, setPageSize] = useState(PAGE_SIZE);
   const [selectedId, setSelectedId] = useState<number | null>(null);
-  const { data, isLoading, isError, isFetching } = useUsuarios({ page, size: pageSize, q });
+  const { data, isLoading, isError, isFetching, refetch } = useUsuarios({ page, size: pageSize, q });
   usePageClamp(page, setPage, data?.totalPages);
   const toggleActivo = useToggleActivo();
   const anonimizar = useAnonimizarUsuario();
@@ -174,6 +183,11 @@ export default function UsersPage() {
 
   const usuarios = data?.content ?? [];
   const selected = usuarios.find((u) => u.id === selectedId) ?? null;
+  const closeDrawer = () => {
+    toggleActivo.reset();
+    anonimizar.reset();
+    setSelectedId(null);
+  };
 
   // Debounce the search into the server `q` param (covers every user, not just this page);
   // back to the first page whenever it changes.
@@ -221,44 +235,49 @@ export default function UsersPage() {
         description="Consultá y gestioná las cuentas de todos los usuarios de la plataforma."
       />
 
-      <AsyncSection
-        isLoading={isLoading}
-        isError={isError}
-        // With an active search keep the table (and its search box) on screen so it can be cleared.
-        isEmpty={usuarios.length === 0 && !q}
-        emptyLabel="No hay usuarios"
-      >
+      <>
         <div style={{ marginTop: 20 }}>
           <PaginatedTable
             columns={columns}
             rows={usuarios}
             rowKey={(u) => u.id}
+            isLoading={isLoading}
+            isError={isError}
+            onRetry={() => { void refetch(); }}
+            emptyLabel={q ? 'No hay usuarios que coincidan con la búsqueda' : 'No hay usuarios'}
             page={data ?? { number: 0, size: pageSize, totalElements: 0, totalPages: 0 }}
             onPageChange={setPage}
             isFetching={isFetching}
             search={{ value: search, onChange: setSearch, placeholder: 'Buscar por nombre o email' }}
-            emptyLabel="No hay usuarios que coincidan con la búsqueda"
             onRowClick={(u) => setSelectedId(u.id)}
             selectedKey={selectedId ?? undefined}
             pageSize={pageSize}
             onPageSizeChange={(n) => { setPageSize(n); setPage(0); }}
           />
         </div>
-      </AsyncSection>
+      </>
 
       {selected && (
         <UsuarioDrawer
           key={selected.id}
           usuario={selected}
           isSelf={selected.id === myId}
-          onClose={() => setSelectedId(null)}
+          pending={toggleActivo.isPending || anonimizar.isPending}
+          errorMessage={
+            toggleActivo.isError || anonimizar.isError
+              ? 'No se pudo completar la acción. Intentá de nuevo.'
+              : undefined
+          }
+          onClose={closeDrawer}
           onToggle={(activo, motivo) => {
-            toggleActivo.mutate(motivo ? { id: selected.id, activo, motivo } : { id: selected.id, activo });
-            setSelectedId(null);
+            anonimizar.reset();
+            toggleActivo.mutate(motivo ? { id: selected.id, activo, motivo } : { id: selected.id, activo }, {
+              onSuccess: closeDrawer,
+            });
           }}
           onAnonimizar={() => {
-            anonimizar.mutate(selected.id);
-            setSelectedId(null);
+            toggleActivo.reset();
+            anonimizar.mutate(selected.id, { onSuccess: closeDrawer });
           }}
         />
       )}

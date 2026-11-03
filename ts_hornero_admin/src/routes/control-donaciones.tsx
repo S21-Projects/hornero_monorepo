@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-import { AsyncSection } from '../components/AsyncSection';
 import { Badge } from '../components/Badge';
 import { Button } from '../components/ui/Button';
 import { Drawer } from '../components/ui/Drawer';
@@ -224,7 +223,7 @@ export default function ControlDonacionesPage() {
     setPage(0);
   }
 
-  const { data, isLoading, isError, isFetching } = useDonacionesActivas({
+  const { data, isLoading, isError, isFetching, refetch } = useDonacionesActivas({
     page,
     size: pageSize,
     q: q || undefined,
@@ -303,12 +302,15 @@ export default function ControlDonacionesPage() {
         description="Seguí y controlá el estado de todas las donaciones de la plataforma."
       />
 
-      <AsyncSection isLoading={isLoading} isError={isError} isEmpty={false}>
+      <>
         <div style={{ marginTop: 20 }}>
           <PaginatedTable
             columns={columns}
             rows={donaciones}
             rowKey={(d) => d.id}
+            isLoading={isLoading}
+            isError={isError}
+            onRetry={() => { void refetch(); }}
             page={data ?? { number: 0, size: pageSize, totalElements: 0, totalPages: 0 }}
             onPageChange={setPage}
             isFetching={isFetching}
@@ -338,7 +340,7 @@ export default function ControlDonacionesPage() {
             onPageSizeChange={(n) => { setPageSize(n); setPage(0); }}
           />
         </div>
-      </AsyncSection>
+      </>
 
       {selected && <DonacionDrawer key={selected.id} donacion={selected} onClose={() => setSelectedId(null)} />}
     </div>

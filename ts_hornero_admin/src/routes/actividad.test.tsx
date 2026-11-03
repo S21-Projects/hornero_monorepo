@@ -41,7 +41,7 @@ const fila = (over: Partial<Actividad>): Actividad => ({
 
 function pagina(content: Actividad[], totalPages = 1) {
   return {
-    data: { content, number: 0, size: 20, totalElements: content.length, totalPages },
+    data: { content, number: 0, size: 10, totalElements: content.length, totalPages },
     isLoading: false,
     isError: false,
     isFetching: false,
@@ -143,7 +143,7 @@ describe('ActividadPage', () => {
     const last = vi.mocked(useActividad).mock.calls.at(-1)![0]!;
     expect(last).toMatchObject({
       page: 0,
-      size: 20,
+      size: 10,
       actorUsuarioId: 12,
       accion: 'LOGIN',
       resultado: 'FALLO',

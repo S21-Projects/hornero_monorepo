@@ -200,18 +200,16 @@ function ReclamosCola() {
         Pedidos de referentes para hacerse cargo de un comedor importado del registro.
       </Text>
 
-      <AsyncSection
-        isLoading={cola.isLoading}
-        isError={cola.isError}
-        isEmpty={rows.length === 0}
-        emptyLabel="No hay reclamos pendientes"
-        onRetry={() => { void cola.refetch(); }}
-      >
+      <>
         <div style={{ marginTop: 20 }}>
           <PaginatedTable
             columns={columns}
             rows={rows}
             rowKey={(r) => r.id}
+            isLoading={cola.isLoading}
+            isError={cola.isError}
+            onRetry={() => { void cola.refetch(); }}
+            emptyLabel="No hay reclamos pendientes"
             page={cola.data ?? { number: 0, size: pageSize, totalElements: 0, totalPages: 0 }}
             onPageChange={setPage}
             isFetching={cola.isFetching}
@@ -221,7 +219,7 @@ function ReclamosCola() {
             onPageSizeChange={(n) => { setPageSize(n); setPage(0); }}
           />
         </div>
-      </AsyncSection>
+      </>
 
       {selected && <ReclamoDrawer row={selected} onClose={() => setSelectedId(null)} />}
     </div>

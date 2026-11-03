@@ -5,6 +5,8 @@ import { Card } from './Card';
 import { Input } from './Input';
 import { Text } from './Typography';
 import { Pager } from './Pager';
+import { Skeleton } from './Skeleton';
+import { StatePanel } from './StatePanel';
 import type { PageMeta } from '../../types/api';
 
 export interface Column<T> {
@@ -26,8 +28,16 @@ export interface PaginatedTableProps<T> {
   toolbar?: ReactNode;
   /** Trailing action cell per row, rendered as its own right-aligned column. */
   rowActions?: (row: T) => ReactNode;
-  /** Dims the table during `keepPreviousData` refetch transitions. */
+  /**
+   * Refetch in flight (filter/page change with `keepPreviousData`): previous rows stay visible but
+   * dimmed, a thin indeterminate bar shows at the top of the card and the table is `aria-busy`.
+   */
   isFetching?: boolean;
+  /** First load (no data yet): skeleton rows in the body; header and toolbar stay visible. */
+  isLoading?: boolean;
+  /** Failed load: replaces the body with an error panel (and a retry button when `onRetry` is set). */
+  isError?: boolean;
+  onRetry?: () => void;
   emptyLabel?: string;
   /** Renders an expandable detail row below a given row's `<tr>` (e.g. audit trail + a form). */
   renderRowDetail?: (row: T) => ReactNode;
@@ -56,6 +66,8 @@ function fromInteractive(target: EventTarget, row: Element): boolean {
   return Boolean(hit && row.contains(hit) && hit !== row);
 }
 
+const SKELETON_ROWS = 5;
+
 const CELL_PADDING = '14px 20px';
 const HEAD_STYLE: CSSProperties = {
   padding: '12px 20px',
@@ -71,8 +83,8 @@ const HEAD_STYLE: CSSProperties = {
  * navigation. Never fetches — callers own the query and page state, and
  * filter rows themselves when `search` is supplied (so a caller can later
  * swap a local filter for a server-side `search` param with no component
- * change). Loading/error states stay with the route's `AsyncSection`; this
- * component only owns the `isFetching` dim overlay and the empty-rows case.
+ * change). It owns every list state: first load (skeleton rows), refetch (dim + progress bar),
+ * error (retry panel) and empty rows.
  */
 export function PaginatedTable<T>({
   columns,
@@ -84,6 +96,9 @@ export function PaginatedTable<T>({
   toolbar,
   rowActions,
   isFetching,
+  isLoading,
+  isError,
+  onRetry,
   emptyLabel = 'No hay resultados',
   renderRowDetail,
   expandedKeys,
@@ -97,10 +112,17 @@ export function PaginatedTable<T>({
   const hasToolbar = Boolean(search) || Boolean(toolbar);
   const [hoveredKey, setHoveredKey] = useState<string | number | null>(null);
   const trailingCols = (rowActions ? 1 : 0) + (onRowClick ? 1 : 0);
+  const colCount = columns.length + trailingCols;
+  const refetching = Boolean(isFetching) && !isLoading;
 
   return (
     <div>
-      <Card style={{ padding: 0, overflow: 'hidden', opacity: isFetching ? 0.6 : 1, transition: 'opacity .15s' }}>
+      <Card style={{ padding: 0, overflow: 'hidden', position: 'relative' }}>
+        {refetching && (
+          <div role="progressbar" aria-label="Actualizando resultados" className="table-progress">
+            <div className="table-progress__bar" />
+          </div>
+        )}
         {hasToolbar && (
           <div
             style={{
@@ -125,12 +147,22 @@ export function PaginatedTable<T>({
             )}
             {toolbar}
             <Text variant="body-sm" color="ink-3" style={{ marginLeft: 'auto' }}>
-              {page.totalElements} {page.totalElements === 1 ? 'resultado' : 'resultados'}
+              {isLoading ? '…' : <>{page.totalElements} {page.totalElements === 1 ? 'resultado' : 'resultados'}</>}
             </Text>
           </div>
         )}
-        <div style={{ maxHeight: 'min(60vh, 560px)', overflow: 'auto' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+        <div
+          aria-busy={isLoading || refetching ? true : undefined}
+          style={{ maxHeight: 'min(60vh, 560px)', overflow: 'auto' }}
+        >
+        <table
+          style={{
+            width: '100%',
+            borderCollapse: 'collapse',
+            opacity: refetching ? 0.55 : 1,
+            transition: 'opacity .15s',
+          }}
+        >
           <thead>
             <tr>
               {columns.map((col) => (
@@ -150,10 +182,30 @@ export function PaginatedTable<T>({
             </tr>
           </thead>
           <tbody>
-            {rows.length === 0 ? (
+            {isLoading ? (
+              Array.from({ length: SKELETON_ROWS }, (_, i) => (
+                <tr key={`sk-${i}`} data-testid="table-skeleton-row" style={{ borderBottom: '1px solid var(--line)' }}>
+                  <td colSpan={colCount} style={{ padding: CELL_PADDING }}>
+                    <Skeleton height={18} />
+                  </td>
+                </tr>
+              ))
+            ) : isError ? (
+              <tr>
+                <td colSpan={colCount}>
+                  <StatePanel
+                    title="Algo salió mal"
+                    subtitle="Ocurrió un error al cargar los datos. Intentá de nuevo."
+                    actionLabel={onRetry ? 'Intentar de nuevo' : undefined}
+                    onAction={onRetry}
+                    actionVariant="secondary"
+                  />
+                </td>
+              </tr>
+            ) : rows.length === 0 ? (
               <tr>
                 <td
-                  colSpan={columns.length + trailingCols}
+                  colSpan={colCount}
                   style={{ padding: '32px 20px', textAlign: 'center' }}
                 >
                   <Text variant="body-sm" color="ink-3">{emptyLabel}</Text>
@@ -233,7 +285,7 @@ export function PaginatedTable<T>({
       <Pager
         page={page}
         onPageChange={onPageChange}
-        disabled={isFetching}
+        disabled={isFetching || isLoading}
         pageSize={pageSize}
         pageSizeOptions={pageSizeOptions}
         onPageSizeChange={onPageSizeChange}
