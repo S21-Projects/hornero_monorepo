@@ -6,6 +6,7 @@ import { Card } from '../components/ui/Card';
 import { Input } from '../components/ui/Input';
 import { Button } from '../components/ui/Button';
 import { Text } from '../components/ui/Typography';
+import { PageHeader } from '../components/ui/PageHeader';
 import { OrgLocationPickerLazy } from '../components/map/OrgLocationPickerLazy';
 import { useGeolocation } from '../lib/hooks/useGeolocation';
 import { useMisOrganizaciones } from '../lib/hooks/useMisOrganizaciones';
@@ -210,18 +211,21 @@ export default function MisOrganizacionesPage() {
   const atCap = orgs.length >= CAP;
 
   return (
-    <div style={{ maxWidth: 720, margin: '0 auto', padding: '24px 16px' }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-        <Text variant="h2">Mis organizaciones</Text>
-        <Button
-          variant="primary"
-          disabled={atCap || showForm}
-          title={atCap ? 'Alcanzaste el máximo de 3 organizaciones' : undefined}
-          onClick={() => setShowForm(true)}
-        >
-          + Agregar organización
-        </Button>
-      </div>
+    <div>
+      <PageHeader
+        title="Mis organizaciones"
+        description="Administrá las organizaciones que representás y sumá nuevas."
+        actions={
+          <Button
+            variant="primary"
+            disabled={atCap || showForm}
+            title={atCap ? 'Alcanzaste el máximo de 3 organizaciones' : undefined}
+            onClick={() => setShowForm(true)}
+          >
+            + Agregar organización
+          </Button>
+        }
+      />
 
       <Text variant="body-sm" color="ink-3" style={{ marginBottom: 20 }}>
         {orgs.length}/{CAP} organizaciones

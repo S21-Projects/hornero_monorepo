@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { MemoryRouter } from 'react-router-dom';
 import NeedsPage from './needs';
 import { useMisOrganizaciones } from '../lib/hooks/useMisOrganizaciones';
 import { useNecesidadesDeOrg } from '../lib/hooks/useNecesidadesDeOrg';
@@ -10,6 +11,7 @@ import { useEliminarNecesidad } from '../lib/hooks/useEliminarNecesidad';
 import { useRelanzarNecesidad } from '../lib/hooks/useRelanzarNecesidad';
 import { useArticulos } from '../lib/hooks/useArticulos';
 import { useNeedsViewState } from './needs-view-state';
+import { useAuthStore } from '../store/auth.store';
 import type { Articulo } from '../types/domain';
 
 // Work unit H (feature catalogo-articulos): the necesidad create form requires ≥1 selected
@@ -170,5 +172,65 @@ describe('NeedsPage — relaunch an expired necesidad', () => {
     render(<NeedsPage />);
     expect(screen.queryByLabelText(/^estado$/i)).not.toBeInTheDocument();
     expect(screen.getByText(/relanzar/i)).toBeInTheDocument();
+  });
+});
+
+describe('NeedsPage — selected organización pending validation', () => {
+  beforeEach(() => {
+    vi.mocked(useMisOrganizaciones).mockReturnValue({
+      data: [{ id: 3, nombre: 'Comedor Sol', validada: false }],
+      isLoading: false,
+      isError: false,
+    } as unknown as ReturnType<typeof useMisOrganizaciones>);
+    vi.mocked(useNecesidadesDeOrg).mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      isError: false,
+    } as unknown as ReturnType<typeof useNecesidadesDeOrg>);
+    vi.mocked(useEliminarNecesidad).mockReturnValue({
+      mutateAsync: vi.fn(),
+    } as unknown as ReturnType<typeof useEliminarNecesidad>);
+    vi.mocked(useNeedsViewState).mockReturnValue({
+      view: 'list',
+      pendingDeleteId: null,
+      goToList: vi.fn(),
+      goToCreate: vi.fn(),
+      goToEdit: vi.fn(),
+      armDelete: vi.fn(),
+      clearDelete: vi.fn(),
+    });
+  });
+
+  it('shows the pending-validation state instead of the needs list and skips the fetch', () => {
+    render(
+      <MemoryRouter>
+        <NeedsPage />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByText('Validación pendiente')).toBeInTheDocument();
+    expect(screen.getByText('Comedor Sol')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /cargar evidencia para n1/i })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /nueva necesidad/i })).not.toBeInTheDocument();
+    expect(useNecesidadesDeOrg).toHaveBeenLastCalledWith(null, expect.anything());
+  });
+
+  it('shows the create-organización state for a referente without any organización', () => {
+    useAuthStore.setState({ user: { userId: 1, email: 'r@x.org', nombre: 'R', tipo: 'REFERENTE' } } as never);
+    vi.mocked(useMisOrganizaciones).mockReturnValue({
+      data: [],
+      isLoading: false,
+      isError: false,
+      isSuccess: true,
+    } as unknown as ReturnType<typeof useMisOrganizaciones>);
+
+    render(
+      <MemoryRouter>
+        <NeedsPage />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByText('Validación pendiente')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /crear tu organización/i })).toBeInTheDocument();
   });
 });

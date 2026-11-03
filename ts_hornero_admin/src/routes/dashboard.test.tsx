@@ -235,4 +235,29 @@ describe('DashboardPage', () => {
     expect(screen.getByText('Ana Pendiente')).toBeInTheDocument();
     expect(screen.getByText(/Mostrando 1 de 130/)).toBeInTheDocument();
   });
+
+  it('renders the pending-validation card instead of the summary when no organización is validada', () => {
+    mockOrganizacion([{ ...organizacion, validada: false, estado: 'PENDIENTE' }], { isSuccess: true });
+    mockNecesidades([]);
+    mockDonaciones([]);
+
+    render(<MemoryRouter><DashboardPage /></MemoryRouter>);
+
+    expect(screen.getByRole('heading', { level: 1, name: 'Resumen de Comedor Sol' })).toBeInTheDocument();
+    expect(screen.getByText('Validación pendiente')).toBeInTheDocument();
+    expect(screen.getByText('Comedor Sol')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Cargar evidencia para N1' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Cerrar sesión' })).not.toBeInTheDocument();
+    expect(screen.queryByText('Necesidades por estado')).not.toBeInTheDocument();
+  });
+
+  it('renders the create-organización card when the referente has no organización', () => {
+    mockOrganizacion([], { isSuccess: true });
+    mockNecesidades([]);
+    mockDonaciones([]);
+
+    render(<MemoryRouter><DashboardPage /></MemoryRouter>);
+
+    expect(screen.getByRole('button', { name: 'Crear tu organización' })).toBeInTheDocument();
+  });
 });

@@ -5,6 +5,7 @@ import { Button } from '../components/ui/Button';
 import { PaginatedTable } from '../components/ui/PaginatedTable';
 import type { Column } from '../components/ui/PaginatedTable';
 import { Text } from '../components/ui/Typography';
+import { PageHeader } from '../components/ui/PageHeader';
 import { ReclamoEvidencia } from '../components/reclamo/ReclamoEvidencia';
 import { ReportesCola } from '../components/reporte/ReportesCola';
 import {
@@ -237,9 +238,12 @@ export default function ReclamosPage() {
 
   return (
     <div>
-      <Text variant="h1">Reclamos y reportes</Text>
+      <PageHeader
+        title="Reclamos y reportes"
+        description="Revisá los reclamos de comedores sin reclamar y los reportes enviados por los usuarios."
+      />
 
-      <div role="tablist" aria-label="Comedores sin reclamar" style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+      <div role="tablist" aria-label="Comedores sin reclamar" style={{ display: 'flex', gap: 8 }}>
         {tabs.map((t) => (
           <Button
             key={t.id}

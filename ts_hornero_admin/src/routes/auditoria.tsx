@@ -6,6 +6,7 @@ import { Dropdown } from '../components/ui/Dropdown';
 import { PaginatedTable } from '../components/ui/PaginatedTable';
 import type { Column } from '../components/ui/PaginatedTable';
 import { Text } from '../components/ui/Typography';
+import { PageHeader } from '../components/ui/PageHeader';
 import { AuditQueue } from '../components/acreditacion/AuditQueue';
 import { useColaAuditoria } from '../lib/hooks/useColaAuditoria';
 import { requisitoLabel } from '../lib/acreditacion';
@@ -114,12 +115,12 @@ export default function AuditoriaPage() {
 
   return (
     <div>
-      <Text variant="h1">Cola de auditoría</Text>
-      <Text variant="body-sm" color="ink-3" style={{ marginTop: 4, display: 'block' }}>
-        Evidencia de acreditación pendiente de revisión en todas las organizaciones.
-      </Text>
+      <PageHeader
+        title="Cola de auditoría"
+        description="Evidencia de acreditación pendiente de revisión en todas las organizaciones."
+      />
 
-      <div style={{ display: 'flex', gap: 8, marginTop: 20 }}>
+      <div style={{ display: 'flex', gap: 8 }}>
         <Button
           type="button"
           variant={tab === 'PENDIENTES' ? 'primary' : 'secondary'}

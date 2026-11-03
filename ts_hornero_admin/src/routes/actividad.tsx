@@ -6,6 +6,7 @@ import { Input } from '../components/ui/Input';
 import { PaginatedTable } from '../components/ui/PaginatedTable';
 import type { Column } from '../components/ui/PaginatedTable';
 import { Text } from '../components/ui/Typography';
+import { PageHeader } from '../components/ui/PageHeader';
 import { useActividad } from '../lib/hooks/useActividad';
 import { usePageClamp } from '../lib/hooks/usePageClamp';
 import {
@@ -157,13 +158,13 @@ export default function ActividadPage() {
 
   return (
     <div>
-      <Text variant="h1">Registro de actividades</Text>
-      <Text variant="body-sm" color="ink-3" style={{ display: 'block', marginTop: 4 }}>
-        Registro de solo lectura: no puede editarse ni borrarse desde la aplicación.
-      </Text>
+      <PageHeader
+        title="Registro de actividades"
+        description="Registro de solo lectura: no puede editarse ni borrarse desde la aplicación."
+      />
 
       <AsyncSection isLoading={isLoading} isError={isError} isEmpty={false}>
-        <div style={{ marginTop: 20 }}>
+        <div>
           <PaginatedTable
             columns={columns}
             rows={data?.content ?? []}

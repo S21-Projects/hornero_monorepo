@@ -3,6 +3,7 @@ import { AsyncSection } from '../components/AsyncSection';
 import { Card } from '../components/ui/Card';
 import { Badge } from '../components/Badge';
 import { Text } from '../components/ui/Typography';
+import { PageHeader } from '../components/ui/PageHeader';
 import { Button } from '../components/ui/Button';
 import { Pager } from '../components/ui/Pager';
 import { useOrganizacionesPendientes } from '../lib/hooks/useOrganizacionesPendientes';
@@ -25,7 +26,10 @@ export default function PanelPage() {
 
   return (
     <div>
-      <Text variant="h1">Organizaciones pendientes</Text>
+      <PageHeader
+        title="Organizaciones pendientes"
+        description="Validá las organizaciones que solicitaron acceso a la plataforma."
+      />
 
       <AsyncSection
         isLoading={isLoading}

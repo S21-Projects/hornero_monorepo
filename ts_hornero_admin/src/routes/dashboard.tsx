@@ -5,6 +5,7 @@ import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
 import { Pager } from '../components/ui/Pager';
 import { Text } from '../components/ui/Typography';
+import { PageHeader } from '../components/ui/PageHeader';
 import { ChartCard } from '../components/panel/ChartCard';
 import { ChartEmptyState } from '../components/panel/ChartEmptyState';
 import { DashboardSkeleton } from '../components/panel/DashboardSkeleton';
@@ -17,6 +18,7 @@ import { usePageClamp } from '../lib/hooks/usePageClamp';
 import { necesidadesPorEstado, donacionesPorEstado } from '../lib/metricas';
 import { formatFecha, formatLineas } from '../lib/format';
 import { Badge } from '../components/Badge';
+import { PendingValidationCard } from '../components/PendingValidationCard';
 import { MODALIDAD_DONACION } from '../lib/domain-ui';
 import { ModalidadDonacion } from '../types/domain';
 import type { Donacion } from '../types/domain';
@@ -153,6 +155,8 @@ function DonacionEntregaRow({ donacion }: DonacionEntregaRowProps) {
   );
 }
 
+const DASHBOARD_DESCRIPTION = 'Seguí el estado de tus necesidades y donaciones en un solo lugar.';
+
 export default function DashboardPage() {
   // A referente can own several organizaciones (up to 3). The dashboard summary
   // currently shows an aggregate across every organización they own — a
@@ -215,17 +219,30 @@ export default function DashboardPage() {
       ? `Resumen de ${primaryOrg?.nombre ?? 'mi organización'} y otras ${orgs.length - 1}`
       : `Resumen de ${primaryOrg?.nombre ?? 'mi organización'}`;
 
+  // The route is not gated on validation: a referente without any validated
+  // organización keeps the AppShell and sees the pending card instead of the summary.
+  if (organizaciones.isSuccess && !orgs.some((o) => o.validada)) {
+    return (
+      <div>
+        <PageHeader title={heading} description={DASHBOARD_DESCRIPTION} />
+        <PendingValidationCard orgNombre={primaryOrg ? primaryOrg.nombre : null} />
+      </div>
+    );
+  }
+
   return (
     <AsyncSection isLoading={isLoading} isError={isError} isEmpty={false} loadingFallback={<DashboardSkeleton />}>
       <div>
-        <Text variant="h1">{heading}</Text>
+        <PageHeader
+          title={heading}
+          description={DASHBOARD_DESCRIPTION}
+        />
 
         <div
           style={{
             display: 'grid',
             gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
             gap: 16,
-            marginTop: 24,
           }}
         >
           <ChartCard title="Necesidades por estado" subtitle="Estado actual de las necesidades publicadas">
