@@ -1,4 +1,4 @@
-.PHONY: up down up-local seed backup restore-check migrate e2e coverage mapa-datos mapa-fixture importar-renacom importar-poblacion mapa-radios
+.PHONY: up down up-local seed backup restore-check migrate e2e escenario coverage mapa-datos mapa-fixture importar-renacom importar-poblacion mapa-radios
 
 ## Docker only — two modes, both full-stack including Postgres.
 ## The Pi runs docker compose directly, not through this Makefile
@@ -26,6 +26,11 @@ up-local:
 ## End-to-end (API level) — needs the stack already running: `make up-local` in another terminal.
 e2e:
 	cd e2e && npm install --no-audit --no-fund && npm test
+
+## Manual-testing scenarios against `make up-local`: puts the stack in a known state for the UI.
+## Usage: make escenario ESC=fondo-comun N=5   (no ESC lists the scenarios). See e2e/README.md.
+escenario:
+	cd e2e && npx tsx scenarios/run.ts $(ESC) --n $(or $(N),3)
 
 ## Coverage (report-only, no thresholds; outputs are gitignored). Runs each service's unit
 ## suite with coverage and prints one line-coverage summary per service. See docs/validacion-calidad.md.

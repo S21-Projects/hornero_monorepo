@@ -44,6 +44,7 @@ make up-local        # fast local: uses .env.local (also starts MinIO, but the t
                       # and requires SUPER_ADMIN_EMAIL/SUPER_ADMIN_PASSWORD)
 make down             # stop docker; `docker compose down -v` to also drop the DB volume
 make e2e              # API-level e2e tests (e2e/) against an already-running `make up-local` stack
+make escenario ESC=fondo-comun N=5  # leave the local stack in a known state for manual UI testing (no ESC lists them; see e2e/README.md)
 make seed             # run scripts/seed.ts against the BFF (creates seed users/orgs)
 make backup           # gzipped pg_dump of the running postgres into backups/ (gitignored)
 make migrate          # backup, then apply every scripts/sql/V*.sql in order (idempotent);

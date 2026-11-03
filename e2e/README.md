@@ -42,3 +42,28 @@ make e2e             # or: cd e2e && npm install && npm test
 | `05-session-and-verification` | unverified donante refused; refresh rotation, logout revokes refresh |
 | `06` to `11` | donor privacy, deactivated user, activity log, idempotency, password reset, anonymization |
 | `12-reclamos-reportes` | claims (approve/reject, 403s), reports, cascades, anonymization of a claimant, public map |
+
+## Manual testing scenarios
+
+Scripts that put the local stack in a known state so you can continue by hand in the UI. They are not
+tests: they create real rows, tagged `escenario <runId> <label>` in `observaciones`.
+
+```bash
+make up-local                                   # prerequisite: demo data (SEED_DEMO_DATA=true)
+make escenario                                  # lists the scenarios and the demo logins
+make escenario ESC=fondo-comun N=5              # N defaults to 3, capped at 20
+# or: cd e2e && npm run escenario -- post-ronda --n 2
+```
+
+| Scenario | Leaves the stack with |
+|---|---|
+| `fondo-comun` | N FONDO_COMUN donations (OFRECIDA) offering articulos open necesidades ask for. Log in as the admin and run a ronda at `/rondas`. |
+| `directa-ofrecida` | N DIRECTA donations (OFRECIDA) spread across the referentes' organizaciones; prints which referente to log in as. |
+| `en-camino` | N DIRECTA donations in EN_CAMINO; prints the donante and referente logins to test delivery code confirmation. |
+| `post-ronda` | N fondo-comun donations plus a ronda run as admin; prints the PROPUESTA asignaciones and the referente to log in as. Needs the Go worker (`docker compose ps worker`); a 503 is reported as such. |
+
+Notes: the script refuses a BFF URL that is not `localhost`/`127.0.0.1` unless you pass `--force`
+(`E2E_BFF_URL` selects the BFF, as for the tests). Each demo actor logs in once per run (login is
+limited to 5/min; it waits and retries on 429). A ronda considers the whole pool, not only the
+donations the script created. Shared helpers live in `src/flows.ts` (vitest-free; `src/fixtures.ts`
+re-exports them for the tests).
