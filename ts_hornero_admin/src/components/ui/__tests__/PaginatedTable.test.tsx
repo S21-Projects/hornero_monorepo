@@ -247,4 +247,73 @@ describe('PaginatedTable', () => {
       expect(screen.getByText('Banana').closest('tr')).not.toHaveAttribute('tabindex');
     });
   });
+
+  describe('loading states', () => {
+    const meta = { number: 0, size: 10, totalElements: 0, totalPages: 0 };
+    const frutas: Fruta[] = [{ id: 1, nombre: 'Banana' }];
+
+    it('shows skeleton rows on first load while header and toolbar stay visible', () => {
+      render(
+        <PaginatedTable
+          columns={frutaColumns}
+          rows={[]}
+          rowKey={(f) => f.id}
+          page={meta}
+          onPageChange={vi.fn()}
+          search={{ value: '', onChange: vi.fn(), placeholder: 'Buscar fruta' }}
+          isLoading
+          emptyLabel="Sin frutas"
+        />,
+      );
+
+      expect(screen.getAllByTestId('table-skeleton-row').length).toBeGreaterThan(0);
+      expect(screen.getByText('Nombre')).toBeInTheDocument();
+      expect(screen.getByLabelText('Buscar fruta')).toBeInTheDocument();
+      expect(screen.queryByText('Sin frutas')).not.toBeInTheDocument();
+    });
+
+    it('keeps previous rows, shows a progress bar and marks the table busy while refetching', () => {
+      render(
+        <PaginatedTable
+          columns={frutaColumns}
+          rows={frutas}
+          rowKey={(f) => f.id}
+          page={{ ...meta, totalElements: 1, totalPages: 1 }}
+          onPageChange={vi.fn()}
+          isFetching
+        />,
+      );
+
+      expect(screen.getByText('Banana')).toBeInTheDocument();
+      expect(screen.getByRole('progressbar', { name: 'Actualizando resultados' })).toBeInTheDocument();
+      expect(screen.getByRole('table').parentElement).toHaveAttribute('aria-busy', 'true');
+      expect(screen.queryByTestId('table-skeleton-row')).not.toBeInTheDocument();
+    });
+
+    it('does not show the progress bar when idle', () => {
+      render(
+        <PaginatedTable columns={frutaColumns} rows={frutas} rowKey={(f) => f.id} page={meta} onPageChange={vi.fn()} />,
+      );
+      expect(screen.queryByRole('progressbar')).not.toBeInTheDocument();
+    });
+
+    it('shows an error panel with a retry action', async () => {
+      const onRetry = vi.fn();
+      render(
+        <PaginatedTable
+          columns={frutaColumns}
+          rows={[]}
+          rowKey={(f) => f.id}
+          page={meta}
+          onPageChange={vi.fn()}
+          isError
+          onRetry={onRetry}
+        />,
+      );
+
+      expect(screen.getByText('Algo salió mal')).toBeInTheDocument();
+      await userEvent.click(screen.getByRole('button', { name: 'Intentar de nuevo' }));
+      expect(onRetry).toHaveBeenCalledTimes(1);
+    });
+  });
 });

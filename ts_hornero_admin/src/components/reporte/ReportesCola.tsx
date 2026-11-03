@@ -16,7 +16,7 @@ import { MOTIVO_REPORTE } from '../../lib/domain-ui';
 import { formatFecha } from '../../lib/format';
 import type { Reporte } from '../../types/domain';
 
-const PAGE_SIZE = 20;
+const PAGE_SIZE = 10;
 
 function Dato({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -164,18 +164,16 @@ export function ReportesCola() {
       <Text variant="body-sm" color="ink-3" style={{ marginTop: 4, display: 'block' }}>
         Avisos de visitantes sobre comedores importados del registro que ya no funcionan o tienen datos incorrectos.
       </Text>
-      <AsyncSection
-        isLoading={cola.isLoading}
-        isError={cola.isError}
-        isEmpty={rows.length === 0}
-        emptyLabel="No hay reportes pendientes"
-        onRetry={() => { void cola.refetch(); }}
-      >
+      <>
         <div style={{ marginTop: 20 }}>
           <PaginatedTable
             columns={columns}
             rows={rows}
             rowKey={(r) => r.id}
+            isLoading={cola.isLoading}
+            isError={cola.isError}
+            onRetry={() => { void cola.refetch(); }}
+            emptyLabel="No hay reportes pendientes"
             page={cola.data ?? { number: 0, size: PAGE_SIZE, totalElements: 0, totalPages: 0 }}
             onPageChange={setPage}
             isFetching={cola.isFetching}
@@ -194,7 +192,7 @@ export function ReportesCola() {
             renderRowDetail={(r) => <ReporteDetalle id={r.id} onResuelto={() => setSelectedId(null)} />}
           />
         </div>
-      </AsyncSection>
+      </>
     </>
   );
 }
