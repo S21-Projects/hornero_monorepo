@@ -57,9 +57,19 @@ export default function LoginPage() {
         padding: '24px 16px',
       }}
     >
-      <div style={{ marginBottom: 32 }}>
-        <Logo size={42} />
-      </div>
+      <Card
+        style={{
+          display: 'flex',
+          width: '100%',
+          height: 150,
+          maxWidth: 400,
+          marginBottom: 32,
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <Logo height={105} />
+      </Card>
 
       <Card style={{ width: '100%', maxWidth: 400, padding: 32 }}>
         <Text
