@@ -3,6 +3,7 @@ import type { FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Logo } from '../components/ui/Logo';
 import { Card } from '../components/ui/Card';
+import { Select } from '../components/ui/Select';
 import { Input } from '../components/ui/Input';
 import { Button } from '../components/ui/Button';
 import { Text } from '../components/ui/Typography';
@@ -562,27 +563,17 @@ export default function RegisterPage() {
               <label htmlFor="tipo">
                 <Text as="span" variant="label" color="ink-2">Tipo de organización</Text>
               </label>
-              <select
+              <Select
                 id="tipo"
                 value={tipo}
+                placeholder={!tipo}
                 onChange={(e) => setTipo(e.target.value as TipoOrganizacionType | '')}
-                style={{
-                  fontFamily: 'inherit',
-                  fontSize: 14.5,
-                  color: tipo ? 'var(--ink)' : 'var(--ink-3)',
-                  background: '#fff',
-                  border: '1.5px solid var(--line)',
-                  borderRadius: 'var(--r-input)',
-                  padding: '12px 14px',
-                  width: '100%',
-                  outline: 'none',
-                }}
               >
                 <option value="" disabled>Seleccioná un tipo</option>
                 {TIPO_OPTIONS.map(({ value, label }) => (
                   <option key={value} value={value}>{label}</option>
                 ))}
-              </select>
+              </Select>
             </div>
             {fieldErrors.tipo && <ErrorBanner msg={fieldErrors.tipo} />}
 
