@@ -8,6 +8,8 @@ import { Text } from './Typography';
 export interface DrawerTab {
   id: string;
   label: string;
+  /** Small dot next to the label, e.g. "has pending changes". Its text is the accessible hint. */
+  badge?: string;
 }
 
 export interface DrawerProps {
@@ -194,6 +196,20 @@ export function Drawer({
                         }}
                       >
                         {t.label}
+                        {t.badge && (
+                          <span
+                            role="img"
+                            aria-label={t.badge}
+                            style={{
+                              display: 'inline-block',
+                              width: 8,
+                              height: 8,
+                              borderRadius: 99,
+                              background: 'var(--sky)',
+                              marginLeft: 6,
+                            }}
+                          />
+                        )}
                       </button>
                     );
                   })}
