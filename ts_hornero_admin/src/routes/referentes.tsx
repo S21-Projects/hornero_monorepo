@@ -1,331 +1,398 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { AnimatePresence, motion } from 'motion/react';
-import { ArrowDown2, ArrowUp2 } from 'iconsax-reactjs';
-import { AsyncSection } from '../components/AsyncSection';
 import { Badge } from '../components/Badge';
-import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Dropdown } from '../components/ui/Dropdown';
 import { Input } from '../components/ui/Input';
-import { Pager } from '../components/ui/Pager';
-import { Text } from '../components/ui/Typography';
+import { PaginatedTable } from '../components/ui/PaginatedTable';
+import type { Column } from '../components/ui/PaginatedTable';
 import { PageHeader } from '../components/ui/PageHeader';
+import { Text } from '../components/ui/Typography';
+import { OrgReferenteDrawer, UNASSIGNED_VALUE } from '../components/org/OrgReferenteDrawer';
+import type { OrgDrawerTab } from '../components/org/OrgReferenteDrawer';
 import { useUsuarios } from '../lib/hooks/useUsuarios';
 import { useOrganizacionesAdmin } from '../lib/hooks/useOrganizacionesAdmin';
+import { useOrganizacionesPendientes } from '../lib/hooks/useOrganizacionesPendientes';
 import { usePageClamp } from '../lib/hooks/usePageClamp';
 import { useAsignarReferente } from '../lib/hooks/useAsignarReferente';
-import { useAdminInfoPublica } from '../lib/hooks/useAdminInfoPublica';
-import { mapAsignarReferenteError } from '../lib/hooks/mapAsignarReferenteError';
-import { mapInfoPublicaError } from '../lib/hooks/mapInfoPublicaError';
-import { ESTADO_ORGANIZACION } from '../lib/domain-ui';
-import { InfoPublicaForm } from '../components/org/InfoPublicaForm';
+import { ESTADO_ORGANIZACION, TIPO_ORGANIZACION } from '../lib/domain-ui';
 import type { OrganizacionAdmin, Usuario } from '../types/domain';
 
-const UNASSIGNED_VALUE = 'unassigned';
-
-interface OrgRowProps {
-  org: OrganizacionAdmin;
-  referentesActivos: Usuario[];
-}
-
-function OrgRow({ org, referentesActivos }: OrgRowProps) {
-  const asignar = useAsignarReferente();
-  const { aprobar, rechazar } = useAdminInfoPublica();
-  const [showInfoPublica, setShowInfoPublica] = useState(false);
-  const estadoConfig = ESTADO_ORGANIZACION[org.estado] ?? { tone: 'neutral' as const, label: org.estado };
-  const isMutatingThis = asignar.isPending && asignar.variables?.organizacionId === org.id;
-  const isErrorForThis = asignar.isError && asignar.variables?.organizacionId === org.id;
-  const hasPending = org.infoPublicaPendienteEn != null;
-
-  function handleChange(value: string) {
-    const referenteId = value === UNASSIGNED_VALUE ? null : Number(value);
-    asignar.mutate({ organizacionId: org.id, referenteId });
-  }
-
-  return (
-    <div style={{ padding: '12px 0', borderBottom: '1px solid var(--line)' }}>
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: 12,
-          flexWrap: 'wrap',
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-          <Text variant="body">{org.nombre}</Text>
-          <Badge tone={estadoConfig.tone} label={estadoConfig.label} />
-          {hasPending && <Badge tone="sky" label="Info pública pendiente" />}
-        </div>
-
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-          <Dropdown
-            value={String(org.referenteId ?? UNASSIGNED_VALUE)}
-            disabled={isMutatingThis}
-            onChange={handleChange}
-            options={[
-              { value: UNASSIGNED_VALUE, label: 'Sin referente' },
-              ...referentesActivos.map((r) => ({ value: String(r.id), label: `${r.nombre} (${r.email})` })),
-            ]}
-          />
-
-          {hasPending && (
-            <>
-              <Button
-                type="button"
-                variant="ok"
-                size="sm"
-                loading={aprobar.isPending && aprobar.variables === org.id}
-                onClick={() => aprobar.mutate(org.id)}
-              >
-                Aprobar
-              </Button>
-              <Button
-                type="button"
-                variant="danger"
-                size="sm"
-                loading={rechazar.isPending && rechazar.variables === org.id}
-                onClick={() => rechazar.mutate(org.id)}
-              >
-                Rechazar
-              </Button>
-            </>
-          )}
-
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={() => setShowInfoPublica((v) => !v)}
-            style={{ gap: 6 }}
-          >
-            {showInfoPublica ? 'Cerrar' : 'Editar info pública'}
-            {showInfoPublica ? <ArrowUp2 size={14} /> : <ArrowDown2 size={14} />}
-          </Button>
-
-          <Link to={`/organizaciones/${org.id}/legajo`}>
-            <Button type="button" variant="ghost" size="sm">
-              Ver legajo / auditar acreditación
-            </Button>
-          </Link>
-        </div>
-      </div>
-
-      {isErrorForThis && (
-        <Text variant="micro" color="urgent" style={{ display: 'block', textAlign: 'right', marginTop: 4 }}>
-          {mapAsignarReferenteError(asignar.error)}
-        </Text>
-      )}
-      {(aprobar.isError || rechazar.isError) && (
-        <Text variant="micro" color="urgent" style={{ display: 'block', textAlign: 'right', marginTop: 4 }}>
-          {mapInfoPublicaError(aprobar.error ?? rechazar.error)}
-        </Text>
-      )}
-
-      <AnimatePresence initial={false}>
-        {showInfoPublica && (
-          <motion.div
-            key="info-publica"
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.2, ease: 'easeInOut' }}
-            style={{ overflow: 'hidden' }}
-          >
-            <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px dashed var(--line)' }}>
-              <InfoPublicaForm org={org} mode="admin" />
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
-  );
-}
+type Bandeja = 'rev' | 'sin' | 'todas';
+/** A bandeja, or the id of a referente used as a filter. */
+type View = Bandeja | number;
 
 const DEFAULT_PAGE_SIZE = 10;
-/** Max height of each list's scroll area: rows scroll, search and pager stay put. */
-const LIST_SCROLL_STYLE: React.CSSProperties = {
-  maxHeight: 'min(60vh, 560px)',
-  overflowY: 'auto',
-  display: 'flex',
-  flexDirection: 'column',
-  gap: 16,
-  padding: '8px 4px',
-  borderTop: '1px solid var(--line)',
-  borderBottom: '1px solid var(--line)',
-};
-/** The MS caps a page at 100; one page of referentes (<= 50) holds at most 3 organizaciones each. */
-const ORGS_REFERENTES_SIZE = 100;
 const SEARCH_DEBOUNCE_MS = 300;
+/** The MS caps a page at 100: enough referentes for the rail and the assignment dropdowns. */
+const REFERENTES_SIZE = 100;
 
-/** The MS caps a page at 100: enough referentes to fill the reassignment dropdown. */
-const REFERENTES_ACTIVOS_SIZE = 100;
+const ESTADO_DOT: Record<string, string> = {
+  PENDIENTE: 'var(--sky)',
+  APROBADA: 'var(--ok)',
+  RECHAZADA: 'var(--urgent)',
+  SIN_RECLAMAR: 'var(--sun)',
+  INACTIVA: 'var(--gray-tx)',
+};
+
+const BANDEJAS: { id: Bandeja; label: string; dot: string }[] = [
+  { id: 'rev', label: 'Por revisar', dot: 'var(--sky)' },
+  { id: 'sin', label: 'Sin referente', dot: 'var(--urgent)' },
+  { id: 'todas', label: 'Todas', dot: 'var(--sun)' },
+];
+
+const BANDEJA_TITLES: Record<Bandeja, [string, string]> = {
+  rev: ['Por revisar', 'Altas pendientes de validación'],
+  sin: ['Sin referente', 'Seleccioná varias para asignarlas de una vez'],
+  todas: ['Todas las organizaciones', 'Vista completa'],
+};
+
+const initials = (nombre: string) =>
+  nombre.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]?.toUpperCase()).join('');
+
+function Dot({ color }: { color: string }) {
+  return <i aria-hidden="true" style={{ width: 8, height: 8, borderRadius: 99, background: color, display: 'inline-block', flex: 'none' }} />;
+}
+
+interface RailItemProps {
+  current: boolean;
+  onClick: () => void;
+  lead: React.ReactNode;
+  label: string;
+  sub?: string;
+  count?: number;
+}
+
+function RailItem({ current, onClick, lead, label, sub, count }: RailItemProps) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-current={current ? 'page' : undefined}
+      style={{
+        display: 'flex', alignItems: 'center', gap: 10, width: '100%', minHeight: 44, padding: '8px 10px',
+        border: 'none', borderRadius: 10, cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit',
+        fontSize: 'var(--fs-body-sm)', fontWeight: current ? 800 : 600,
+        background: current ? 'var(--card-2)' : 'transparent',
+        color: current ? 'var(--earth)' : 'var(--ink)',
+      }}
+    >
+      {lead}
+      <span style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+        <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{label}</span>
+        {sub && (
+          <span style={{ fontSize: 11.5, fontWeight: 500, color: 'var(--ink-2)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            {sub}
+          </span>
+        )}
+      </span>
+      {count != null && <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--ink-2)' }}>{count}</span>}
+    </button>
+  );
+}
+
+const RAIL_HEADING: React.CSSProperties = {
+  textTransform: 'uppercase', letterSpacing: '.05em', padding: '8px 10px 4px', margin: 0, display: 'block',
+};
 
 export default function ReferentesPage() {
+  const [view, setView] = useState<View>('rev');
   const [page, setPage] = useState(0);
-  const [refInput, setRefInput] = useState('');
-  const [refQ, setRefQ] = useState('');
-  const [sinPage, setSinPage] = useState(0);
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
-  const [sinPageSize, setSinPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [qInput, setQInput] = useState('');
   const [q, setQ] = useState('');
-  const usuariosQuery = useUsuarios({ page, size: pageSize, tipo: 'REFERENTE', q: refQ });
-  // Reassignment dropdown: active referentes regardless of the page/search above.
-  const activosQuery = useUsuarios({ page: 0, size: REFERENTES_ACTIVOS_SIZE, tipo: 'REFERENTE', activo: true });
+  const [refInput, setRefInput] = useState('');
+  const [refQ, setRefQ] = useState('');
+  const [selected, setSelected] = useState<Set<number>>(new Set());
+  const [bulkRef, setBulkRef] = useState('');
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const [notice, setNotice] = useState('');
+  const [open, setOpen] = useState<{ org: OrganizacionAdmin; tab: OrgDrawerTab } | null>(null);
+  const asignar = useAsignarReferente();
 
-  usePageClamp(page, setPage, usuariosQuery.data?.totalPages);
-  const usuariosPage = usuariosQuery.data;
-  const referentes = usuariosPage?.content ?? [];
-  const referentesActivos = activosQuery.data?.content ?? [];
-
-  // Organizaciones of the referentes on this page, in one bounded request.
-  const referenteIds = referentes.map((r) => r.id);
-  const orgsReferentesQuery = useOrganizacionesAdmin(
-    { page: 0, size: ORGS_REFERENTES_SIZE, referenteIds },
-    { enabled: referenteIds.length > 0 },
-  );
-  const orgsPorReferente = new Map<number, OrganizacionAdmin[]>();
-  for (const org of orgsReferentesQuery.data?.content ?? []) {
-    if (org.referenteId == null) continue;
-    const bucket = orgsPorReferente.get(org.referenteId) ?? [];
-    bucket.push(org);
-    orgsPorReferente.set(org.referenteId, bucket);
-  }
-
-  // Debounce the referente search into the server `q` param; back to page 0 when it changes.
+  // Debounce both searches into their server `q` param; back to the first page when it changes.
   useEffect(() => {
-    const handle = setTimeout(() => {
-      setRefQ(refInput.trim());
-      setPage(0);
-    }, SEARCH_DEBOUNCE_MS);
+    const handle = setTimeout(() => { setQ(qInput.trim()); setPage(0); }, SEARCH_DEBOUNCE_MS);
+    return () => clearTimeout(handle);
+  }, [qInput]);
+  useEffect(() => {
+    const handle = setTimeout(() => setRefQ(refInput.trim()), SEARCH_DEBOUNCE_MS);
     return () => clearTimeout(handle);
   }, [refInput]);
 
-  // Same for the organization search of the "Sin referente" card.
-  useEffect(() => {
-    const handle = setTimeout(() => {
-      setQ(qInput.trim());
-      setSinPage(0);
-    }, SEARCH_DEBOUNCE_MS);
-    return () => clearTimeout(handle);
-  }, [qInput]);
+  // Rail: referentes (searchable) and, separately, the active ones for the assignment dropdowns.
+  const railQuery = useUsuarios({ page: 0, size: REFERENTES_SIZE, tipo: 'REFERENTE', q: refQ });
+  const activosQuery = useUsuarios({ page: 0, size: REFERENTES_SIZE, tipo: 'REFERENTE', activo: true });
+  const referentesRail = railQuery.data?.content ?? [];
+  const referentesActivos: Usuario[] = activosQuery.data?.content ?? [];
 
-  const sinQuery = useOrganizacionesAdmin({ page: sinPage, size: sinPageSize, sinReferente: true, q });
-  usePageClamp(sinPage, setSinPage, sinQuery.data?.totalPages);
-  const sinReferente = sinQuery.data?.content ?? [];
+  // Bandeja counts: cheap size=1 queries read for `totalElements` only.
+  const revCount = useOrganizacionesPendientes({ page: 0, size: 1 });
+  const sinCount = useOrganizacionesAdmin({ page: 0, size: 1, sinReferente: true });
+  const todasCount = useOrganizacionesAdmin({ page: 0, size: 1 });
+  const counts: Record<Bandeja, number | undefined> = {
+    rev: revCount.data?.totalElements,
+    sin: sinCount.data?.totalElements,
+    todas: todasCount.data?.totalElements,
+  };
 
-  const isLoading = usuariosQuery.isLoading || (referenteIds.length > 0 && orgsReferentesQuery.isLoading);
-  const isError = usuariosQuery.isError || orgsReferentesQuery.isError;
+  // The table's data source depends on the view; only one of the two queries is enabled.
+  const isRev = view === 'rev';
+  const pendientes = useOrganizacionesPendientes({ page, size: pageSize }, { enabled: isRev });
+  const adminParams = {
+    page,
+    size: pageSize,
+    ...(view === 'sin' ? { sinReferente: true } : {}),
+    ...(typeof view === 'number' ? { referenteIds: [view] } : {}),
+    q,
+  };
+  const admin = useOrganizacionesAdmin(adminParams, { enabled: !isRev });
+  const list = isRev ? pendientes : admin;
+  usePageClamp(page, setPage, list.data?.totalPages);
+  const rows = list.data?.content ?? [];
+
+  function goTo(next: View) {
+    setView(next);
+    setPage(0);
+    setSelected(new Set());
+    setBulkRef('');
+    setNotice('');
+  }
+
+  const [title, subtitle] = typeof view === 'number'
+    ? (() => {
+        const r = [...referentesRail, ...referentesActivos].find((u) => u.id === view);
+        return [r?.nombre ?? 'Referente', r?.email ?? ''];
+      })()
+    : BANDEJA_TITLES[view];
+
+  const allSelected = rows.length > 0 && rows.every((o) => selected.has(o.id));
+
+  function toggleAll() {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      for (const o of rows) {
+        if (allSelected) next.delete(o.id);
+        else next.add(o.id);
+      }
+      return next;
+    });
+  }
+
+  async function applyBulk() {
+    if (!bulkRef) return;
+    const referenteId = bulkRef === UNASSIGNED_VALUE ? null : Number(bulkRef);
+    const ids = [...selected];
+    setBulkBusy(true);
+    setNotice('');
+    const failed = new Set<number>();
+    // No bulk endpoint: one assignment per organization, sequentially so a failure is attributable.
+    for (const organizacionId of ids) {
+      try {
+        await asignar.mutateAsync({ organizacionId, referenteId });
+      } catch {
+        failed.add(organizacionId);
+      }
+    }
+    setBulkBusy(false);
+    setSelected(failed);
+    if (failed.size === 0) setBulkRef('');
+    const done = ids.length - failed.size;
+    setNotice(
+      failed.size === 0
+        ? `${done} ${done === 1 ? 'organización actualizada' : 'organizaciones actualizadas'}`
+        : `${done} de ${ids.length} actualizadas · ${failed.size} fallaron y quedan seleccionadas para reintentar`,
+    );
+  }
+
+  const columns: Column<OrganizacionAdmin>[] = [
+    {
+      key: 'org',
+      header: 'Organización',
+      render: (o) => (
+        <div>
+          <button
+            type="button"
+            onClick={() => setOpen({ org: o, tab: o.infoPublicaPendienteEn != null && isRev ? 'info' : 'asignacion' })}
+            style={{ background: 'none', border: 0, padding: 0, cursor: 'pointer', font: 'inherit', fontWeight: 700, textAlign: 'left', color: 'var(--ink)' }}
+          >
+            {o.nombre}
+          </button>
+          <Text variant="micro" color="ink-3" as="span" style={{ display: 'block', marginTop: 2 }}>
+            {TIPO_ORGANIZACION[o.tipo]?.label ?? o.tipo}{o.direccion ? ` · ${o.direccion}` : ''}
+          </Text>
+        </div>
+      ),
+    },
+    {
+      key: 'referente',
+      header: 'Referente',
+      render: (o) => o.referenteId == null
+        ? <Text variant="body-sm" color="urgent">Sin asignar</Text>
+        : <Text variant="body-sm">{o.referenteNombre ?? referentesRail.find((r) => r.id === o.referenteId)?.nombre ?? `#${o.referenteId}`}</Text>,
+    },
+    {
+      key: 'estado',
+      header: 'Estado',
+      render: (o) => (
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap' }}>
+          <Dot color={ESTADO_DOT[o.estado] ?? 'var(--gray-tx)'} />
+          <Text variant="body-sm" as="span" style={{ fontWeight: 700 }}>{(ESTADO_ORGANIZACION[o.estado] ?? { label: o.estado }).label}</Text>
+          {o.infoPublicaPendienteEn != null && <Badge tone="sky" label="Info pública" />}
+        </span>
+      ),
+    },
+  ];
+
+  const bulkBar = selected.size > 0 && (
+    <div
+      role="region"
+      aria-label="Acciones masivas"
+      style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 10, padding: '10px 20px', background: 'var(--earth)', color: '#fff' }}
+    >
+      <strong style={{ flex: '1 1 180px', fontSize: 'var(--fs-body-sm)' }}>
+        {selected.size} {selected.size === 1 ? 'organización seleccionada' : 'organizaciones seleccionadas'}
+      </strong>
+      <Dropdown
+        value={bulkRef}
+        disabled={bulkBusy}
+        placeholder="Asignar a…"
+        onChange={setBulkRef}
+        options={[
+          ...referentesActivos.map((r) => ({ value: String(r.id), label: `${r.nombre} (${r.email})` })),
+          { value: UNASSIGNED_VALUE, label: 'Quitar referente' },
+        ]}
+      />
+      <Button type="button" variant="secondary" size="sm" loading={bulkBusy} disabled={!bulkRef || bulkBusy}
+        onClick={() => { void applyBulk(); }}>
+        Aplicar
+      </Button>
+      <Button type="button" variant="ghost" size="sm" disabled={bulkBusy}
+        style={{ color: '#fff', textDecoration: 'underline' }}
+        onClick={() => { setSelected(new Set()); setBulkRef(''); }}>
+        Quitar selección
+      </Button>
+    </div>
+  );
 
   return (
     <div>
       <PageHeader
         title="Referentes y organizaciones"
-        description="Reasigná una organización a otro referente activo, o dejala sin referente."
+        description="Revisá solicitudes, asigná referentes y mantené al día la info pública de cada organización."
       />
 
-      <div style={{ maxWidth: 360, marginBottom: 16 }}>
-        <Input
-          type="search"
-          value={refInput}
-          onChange={(e) => setRefInput(e.target.value)}
-          placeholder="Buscar referente por nombre o email"
-          aria-label="Buscar referente"
-        />
-      </div>
-
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-        <AsyncSection
-          isLoading={isLoading}
-          isError={isError}
-          // With an active search keep the section on screen so the empty-result message can show.
-          isEmpty={referentes.length === 0 && !refQ}
-          emptyLabel="No hay referentes"
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 20, alignItems: 'flex-start' }}>
+        <nav
+          aria-label="Bandejas y referentes"
+          style={{
+            flex: '1 1 240px', maxWidth: 280, boxSizing: 'border-box', padding: 10, display: 'flex', flexDirection: 'column',
+            gap: 2, background: 'var(--card)', border: '1px solid var(--line)', borderRadius: 'var(--r-card)',
+          }}
         >
-          <div style={LIST_SCROLL_STYLE}>
-          {referentes.length === 0 && refQ && (
-            <Text variant="body-sm" color="ink-2">
-              Ningún referente coincide con la búsqueda — probá con otra.
-            </Text>
-          )}
-          {referentes.map((referente) => {
-            const misOrgs = orgsPorReferente.get(referente.id) ?? [];
-            return (
-              <Card key={referente.id} style={{ padding: 20 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
-                  <Text variant="title">{referente.nombre}</Text>
-                  <Text variant="body-sm" color="ink-3">{referente.email}</Text>
-                  {!referente.activo && <Badge tone="neutral" label="Inactivo" />}
-                </div>
-
-                {misOrgs.length === 0 ? (
-                  <Text variant="body-sm" color="ink-3">No maneja ninguna organización.</Text>
-                ) : (
-                  misOrgs.map((org) => (
-                    <OrgRow key={org.id} org={org} referentesActivos={referentesActivos} />
-                  ))
-                )}
-              </Card>
-            );
-          })}
-          </div>
-        </AsyncSection>
-
-        {usuariosPage && (
-          <Pager
-            page={usuariosPage}
-            onPageChange={setPage}
-            disabled={usuariosQuery.isFetching}
-            pageSize={pageSize}
-            onPageSizeChange={(size) => {
-              setPageSize(size);
-              setPage(0);
-            }}
-          />
-        )}
-
-        <Card style={{ padding: 20, border: '1.5px dashed var(--line)' }}>
-          <Text variant="title" color="urgent" style={{ marginBottom: 8 }}>
-            Sin referente{sinQuery.data ? ` (${sinQuery.data.totalElements})` : ''}
-          </Text>
-          <div style={{ maxWidth: 360, marginBottom: 8 }}>
+          <Text variant="caption" color="ink-2" style={RAIL_HEADING}>Bandejas</Text>
+          {BANDEJAS.map((b) => (
+            <RailItem
+              key={b.id}
+              current={view === b.id}
+              onClick={() => goTo(b.id)}
+              lead={<Dot color={b.dot} />}
+              label={b.label}
+              count={counts[b.id]}
+            />
+          ))}
+          <div style={{ height: 1, background: 'var(--line)', margin: '8px 6px' }} />
+          <Text variant="caption" color="ink-2" style={RAIL_HEADING}>Referentes</Text>
+          <div style={{ padding: '0 4px 6px' }}>
             <Input
               type="search"
-              value={qInput}
-              onChange={(e) => setQInput(e.target.value)}
-              placeholder="Buscar organización por nombre"
-              aria-label="Buscar organización sin referente"
+              value={refInput}
+              onChange={(e) => setRefInput(e.target.value)}
+              placeholder="Buscar referente"
+              aria-label="Buscar referente"
             />
           </div>
-          <AsyncSection
-            isLoading={sinQuery.isLoading}
-            isError={sinQuery.isError}
-            isEmpty={sinReferente.length === 0}
-            emptyLabel={q ? 'Ninguna organización coincide con la búsqueda' : 'No hay organizaciones sin referente'}
-          >
-            <div style={LIST_SCROLL_STYLE}>
-              {sinReferente.map((org) => (
-                <OrgRow key={org.id} org={org} referentesActivos={referentesActivos} />
-              ))}
-            </div>
-            {sinQuery.data && (
-              <Pager
-                page={sinQuery.data}
-                onPageChange={setSinPage}
-                disabled={sinQuery.isFetching}
-                pageSize={sinPageSize}
-                onPageSizeChange={(size) => {
-                  setSinPageSize(size);
-                  setSinPage(0);
-                }}
+          {railQuery.isError && <Text variant="body-sm" color="urgent" style={{ padding: '0 10px' }}>No se pudieron cargar los referentes.</Text>}
+          {!railQuery.isLoading && !railQuery.isError && referentesRail.length === 0 && (
+            <Text variant="body-sm" color="ink-3" style={{ padding: '0 10px' }}>
+              {refQ ? 'Ningún referente coincide con la búsqueda.' : 'No hay referentes.'}
+            </Text>
+          )}
+          <div style={{ maxHeight: 'min(50vh, 440px)', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 2 }}>
+            {referentesRail.map((r) => (
+              <RailItem
+                key={r.id}
+                current={view === r.id}
+                onClick={() => goTo(r.id)}
+                lead={(
+                  <span
+                    aria-hidden="true"
+                    style={{
+                      width: 28, height: 28, flex: 'none', borderRadius: 99, background: 'var(--horn)', color: '#fff',
+                      display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700,
+                    }}
+                  >
+                    {initials(r.nombre)}
+                  </span>
+                )}
+                label={r.nombre}
+                sub={r.activo ? r.email : `${r.email} · Inactivo`}
               />
-            )}
-          </AsyncSection>
-        </Card>
+            ))}
+          </div>
+        </nav>
+
+        <section style={{ flex: '999 1 640px', minWidth: 0 }}>
+          <div style={{ marginBottom: 12 }}>
+            <Text variant="h3" as="h2">{title}</Text>
+            {subtitle && <Text variant="body-sm" color="ink-3" style={{ display: 'block' }}>{subtitle}</Text>}
+          </div>
+          {notice && <Text variant="body-sm" color="ink-2" role="status" style={{ display: 'block', marginBottom: 8 }}>{notice}</Text>}
+
+          <PaginatedTable
+            columns={columns}
+            rows={rows}
+            rowKey={(o) => o.id}
+            isLoading={list.isLoading}
+            isError={list.isError}
+            onRetry={() => { void list.refetch(); }}
+            emptyLabel={q ? 'No hay organizaciones que coincidan con la búsqueda.' : 'No hay organizaciones en esta bandeja.'}
+            page={list.data ?? { number: 0, size: pageSize, totalElements: 0, totalPages: 0 }}
+            onPageChange={setPage}
+            isFetching={list.isFetching}
+            // The pendientes endpoint has no name filter, so the search only exists on the other views.
+            search={isRev ? undefined : { value: qInput, onChange: setQInput, placeholder: 'Buscar por nombre o barrio' }}
+            onRowClick={(o) => setOpen({ org: o, tab: o.infoPublicaPendienteEn != null && isRev ? 'info' : 'asignacion' })}
+            selectedKey={open?.org.id}
+            pageSize={pageSize}
+            onPageSizeChange={(n) => { setPageSize(n); setPage(0); }}
+            selection={{
+              isSelected: (o) => selected.has(o.id),
+              onToggle: (o) => setSelected((prev) => {
+                const next = new Set(prev);
+                if (next.has(o.id)) next.delete(o.id);
+                else next.add(o.id);
+                return next;
+              }),
+              onToggleAll: toggleAll,
+              allSelected,
+              selectAllLabel: 'Seleccionar página',
+              rowLabel: (o) => `Seleccionar ${o.nombre}`,
+            }}
+            banner={bulkBar || undefined}
+          />
+        </section>
       </div>
+
+      {open && (
+        <OrgReferenteDrawer
+          key={open.org.id}
+          org={open.org}
+          initialTab={open.tab}
+          referentesActivos={referentesActivos}
+          onClose={() => setOpen(null)}
+          onOrgChange={(org) => setOpen((cur) => (cur ? { ...cur, org } : cur))}
+        />
+      )}
     </div>
   );
 }

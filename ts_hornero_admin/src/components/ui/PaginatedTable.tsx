@@ -56,6 +56,20 @@ export interface PaginatedTableProps<T> {
   pageSize?: number;
   pageSizeOptions?: number[];
   onPageSizeChange?: (size: number) => void;
+  /**
+   * Adds a leading checkbox column (plus a select-all-on-page header checkbox). Callers own the
+   * selection; `selectAllLabel` / `rowLabel` feed the checkboxes' accessible names.
+   */
+  selection?: {
+    isSelected: (row: T) => boolean;
+    onToggle: (row: T) => void;
+    onToggleAll: () => void;
+    allSelected: boolean;
+    selectAllLabel?: string;
+    rowLabel?: (row: T) => string;
+  };
+  /** Rendered between the toolbar and the table (e.g. a bulk-actions bar). */
+  banner?: ReactNode;
 }
 
 /** Interactive descendants handle their own clicks; the row handler must ignore them. */
@@ -108,11 +122,13 @@ export function PaginatedTable<T>({
   pageSize,
   pageSizeOptions,
   onPageSizeChange,
+  selection,
+  banner,
 }: PaginatedTableProps<T>) {
   const hasToolbar = Boolean(search) || Boolean(toolbar);
   const [hoveredKey, setHoveredKey] = useState<string | number | null>(null);
   const trailingCols = (rowActions ? 1 : 0) + (onRowClick ? 1 : 0);
-  const colCount = columns.length + trailingCols;
+  const colCount = columns.length + trailingCols + (selection ? 1 : 0);
   const refetching = Boolean(isFetching) && !isLoading;
 
   return (
@@ -151,6 +167,7 @@ export function PaginatedTable<T>({
             </Text>
           </div>
         )}
+        {banner}
         <div
           aria-busy={isLoading || refetching ? true : undefined}
           style={{ maxHeight: 'min(60vh, 560px)', overflow: 'auto' }}
@@ -165,6 +182,18 @@ export function PaginatedTable<T>({
         >
           <thead>
             <tr>
+              {selection && (
+                <th style={{ ...HEAD_STYLE, width: 28 }}>
+                  <input
+                    type="checkbox"
+                    checked={selection.allSelected}
+                    onChange={selection.onToggleAll}
+                    aria-label={selection.selectAllLabel ?? 'Seleccionar página'}
+                    disabled={isLoading || rows.length === 0}
+                    style={{ width: 18, height: 18, accentColor: 'var(--horn)', cursor: 'pointer' }}
+                  />
+                </th>
+              )}
               {columns.map((col) => (
                 <th
                   key={col.key}
@@ -247,6 +276,17 @@ export function PaginatedTable<T>({
                         ...rowStyle?.(row),
                       }}
                     >
+                      {selection && (
+                        <td style={{ padding: CELL_PADDING, width: 28 }}>
+                          <input
+                            type="checkbox"
+                            checked={selection.isSelected(row)}
+                            onChange={() => selection.onToggle(row)}
+                            aria-label={selection.rowLabel?.(row) ?? 'Seleccionar fila'}
+                            style={{ width: 18, height: 18, accentColor: 'var(--horn)', cursor: 'pointer' }}
+                          />
+                        </td>
+                      )}
                       {columns.map((col) => (
                         <td key={col.key} style={{ padding: CELL_PADDING, textAlign: col.align ?? 'left' }}>
                           {col.render(row)}
@@ -266,7 +306,7 @@ export function PaginatedTable<T>({
                     {isExpanded && (
                       <tr style={{ borderBottom: '1px solid var(--line)' }}>
                         <td
-                          colSpan={columns.length + trailingCols}
+                          colSpan={colCount}
                           style={{ padding: CELL_PADDING, background: 'var(--card-2, #f7f3ec)' }}
                         >
                           {renderRowDetail?.(row)}
