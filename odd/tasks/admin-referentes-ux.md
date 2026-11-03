@@ -21,7 +21,7 @@ Out of scope: uncommitted user changes in router/dashboard/login/needs/pending-v
 
 ## Tasks
 - [x] T1 Pager page-size selector (10/25/50) + scrollable list container in referentes.tsx — route: delegated (writer, 2+ files)
-- [ ] T2 Select styling fix for "Tipo de organizacion" — route: delegated (same writer)
+- [x] T2 Select styling fix for "Tipo de organizacion" — route: delegated (same writer)
 - [ ] T3 Stepper component + ImageDropZone minHeight fix — route: delegated (same writer)
 
 ## Acceptance
@@ -33,7 +33,8 @@ Out of scope: uncommitted user changes in router/dashboard/login/needs/pending-v
 
 ## Progress / evidence
 - T1 done: Dropdown panel now portaled to body (fixed coords, flips up near viewport bottom, recomputed on scroll/resize); Pager size selector (Dropdown-based, 10/25/50); referentes lists in bounded scroll containers, default size 10. Checks: npm test 628 passed; npm run lint 0 errors (3 warnings in coverage/); npm run build ok. Commit: T1_HASH
-(pending T2, T3)
+- T2 done: ui/Select.tsx atom (appearance none + ArrowDown2 chevron), used for Tipo de organizacion in register.tsx. Checks: npm test 630 passed; lint 0 errors; build ok. Commit: T2_HASH
+(pending T3)
 
 ## Next step
 Run writer for T1-T3.
