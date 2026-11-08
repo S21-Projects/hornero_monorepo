@@ -48,10 +48,12 @@ public interface NecesidadRepository extends JpaRepository<Necesidad, Long> {
      * {@code LEFT JOIN FETCH n.articulos} avoids an N+1 against {@code necesidad_articulos} when
      * {@code EntradaRondaFactory} walks each candidate's articulo ids inside the same read
      * transaction (feature catalogo-articulos); {@code DISTINCT} dedupes the parent row fan-out
-     * from that one-to-many fetch.
+     * from that one-to-many fetch. RN-05: ordered oldest published first, then lower id, so the
+     * worker input never depends on the database's physical row order.
      */
     @Query("SELECT DISTINCT n FROM Necesidad n JOIN FETCH n.organizacion o LEFT JOIN FETCH o.referente "
-            + "LEFT JOIN FETCH n.articulos WHERE n.estado IN :estados")
+            + "LEFT JOIN FETCH n.articulos WHERE n.estado IN :estados "
+            + "ORDER BY n.fechaPublicacion ASC NULLS LAST, n.id ASC")
     List<Necesidad> findByEstadoInWithOrganizacion(@Param("estados") Collection<EstadoNecesidad> estados);
 
     /**

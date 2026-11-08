@@ -99,7 +99,24 @@ Esa prueba solo demuestra repetibilidad con el mismo orden de entrada. Se hizo a
 | 30 semillas, 60 por 60, todas las necesidades y donaciones idénticas (empates exactos de puntaje) | Los pares difieren en las 30 semillas al barajar. |
 | Mínimo: 2 donaciones y 2 necesidades idénticas, ids 1 y 2 y 10 y 11 | Orden original: (1 con 10, 2 con 11). Mismas donaciones, necesidades invertidas: (1 con 11, 2 con 10). |
 
-Conclusión: la afirmación "misma entrada, misma salida" vale solo si se fija también el orden de las listas. Cuando hay empates exactos, el resultado depende del orden de las necesidades recibidas, porque el código no define un orden total para desempatar. Es una brecha conocida respecto de RNF16 en su redacción general ("con los mismos datos de entrada"); se deriva a la tarea D3. No se escribió una prueba que falle ni se modificó código de producción. Coincide con la observación de RN-05 en `docs/tfg/reglas-negocio.md`: el orden de las filas que devuelve la base de datos puede influir en los empates.
+Conclusión de ese experimento (antes de la tarea D3): la afirmación "misma entrada, misma salida" valía solo si se fijaba también el orden de las listas, porque el código no definía un orden total para desempatar.
+
+### Estado después de la tarea D3
+
+Se implementó el desempate de RN-05 (mayor puntaje, necesidad abierta hace más tiempo, menor id; detalle en `docs/tfg/reglas-negocio.md`, RN-05) y se agregaron pruebas en `go_algorithms_worker/internal/assign/desempate_test.go`:
+
+| Prueba | Qué verifica | Rojo observado antes de implementar |
+|---|---|---|
+| `TestRondaEsDeterministaConEmpatesExactos` | 40 semillas, 2 a 8 donaciones y necesidades con empates exactos; 8 barajados por semilla; el `Resultado` completo es idéntico (`reflect.DeepEqual`) | Falló en la semilla 1, primer barajado |
+| `TestDesempateAntiguedadLuegoID` | Con puntaje igual gana la necesidad abierta más tiempo y luego el menor id, en las 6 permutaciones de entrada | Falló: eligió la necesidad 30 en lugar de la 20 |
+| `TestDesempateElPuntajeMayorPrevalece` | Un puntaje estrictamente mayor gana aunque la necesidad sea nueva | Pasa (no hay rojo: es el comportamiento previo que debe conservarse) |
+| `TestDesempateEntreDonacionesGanaElMenorID` | Dos donaciones idénticas por una necesidad: se asigna la de menor id | Falló: se asignó la donación 7 |
+| `TestDesempateEmparejaMenorIDConLaMasAntigua` | Con todo empatado, la donación de menor id recibe la necesidad más antigua | Falló: la donación 1 recibió la 50 en lugar de la 40 (con una primera versión del criterio secundario; se corrigió el tercer nivel) |
+| `TestHungarianLexMinimizaElDesempateEntreOptimos` | 400 matrices pequeñas con costos enteros repetidos: el resultado coincide con el mínimo lexicográfico por fuerza bruta | Falló en el caso 2 con el solver sin criterio secundario |
+
+Una verificación de sensibilidad: si en `Ronda` se anula el criterio secundario (se pasa `nil`), solo falla `TestDesempateEntreDonacionesGanaElMenorID`; el resto pasa porque el orden canónico ya produce ese resultado en esos casos. Por eso la regla enunciada se prueba contra fuerza bruta a nivel del solver y no solo con casos de `Ronda`.
+
+Alcance de la afirmación: el determinismo se verifica para el worker (`assign.Ronda`) con entradas barajadas y empates exactos de puntaje. Del lado del MS solo se verifica que las dos consultas aplican `ORDER BY` sobre H2. No se midió de punta a punta contra PostgreSQL, y dos puntajes que difieren en el último bit de punto flotante no son un empate.
 
 ## E.6 Rendimiento (RNF18)
 
@@ -114,7 +131,9 @@ Comando: `go test -bench=Ronda500x500 -benchtime=5x -run=^$ ./internal/assign/`
 | 3 | 124,3 ms | 10,9 MB | 2020 |
 | 4 | 122,0 ms | 10,9 MB | 2020 |
 
-Máquina: la del autor, una Mac con Apple M3 Pro (`machdep.cpu.brand_string`), 12 hilos lógicos y 38 654 705 664 bytes (36 GiB) de memoria (`hw.memsize`). **No es la Raspberry Pi** de producción. El límite de 30 segundos de RNF18 está holgadamente cumplido en esta máquina (unos 0,12 s), pero **no está probado en la Raspberry Pi**; extrapolar a ese equipo requiere medirlo allí.
+Esas cuatro corridas son anteriores al desempate de RN-05. Después de implementarlo (orden canónico y criterio secundario en el solver), tres corridas con el mismo comando dieron 210,7 ms, 210,8 ms y 210,1 ms, con 35,7 MB y 2532 a 2533 asignaciones de memoria por ronda, en la misma máquina.
+
+Máquina: la del autor, una Mac con Apple M3 Pro (`machdep.cpu.brand_string`), 12 hilos lógicos y 38 654 705 664 bytes (36 GiB) de memoria (`hw.memsize`). **No es la Raspberry Pi** de producción. El límite de 30 segundos de RNF18 está holgadamente cumplido en esta máquina (unos 0,21 s con el desempate; 0,12 s antes), pero **no está probado en la Raspberry Pi**; extrapolar a ese equipo requiere medirlo allí.
 
 El worker limita las entradas a 500 donaciones y 500 candidatos: `limiteItems = 500` en `go_algorithms_worker/internal/contrato/ronda_v1.go`, aplicado en `Validar`, con la prueba `TestValidarLimiteExacto500NoFalla`. Una ronda mayor se rechaza con error de contrato. El plazo de 30 segundos corresponde a la espera del MS por la llamada al worker, no a un límite dentro del worker; no se midió el recorrido completo (MS, red y base de datos).
 

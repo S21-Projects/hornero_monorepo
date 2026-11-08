@@ -232,12 +232,17 @@ Elegibilidad previa a la ronda, en el microservicio (`MS/asignacion/RondaService
 
 "Necesidad ya cubierta": no hay una restricción dura específica. Cada necesidad es una columna que recibe como máximo una donación por ronda (ver RN-06), y las necesidades `CUMPLIDA` o `VENCIDA` quedan fuera por el filtro de estado.
 
-Desempate: no existe un desempate explícito por "necesidad abierta más antigua y luego id menor".
+Desempate (implementado en la entrega 4; antes no existía): el orden de preferencia es mayor puntaje, luego necesidad abierta hace más tiempo, luego menor id, y el resultado no depende del orden de entrada.
 
-- El solver usa comparaciones estrictas `<` (`GO/assign/hungarian.go:68,72`), por lo que ante costos iguales gana la columna de menor índice, es decir, el orden de entrada.
-- El orden de entrada de candidatas y donaciones lo da la base de datos: la consulta de candidatas no tiene `ORDER BY` (`MS/domain/NecesidadRepository.java:53-55`) y la del fondo común tampoco (`MS/domain/DonacionRepository.java:28-31`).
-- El orden de salida se ordena por puntaje descendente con `sort.Slice` (no estable) (`GO/assign/ronda.go:95-97`).
-- Existe una prueba de determinismo de la penalización por espera (`GO/assign/ronda_test.go:307`), pero el código no fija un orden total para empates exactos.
+- Insumo nuevo: `diasAbierta`, los días desde `fechaPublicacion` de la necesidad, acotado en 0 si falta o es futura (`MS/asignacion/EntradaRondaFactory.java:77-79`). Viaja en el contrato v1 como campo opcional (`GO/contrato/ronda_v1.go:75`; validación `>= 0` en `:178-179`; mapeo en `:312`; `GO/assign/scoring.go:49-52`). No entra en el puntaje. La granularidad es de días: dos necesidades publicadas el mismo día se desempatan por id.
+- Orden canónico antes de resolver: donaciones por id ascendente y necesidades por `diasAbierta` descendente y luego id ascendente (`GO/assign/ronda.go:59-61,121-139`).
+- Criterio secundario lexicográfico dentro del solver (`GO/assign/hungarian.go:61-76`, `GO/assign/ronda.go:154-171`). Solo se compara cuando el costo primario (el puntaje total) es exactamente igual. Tres niveles: (1) usar primero las necesidades de mejor rango (más antiguas, luego menor id); (2) si no alcanzan para todas, asignar las donaciones de menor id; (3) emparejar las donaciones de menor id con las necesidades de mejor rango. Los niveles son enteros exactos, de modo que la comparación no depende del redondeo de punto flotante.
+- Los puntajes guardados y el costo de oportunidad no se alteran: el total que devuelve el solver es solo el costo primario (`GO/assign/hungarian.go:171-175`).
+- Orden de salida: puntaje descendente, luego rango de la necesidad, luego id de la donación (`GO/assign/ronda.go:101-119`); `SinAsignar` sale por id ascendente.
+- Consultas del MS con orden fijo: candidatas por `fechaPublicacion` ascendente con nulos al final y luego id (`MS/domain/NecesidadRepository.java:54-56`); fondo común por id (`MS/domain/DonacionRepository.java:29-31`). Con el orden canónico del worker esto ya no condiciona el resultado, pero evita que la entrada dependa del orden físico de PostgreSQL.
+- Pruebas: `TestDesempateAntiguedadLuegoID`, `TestDesempateElPuntajeMayorPrevalece`, `TestDesempateEntreDonacionesGanaElMenorID`, `TestDesempateEmparejaMenorIDConLaMasAntigua` y `TestRondaEsDeterministaConEmpatesExactos` (40 semillas, 8 barajados cada una, comparación completa del resultado) en `GO/assign/desempate_test.go`. La regla secundaria se verifica contra fuerza bruta en `TestHungarianLexMinimizaElDesempateEntreOptimos` (400 matrices con empates frecuentes). Un orden canónico por sí solo demuestra determinismo pero no la regla enunciada; por eso la regla está dentro del solver y se prueba contra el óptimo lexicográfico. Del lado del MS: `EntradaRondaFactoryTest` (dos casos de `diasAbierta`) y `RondaConsultasOrdenIntegrationTest` (sobre H2: prueba que se aplica el `ORDER BY`, no el orden físico de PostgreSQL; en el fondo común el orden natural de H2 ya coincide con el id, por lo que esa consulta no tuvo prueba en rojo).
+- Costo medido: `BenchmarkRonda500x500` pasó de 119-129 ms a 210 ms por ronda y de 10,9 MB a 35,7 MB (Apple M3 Pro, no la Raspberry Pi).
+- Límite del criterio: si dos matchings coinciden en puntaje total y en los tres niveles, el resultado sigue dependiendo del orden canónico, que es determinista. Dos matchings con puntajes totales iguales en la matemática pero distintos en el último bit de punto flotante no se consideran empate.
 
 Costo de oportunidad guardado: `mejorScore(fila de la donación, solo columnas reales) - puntaje asignado`, donde `mejorScore` toma el mayor puntaje de esa donación ignorando a las demás (`GO/assign/ronda.go:89,137-145`). El piso es 0. Se persiste en `Asignacion.costoOportunidad` (`MS/domain/Asignacion.java:73-74`; `MS/asignacion/RondaService.java:353`), junto con puntaje, distancia, los cinco términos, `deficitFuente` y `codigoRadio` (`MS/domain/Asignacion.java:79-101`; `MS/asignacion/RondaService.java:352-364`).
 
@@ -258,7 +263,7 @@ Borrador: `S(d,n)= wV V + wU U + wP P + wE E + wH H` con pesos que suman 1.
 | Restricción: organización N0 o rechazada | Sí | N0 se filtra antes de la ronda (`RondaService.java:261-263`). "Rechazada" como organización no se filtra aquí; lo que se excluye es la organización que rechazó esa donación |
 | Restricción: distancia mayor a X km | X por definir | X = 30 km |
 | Restricción: necesidad ya cubierta | Sí | No hay restricción propia (ver arriba) |
-| Desempate por necesidad más antigua y luego id | Sí | No existe (ver arriba) |
+| Desempate por necesidad más antigua y luego id | Sí | Sí (desde la entrega 4): mayor puntaje, necesidad abierta hace más tiempo, menor id. "Más antigua" se mide en días desde `fechaPublicacion`, no desde la fecha de apertura exacta; el último criterio se aplica además a las donaciones |
 | Costo de oportunidad | Mejor alternativa descartada menos asignado | Mejor puntaje propio de la donación (ignorando a las demás) menos el asignado |
 
 ---
@@ -485,4 +490,4 @@ Se leyeron ambos documentos. Los identificadores se repiten con significados dis
 
 Consecuencia para las referencias de la sección A1 del encargo: "RNF14 (invariante evento-nivel)" corresponde a RNF-14/RNF-15 de `documento.md`; "RNF16 (determinismo)" y "RNF18 (límites)" corresponden a la numeración de `correcciones-requerimientos.md`. Hay que unificar la numeración antes de citar identificadores en el documento final.
 
-Observación sobre RNF16 (determinismo), porque se cita arriba: ver RN-05, sección de desempate. El código no fija un orden total para empates exactos, por lo que la afirmación "misma entrada, misma asignación" depende del orden en que la base devuelve las filas.
+Observación sobre RNF16 (determinismo), porque se cita arriba: ver RN-05, sección de desempate. Desde la entrega 4 el worker fija un orden total para los empates exactos de puntaje, por lo que "los mismos datos en cualquier orden dan la misma asignación" está verificado por prueba para el solver y el contrato. No está verificado de punta a punta contra PostgreSQL ni en la Raspberry Pi.

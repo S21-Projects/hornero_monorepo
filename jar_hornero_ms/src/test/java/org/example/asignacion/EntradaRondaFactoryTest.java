@@ -98,6 +98,33 @@ class EntradaRondaFactoryTest {
         assertThat(entrada.getCandidatos().get(0).getCumplimiento()).isNull();
     }
 
+    // ─── RN-05: tie-break key ───────────────────────────────────────────────────────────────────
+
+    @Test
+    void candidate_diasAbiertaCountsDaysSincePublication() {
+        Necesidad necesidad = necesidad(40L, organizacion(8L));
+        necesidad.setFechaPublicacion(LocalDate.of(2026, 10, 1));
+        when(cumplimientoCalculator.calcular()).thenReturn(Map.of());
+
+        EntradaRondaV1 entrada = entradaRondaFactory.crear(
+                List.of(), List.of(necesidad), Map.of(), Map.of(), LocalDate.of(2026, 10, 11));
+
+        assertThat(entrada.getCandidatos().get(0).getDiasAbierta()).isEqualTo(10);
+    }
+
+    @Test
+    void candidate_diasAbiertaIsZeroWhenUnknownOrInTheFuture() {
+        Necesidad sinFecha = necesidad(40L, organizacion(8L));
+        Necesidad futura = necesidad(41L, organizacion(9L));
+        futura.setFechaPublicacion(LocalDate.of(2026, 10, 12));
+        when(cumplimientoCalculator.calcular()).thenReturn(Map.of());
+
+        EntradaRondaV1 entrada = entradaRondaFactory.crear(
+                List.of(), List.of(sinFecha, futura), Map.of(), Map.of(), LocalDate.of(2026, 10, 11));
+
+        assertThat(entrada.getCandidatos()).extracting(c -> c.getDiasAbierta()).containsExactly(0, 0);
+    }
+
     // ─── rondas-datos-vivos: live vulnerability per radio ───────────────────────────────────────
 
     @Test
