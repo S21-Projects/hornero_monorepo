@@ -824,6 +824,23 @@ class DonacionServiceTest {
     }
 
     @Test
+    void overrideEstado_recordsTheAdministratorExplicitlyInTheActivityEntry() {
+        Donacion d = donacionFor(1L, miOrganizacion);
+        d.setEstado(EstadoDonacion.PENDIENTE_CONFIRMACION);
+        when(donacionRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(d));
+        when(donacionRepository.save(any(Donacion.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        donacionService.overrideEstado(1L, EstadoDonacion.ENTREGADA, "Entrega verificada por soporte", 99L);
+
+        org.mockito.ArgumentCaptor<ActividadService.Registro> captor =
+                org.mockito.ArgumentCaptor.forClass(ActividadService.Registro.class);
+        verify(actividadService).registrar(captor.capture());
+        // The actor must not depend on a SecurityContext being populated when the entry is built.
+        assertThat(captor.getValue().actorId()).isEqualTo(99L);
+        assertThat(captor.getValue().actorTipo()).isEqualTo(org.example.actividad.TipoActor.ADMINISTRADOR);
+    }
+
+    @Test
     void overrideEstado_entregada_neverFabricatesConfirmationTimestamps() {
         Donacion d = donacionFor(1L, miOrganizacion);
         d.setEstado(EstadoDonacion.PENDIENTE_CONFIRMACION);
