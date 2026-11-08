@@ -1,6 +1,6 @@
 # Resumen final de la Entrega 4
 
-Rama `tfg/entrega-4`. Código evaluado en las corridas finales: commit `b1419c2` para microservicio, BFF y panel, y `08ead82` para Go y e2e (los commits posteriores solo tocan documentación). Fecha: 2026-11-08. Nada de esto está desplegado ni se hizo push.
+Rama `tfg/entrega-4`. Código evaluado en las corridas finales: commit `b1419c2` para microservicio, BFF y panel, y `57185bc` (HEAD) para Go y e2e (los commits posteriores a `b1419c2` solo tocan documentación). Fecha: 2026-11-08. Nada de esto está desplegado ni se hizo push.
 
 Convenciones: "ya existía" es lo que el código tenía antes de la tarea; "implementado" es lo agregado en esta rama; "no aplica" es lo que el encargo o el borrador suponían y no existe en el proyecto; "pendiente del autor" requiere una decisión o una acción en la Raspberry Pi o en Cloudflare. Los commits están en `git log ca681d6..HEAD`; el seguimiento por tarea está en `odd/tasks/tfg-entrega-4.md`.
 
@@ -77,7 +77,7 @@ Contraseñas: BCrypt costo 12, rechazo de más de 72 bytes. El acceso vale 15 mi
 | Respaldo remoto | Tres prefijos (`daily/`, `weekly/`, `monthly/`). Retención objetivo 7/4/6 mediante reglas de R2 que **no están creadas**: la crea el autor |
 | CSP | BFF: aplicada. Astro y panel: solo reporte salvo `CSP_MODE=enforce` |
 
-### Conteos de pruebas (corrida final, commit `b1419c2`; Go y e2e de `08ead82`)
+### Conteos de pruebas (corrida final, commit `b1419c2`; Go y e2e de `57185bc`)
 
 | Módulo | Pruebas | Pasadas | Fallidas | Omitidas | Cobertura de líneas |
 |---|---|---|---|---|---|
@@ -85,10 +85,10 @@ Contraseñas: BCrypt costo 12, rechazo de más de 72 bytes. El acceso vale 15 mi
 | BFF (`npx jest --coverage`) | 480 | 480 | 0 | 0 | 96,79 % |
 | Panel (`npx vitest run --coverage`) | 707 | 707 | 0 | 0 | 86,63 % |
 | Worker Go (`go test -json`) | 142 con subpruebas | 141 | 0 | 1 | por paquete, 2,5 % a 96,8 % |
-| e2e (`make e2e`) | 151 | 151 | 0 | 0 | no aplica (D4 agregó una aserción en `14-acreditacion`, no ejecutada contra una pila) |
+| e2e (`make e2e`) | 152 | 152 | 0 | 0 | no aplica |
 | Astro | sin pruebas; `npm run build` compila | | | | |
 
-Panel: `npm run build` compila y `npm run lint` da 0 errores y 3 advertencias. Benchmark `Ronda500x500`: 217,9 ms por ronda en Apple M3 Pro (no en la Raspberry Pi). Total de pruebas automatizadas del documento: 1276 + 480 + 707 + 142 = 2605 (más 151 e2e), con las salvedades de las omitidas y de contar subpruebas de Go.
+Panel: `npm run build` compila y `npm run lint` da 0 errores y 3 advertencias. Benchmark `Ronda500x500`: 217,9 ms por ronda en Apple M3 Pro (no en la Raspberry Pi). Total de pruebas automatizadas del documento: 1276 + 480 + 707 + 142 = 2605 (más 152 e2e), con las salvedades de las omitidas y de contar subpruebas de Go.
 
 ### Valores no medidos
 
