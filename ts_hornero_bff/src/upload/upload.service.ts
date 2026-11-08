@@ -70,7 +70,7 @@ export class UploadService {
     if (!detected) {
       throw new BadRequestException(
         allowPdf
-          ? 'File content does not match an allowed type (jpeg, png, webp, or pdf)'
+          ? 'File content does not match an allowed type (jpeg, png, or pdf)'
           : 'File content does not match an allowed image type (jpeg, png, or webp)',
       );
     }

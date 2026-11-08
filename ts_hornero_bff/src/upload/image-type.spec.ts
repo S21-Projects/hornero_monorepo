@@ -111,3 +111,37 @@ describe('evidence PDF support', () => {
     expect(bad).toHaveBeenCalledWith(expect.any(Error));
   });
 });
+
+describe('evidence allowed types (JPEG, PNG, PDF only)', () => {
+  it('detectEvidenceType rejects WebP while detectImageType still accepts it', () => {
+    expect(detectEvidenceType(WEBP)).toBeNull();
+    expect(detectImageType(WEBP)).toEqual({
+      mimetype: 'image/webp',
+      ext: 'webp',
+    });
+  });
+
+  it('detectEvidenceType accepts PNG', () => {
+    expect(detectEvidenceType(PNG)).toEqual({
+      mimetype: 'image/png',
+      ext: 'png',
+    });
+  });
+
+  it('evidenceMimeFilter rejects image/webp, imageMimeFilter keeps it', () => {
+    const webp = { mimetype: 'image/webp' } as Express.Multer.File;
+    const bad = jest.fn();
+    evidenceMimeFilter({}, webp, bad);
+    expect(bad).toHaveBeenCalledWith(expect.any(BadRequestException));
+
+    const ok = jest.fn();
+    imageMimeFilter({}, webp, ok);
+    expect(ok).toHaveBeenCalledWith(null, true);
+  });
+
+  it('an executable renamed .jpg is rejected by content, whatever the declared type', () => {
+    const exe = Buffer.concat([Buffer.from('MZ'), Buffer.alloc(64, 0)]);
+    expect(detectEvidenceType(exe)).toBeNull();
+    expect(detectImageType(exe)).toBeNull();
+  });
+});
