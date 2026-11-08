@@ -556,6 +556,13 @@ export interface RequisitoEnLegajo {
   graciaVencida?: boolean;
 }
 
+/** Mirrors `CumplimientoEnLegajo` (MS): plain delivered/rejected counts; `tasa` is null with no history. */
+export interface CumplimientoEnLegajo {
+  entregadas: number;
+  rechazadas: number;
+  tasa: number | null;
+}
+
 /** Mirrors `LegajoResponse` (MS) — server-assembled, proxied unmodified by the BFF (AD-11). */
 export interface LegajoResponse {
   organizacionId: number;
@@ -566,6 +573,7 @@ export interface LegajoResponse {
   nivelDesde: string;
   requisitos: RequisitoEnLegajo[];
   eventos: EventoResponse[];
+  cumplimiento: CumplimientoEnLegajo;
   disclosure: string;
 }
 

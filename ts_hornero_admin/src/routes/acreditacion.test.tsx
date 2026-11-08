@@ -74,6 +74,7 @@ function buildLegajo(
     nivelDesde: '2026-01-01T00:00:00Z',
     requisitos,
     eventos: [],
+    cumplimiento: { entregadas: 0, rechazadas: 0, tasa: null },
     disclosure: 'Datos declarados y auditados, no verificados por el sistema.',
   };
 }
