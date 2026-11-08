@@ -63,7 +63,7 @@ Route legend: `delegated` means a bounded worker; trigger in parentheses.
 
 - [x] C1 BCrypt cost 12 (shared bean: OTP and delivery codes also slower; not measured on the Pi)
 - [x] C2 Sessions: admin revocation, e2e on cookies and revoked refresh (no in-session password change exists; CSP stays report-only in Astro and admin, author decides)
-- [ ] C3 Evidence: EXIF removal, configurable size, attachment, admin download event, retention
+- [x] C3 Evidence: EXIF removal, configurable size, attachment, admin download event, retention off by default (`5717b41` to `2e75ca4`; reclamo-evidencia keeps EXIF and WebP, reported to author)
 - [ ] C4 Audit: hash chain, daily verification, R2 anchors, DB permissions
 - [ ] C5 Backups: retention, evidence copy, dump size, restore drill (needs production authorization)
 - [ ] C6 Dependency audits, dependabot, secret scan (done except human review of 9 gitleaks findings)
@@ -117,6 +117,11 @@ Route legend: `delegated` means a bounded worker; trigger in parentheses.
 - BFF eslint: 343 errors at `ca681d6`, 352 after the dependency bump, 366 at `5583d8b`. Not a gate in this
   repo, reported to the author; 14 new errors come from C2 files.
 
+- C3: risk tier medium. Writer report: `mvn test` 1181 run, 0 failures, 3 skipped; BFF 479 passed; admin 698 passed.
+  Parent spot check: retention query and default-off tests pass; compose default is false. Parent found and
+  had fixed a defect: replaced files were deleted on the next run instead of N months later. sharp on arm64
+  verified by inspection only.
+
 ## Next step
 
-C3 in progress, then C4, E1, D5, C5 local parts, B2, B4. D1 blocked on author policy, D4 on scope. Author must check public access on the R2 bucket in the Cloudflare panel (evidence shares the bucket with public images).
+C4 in progress, then E1, D5, C5 local parts, B2, B4. D1 blocked on author policy, D4 on scope. Author must check public access on the R2 bucket in the Cloudflare panel (evidence shares the bucket with public images).
