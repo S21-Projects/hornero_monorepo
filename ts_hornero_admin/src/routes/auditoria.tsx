@@ -8,7 +8,7 @@ import { Text } from '../components/ui/Typography';
 import { PageHeader } from '../components/ui/PageHeader';
 import { AuditQueue } from '../components/acreditacion/AuditQueue';
 import { useColaAuditoria } from '../lib/hooks/useColaAuditoria';
-import { requisitoLabel } from '../lib/acreditacion';
+import { formatFechaCompleta, requisitoLabel } from '../lib/acreditacion';
 import { usePageClamp } from '../lib/hooks/usePageClamp';
 import { NivelAcreditacion, RequisitoAcreditacion, TipoEvidencia } from '../types/domain';
 import type {
@@ -37,7 +37,7 @@ const TIPO_OPTIONS = [
  * AD-8 (task 4b.4): builds the single-row `RequisitoEnLegajo` shape `AuditQueue` expects, so the
  * cross-org queue's detail panel reuses it unmodified instead of duplicating Aprobar/Observar.
  * The estado cast is safe: the queue query never returns `REEMPLAZADA` rows (design AD-8), and
- * every other `EstadoEvidencia` value is also a valid `EstadoRequisitoLegajo`.
+ * every other `EstadoEvidencia` value (VENCIDA included, RN-04) is also a valid `EstadoRequisitoLegajo`.
  */
 function toRequisitoEnLegajo(row: EvidenciaEnColaResponse): RequisitoEnLegajo {
   return {
@@ -50,7 +50,32 @@ function toRequisitoEnLegajo(row: EvidenciaEnColaResponse): RequisitoEnLegajo {
     validoHasta: row.validoHasta,
     expirada: row.expirada,
     objectKey: row.objectKey,
+    graciaHasta: row.graciaHasta,
+    graciaVencida: row.graciaVencida,
   };
+}
+
+/**
+ * RN-04: expiry date and grace status of a row. "Gracia vencida" marks the organizations whose
+ * level the admin may now lower by hand (nothing is lowered automatically).
+ */
+function VigenciaCell({ row }: { row: EvidenciaEnColaResponse }) {
+  const hasta = formatFechaCompleta(row.validoHasta);
+  if (!row.expirada && row.estado !== 'VENCIDA') {
+    return <Text variant="body-sm" color="ink-3">{hasta ? `Vence el ${hasta}` : '—'}</Text>;
+  }
+  const gracia = formatFechaCompleta(row.graciaHasta);
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 4, alignItems: 'flex-start' }}>
+      <Badge tone="danger" label="Vencida" />
+      {hasta && <Text variant="body-sm" color="ink-3">{`Venció el ${hasta}`}</Text>}
+      {row.graciaVencida ? (
+        <Badge tone="danger" label="Gracia vencida" />
+      ) : (
+        gracia && <Text variant="body-sm" color="ink-3">{`En gracia hasta el ${gracia}`}</Text>
+      )}
+    </div>
+  );
 }
 
 /** Cross-org audit queue screen (AD-8, `specs/auditoria-cola-global/spec.md`), ADMINISTRADOR-only. */
@@ -109,6 +134,11 @@ export default function AuditoriaPage() {
       key: 'nivel',
       header: 'Nivel',
       render: (r) => <Badge tone="neutral" label={r.nivelExigido} />,
+    },
+    {
+      key: 'vigencia',
+      header: 'Vigencia',
+      render: (r) => <VigenciaCell row={r} />,
     },
   ];
 

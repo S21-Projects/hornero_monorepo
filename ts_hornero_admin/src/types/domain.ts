@@ -437,6 +437,8 @@ export const EstadoEvidencia = {
   APROBADA: 'APROBADA',
   OBSERVADA: 'OBSERVADA',
   REEMPLAZADA: 'REEMPLAZADA',
+  /** RN-04: the approval expired; set by the daily job. */
+  VENCIDA: 'VENCIDA',
 } as const;
 export type EstadoEvidencia = typeof EstadoEvidencia[keyof typeof EstadoEvidencia];
 
@@ -445,6 +447,7 @@ export const EstadoRequisitoLegajo = {
   OBSERVADA: 'OBSERVADA',
   PENDIENTE: 'PENDIENTE',
   FALTANTE: 'FALTANTE',
+  VENCIDA: 'VENCIDA',
 } as const;
 export type EstadoRequisitoLegajo = typeof EstadoRequisitoLegajo[keyof typeof EstadoRequisitoLegajo];
 
@@ -507,6 +510,10 @@ export interface EvidenciaEnColaResponse {
   revisadoPor?: number | null;
   revisadoEn?: string | null;
   observacion?: string | null;
+  /** RN-04: last day of the grace period of an expired evidence; absent when it has not expired. */
+  graciaHasta?: string | null;
+  /** RN-04: true once the grace period is over (the admin may then lower the level by hand). */
+  graciaVencida?: boolean;
 }
 
 /** Mirrors `EventoResponse` (MS). `actorUsuarioId` is null on a referente-facing legajo (D-01). */
@@ -543,6 +550,10 @@ export interface RequisitoEnLegajo {
   cargadoEn?: string | null;
   /** The auditor's observación when the evidence is OBSERVADA; `null`/absent otherwise. */
   observacion?: string | null;
+  /** RN-04: last day of the grace period of an expired evidence; `null`/absent otherwise. */
+  graciaHasta?: string | null;
+  /** RN-04: true once the grace period is over. */
+  graciaVencida?: boolean;
 }
 
 /** Mirrors `LegajoResponse` (MS) — server-assembled, proxied unmodified by the BFF (AD-11). */

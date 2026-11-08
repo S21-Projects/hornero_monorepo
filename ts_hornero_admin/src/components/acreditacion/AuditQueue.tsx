@@ -12,6 +12,7 @@ const ESTADO_TONE: Record<string, 'danger' | 'ok' | 'sky' | 'neutral'> = {
   OBSERVADA: 'danger',
   PENDIENTE: 'sky',
   FALTANTE: 'neutral',
+  VENCIDA: 'danger',
 };
 
 interface AuditQueueProps {
@@ -96,8 +97,9 @@ function AuditRow({
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
           <Text variant="body">{requisito.requisito}</Text>
-          <Badge tone={tone} label={requisito.estado} />
-          {requisito.expirada && <Badge tone="danger" label="Vencida" />}
+          <Badge tone={tone} label={requisito.estado === 'VENCIDA' ? 'Vencida' : requisito.estado} />
+          {requisito.expirada && requisito.estado !== 'VENCIDA' && <Badge tone="danger" label="Vencida" />}
+          {requisito.graciaVencida && <Badge tone="danger" label="Gracia vencida" />}
         </div>
 
         {requisito.estado === 'PENDIENTE' && evidenciaId != null && (

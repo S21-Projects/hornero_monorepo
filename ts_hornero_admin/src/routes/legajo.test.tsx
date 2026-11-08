@@ -108,4 +108,35 @@ describe('LegajoPage — task 4b.6 (D-02 wiring)', () => {
 
     expect(screen.queryByRole('button', { name: /aprobar/i })).not.toBeInTheDocument();
   });
+
+  it('shows a VENCIDA requisito in Spanish with the grace badge in the audit list', () => {
+    vi.mocked(useEvidenciasPendientes).mockReturnValue({
+      data: [] as EvidenciaResponse[],
+      isLoading: false,
+      isError: false,
+    } as ReturnType<typeof useEvidenciasPendientes>);
+    vi.mocked(useLegajo).mockReturnValue({
+      data: {
+        ...LEGAJO,
+        requisitos: [
+          {
+            ...LEGAJO.requisitos[0],
+            estado: 'VENCIDA',
+            expirada: true,
+            validoHasta: '2026-09-01',
+            graciaHasta: '2026-10-01',
+            graciaVencida: true,
+          },
+        ],
+      },
+      isLoading: false,
+      isError: false,
+    } as ReturnType<typeof useLegajo>);
+
+    render(<LegajoPage />, { wrapper: Wrapper });
+
+    expect(screen.getAllByText('Vencida').length).toBeGreaterThan(0);
+    expect(screen.getByText('Gracia vencida')).toBeInTheDocument();
+    expect(screen.queryByText(/Vencida · Vencida/)).not.toBeInTheDocument();
+  });
 });

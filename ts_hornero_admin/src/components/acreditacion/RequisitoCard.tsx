@@ -55,7 +55,15 @@ function enviada(tipo: TipoEvidencia | null | undefined): { sujeto: string; pron
 function lineaEstado(r: RequisitoEnLegajo, hint: string): string | null {
   if (r.expirada) {
     const hasta = formatFechaCompleta(r.validoHasta);
-    return hasta ? `Venció el ${hasta}. Tenés que renovar la evidencia.` : 'Venció. Tenés que renovar la evidencia.';
+    const venció = hasta ? `Venció el ${hasta}.` : 'Venció.';
+    const gracia = formatFechaCompleta(r.graciaHasta);
+    if (r.graciaVencida) {
+      return `${venció} Ya terminó el plazo de gracia: renová la evidencia y un administrador puede revisar tu nivel.`;
+    }
+    if (gracia) {
+      return `${venció} Tu nivel no cambia por ahora: tenés hasta el ${gracia} para renovar la evidencia.`;
+    }
+    return `${venció} Tenés que renovar la evidencia.`;
   }
   switch (r.estado) {
     case 'APROBADA': {

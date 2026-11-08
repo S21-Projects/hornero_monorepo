@@ -349,6 +349,36 @@ describe('AcreditacionPage — guidance by nivel', () => {
     expect(screen.queryByText(/Completaste los requisitos/)).not.toBeInTheDocument();
   });
 
+  it('shows a VENCIDA requisito as Vencida with the grace deadline and a renew action', () => {
+    mockLegajo(
+      buildLegajo(
+        [{ ...N1_FALTANTE, estado: 'VENCIDA', expirada: true, validoHasta: '2026-10-01', graciaHasta: '2026-10-31', graciaVencida: false }],
+        'N1',
+      ),
+    );
+
+    render(<AcreditacionPage />, { wrapper: Wrapper });
+
+    expect(screen.getByText('Vencida')).toBeInTheDocument();
+    expect(screen.getByText(/Venció el 01\/10\/2026/)).toBeInTheDocument();
+    expect(screen.getByText(/hasta el 31\/10\/2026/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /renovar evidencia/i })).toBeInTheDocument();
+    expect(screen.getByText('0 de 1 requisitos aprobados')).toBeInTheDocument();
+  });
+
+  it('tells the referente the grace period is over once it is', () => {
+    mockLegajo(
+      buildLegajo(
+        [{ ...N1_FALTANTE, estado: 'VENCIDA', expirada: true, validoHasta: '2026-09-01', graciaHasta: '2026-10-01', graciaVencida: true }],
+        'N1',
+      ),
+    );
+
+    render(<AcreditacionPage />, { wrapper: Wrapper });
+
+    expect(screen.getByText(/terminó el plazo de gracia/i)).toBeInTheDocument();
+  });
+
   it.each([
     ['FALTANTE', 'Sin enviar'],
     ['PENDIENTE', 'Pendiente de auditoría'],
