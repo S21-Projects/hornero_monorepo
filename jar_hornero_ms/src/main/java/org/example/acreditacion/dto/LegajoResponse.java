@@ -19,5 +19,6 @@ public record LegajoResponse(
         Instant nivelDesde,
         List<RequisitoEnLegajo> requisitos,
         List<EventoResponse> eventos,
+        CumplimientoEnLegajo cumplimiento,
         String disclosure) {
 }

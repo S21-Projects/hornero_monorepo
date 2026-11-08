@@ -200,4 +200,13 @@ public interface DonacionRepository extends JpaRepository<Donacion, Long> {
     @Query("SELECT n.organizacion.id, d.estado, COUNT(d) FROM Donacion d JOIN d.necesidad n "
             + "WHERE d.estado IN :estados GROUP BY n.organizacion.id, d.estado")
     List<Object[]> contarPorOrganizacionYEstado(@Param("estados") Collection<EstadoDonacion> estados);
+
+    /**
+     * Same filter as {@link #contarPorOrganizacionYEstado} for a single organización (legajo
+     * compliance section): one {@code (estado, count)} row per requested estado that has donaciones.
+     */
+    @Query("SELECT d.estado, COUNT(d) FROM Donacion d JOIN d.necesidad n "
+            + "WHERE n.organizacion.id = :organizacionId AND d.estado IN :estados GROUP BY d.estado")
+    List<Object[]> contarPorEstadoDeOrganizacion(@Param("organizacionId") Long organizacionId,
+                                                 @Param("estados") Collection<EstadoDonacion> estados);
 }
