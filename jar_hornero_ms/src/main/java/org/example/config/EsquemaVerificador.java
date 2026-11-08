@@ -122,6 +122,12 @@ public class EsquemaVerificador implements ApplicationRunner {
               AND NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'ux_asignacion_activa_por_donacion')
             """;
 
+    /** V014 (C4): the immutability trigger on {@code organizacion_evento}; absent trigger = script pending. */
+    private static final String CHECK_EVENTO_TRIGGER_SQL = """
+            SELECT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'organizacion_evento_inmutable' AND NOT tgisinternal)
+            """;
+
+    private final AtomicBoolean eventosInmutables = new AtomicBoolean(true);
     private final AtomicBoolean asignacionActivaUnica = new AtomicBoolean(true);
     private final AtomicBoolean purgaEmailIntento = new AtomicBoolean(true);
     private final AtomicBoolean estadoDesdeCompleto = new AtomicBoolean(true);
@@ -154,6 +160,24 @@ public class EsquemaVerificador implements ApplicationRunner {
         verificarEventosReclamo();
         verificarEventosReporte();
         verificarAsignacionActivaUnica();
+        verificarEventosInmutables();
+    }
+
+    private void verificarEventosInmutables() {
+        Boolean presente = jdbcTemplate.queryForObject(CHECK_EVENTO_TRIGGER_SQL, Boolean.class);
+        if (Boolean.FALSE.equals(presente)) {
+            eventosInmutables.set(false);
+            log.error("ESQUEMA_PENDIENTE: the organizacion_evento table has no immutability trigger. Run "
+                    + "scripts/sql/V014__organizacion_evento_inmutable.sql (make migrate); until then the event log is "
+                    + "protected only by the application and by the hash chain (which detects, not prevents).");
+        } else {
+            eventosInmutables.set(true);
+        }
+    }
+
+    /** False when V014 has not been applied. Informational; PostgreSQL only. */
+    public boolean eventosInmutables() {
+        return eventosInmutables.get();
     }
 
     private void verificarAsignacionActivaUnica() {
