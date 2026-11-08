@@ -70,7 +70,7 @@ Route legend: `delegated` means a bounded worker; trigger in parentheses.
 
 ### D. Business rules
 
-- [ ] D1 RN-04 evidence expiry. Author decided on 2026-11-08: evidence expires one year after approval. BLOCKED on grace period and level reduction policy
+- [ ] D1 RN-04 evidence expiry. Author decided on 2026-11-08: one year after approval, 30 days of grace, then manual reduction by an admin; open needs stay open. Purpose: confirm canteens remain active without harming them instantly
 - [x] D2 RN-08 no double reassignment, concurrency test (`e3aa1e7`; V013 pending on the Pi)
 - [x] D3 RN-05 deterministic tie-break with `ORDER BY` (`5b44586`, `b5732bf`)
 - [ ] D5 E2E for CU-07 to CU-10 and reassignment (proposed to author, not objected)
@@ -127,4 +127,4 @@ Route legend: `delegated` means a bounded worker; trigger in parentheses.
 
 ## Next step
 
-E1 and D5 in progress, then C5 local parts, B2, B4, full e2e rerun, RESUMEN. D1 blocked on author policy, D4 on scope. Author must check public access on the R2 bucket in the Cloudflare panel (evidence shares the bucket with public images).
+D1 in progress, then E1, D5, C5 local parts, B2, B4, full e2e rerun, RESUMEN. D1 blocked on author policy, D4 on scope. Author must check public access on the R2 bucket in the Cloudflare panel (evidence shares the bucket with public images).
