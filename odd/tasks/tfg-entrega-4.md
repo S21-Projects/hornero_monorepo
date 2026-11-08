@@ -82,7 +82,7 @@ Route legend: `delegated` means a bounded worker; trigger in parentheses.
 
 ### Close
 
-- [ ] `docs/tfg/RESUMEN.md`
+- [x] `docs/tfg/RESUMEN.md` (`776927d`; regenerate if D4 changes code)
 
 ## Progress
 
@@ -134,6 +134,9 @@ Route legend: `delegated` means a bounded worker; trigger in parentheses.
 - C5 local: `bash -n` and shellcheck clean; drill on throwaway `postgres:16` passes on a good dump and fails on a tampered event
   and a wrong count. R2 has no versioning per Cloudflare docs read 2026-11-08, so `evidence-copy.sh` is disabled by default.
 
+- Final at `08ead82`: MS 1274 run, 8 skipped, 91.84%; BFF 480, 96.79%; admin 705, 86.63%; worker 141 passed, 1 skipped;
+  e2e 151 of 151; benchmark 217.9 ms on M3 Pro. Deployment order exercised on a fresh DB with MinIO.
+
 ## Next step
 
-Final suites, RESUMEN and review document in progress. D4 awaits the author. D1 blocked on author policy, D4 on scope. Author must check public access on the R2 bucket in the Cloudflare panel (evidence shares the bucket with public images).
+D4 awaits the author. Author steps on Cloudflare and the Pi are listed in RESUMEN. No push, PR or merge requested. D1 blocked on author policy, D4 on scope. Author must check public access on the R2 bucket in the Cloudflare panel (evidence shares the bucket with public images).
