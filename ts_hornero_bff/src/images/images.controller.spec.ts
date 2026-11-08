@@ -61,6 +61,26 @@ describe('ImagesController — org-evidencia deny-list', () => {
     expect(getObjectMock).not.toHaveBeenCalled();
   });
 
+  it('denies the audit anchor prefix, including bypass attempts (the route is public and bucket-wide)', async () => {
+    for (const key of [
+      'audit/anchors/2026-11-08.txt',
+      '/audit/anchors/2026-11-08.txt',
+      'audit%2Fanchors%2F2026-11-08.txt',
+      'org-profile/../audit/anchors/2026-11-08.txt',
+      'Audit/Anchors/2026-11-08.txt',
+      'audit/anchors/',
+    ]) {
+      await request(app.getHttpServer())
+        .get('/images')
+        .query({ key })
+        .expect(403);
+    }
+    await request(app.getHttpServer())
+      .get('/images?key=audit%2Fanchors%2F2026-11-08.txt')
+      .expect(403);
+    expect(getObjectMock).not.toHaveBeenCalled();
+  });
+
   it('rejects a leading-slash bypass attempt', async () => {
     await request(app.getHttpServer())
       .get('/images')

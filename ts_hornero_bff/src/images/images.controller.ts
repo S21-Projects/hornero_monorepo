@@ -12,13 +12,19 @@ import { Public } from '../auth/decorators/public.decorator.js';
 import { ImagesService } from './images.service.js';
 
 /**
- * Object-key prefixes reserved for accreditation evidence and claim evidence (see
- * `specs/organizacion-acreditacion/spec.md`). The authenticated, ownership- and row-checked
+ * Object-key prefixes reserved for accreditation evidence, claim evidence and the daily audit
+ * anchors (`audit/anchors/`, written by the MS when AUDITORIA_ANCLA_ENABLED is true; this route is
+ * public and serves any key of the bucket, so the anchors must be denied here too). See
+ * `specs/organizacion-acreditacion/spec.md` for the evidence prefixes. The authenticated, ownership- and row-checked
  * `evidencia-files` route (AD-12) is the only supported way to read these files; this deny-list
  * stays as defense in depth so any key resolving under this prefix is still denied outright here
  * too (Threat Matrix "Evidence key smuggling" row).
  */
-const EVIDENCIA_PREFIXES = ['org-evidencia/', 'reclamo-evidencia/'];
+const EVIDENCIA_PREFIXES = [
+  'org-evidencia/',
+  'reclamo-evidencia/',
+  'audit/',
+];
 
 /**
  * Normalizes an S3 object key before the deny-list check: repeatedly URL-decodes it (catching
