@@ -60,12 +60,12 @@ Route legend: `delegated` means a bounded worker; trigger in parentheses.
 
 ### C. Security
 
-- [ ] C1 BCrypt cost 12 (currently default 10)
+- [x] C1 BCrypt cost 12 (shared bean: OTP and delivery codes also slower; not measured on the Pi)
 - [ ] C2 Sessions: password-change and admin revocation, CSP mode, e2e on cookies and revoked refresh
 - [ ] C3 Evidence: EXIF removal, configurable size, attachment, admin download event, retention
 - [ ] C4 Audit: hash chain, daily verification, R2 anchors, DB permissions
 - [ ] C5 Backups: retention, evidence copy, dump size, restore drill (needs production authorization)
-- [ ] C6 Dependency audits, dependabot, secret scan
+- [ ] C6 Dependency audits, dependabot, secret scan (done except human review of 9 gitleaks findings)
 
 ### D. Business rules
 
@@ -102,6 +102,11 @@ Route legend: `delegated` means a bounded worker; trigger in parentheses.
   changes pairs on all 30 seeds. Known gap for D3. `TestRondaGlobalSuperaAlGreedyBajoContencion` passes.
 - Parent spot check: `go test ./...` all packages ok; `go vet ./...` clean.
 
+- C1: RED then GREEN on `newHashesUseCost12`; cost-10 hashes still verify. 256 ms per hash on M3 Pro.
+- C6: `mvn test` 1116 passed after one unrelated intermittent failure in `ReclamoServiceTest`; bff 445 and
+  admin 698 pass with builds ok; astro build ok, no tests, updated astro 7.0.3 to 7.4.7. No major bumps.
+  OWASP dependency-check did not run, so there is no Maven vulnerability result.
+
 ## Next step
 
-C1 and C6 next, with B2 after C and D. D1 blocked on author policy, D4 on scope. Author must check public access on the R2 bucket in the Cloudflare panel (evidence shares the bucket with public images).
+Author decides chain strategy, then C2 to C5 and D2, D3. B2 after C and D. D1 blocked on author policy, D4 on scope. Author must check public access on the R2 bucket in the Cloudflare panel (evidence shares the bucket with public images).
