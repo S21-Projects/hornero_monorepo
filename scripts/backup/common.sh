@@ -53,6 +53,19 @@ env_value() {
   printf '%s' "$default"
 }
 
+# retention_tiers WEEKDAY DAY_OF_MONTH WEEKLY_DAY
+# Prints, one per line, the offsite tiers a backup taken on that date belongs to.
+# WEEKDAY is ISO (1 = Monday ... 7 = Sunday). Every backup is "daily"; the one taken on
+# WEEKLY_DAY is also "weekly"; the one taken on day 01 of the month is also "monthly".
+# Each tier is a separate key prefix so the bucket lifecycle rules (which can only
+# filter by prefix and age) can keep 7 daily, 4 weekly and 6 monthly copies.
+retention_tiers() {
+  local weekday="$1" dom="$2" weekly_day="$3"
+  echo daily
+  if [ "$weekday" = "$weekly_day" ]; then echo weekly; fi
+  if [ "$dom" = 01 ]; then echo monthly; fi
+}
+
 compose() { docker compose --env-file "$ENV_FILE" "$@"; }
 
 require_env_file() {
