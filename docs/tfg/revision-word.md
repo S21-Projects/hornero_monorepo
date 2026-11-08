@@ -27,7 +27,7 @@ Fuentes de detalle en `docs/tfg/`: `RESUMEN.md` (valores finales, estado por tar
 
 ## 2. Resumen y Abstract (sección 2 del borrador)
 
-- [ ] **Corregir.** "unas 1.950 pruebas automatizadas y 95 pruebas de extremo a extremo" está desactualizado. Conteo final (commit `b1419c2`, 2026-11-08; Go y e2e de `08ead82`): microservicio 1276 (1268 pasan, 8 omitidas por requerir PostgreSQL), BFF 480, panel de administración 707, motor Go 142 con subpruebas (141 pasan, 1 omitida) y 151 de extremo a extremo, todas aprobadas. Suman 2605 pruebas unitarias y de integración, más las 151 e2e. Astro no tiene pruebas.
+- [ ] **Corregir.** "unas 1.950 pruebas automatizadas y 95 pruebas de extremo a extremo" está desactualizado. Conteo final (commit `57185bc`, 2026-11-08): microservicio 1276 (1268 pasan, 8 omitidas por requerir PostgreSQL), BFF 480, panel de administración 707, motor Go 142 con subpruebas (141 pasan, 1 omitida) y 152 de extremo a extremo, todas aprobadas. Suman 2605 pruebas unitarias y de integración, más las 152 e2e. Astro no tiene pruebas.
 - [ ] Revisar "reasigna las donaciones sin respuesta". Es correcto solo para propuestas del fondo común: la oferta directa sin respuesta se cancela (RN-07).
 
 ---
