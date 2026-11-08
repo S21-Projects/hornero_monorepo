@@ -31,9 +31,12 @@ const ESTADO_DISPLAY: Record<string, EstadoDisplay> = {
 
 const VENCIDA: EstadoDisplay = { tone: 'danger', label: 'Vencida' };
 
+/** RN-04: expired by date, or already moved to VENCIDA by the daily job. */
+const esVencida = (r: RequisitoEnLegajo) => r.expirada || r.estado === 'VENCIDA';
+
 /** An expired requisito no longer counts, whatever its stored estado says. */
 function estadoDisplay(requisito: RequisitoEnLegajo): EstadoDisplay {
-  if (requisito.expirada) return VENCIDA;
+  if (esVencida(requisito)) return VENCIDA;
   return ESTADO_DISPLAY[requisito.estado] ?? { tone: 'neutral', label: requisito.estado };
 }
 
@@ -53,7 +56,7 @@ function enviada(tipo: TipoEvidencia | null | undefined): { sujeto: string; pron
 
 /** The single muted line under the title, per estado. Omits any date the legajo does not carry. */
 function lineaEstado(r: RequisitoEnLegajo, hint: string): string | null {
-  if (r.expirada) {
+  if (esVencida(r)) {
     const hasta = formatFechaCompleta(r.validoHasta);
     const venció = hasta ? `Venció el ${hasta}.` : 'Venció.';
     const gracia = formatFechaCompleta(r.graciaHasta);
@@ -107,7 +110,7 @@ export function RequisitoCard({ organizacionId, requisito, locked = false }: Req
   const canSubmit =
     !locked &&
     !optimisticPending &&
-    (requisito.estado === 'FALTANTE' || requisito.estado === 'OBSERVADA' || requisito.expirada);
+    (requisito.estado === 'FALTANTE' || requisito.estado === 'OBSERVADA' || esVencida(requisito));
   const formVisible = canSubmit && showForm;
   const display = optimisticPending ? ESTADO_DISPLAY.PENDIENTE : estadoDisplay(requisito);
   const hint = requisitoHint(requisito.requisito);
@@ -120,7 +123,7 @@ export function RequisitoCard({ organizacionId, requisito, locked = false }: Req
       ? null // the open form already shows the hint
       : lineaEstado(requisito, hint);
 
-  const actionLabel = requisito.expirada
+  const actionLabel = esVencida(requisito)
     ? 'Renovar evidencia'
     : requisito.estado === 'OBSERVADA'
       ? 'Reenviar evidencia'
