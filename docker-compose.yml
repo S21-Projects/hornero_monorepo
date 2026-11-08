@@ -104,6 +104,11 @@ services:
       EVIDENCIA_RETENCION_MESES: "${EVIDENCIA_RETENCION_MESES:-12}"
       EVIDENCIA_RETENCION_MAX: "${EVIDENCIA_RETENCION_MAX:-100}"
       EVIDENCIA_RETENCION_CRON: "${EVIDENCIA_RETENCION_CRON:-0 30 4 * * *}"
+      # RN-04: accreditation evidence validity (months), grace after expiry (days), reminder before expiry (days).
+      EVIDENCIA_VIGENCIA_MESES: "${EVIDENCIA_VIGENCIA_MESES:-12}"
+      EVIDENCIA_VIGENCIA_GRACIA_DIAS: "${EVIDENCIA_VIGENCIA_GRACIA_DIAS:-30}"
+      EVIDENCIA_VIGENCIA_RECORDATORIO_DIAS: "${EVIDENCIA_VIGENCIA_RECORDATORIO_DIAS:-30}"
+      EVIDENCIA_VIGENCIA_CRON: "${EVIDENCIA_VIGENCIA_CRON:-0 20 0 * * *}"
       # Daily audit anchor in the bucket (audit/anchors/): OFF unless AUDITORIA_ANCLA_ENABLED=true.
       # Its own flag, independent from the two EVIDENCIA_* flags above; local stacks share the bucket.
       AUDITORIA_ANCLA_ENABLED: "${AUDITORIA_ANCLA_ENABLED:-false}"

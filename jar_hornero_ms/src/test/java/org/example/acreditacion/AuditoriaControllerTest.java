@@ -61,7 +61,7 @@ class AuditoriaControllerTest {
         return new EvidenciaEnColaResponse(10L, 1L, "Comedor Norte", NivelAcreditacion.N1,
                 RequisitoAcreditacion.NO_DISCRIMINACION, NivelAcreditacion.N1, TipoEvidencia.DECLARACION,
                 null, "declaración", LocalDate.now(), null, EstadoEvidencia.PENDIENTE, false, 5L,
-                Instant.now(), null, null, null);
+                Instant.now(), null, null, null, null, false);
     }
 
     @Test

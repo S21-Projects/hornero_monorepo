@@ -99,4 +99,17 @@ public interface OrganizacionEvidenciaRepository extends Repository<Organizacion
             @Param("requisitos") Collection<RequisitoAcreditacion> requisitos,
             @Param("tipoEvidencia") TipoEvidencia tipoEvidencia,
             Pageable pageable);
+
+    /** RN-04: ids of APROBADA rows whose validity ended before {@code hoy} (the daily job's work list). */
+    @Query("SELECT e.id FROM OrganizacionEvidencia e WHERE e.estado = :aprobada "
+            + "AND e.validoHasta IS NOT NULL AND e.validoHasta < :hoy ORDER BY e.id")
+    List<Long> findIdsAprobadasVencidasAntesDe(@Param("aprobada") EstadoEvidencia aprobada,
+                                               @Param("hoy") LocalDate hoy);
+
+    /** RN-04: APROBADA rows ending within [hoy, limite] whose reminder was not sent yet. */
+    @Query("SELECT e.id FROM OrganizacionEvidencia e WHERE e.estado = :aprobada "
+            + "AND e.recordatorioVencimientoAt IS NULL "
+            + "AND e.validoHasta IS NOT NULL AND e.validoHasta >= :hoy AND e.validoHasta <= :limite ORDER BY e.id")
+    List<Long> findIdsParaRecordatorio(@Param("aprobada") EstadoEvidencia aprobada,
+                                       @Param("hoy") LocalDate hoy, @Param("limite") LocalDate limite);
 }

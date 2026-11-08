@@ -262,4 +262,72 @@ class AcreditacionServiceEvidenciaTest {
                 evidenciaRepository.findById(evidencia.getId()).orElseThrow();
         assertThat(reloaded.getObjectKey()).isNull();
     }
+
+    // --- RN-04: validity runs from the approval ---
+
+    @Test
+    void approvalSetsValidoHastaOneYearAheadWhenTheRowHadNoDate() {
+        OrganizacionEvidencia evidencia = acreditacionService.cargarEvidencia(
+                organizacion, RequisitoAcreditacion.NO_DISCRIMINACION, TipoEvidencia.DECLARACION,
+                "d", LocalDate.now(), null, referente.getId());
+
+        OrganizacionEvidencia aprobada = acreditacionService.aprobarEvidencia(evidencia.getId(), administrador.getId());
+
+        assertThat(aprobada.getValidoHasta()).isEqualTo(LocalDate.now().plusMonths(12));
+    }
+
+    @Test
+    void approvalKeepsAnEarlierDateAlreadyOnTheRow() {
+        LocalDate antes = LocalDate.now().plusMonths(3);
+        OrganizacionEvidencia evidencia = acreditacionService.cargarEvidencia(
+                organizacion, RequisitoAcreditacion.NO_DISCRIMINACION, TipoEvidencia.DECLARACION,
+                "d", LocalDate.now(), antes, referente.getId());
+
+        OrganizacionEvidencia aprobada = acreditacionService.aprobarEvidencia(evidencia.getId(), administrador.getId());
+
+        assertThat(aprobada.getValidoHasta()).isEqualTo(antes);
+    }
+
+    @Test
+    void approvalCapsALaterDateAtTheConfiguredPeriod() {
+        OrganizacionEvidencia evidencia = acreditacionService.cargarEvidencia(
+                organizacion, RequisitoAcreditacion.NO_DISCRIMINACION, TipoEvidencia.DECLARACION,
+                "d", LocalDate.now(), LocalDate.now().plusYears(5), referente.getId());
+
+        OrganizacionEvidencia aprobada = acreditacionService.aprobarEvidencia(evidencia.getId(), administrador.getId());
+
+        assertThat(aprobada.getValidoHasta()).isEqualTo(LocalDate.now().plusMonths(12));
+    }
+
+    @Test
+    void aVencidaEvidenceCannotBeApprovedAgainItMustBeReplaced() {
+        OrganizacionEvidencia evidencia = acreditacionService.cargarEvidencia(
+                organizacion, RequisitoAcreditacion.NO_DISCRIMINACION, TipoEvidencia.DECLARACION,
+                "d", LocalDate.now().minusYears(2), LocalDate.now().minusDays(40), referente.getId());
+        evidencia.setEstado(EstadoEvidencia.VENCIDA);
+        evidenciaRepository.save(evidencia);
+
+        assertThatThrownBy(() -> acreditacionService.aprobarEvidencia(evidencia.getId(), administrador.getId()))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("409");
+    }
+
+    @Test
+    void replacingAVencidaEvidenceMarksItReemplazadaAndANewApprovalRestoresValidity() {
+        OrganizacionEvidencia vieja = acreditacionService.cargarEvidencia(
+                organizacion, RequisitoAcreditacion.NO_DISCRIMINACION, TipoEvidencia.DECLARACION,
+                "vieja", LocalDate.now().minusYears(2), LocalDate.now().minusDays(40), referente.getId());
+        vieja.setEstado(EstadoEvidencia.VENCIDA);
+        evidenciaRepository.save(vieja);
+
+        OrganizacionEvidencia nueva = acreditacionService.cargarEvidencia(
+                organizacion, RequisitoAcreditacion.NO_DISCRIMINACION, TipoEvidencia.DECLARACION,
+                "nueva", LocalDate.now(), null, referente.getId());
+        acreditacionService.aprobarEvidencia(nueva.getId(), administrador.getId());
+
+        assertThat(entityManager.find(OrganizacionEvidencia.class, vieja.getId()).getEstado())
+                .isEqualTo(EstadoEvidencia.REEMPLAZADA);
+        assertThat(entityManager.find(OrganizacionEvidencia.class, nueva.getId()).getEstado())
+                .isEqualTo(EstadoEvidencia.APROBADA);
+    }
 }

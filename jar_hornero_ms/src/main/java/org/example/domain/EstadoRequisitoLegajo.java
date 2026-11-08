@@ -9,5 +9,7 @@ public enum EstadoRequisitoLegajo {
     APROBADA,
     OBSERVADA,
     PENDIENTE,
-    FALTANTE
+    FALTANTE,
+    /** RN-04: the approval expired (the evidence row is in state VENCIDA). */
+    VENCIDA
 }

@@ -124,6 +124,14 @@ app:
       gracia-dias: ${EVIDENCIA_BARRIDO_GRACIA_DIAS:7}
       max-por-corrida: ${EVIDENCIA_BARRIDO_MAX:500}
       cron: ${EVIDENCIA_BARRIDO_CRON:0 50 3 * * *}
+    vigencia:
+      # RN-04: an approval stays valid this many months (an earlier date already on the row is kept).
+      meses: ${EVIDENCIA_VIGENCIA_MESES:12}
+      # Days after expiry in which nothing changes except the elevation block. No automatic level change ever.
+      gracia-dias: ${EVIDENCIA_VIGENCIA_GRACIA_DIAS:30}
+      # One reminder this many days before expiry (0 disables it).
+      recordatorio-dias: ${EVIDENCIA_VIGENCIA_RECORDATORIO_DIAS:30}
+      cron: ${EVIDENCIA_VIGENCIA_CRON:0 20 0 * * *}
     retencion:
       # Accreditation evidence (org-evidencia/) file retention. OFF by default and separate from
       # EVIDENCIA_BORRADO_ENABLED (which is on in production for claim evidence): local stacks share

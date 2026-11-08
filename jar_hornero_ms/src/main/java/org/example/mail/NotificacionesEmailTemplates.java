@@ -117,6 +117,31 @@ public final class NotificacionesEmailTemplates {
                 List.of(), "Ver la acreditación", enlace, null);
     }
 
+    public static MensajeCorreo evidenciaVencida(String to, String nombre, String organizacion,
+                                                 RequisitoAcreditacion requisito, java.time.LocalDate vencioEl,
+                                                 java.time.LocalDate graciaHasta, String enlace) {
+        return armar(to, "Venció una evidencia de " + organizacion, nombre,
+                List.of("La evidencia del requisito «" + legible(requisito) + "» de " + organizacion
+                        + " venció el " + fecha(vencioEl) + ".",
+                        "Tu nivel de acreditación no cambia por ahora. Tenés tiempo hasta el " + fecha(graciaHasta)
+                        + " para reemplazarla desde el panel; pasada esa fecha un administrador puede revisar el nivel."),
+                List.of(), "Reemplazar la evidencia", enlace, null);
+    }
+
+    public static MensajeCorreo evidenciaPorVencer(String to, String nombre, String organizacion,
+                                                   RequisitoAcreditacion requisito, java.time.LocalDate venceEl,
+                                                   String enlace) {
+        return armar(to, "Una evidencia de " + organizacion + " está por vencer", nombre,
+                List.of("La evidencia del requisito «" + legible(requisito) + "» de " + organizacion
+                        + " vence el " + fecha(venceEl) + ".",
+                        "Podés reemplazarla desde el panel antes de esa fecha para mantener tu acreditación al día."),
+                List.of(), "Ver la acreditación", enlace, null);
+    }
+
+    private static String fecha(java.time.LocalDate d) {
+        return d.format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy"));
+    }
+
     // --- administrador -------------------------------------------------------------------------
 
     /**

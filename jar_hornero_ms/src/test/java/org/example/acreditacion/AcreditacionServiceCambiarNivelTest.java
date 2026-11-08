@@ -203,4 +203,36 @@ class AcreditacionServiceCambiarNivelTest {
         assertThat(eventos).hasSize(1);
         assertThat(eventos.get(0).getMotivo()).isEqualTo("evidencia fraudulenta");
     }
+
+    @Test
+    void anAdminCanStillLowerTheLevelWhenRequirementsAreVencida() {
+        aprobarTodos(N1_REQUISITOS, null);
+        acreditacionService.cambiarNivel(organizacion.getId(), NivelAcreditacion.N1, "cumple", administrador.getId());
+        for (var e : entityManager.getEntityManager()
+                .createQuery("from OrganizacionEvidencia", org.example.domain.OrganizacionEvidencia.class)
+                .getResultList()) {
+            e.setEstado(org.example.domain.EstadoEvidencia.VENCIDA);
+        }
+        entityManager.flush();
+
+        acreditacionService.cambiarNivel(organizacion.getId(), NivelAcreditacion.N0, "gracia vencida", administrador.getId());
+
+        assertThat(entityManager.find(Organizacion.class, organizacion.getId()).getNivel())
+                .isEqualTo(NivelAcreditacion.N0);
+    }
+
+    @Test
+    void vencidaRequirementsBlockARaise() {
+        aprobarTodos(N1_REQUISITOS, null);
+        for (var e : entityManager.getEntityManager()
+                .createQuery("from OrganizacionEvidencia", org.example.domain.OrganizacionEvidencia.class)
+                .getResultList()) {
+            e.setEstado(org.example.domain.EstadoEvidencia.VENCIDA);
+        }
+        entityManager.flush();
+
+        assertThatThrownBy(() -> acreditacionService.cambiarNivel(
+                organizacion.getId(), NivelAcreditacion.N1, "x", administrador.getId()))
+                .isInstanceOf(ResponseStatusException.class).hasMessageContaining("409");
+    }
 }

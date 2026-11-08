@@ -198,4 +198,30 @@ class AcreditacionServiceLegajoTest {
                 .findFirst().orElseThrow();
         assertThat(requisito.objectKey()).isNull();
     }
+
+    @Test
+    void legajoShowsVencidaWithGraceDatesAndFlagsGraceOver() {
+        var dentro = acreditacionService.cargarEvidencia(organizacion,
+                RequisitoAcreditacion.NO_DISCRIMINACION, TipoEvidencia.DECLARACION, "d",
+                LocalDate.now().minusYears(2), LocalDate.now().minusDays(10), administrador.getId());
+        dentro.setEstado(org.example.domain.EstadoEvidencia.VENCIDA);
+        var fuera = acreditacionService.cargarEvidencia(organizacion,
+                RequisitoAcreditacion.SERVICIO_REGULAR_GRATUITO, TipoEvidencia.DECLARACION, "d",
+                LocalDate.now().minusYears(2), LocalDate.now().minusDays(31), administrador.getId());
+        fuera.setEstado(org.example.domain.EstadoEvidencia.VENCIDA);
+        entityManager.flush();
+
+        LegajoResponse legajo = acreditacionService.legajo(organizacion.getId());
+
+        RequisitoEnLegajo a = legajo.requisitos().stream()
+                .filter(r -> r.requisito() == RequisitoAcreditacion.NO_DISCRIMINACION).findFirst().orElseThrow();
+        assertThat(a.estado()).isEqualTo(EstadoRequisitoLegajo.VENCIDA);
+        assertThat(a.expirada()).isTrue();
+        assertThat(a.graciaHasta()).isEqualTo(LocalDate.now().minusDays(10).plusDays(30));
+        assertThat(a.graciaVencida()).isFalse();
+        RequisitoEnLegajo b = legajo.requisitos().stream()
+                .filter(r -> r.requisito() == RequisitoAcreditacion.SERVICIO_REGULAR_GRATUITO).findFirst().orElseThrow();
+        assertThat(b.estado()).isEqualTo(EstadoRequisitoLegajo.VENCIDA);
+        assertThat(b.graciaVencida()).isTrue();
+    }
 }

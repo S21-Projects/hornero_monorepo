@@ -98,6 +98,11 @@ public class OrganizacionEvidencia {
     @Column(name = "archivo_eliminado_at")
     private Instant archivoEliminadoAt;
 
+    /** Set once when the "expires soon" reminder was sent (RN-04), so it is never sent twice. */
+    @Setter
+    @Column(name = "recordatorio_vencimiento_at")
+    private Instant recordatorioVencimientoAt;
+
     private OrganizacionEvidencia(
             Organizacion organizacion,
             RequisitoAcreditacion requisito,
@@ -156,8 +161,18 @@ public class OrganizacionEvidencia {
     }
 
     /**
-     * Record-and-warn expiry (AD-9, `specs/organizacion-evidencia/spec.md` "Record-and-Warn
-     * Expiry"): derived on read, never persisted, never a side-effecting trigger.
+     * RN-04: the only place where the validity window is written after construction. Called once,
+     * by the admin approval, with {@code VigenciaEvidencia.vencimientoAlAprobar(...)}.
+     */
+    public void fijarValidoHasta(LocalDate validoHasta) {
+        this.validoHasta = validoHasta;
+    }
+
+    /**
+     * Derived on read from {@code validoHasta} alone (AD-9). Since RN-04 the daily job also persists
+     * the state {@code VENCIDA}; the two agree because a VENCIDA row always has a past
+     * {@code validoHasta}. Callers that need "is this proof still valid" use
+     * {@code estado == APROBADA && !isExpirada()}, which is false for VENCIDA rows too.
      */
     public boolean isExpirada() {
         return validoHasta != null && validoHasta.isBefore(LocalDate.now());

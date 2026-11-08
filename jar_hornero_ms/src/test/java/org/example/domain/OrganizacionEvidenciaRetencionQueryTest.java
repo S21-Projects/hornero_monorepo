@@ -137,4 +137,13 @@ class OrganizacionEvidenciaRetencionQueryTest {
         assertThat(repository.existsByOrganizacion_IdAndObjectKeyAndArchivoEliminadoAtIsNotNull(
                 org.getId(), "org-evidencia/1/x.pdf")).isTrue();
     }
+
+    @Test
+    void aVencidaRowIsACandidateOnlyNMonthsAfterItsExpiryDate() {
+        fila("org-evidencia/1/vencida-reciente.pdf", EstadoEvidencia.VENCIDA, CORTE.plusDays(1));
+        fila("org-evidencia/1/vencida-antigua.pdf", EstadoEvidencia.VENCIDA, CORTE.minusDays(1));
+        entityManager.flush();
+
+        assertThat(claves(10)).containsExactly("org-evidencia/1/vencida-antigua.pdf");
+    }
 }

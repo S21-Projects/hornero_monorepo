@@ -271,6 +271,26 @@ class NotificacionServiceTest {
         assertThat(enviados.get(0).text()).contains("La foto no se ve").contains("Comedor Sol");
     }
 
+    @Test
+    void evidenciaVencida_statesTheExpiryAndTheGraceDeadline() {
+        servicio(true).procesar(new EvidenciaVencida(10L, RequisitoAcreditacion.NO_DISCRIMINACION,
+                java.time.LocalDate.of(2026, 10, 1), java.time.LocalDate.of(2026, 10, 31)));
+
+        assertThat(enviados).hasSize(1);
+        assertThat(enviados.get(0).to()).isEqualTo("rosa@x.org");
+        assertThat(enviados.get(0).text()).contains("01/10/2026").contains("31/10/2026")
+                .contains("Comedor Sol").contains(PANEL + "/acreditacion");
+    }
+
+    @Test
+    void evidenciaPorVencer_statesTheExpiryDate() {
+        servicio(true).procesar(new EvidenciaPorVencer(10L, RequisitoAcreditacion.NO_DISCRIMINACION,
+                java.time.LocalDate.of(2026, 12, 15)));
+
+        assertThat(enviados).hasSize(1);
+        assertThat(enviados.get(0).text()).contains("15/12/2026").contains("Comedor Sol");
+    }
+
     // --- failures ----------------------------------------------------------------------------------
 
     @Test

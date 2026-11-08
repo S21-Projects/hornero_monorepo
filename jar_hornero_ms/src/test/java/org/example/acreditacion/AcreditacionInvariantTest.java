@@ -89,4 +89,47 @@ class AcreditacionInvariantTest {
             acreditacionService.aprobarEvidencia(evidencia.getId(), admin.getId());
         }
     }
+
+    @Autowired
+    private org.example.domain.OrganizacionEvidenciaRepository evidenciaRepository;
+
+    @Autowired
+    private VigenciaEvidenciaService vigencia;
+
+    @Test
+    @Transactional
+    void expiringEvidenceNeverChangesTheDerivedLevelAndAnAdminCanStillLower() {
+        Administrador admin = usuarioRepository.save(new Administrador(null, "Admin IV", "admin-iv@test.com", "x", true));
+        Organizacion organizacion = new Organizacion();
+        organizacion.setNombre("Comedor Vencimiento");
+        organizacion.setSlug("comedor-vencimiento-" + System.nanoTime());
+        organizacion.setEstado(EstadoOrganizacion.PENDIENTE);
+        organizacion.setNivel(NivelAcreditacion.N0);
+        organizacion = organizacionRepository.save(organizacion);
+
+        aprobarRequisitos(organizacion, admin, RequisitoAcreditacion.SERVICIO_REGULAR_GRATUITO,
+                RequisitoAcreditacion.NO_DISCRIMINACION, RequisitoAcreditacion.SEDE_INSCRIPTA_INDIVIDUALMENTE);
+        acreditacionService.cambiarNivel(organizacion.getId(), NivelAcreditacion.N1, "cumple N1", admin.getId());
+
+        for (var e : evidenciaRepository.findByOrganizacion_Id(organizacion.getId())) {
+            e.fijarValidoHasta(LocalDate.now().minusDays(1));
+            evidenciaRepository.save(e);
+        }
+        assertThat(vigencia.idsParaVencer()).hasSize(3);
+        vigencia.idsParaVencer().forEach(vigencia::vencer);
+
+        List<org.example.domain.OrganizacionEvento> eventos =
+                eventoRepository.findByOrganizacion_IdOrderByOcurridoEnAscIdAsc(organizacion.getId());
+        assertThat(eventos).filteredOn(e -> e.getTipo() == org.example.domain.TipoEventoOrganizacion.EVIDENCIA_VENCIDA)
+                .hasSize(3);
+        assertThat(organizacionRepository.findById(organizacion.getId()).orElseThrow().getNivel())
+                .isEqualTo(NivelAcreditacion.N1);
+        assertThat(AcreditacionReplay.reconstruir(eventos)).isEqualTo(NivelAcreditacion.N1);
+
+        acreditacionService.cambiarNivel(organizacion.getId(), NivelAcreditacion.N0, "gracia vencida", admin.getId());
+        eventos = eventoRepository.findByOrganizacion_IdOrderByOcurridoEnAscIdAsc(organizacion.getId());
+        assertThat(AcreditacionReplay.reconstruir(eventos)).isEqualTo(NivelAcreditacion.N0);
+        assertThat(organizacionRepository.findById(organizacion.getId()).orElseThrow().getNivel())
+                .isEqualTo(NivelAcreditacion.N0);
+    }
 }

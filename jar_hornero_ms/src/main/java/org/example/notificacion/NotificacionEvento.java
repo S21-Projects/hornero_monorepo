@@ -46,4 +46,14 @@ public sealed interface NotificacionEvento {
     record EvidenciaObservada(Long organizacionId, RequisitoAcreditacion requisito, String observacion)
             implements NotificacionEvento {
     }
+
+    /** RN-04: an approved evidence expired; tells the referente and states the end of the grace period. */
+    record EvidenciaVencida(Long organizacionId, RequisitoAcreditacion requisito, java.time.LocalDate vencioEl,
+                            java.time.LocalDate graciaHasta) implements NotificacionEvento {
+    }
+
+    /** RN-04: one reminder, a configurable number of days before the evidence expires. */
+    record EvidenciaPorVencer(Long organizacionId, RequisitoAcreditacion requisito, java.time.LocalDate venceEl)
+            implements NotificacionEvento {
+    }
 }

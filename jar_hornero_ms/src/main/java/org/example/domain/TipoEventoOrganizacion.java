@@ -50,5 +50,8 @@ public enum TipoEventoOrganizacion {
     REPORTE_CONFIRMADO,
 
     /** An admin discarded a report on the organizacion (it did not change). */
-    REPORTE_DESCARTADO
+    REPORTE_DESCARTADO,
+
+    /** The daily job moved an approved evidencia to VENCIDA (RN-04, actor SISTEMA). Never alters nivel. */
+    EVIDENCIA_VENCIDA
 }
