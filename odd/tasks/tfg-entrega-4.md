@@ -34,8 +34,9 @@ the code (no Redis, no PostGIS, no Gin, requirement numbering collisions).
 - No production access without explicit authorization for destination, operation and credential.
 - Files owned by the author's uncommitted work on `develop`: `ts_hornero_admin/src/routes/actividad*`,
   `ts_hornero_admin/src/routes/panel*`.
-- Delivery strategy: `ask-on-risk`. Forecast for blocks C and D exceeds about 400 authored lines, so ask
-  for the chain strategy before those commits.
+- Delivery strategy: `exception-ok`. Author decided on 2026-11-08 to keep everything on `tfg/entrega-4`
+  without slicing into PRs for now (forecast exceeds 400 authored lines). Slice boundaries are the
+  work-unit commits if a PR is requested later.
 
 ## Tasks
 
@@ -109,4 +110,4 @@ Route legend: `delegated` means a bounded worker; trigger in parentheses.
 
 ## Next step
 
-Author decides chain strategy, then C2 to C5 and D2, D3. B2 after C and D. D1 blocked on author policy, D4 on scope. Author must check public access on the R2 bucket in the Cloudflare panel (evidence shares the bucket with public images).
+D3 and D2 in progress, then C2, C3, C4, E1, D5, C5 local parts, B2, B4. D1 blocked on author policy, D4 on scope. Author must check public access on the R2 bucket in the Cloudflare panel (evidence shares the bucket with public images).
