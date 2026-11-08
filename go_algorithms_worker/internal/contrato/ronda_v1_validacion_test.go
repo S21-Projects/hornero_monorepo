@@ -27,6 +27,7 @@ func TestValidarRechazaValoresNumericosQueRompenElScore(t *testing.T) {
 		"pesos todos en 0":        func(e *EntradaRondaV1) { e.Pesos = &assign.Pesos{} },
 		"urgencia fuera de [0,1]": func(e *EntradaRondaV1) { e.Candidatos[0].Urgencia = 2 },
 		"deficit negativo":        func(e *EntradaRondaV1) { e.Candidatos[0].Deficit = ptrF(-1) },
+		"dias abierta negativos":  func(e *EntradaRondaV1) { e.Candidatos[0].DiasAbierta = -1 },
 		"dias sin donacion negativos": func(e *EntradaRondaV1) {
 			e.Candidatos[0].DiasDesdeUltimaDonacion = -1
 		},

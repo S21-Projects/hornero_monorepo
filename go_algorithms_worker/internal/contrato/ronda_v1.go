@@ -63,12 +63,16 @@ type DonacionV1 struct {
 
 // CandidatoV1 is one open candidate necesidad competing for a donation.
 //
+// DiasAbierta is the RN-05 tie-break key (days since the necesidad was published). It is additive
+// like every other field: absent means 0, and it never changes a score.
+//
 // Deficit is a pointer because AD-2 needs to distinguish "the caller did not send a deficit" from
 // "the caller sent exactly 0.0" — the former lets the worker resolve it (RADIO/CERCANO/NEUTRAL),
 // the latter is a PROVISTO override of zero.
 type CandidatoV1 struct {
 	NecesidadID             int64    `json:"necesidadId"`
 	OrganizacionID          int64    `json:"organizacionId"`
+	DiasAbierta             int      `json:"diasAbierta"`
 	Latitud                 float64  `json:"latitud"`
 	Longitud                float64  `json:"longitud"`
 	CodigoRadio             string   `json:"codigoRadio,omitempty"`
@@ -171,6 +175,8 @@ func validarCandidato(c CandidatoV1) error {
 		return errEntrada(fmt.Sprintf("necesidad %d: urgencia fuera de [0,1]", c.NecesidadID))
 	case c.Deficit != nil && (!finito(*c.Deficit) || *c.Deficit < 0):
 		return errEntrada(fmt.Sprintf("necesidad %d: deficit negativo", c.NecesidadID))
+	case c.DiasAbierta < 0:
+		return errEntrada(fmt.Sprintf("necesidad %d: diasAbierta negativo", c.NecesidadID))
 	case c.DiasDesdeUltimaDonacion < 0:
 		return errEntrada(fmt.Sprintf("necesidad %d: diasDesdeUltimaDonacion negativo", c.NecesidadID))
 	case c.Cumplimiento != nil && (c.Cumplimiento.Entregadas < 0 || c.Cumplimiento.Fallidas < 0):
@@ -303,6 +309,7 @@ func (e EntradaRondaV1) ACandidatos(resolvedor *geo.Resolvedor, pseudoObs float6
 		out[i] = assign.Candidato{
 			NecesidadID:             c.NecesidadID,
 			OrganizacionID:          c.OrganizacionID,
+			DiasAbierta:             c.DiasAbierta,
 			Latitud:                 c.Latitud,
 			Longitud:                c.Longitud,
 			CodigoRadio:             c.CodigoRadio,

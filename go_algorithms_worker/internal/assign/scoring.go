@@ -46,6 +46,11 @@ type Candidato struct {
 	NecesidadID    int64 `json:"necesidadId"`
 	OrganizacionID int64 `json:"organizacionId"`
 
+	// DiasAbierta is how many days this necesidad has been open (RN-05). It is
+	// only a tie-break key: among otherwise equal pairs the longest-open
+	// necesidad wins, then the lower NecesidadID. It never enters the score.
+	DiasAbierta int `json:"diasAbierta"`
+
 	// Coordinates of the organizacion that published the necesidad.
 	Latitud  float64 `json:"latitud"`
 	Longitud float64 `json:"longitud"`

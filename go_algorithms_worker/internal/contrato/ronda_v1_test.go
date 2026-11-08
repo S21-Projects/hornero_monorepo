@@ -274,3 +274,24 @@ func TestResolverParametrosCumplimientoPseudoObs(t *testing.T) {
 		t.Fatalf("CumplimientoPseudoObs (override) = %v, want 3", p.CumplimientoPseudoObs)
 	}
 }
+
+// TestACandidatosMapeaDiasAbierta: RN-05 tie-break key. The MS sends how many days each necesidad
+// has been open; it must reach assign.Candidato, and an absent value maps to 0 (additive field).
+func TestACandidatosMapeaDiasAbierta(t *testing.T) {
+	e := entradaValida()
+	e.Candidatos[0].DiasAbierta = 21
+
+	out, _ := e.ACandidatos(resolvedorVacio(), assign.PseudoObsPorDefecto)
+	if out[0].DiasAbierta != 21 {
+		t.Fatalf("DiasAbierta = %d, want 21", out[0].DiasAbierta)
+	}
+
+	var ausente EntradaRondaV1
+	raw := []byte(`{"version":1,"donaciones":[],"candidatos":[{"necesidadId":1,"organizacionId":2,"latitud":-31.4,"longitud":-64.2,"urgencia":0.5,"diasDesdeUltimaDonacion":1}]}`)
+	if err := json.Unmarshal(raw, &ausente); err != nil {
+		t.Fatal(err)
+	}
+	if got := ausente.Candidatos[0].DiasAbierta; got != 0 {
+		t.Fatalf("absent diasAbierta = %d, want 0", got)
+	}
+}

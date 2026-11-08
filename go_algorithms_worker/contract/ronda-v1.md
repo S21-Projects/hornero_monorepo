@@ -30,6 +30,7 @@ copies change together, in the same commit, whenever this contract changes.
     {
       "necesidadId": 40,
       "organizacionId": 8,
+      "diasAbierta": 21,
       "latitud": -31.40,
       "longitud": -64.20,
       "codigoRadio": null,
@@ -50,6 +51,11 @@ copies change together, in the same commit, whenever this contract changes.
 - `donaciones[].diasEnFondo` and `organizacionesExcluidas` are additive (AD-10, AD-3). A producer
   that does not send them gets `0`/empty, which makes the per-donation unassignment penalty zero
   and the exclusion filter a no-op — behaviour-neutral until slice 5c wires the MS producer.
+- `candidatos[].diasAbierta` is additive (RN-05 tie-break): days since the necesidad was published,
+  `>= 0`, absent means `0`. It never enters the score. Among matchings with exactly the same total
+  score the worker prefers, in order, the necesidad open longest, then the lower `necesidadId`,
+  then the lower donation `id`; the result is independent of the order of `donaciones` and
+  `candidatos` in the request.
 - `candidatos[].deficit` is a nullable override (AD-2): absent/`null` lets the worker resolve the
   coverage deficit itself (`codigoRadio` → nearest precise point → `1.0` neutral); present
   (including `0.0`) always wins.
@@ -81,7 +87,7 @@ copies change together, in the same commit, whenever this contract changes.
   `distanciaMediaKm`, `esperaMaximaDias`, `deficitMaximo` and `cumplimientoPseudoObs` must be `> 0`;
   `distanciaMaximaKm`, `penalizacionNoAsignar` and `radioResolucionKm` `>= 0`;
   `cumplimientoPrior` in `[0, 1]`; `pesos` all `>= 0` with at least one `> 0`; `urgencia` in
-  `[0, 1]`; `deficit`, `diasEnFondo`, `diasDesdeUltimaDonacion` and `cumplimiento` counts `>= 0`;
+  `[0, 1]`; `deficit`, `diasEnFondo`, `diasAbierta`, `diasDesdeUltimaDonacion` and `cumplimiento` counts `>= 0`;
   donation `id` and `necesidadId` unique within the request.
 
 ## Response — 200
