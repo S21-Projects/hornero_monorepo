@@ -157,6 +157,31 @@ class VerificadorCadenaTest {
     }
 
     @Test
+    void sealsAndVerifiesThousandsOfLegacyRowsInPages() {
+        Organizacion grande = organizacion(organizacionRepository, "Verif volumen");
+        Organizacion otra = organizacion(organizacionRepository, "Verif volumen 2");
+        java.time.OffsetDateTime t = java.time.OffsetDateTime.parse("2026-01-01T00:00:00.000001Z");
+        List<Object[]> filas = new java.util.ArrayList<>();
+        for (int i = 0; i < 6000; i++) {
+            filas.add(new Object[] {i % 5 == 0 ? otra.getId() : grande.getId(), t.plusSeconds(i), "legacy " + i});
+        }
+        jdbc.batchUpdate("insert into organizacion_evento (organizacion_id, tipo, ocurrido_en, actor_tipo, motivo) "
+                + "values (?, 'REFERENTE_REASIGNADO', ?, 'SISTEMA', ?)", filas);
+
+        long t0 = System.nanoTime();
+        int sellados = verificador.cadena().completarPendientes();
+        long t1 = System.nanoTime();
+        VerificadorCadena.Resultado r = new VerificadorCadena(jdbc, 1000).verificar();
+        long t2 = System.nanoTime();
+
+        assertThat(sellados).isGreaterThanOrEqualTo(6000);
+        assertThat(r.integra()).isTrue();
+        assertThat(r.eventos()).isGreaterThanOrEqualTo(6000);
+        System.out.printf("[auditoria] sealed %d rows in %d ms, verified %d rows in %d ms (page 1000)%n",
+                sellados, (t1 - t0) / 1_000_000, r.eventos(), (t2 - t1) / 1_000_000);
+    }
+
+    @Test
     void sealingCompletesLegacyRowsAndTheyVerifyAfterwards() {
         Organizacion org = organizacion(organizacionRepository, "Verif backfill");
         CadenaTestSupport.insertarSinHash(jdbc, org.getId(), "uno");
