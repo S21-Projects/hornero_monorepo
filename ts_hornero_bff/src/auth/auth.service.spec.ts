@@ -28,6 +28,64 @@ describe('AuthService', () => {
     service = module.get<AuthService>(AuthService);
   });
 
+  describe('session cookie attributes (C2)', () => {
+    const originalEnv = process.env.NODE_ENV;
+    afterEach(() => {
+      process.env.NODE_ENV = originalEnv;
+    });
+
+    const loginAndGetCookies = async () => {
+      httpService.axiosRef.post.mockResolvedValue({
+        data: { accessToken: 'a', refreshToken: 'r', user: { id: 1 } },
+      });
+      await service.login({ email: 'u@test.com', password: 'x' } as any, res as any);
+      return Object.fromEntries(
+        res.cookie.mock.calls.map(([name, value, opts]) => [
+          name,
+          { value, ...opts },
+        ]),
+      );
+    };
+
+    it('production: Secure + SameSite=none; tokens HttpOnly; session_hint readable and without a role', async () => {
+      process.env.NODE_ENV = 'production';
+
+      const c = await loginAndGetCookies();
+
+      for (const name of ['access_token', 'refresh_token', 'session_hint']) {
+        expect(c[name]).toMatchObject({ secure: true, sameSite: 'none' });
+      }
+      expect(c.access_token).toMatchObject({ httpOnly: true, maxAge: 900_000 });
+      expect(c.refresh_token).toMatchObject({
+        httpOnly: true,
+        maxAge: 604_800_000,
+      });
+      expect(c.session_hint).toMatchObject({ httpOnly: false, value: '1' });
+    });
+
+    it('development: SameSite=lax and no Secure (plain HTTP), tokens still HttpOnly', async () => {
+      process.env.NODE_ENV = 'development';
+
+      const c = await loginAndGetCookies();
+
+      for (const name of ['access_token', 'refresh_token', 'session_hint']) {
+        expect(c[name]).toMatchObject({ secure: false, sameSite: 'lax' });
+      }
+      expect(c.access_token.httpOnly).toBe(true);
+      expect(c.refresh_token.httpOnly).toBe(true);
+    });
+
+    it('logout clears the three cookies', async () => {
+      await service.logout(undefined, res as any);
+
+      expect(res.clearCookie.mock.calls.map(([n]) => n)).toEqual([
+        'access_token',
+        'refresh_token',
+        'session_hint',
+      ]);
+    });
+  });
+
   describe('verificarSesion (N9: BFF routes that never reach the MS)', () => {
     it('asks the MS /me with the access token as Bearer', async () => {
       httpService.axiosRef.get.mockResolvedValue({ data: { id: 1 } });
