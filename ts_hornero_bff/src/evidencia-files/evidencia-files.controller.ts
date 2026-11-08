@@ -58,11 +58,15 @@ export class EvidenciaFilesController {
     const { body, contentType } = await this.imagesService.getObject(key);
     res.set('Content-Type', contentType ?? 'application/octet-stream');
     // Stored objects are re-typed from their magic bytes at upload; never let a browser sniff
-    // them into something executable, and open PDFs inline rather than as a download.
+    // them into something executable, and never render them inline from this origin: the admin
+    // SPA fetches them as blobs (which ignore this header) and previews the blob URL.
     res.set('X-Content-Type-Options', 'nosniff');
-    if (contentType === 'application/pdf') {
-      res.set('Content-Disposition', 'inline');
-    }
+    res.set(
+      'Content-Disposition',
+      /^[\w.-]+$/.test(filename)
+        ? `attachment; filename="${filename}"`
+        : 'attachment',
+    );
     // Personal evidence: never stored by the browser or a shared cache such as Cloudflare.
     res.set('Cache-Control', 'private, no-store');
     return new StreamableFile(body);
