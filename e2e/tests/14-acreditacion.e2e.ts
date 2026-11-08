@@ -353,6 +353,10 @@ describe('P5. accreditation: evidence, audit, levels and legajo', () => {
       expect(legajo.requisitos.every((r: any) => r.estado === 'APROBADA')).toBe(true);
     });
 
+    it('carries the compliance history; an organizacion with no resolved donations has a null rate', () => {
+      expect(legajo.cumplimiento).toEqual({ entregadas: 0, rechazadas: 0, tasa: null });
+    });
+
     it('lists the full chronological event log, from registration through the last level change', () => {
       const tipos = legajo.eventos.map((e: any) => e.tipo);
       expect(tipos[0]).toBe('ORGANIZACION_REGISTRADA');
