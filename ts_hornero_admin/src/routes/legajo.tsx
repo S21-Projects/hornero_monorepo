@@ -23,6 +23,7 @@ const ESTADO_LABEL: Record<string, string> = {
   OBSERVADA: 'Observada',
   PENDIENTE: 'Pendiente',
   FALTANTE: 'Faltante',
+  VENCIDA: 'Vencida',
 };
 
 export default function LegajoPage() {
@@ -82,7 +83,7 @@ export default function LegajoPage() {
                     <Text variant="body-sm">{r.requisito}</Text>
                     <Text variant="body-sm" color="ink-3">
                       {ESTADO_LABEL[r.estado] ?? r.estado}
-                      {r.expirada ? ' · Vencida' : ''}
+                      {r.expirada && r.estado !== 'VENCIDA' ? ' · Vencida' : ''}
                     </Text>
                   </div>
                 ))}

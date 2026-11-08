@@ -162,4 +162,51 @@ describe('AuditoriaPage — task 4b.3/4b.4 (cross-org audit queue screen)', () =
 
     expect(screen.queryByText('Comedor Los Hornitos')).not.toBeInTheDocument();
   });
+
+  describe('RN-04 expired evidence', () => {
+    const VENCIDA_ROW: EvidenciaEnColaResponse = {
+      ...ROW,
+      estado: 'VENCIDA',
+      expirada: true,
+      validoHasta: '2026-10-01',
+      graciaHasta: '2026-10-31',
+      graciaVencida: false,
+    };
+
+    function mockVencidas(row: EvidenciaEnColaResponse) {
+      vi.mocked(useColaAuditoria).mockReturnValue({
+        data: pageOf([row]),
+        isLoading: false,
+        isError: false,
+        isFetching: false,
+      } as ReturnType<typeof useColaAuditoria>);
+    }
+
+    it('shows the VENCIDA state, the expiry date and the end of grace', () => {
+      mockVencidas(VENCIDA_ROW);
+      render(<AuditoriaPage />, { wrapper: Wrapper });
+
+      expect(screen.getByText('Vencida')).toBeInTheDocument();
+      expect(screen.getByText('Venció el 01/10/2026')).toBeInTheDocument();
+      expect(screen.getByText('En gracia hasta el 31/10/2026')).toBeInTheDocument();
+      expect(screen.queryByText('Gracia vencida')).not.toBeInTheDocument();
+    });
+
+    it('flags the organization as "Gracia vencida" once the grace period is over', () => {
+      mockVencidas({ ...VENCIDA_ROW, graciaVencida: true });
+      render(<AuditoriaPage />, { wrapper: Wrapper });
+
+      expect(screen.getByText('Gracia vencida')).toBeInTheDocument();
+      expect(screen.queryByText(/En gracia hasta/)).not.toBeInTheDocument();
+    });
+
+    it('does not offer Aprobar for a VENCIDA row (it has to be replaced)', () => {
+      mockVencidas(VENCIDA_ROW);
+      render(<AuditoriaPage />, { wrapper: Wrapper });
+
+      fireEvent.click(screen.getByRole('button', { name: /ver detalle/i }));
+
+      expect(screen.queryByRole('button', { name: /^aprobar$/i })).not.toBeInTheDocument();
+    });
+  });
 });
