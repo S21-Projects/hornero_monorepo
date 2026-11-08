@@ -99,3 +99,63 @@ export async function completarEntrega(donante: Actor, referente: Actor, donacio
   const v2 = await referente.post(`/donaciones/${donacionId}/entrega/verificar`, { codigo: codDon.data.codigo });
   return { v1, v2 };
 }
+
+// --- Accreditation helpers (shared by the e2e tests and the demo seed) -------------------------
+
+/** Builds a tiny valid one-page PDF (ASCII text only) so evidence files open in any viewer. */
+export function pdfMinimo(texto: string): Uint8Array {
+  const safe = texto.replace(/[^\x20-\x7e]/g, '?').replace(/([()\\])/g, '\\$1');
+  const stream = `BT /F1 14 Tf 40 760 Td (${safe}) Tj ET`;
+  const objects = [
+    '<< /Type /Catalog /Pages 2 0 R >>',
+    '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
+    '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>',
+    `<< /Length ${stream.length} >>\nstream\n${stream}\nendstream`,
+    '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>',
+  ];
+  let out = '%PDF-1.4\n';
+  const offsets: number[] = [];
+  objects.forEach((body, i) => {
+    offsets.push(out.length);
+    out += `${i + 1} 0 obj\n${body}\nendobj\n`;
+  });
+  const xref = out.length;
+  out += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`;
+  for (const off of offsets) out += `${String(off).padStart(10, '0')} 00000 n \n`;
+  out += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`;
+  return new TextEncoder().encode(out);
+}
+
+/** Uploads a generated PDF as accreditation evidence of `orgId`; returns the object key. */
+export async function subirEvidenciaPdf(referente: Actor, orgId: number, texto: string): Promise<string> {
+  const res = await referente.upload(`/upload/org-evidencia/${orgId}`, 'image', {
+    bytes: pdfMinimo(texto),
+    name: 'evidencia.pdf',
+    type: 'application/pdf',
+  });
+  if (res.status !== 201) throw new Error(`evidence upload failed: ${res.status} ${JSON.stringify(res.body)}`);
+  // The upload routes answer with the bare `{ key }`, not the `{ data }` envelope.
+  return (res.body?.key ?? res.data?.key) as string;
+}
+
+export type Requisito =
+  | 'SERVICIO_REGULAR_GRATUITO' | 'NO_DISCRIMINACION' | 'SEDE_INSCRIPTA_INDIVIDUALMENTE'
+  | 'CONDICIONES_SANITARIAS_ADECUADAS' | 'SIN_KIOSCO_MISMO_DOMICILIO' | 'RADIO_50KM_BANCO_ALIMENTOS'
+  | 'PERSONERIA_JURIDICA_O_AVAL' | 'ACEPTA_AUDITORIAS_SIN_AVISO';
+
+/** Requisitos by the level that first demands them (mirrors `RequisitoAcreditacion`). */
+export const REQUISITOS_POR_NIVEL = {
+  N1: ['SERVICIO_REGULAR_GRATUITO', 'NO_DISCRIMINACION', 'SEDE_INSCRIPTA_INDIVIDUALMENTE'],
+  N2: ['CONDICIONES_SANITARIAS_ADECUADAS', 'SIN_KIOSCO_MISMO_DOMICILIO', 'RADIO_50KM_BANCO_ALIMENTOS'],
+  N3: ['PERSONERIA_JURIDICA_O_AVAL', 'ACEPTA_AUDITORIAS_SIN_AVISO'],
+} as const satisfies Record<string, readonly Requisito[]>;
+
+/** Submits a DECLARACION evidence row; returns the response (callers assert the status). */
+export function cargarDeclaracion(referente: Actor, orgId: number, requisito: Requisito, declaracion: string, extra: Record<string, unknown> = {}) {
+  return referente.post(`/organizaciones/${orgId}/acreditacion/evidencias`, {
+    requisito,
+    tipoEvidencia: 'DECLARACION',
+    declaracion,
+    ...extra,
+  });
+}
