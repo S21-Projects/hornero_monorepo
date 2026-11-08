@@ -15,6 +15,7 @@
     {
       "necesidadId": 40,
       "organizacionId": 8,
+      "diasAbierta": 21,
       "latitud": -31.40,
       "longitud": -64.20,
       "urgencia": 0.6,

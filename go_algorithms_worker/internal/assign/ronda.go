@@ -55,6 +55,11 @@ type Resultado struct {
 // wait, which reproduces the pre-AD-10 solver exactly (see
 // TestPenalizacionCeroReproduceRondaOriginal).
 func Ronda(donaciones []Donacion, candidatos []Candidato, w Pesos, p Parametros) Resultado {
+	// Canonical order first: the same data in any input order must give the
+	// same assignment (RNF16). Donations by id, necesidades by the RN-05 key.
+	donaciones = ordenarDonaciones(donaciones)
+	candidatos = ordenarCandidatos(candidatos)
+
 	if len(donaciones) == 0 || len(candidatos) == 0 {
 		res := Resultado{}
 		for _, d := range donaciones {
@@ -66,7 +71,7 @@ func Ronda(donaciones []Donacion, candidatos []Candidato, w Pesos, p Parametros)
 	realCols := len(candidatos)
 	costo := matrizConDescarte(donaciones, candidatos, w, p, realCols)
 
-	rowToCol, _ := Hungarian(costo)
+	rowToCol, _ := HungarianLex(costo, desempates(costo, realCols))
 
 	res := Resultado{}
 	for i, j := range rowToCol {
@@ -92,10 +97,77 @@ func Ronda(donaciones []Donacion, candidatos []Candidato, w Pesos, p Parametros)
 		res.ScoreTotal += score
 	}
 
-	sort.Slice(res.Asignaciones, func(a, b int) bool {
-		return res.Asignaciones[a].Score > res.Asignaciones[b].Score
+	// Total order: score, then necesidad open longest, then lower necesidad id
+	// (RN-05), then donation id so even duplicate necesidades cannot reorder.
+	rango := make(map[int64]int, len(candidatos))
+	for j, c := range candidatos {
+		if _, ok := rango[c.NecesidadID]; !ok {
+			rango[c.NecesidadID] = j
+		}
+	}
+	sort.SliceStable(res.Asignaciones, func(a, b int) bool {
+		x, y := res.Asignaciones[a], res.Asignaciones[b]
+		if x.Score != y.Score {
+			return x.Score > y.Score
+		}
+		if rx, ry := rango[x.NecesidadID], rango[y.NecesidadID]; rx != ry {
+			return rx < ry
+		}
+		return x.DonacionID < y.DonacionID
 	})
 	return res
+}
+
+// ordenarDonaciones returns a copy sorted by ascending id.
+func ordenarDonaciones(in []Donacion) []Donacion {
+	out := append([]Donacion(nil), in...)
+	sort.SliceStable(out, func(a, b int) bool { return out[a].ID < out[b].ID })
+	return out
+}
+
+// ordenarCandidatos returns a copy in RN-05 order: necesidad open longest
+// first, then lower id. The index in this order is the necesidad's rank.
+func ordenarCandidatos(in []Candidato) []Candidato {
+	out := append([]Candidato(nil), in...)
+	sort.SliceStable(out, func(a, b int) bool {
+		if out[a].DiasAbierta != out[b].DiasAbierta {
+			return out[a].DiasAbierta > out[b].DiasAbierta
+		}
+		return out[a].NecesidadID < out[b].NecesidadID
+	})
+	return out
+}
+
+// desempates builds the RN-05 secondary cost for inputs already in canonical
+// order, so a row or column index is also its rank. It only matters among
+// matchings with exactly the same total score, and is read in this order:
+//
+//   - Nivel1 = rank of the necesidad: use the longest-open necesidades
+//     (then the lower ids) first.
+//   - Nivel2 = rank of the donation: when only some donations fit, match the
+//     lower ids.
+//   - Nivel3 = (donations - 1 - donation rank) x (necesidad rank + 1): pair
+//     the lower donation ids with the better-ranked necesidades
+//     (rearrangement inequality).
+//
+// Infeasible cells and dummy columns carry no secondary cost.
+func desempates(costo [][]float64, realCols int) [][]Desempate {
+	filas := len(costo)
+	out := make([][]Desempate, filas)
+	for i := range costo {
+		out[i] = make([]Desempate, len(costo[i]))
+		for j := 0; j < realCols; j++ {
+			if costo[i][j] >= Inf {
+				continue
+			}
+			out[i][j] = Desempate{
+				Nivel1: int64(j),
+				Nivel2: int64(i),
+				Nivel3: int64(filas-1-i) * int64(j+1),
+			}
+		}
+	}
+	return out
 }
 
 // matrizConDescarte extends MatrizCosto with one dummy column per donation:

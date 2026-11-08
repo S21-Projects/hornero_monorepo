@@ -11,6 +11,41 @@ const Unassigned = -1
 // potentials stay well defined.
 const Inf = math.MaxFloat64 / 4
 
+// Desempate is the secondary cost of one matrix cell. It is compared only
+// when two matchings have exactly the same primary cost: Nivel1 first, then
+// Nivel2. Both are exact integers, so the comparison never depends on
+// floating-point rounding.
+type Desempate struct{ Nivel1, Nivel2, Nivel3 int64 }
+
+// costoLex is a (primary, secondary) cost ordered lexicographically. Pairs of
+// this kind form an ordered abelian group, so the shortest-augmenting-path
+// algorithm stays correct when it works on them instead of on plain floats.
+type costoLex struct {
+	p          float64
+	s1, s2, s3 int64
+}
+
+func (a costoLex) menor(b costoLex) bool {
+	if a.p != b.p {
+		return a.p < b.p
+	}
+	if a.s1 != b.s1 {
+		return a.s1 < b.s1
+	}
+	if a.s2 != b.s2 {
+		return a.s2 < b.s2
+	}
+	return a.s3 < b.s3
+}
+
+func (a costoLex) mas(b costoLex) costoLex {
+	return costoLex{a.p + b.p, a.s1 + b.s1, a.s2 + b.s2, a.s3 + b.s3}
+}
+
+func (a costoLex) menos(b costoLex) costoLex {
+	return costoLex{a.p - b.p, a.s1 - b.s1, a.s2 - b.s2, a.s3 - b.s3}
+}
+
 // Hungarian solves the rectangular linear assignment problem with the
 // Jonker-Volgenant shortest-augmenting-path variant of the Kuhn-Munkres
 // algorithm, in O(rows^2 * cols) time.
@@ -21,8 +56,23 @@ const Inf = math.MaxFloat64 / 4
 // is the summed cost of the matching.
 //
 // Costs are minimized. Callers holding a "higher is better" score must negate
-// it before calling.
+// it before calling. Among matchings of equal cost the choice is an artifact
+// of column order; use HungarianLex when it must follow a stated rule.
 func Hungarian(cost [][]float64) (rowToCol []int, total float64) {
+	return HungarianLex(cost, nil)
+}
+
+// HungarianLex is Hungarian with a lexicographic secondary criterion (RN-05):
+// among all matchings of minimum primary cost it returns one that minimizes
+// the summed Nivel1, among those the summed Nivel2, and among those the
+// summed Nivel3. desempate is indexed
+// like cost; nil means no secondary criterion. The returned total is the
+// primary cost only, so scores derived from it are never perturbed.
+//
+// If two matchings tie on all three sums the result still depends on row and
+// column order, so callers that need a total order canonicalize the input
+// first (see Ronda).
+func HungarianLex(cost [][]float64, desempate [][]Desempate) (rowToCol []int, total float64) {
 	n := len(cost)
 	if n == 0 {
 		return nil, 0
@@ -35,21 +85,30 @@ func Hungarian(cost [][]float64) (rowToCol []int, total float64) {
 	// The classic formulation is 1-indexed with a sentinel at index 0, so the
 	// internal arrays carry one extra slot and a() shifts into the caller's
 	// 0-indexed matrix.
-	a := func(i, j int) float64 { return cost[i-1][j-1] }
+	a := func(i, j int) costoLex {
+		c := costoLex{p: cost[i-1][j-1]}
+		if desempate != nil {
+			d := desempate[i-1][j-1]
+			c.s1, c.s2, c.s3 = d.Nivel1, d.Nivel2, d.Nivel3
+		}
+		return c
+	}
 
-	u := make([]float64, n+1) // row potentials
-	v := make([]float64, m+1) // column potentials
-	p := make([]int, m+1)     // p[j] = row currently matched to column j
-	way := make([]int, m+1)   // way[j] = predecessor column on the augmenting path
+	infinito := costoLex{p: math.Inf(1)}
+
+	u := make([]costoLex, n+1) // row potentials
+	v := make([]costoLex, m+1) // column potentials
+	p := make([]int, m+1)      // p[j] = row currently matched to column j
+	way := make([]int, m+1)    // way[j] = predecessor column on the augmenting path
 
 	for i := 1; i <= n; i++ {
 		p[0] = i
 		j0 := 0
 
-		minv := make([]float64, m+1)
+		minv := make([]costoLex, m+1)
 		used := make([]bool, m+1)
 		for j := range minv {
-			minv[j] = math.Inf(1)
+			minv[j] = infinito
 		}
 
 		// Grow a shortest augmenting path from row i until it lands on a free
@@ -57,19 +116,19 @@ func Hungarian(cost [][]float64) (rowToCol []int, total float64) {
 		for {
 			used[j0] = true
 			i0 := p[j0]
-			delta := math.Inf(1)
+			delta := infinito
 			j1 := 0
 
 			for j := 1; j <= m; j++ {
 				if used[j] {
 					continue
 				}
-				cur := a(i0, j) - u[i0] - v[j]
-				if cur < minv[j] {
+				cur := a(i0, j).menos(u[i0]).menos(v[j])
+				if cur.menor(minv[j]) {
 					minv[j] = cur
 					way[j] = j0
 				}
-				if minv[j] < delta {
+				if minv[j].menor(delta) {
 					delta = minv[j]
 					j1 = j
 				}
@@ -78,10 +137,10 @@ func Hungarian(cost [][]float64) (rowToCol []int, total float64) {
 			// Re-normalize potentials so the reduced costs stay non-negative.
 			for j := 0; j <= m; j++ {
 				if used[j] {
-					u[p[j]] += delta
-					v[j] -= delta
+					u[p[j]] = u[p[j]].mas(delta)
+					v[j] = v[j].menos(delta)
 				} else {
-					minv[j] -= delta
+					minv[j] = minv[j].menos(delta)
 				}
 			}
 
