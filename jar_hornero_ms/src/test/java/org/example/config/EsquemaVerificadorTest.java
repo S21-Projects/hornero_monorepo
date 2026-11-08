@@ -406,4 +406,22 @@ class EsquemaVerificadorTest {
     void defaultState_v013AssumedMigrated() {
         assertThat(esquemaVerificador.asignacionActivaUnicaMigrada()).isTrue();
     }
+
+    @Test
+    void postgres_checkWithoutVencida_flagsV015Pending() throws Exception {
+        mockDatabaseProduct("PostgreSQL");
+        when(jdbcTemplate.queryForObject(org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.eq(String.class)))
+                .thenReturn("YES");
+        org.mockito.Mockito.lenient().when(jdbcTemplate.queryForList(org.mockito.ArgumentMatchers.contains("VENCIDA"), org.mockito.ArgumentMatchers.eq(String.class)))
+                .thenReturn(java.util.List.of("organizacion_evidencia_estado_check"));
+
+        esquemaVerificador.run(new DefaultApplicationArguments());
+
+        assertThat(esquemaVerificador.vigenciaEvidenciaMigrada()).isFalse();
+    }
+
+    @Test
+    void defaultState_vigenciaEvidenciaAssumedMigrated() {
+        assertThat(esquemaVerificador.vigenciaEvidenciaMigrada()).isTrue();
+    }
 }

@@ -10,6 +10,27 @@ production DB) — check the "Applied to" line before running anything twice.
 
 ---
 
+## 2026-11-08 — `organizacion_evidencia`: state `VENCIDA`, expiry backfill and reminder column (RN-04, D1)
+
+**Reason**: accreditation evidence now expires one year after approval (`EVIDENCIA_VIGENCIA_MESES`, default 12). A daily job moves expired `APROBADA` evidence to the new state `VENCIDA` and appends the event `EVIDENCIA_VENCIDA` (actor `SISTEMA`). `ddl-auto=update` never widens the CHECK constraints it generated for STRING enums, so both new values would be rejected.
+
+**Before**: `organizacion_evidencia.estado` allows PENDIENTE/APROBADA/OBSERVADA/REEMPLAZADA; `organizacion_evento.tipo` lacks `EVIDENCIA_VENCIDA`; `APROBADA` rows may have `valido_hasta IS NULL` (never expires); no column `recordatorio_vencimiento_at`.
+
+**Migration** (two parts):
+
+1. By `ddl-auto=update`, on the first boot of the new MS image: nullable column `recordatorio_vencimiento_at timestamptz` (set once when the "expires soon" reminder is sent). Additive.
+2. `scripts/sql/V015__evidencia_vencida.sql` (run `make migrate`, then restart the MS). Drops any CHECK on `estado` / `tipo` that lacks the new value and recreates it with the full list; then backfills every `APROBADA` row with `valido_hasta IS NULL` to `GREATEST(revisado_en + 1 year, CURRENT_DATE + 30 days)` (`cargado_en` when `revisado_en` is NULL). The floor guarantees no backfilled date is earlier than the deployment date plus 30 days. Rows that already have a `valido_hasta` are not touched. Idempotent and transactional; verified twice on a throwaway `postgres:16`. `EsquemaVerificador` logs `ESQUEMA_PENDIENTE` while a CHECK still rejects the new values.
+
+**Order on the Pi**: back up (`make backup`), deploy the new MS image and let it boot once (adds the column; the startup run of the job may fail per row with a constraint violation, logged and harmless, if V015 is not applied yet), run `make migrate` (V015), restart the MS so the startup run moves rows already past their date to `VENCIDA`. Applying V015 before the image also works (the script only needs the two tables).
+
+**After**: `SELECT count(*) FROM organizacion_evidencia WHERE estado = 'APROBADA' AND valido_hasta IS NULL` is 0 after V015 (new approvals always set the date). `\d organizacion_evidencia` shows `organizacion_evidencia_estado_check` with VENCIDA.
+
+**Rollback**: `UPDATE organizacion_evidencia SET estado = 'APROBADA' WHERE estado = 'VENCIDA';` and recreate the two CHECKs without the new values only if no `EVIDENCIA_VENCIDA` event exists (events cannot be deleted: V014 trigger), so in practice keep the CHECKs; the previous code ignores the extra column. The backfilled `valido_hasta` values are not reversible without the backup. The behaviour can be switched off by setting `EVIDENCIA_VIGENCIA_MESES` very high; there is no flag to disable the job.
+
+**Applied to**: not applied to production by the author of this change; pending in every environment.
+
+---
+
 ## 2026-11-08 — `organizacion_evento`: hash chain columns and immutability trigger (C4)
 
 **Reason**: the accreditation event log is append-only in the application only. C4 chains its rows per organization (`hash = SHA-256(prev_hash || canonical content)`) so that an edited, deleted-in-the-middle or reordered event is detected, and adds a trigger so ad hoc SQL cannot edit or delete events. See `docs/tfg/seguridad-c4.md`.
