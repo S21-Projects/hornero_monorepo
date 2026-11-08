@@ -1,0 +1,19 @@
+# NOT ENABLED. Nothing installs or starts this unit; see docs/tfg/seguridad-c5.md.
+# It also does nothing unless EVIDENCE_COPY_ENABLED=true in the compose env file.
+[Unit]
+Description=Hornero weekly additive copy of evidence files to a second bucket (never deletes)
+After=docker.service network-online.target
+Requires=docker.service
+
+[Service]
+Type=oneshot
+# Replace both placeholders as for hornero-backup.service:
+#   /home/pi/hornero_app -> absolute path of the repo checkout on the Pi
+#   User=pi              -> a user in the `docker` group that owns the checkout
+User=pi
+WorkingDirectory=/home/pi/hornero_app
+Environment=ENV_FILE=.env
+ExecStart=/home/pi/hornero_app/scripts/backup/evidence-copy.sh
+UMask=0077
+Nice=10
+IOSchedulingClass=idle
