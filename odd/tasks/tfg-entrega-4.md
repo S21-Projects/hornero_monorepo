@@ -74,7 +74,7 @@ Route legend: `delegated` means a bounded worker; trigger in parentheses.
 - [x] D2 RN-08 no double reassignment, concurrency test (`e3aa1e7`; V013 pending on the Pi)
 - [x] D3 RN-05 deterministic tie-break with `ORDER BY` (`5b44586`, `b5732bf`)
 - [x] D5 E2E for CU-07 to CU-10 and reassignment (`3cb6eb0`; proposal expiry and daily job not reachable end to end)
-- [ ] D4 Author chose option A on 2026-11-08: RF17 and RF18 text follows what exists; add compliance to the legajo
+- [x] D4 Option A: RF17 and RF18 text follows what exists; compliance added to the legajo (`a486540`, `d28fc13`, `b1419c2`)
 
 ### E. Demo
 
@@ -137,6 +137,9 @@ Route legend: `delegated` means a bounded worker; trigger in parentheses.
 - Final at `08ead82`: MS 1274 run, 8 skipped, 91.84%; BFF 480, 96.79%; admin 705, 86.63%; worker 141 passed, 1 skipped;
   e2e 151 of 151; benchmark 217.9 ms on M3 Pro. Deployment order exercised on a fresh DB with MinIO.
 
+- Final at `57185bc`: MS 1276 run, 8 skipped; BFF 480; admin 707; worker 141 passed, 1 skipped; e2e 152 of 152 in 199 s.
+  A first e2e run failed one file because the test helper ran compose without the project variable; environment cause, recorded.
+
 ## Next step
 
-D4 legajo compliance in progress. Author steps on Cloudflare and the Pi are listed in RESUMEN. No push, PR or merge requested. D1 blocked on author policy, D4 on scope. Author must check public access on the R2 bucket in the Cloudflare panel (evidence shares the bucket with public images).
+Author steps on Cloudflare and the Pi are listed in RESUMEN. No push, PR or merge requested. D1 blocked on author policy, D4 on scope. Author must check public access on the R2 bucket in the Cloudflare panel (evidence shares the bucket with public images).
