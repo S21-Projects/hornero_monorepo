@@ -73,12 +73,12 @@ Route legend: `delegated` means a bounded worker; trigger in parentheses.
 - [x] D1 RN-04 evidence expiry: one year after approval, 30 days of grace, then manual reduction by an admin; open needs stay open (`68ab319` to `8dbede6`; V015 pending on the Pi)
 - [x] D2 RN-08 no double reassignment, concurrency test (`e3aa1e7`; V013 pending on the Pi)
 - [x] D3 RN-05 deterministic tie-break with `ORDER BY` (`5b44586`, `b5732bf`)
-- [ ] D5 E2E for CU-07 to CU-10 and reassignment (proposed to author, not objected)
+- [x] D5 E2E for CU-07 to CU-10 and reassignment (`3cb6eb0`; proposal expiry and daily job not reachable end to end)
 - [ ] D4 RF17 and RF18 (BLOCKED: author decides scope after A2)
 
 ### E. Demo
 
-- [ ] E1 `make demo-seed` and `make demo-reset`
+- [x] E1 `make demo-up`, `demo-seed`, `demo-reset`, `demo-verify` on a dedicated compose project (`8c3943e`)
 
 ### Close
 
@@ -128,6 +128,9 @@ Route legend: `delegated` means a bounded worker; trigger in parentheses.
 - D1: writer report: `mvn test` 1274 run, 0 failures, 8 skipped; V015 applied twice on throwaway Postgres. Parent
   reran the full admin suite after the last fix.
 
+- E1 and D5: `make e2e` 151 of 151 passed in 235 s, 15 files, isolated stack with MinIO confirmed. Demo refusal paths
+  tested by the writer. Finding: `EventoResponse` Javadoc says owner legajo hides `actorUsuarioId`, controller does not.
+
 ## Next step
 
-E1 and D5 in progress, then C5 local parts, B2, B4, full e2e rerun, RESUMEN. D1 blocked on author policy, D4 on scope. Author must check public access on the R2 bucket in the Cloudflare panel (evidence shares the bucket with public images).
+C5 local parts in progress, then B2, B4, full e2e rerun, RESUMEN. D1 blocked on author policy, D4 on scope. Author must check public access on the R2 bucket in the Cloudflare panel (evidence shares the bucket with public images).
