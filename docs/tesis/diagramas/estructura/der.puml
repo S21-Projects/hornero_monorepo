@@ -62,12 +62,14 @@ entity "organizacion_evidencia" as evidencia {
   declaracion : VARCHAR(2000) (N)
   valido_desde : DATE (N)
   valido_hasta : DATE (N) <<null = no vence>>
-  * estado : VARCHAR <<PENDIENTE | APROBADA | OBSERVADA | REEMPLAZADA>>
+  * estado : VARCHAR <<PENDIENTE | APROBADA | OBSERVADA | REEMPLAZADA | VENCIDA>>
   * cargado_por : BIGINT
   * cargado_en : TIMESTAMP
   revisado_por : BIGINT (N)
   revisado_en : TIMESTAMP (N)
   observacion : VARCHAR(1000) (N)
+  archivo_eliminado_at : TIMESTAMP (N) <<retención borró el archivo>>
+  recordatorio_vencimiento_at : TIMESTAMP (N) <<aviso previo enviado>>
 }
 
 entity "organizacion_evento" as evento {
@@ -84,6 +86,8 @@ entity "organizacion_evento" as evento {
   evidencia_id : BIGINT (N) <<id suelto, sin FK>>
   motivo : VARCHAR(1000) (N)
   payload : TEXT (N) <<JSON canónico>>
+  prev_hash : VARCHAR(64) (N) <<hash del evento anterior; único con organizacion_id>>
+  hash : VARCHAR(64) (N) <<SHA-256 encadenado>>
 }
 
 entity "articulos" as articulos {
@@ -165,6 +169,42 @@ entity "codigos_entrega" as codigoEntrega {
   * intentos : INTEGER
   * usado : BOOLEAN
   * creado_en : TIMESTAMP
+}
+
+entity "refresh_tokens" as refresh {
+  * id : BIGINT <<PK>>
+  --
+  * jti : VARCHAR <<único>>
+  * usuario_id : BIGINT <<id suelto, sin FK>>
+  * family_id : VARCHAR
+  * issued_at : TIMESTAMP
+  * expires_at : TIMESTAMP
+  revoked_at : TIMESTAMP (N)
+  rotated_at : TIMESTAMP (N)
+}
+
+entity "password_reset_tokens" as reset {
+  * id : BIGINT <<PK>>
+  --
+  * usuario_id : BIGINT <<id suelto, sin FK>>
+  * token_hash : VARCHAR(64) <<único>>
+  * creado_en : TIMESTAMP
+  * expira_en : TIMESTAMP
+  usado_en : TIMESTAMP (N)
+}
+
+entity "idempotency_keys" as idem {
+  * id : BIGINT <<PK>>
+  --
+  * usuario_id : BIGINT <<id suelto, sin FK>>
+  * clave : VARCHAR(36)
+  * operacion : VARCHAR(200)
+  * huella : VARCHAR(64)
+  * estado : VARCHAR(20) <<enum EstadoIdempotencia>>
+  respuesta_status : INTEGER (N)
+  respuesta_body : TEXT (N)
+  * creada_en : TIMESTAMP
+  * expira_en : TIMESTAMP
 }
 
 entity "rondas" as rondas {
@@ -276,6 +316,9 @@ usuarios ||--o{ organizaciones : "es referente de\n(referente_id)"
 organizaciones ||--o{ necesidades : "publica"
 necesidades ||--o{ donaciones : "recibe"
 usuarios ||--o{ donaciones : "ofrece\n(donante_id)"
+usuarios ||..o{ refresh : "sesiones\n(usuario_id, sin FK)"
+usuarios ||..o{ reset : "recuperaciones\n(usuario_id, sin FK)"
+usuarios ||..o{ idem : "operaciones\n(usuario_id, sin FK)"
 organizaciones ||--o{ evidencia : "presenta"
 organizaciones ||--o{ evento : "registra"
 donaciones ||--o{ codigoEntrega : "emite"

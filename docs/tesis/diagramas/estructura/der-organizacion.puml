@@ -62,12 +62,14 @@ entity "organizacion_evidencia" as evidencia {
   declaracion : VARCHAR(2000) (N)
   valido_desde : DATE (N)
   valido_hasta : DATE (N) <<null = no vence>>
-  * estado : VARCHAR <<PENDIENTE | APROBADA | OBSERVADA | REEMPLAZADA>>
+  * estado : VARCHAR <<PENDIENTE | APROBADA | OBSERVADA | REEMPLAZADA | VENCIDA>>
   * cargado_por : BIGINT
   * cargado_en : TIMESTAMP
   revisado_por : BIGINT (N)
   revisado_en : TIMESTAMP (N)
   observacion : VARCHAR(1000) (N)
+  archivo_eliminado_at : TIMESTAMP (N) <<retención borró el archivo>>
+  recordatorio_vencimiento_at : TIMESTAMP (N) <<aviso previo enviado>>
 }
 
 entity "organizacion_evento" as evento {
@@ -84,6 +86,8 @@ entity "organizacion_evento" as evento {
   evidencia_id : BIGINT (N) <<id suelto, sin FK>>
   motivo : VARCHAR(1000) (N)
   payload : TEXT (N) <<JSON canónico>>
+  prev_hash : VARCHAR(64) (N) <<hash del evento anterior; único con organizacion_id>>
+  hash : VARCHAR(64) (N) <<SHA-256 encadenado>>
 }
 
 entity "reclamos_organizacion" as reclamos {

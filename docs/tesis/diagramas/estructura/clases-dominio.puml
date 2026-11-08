@@ -71,6 +71,8 @@ package "Organización y acreditación" {
     - revisadoPor : Long
     - revisadoEn : Instant
     - observacion : String
+    - archivoEliminadoAt : Instant
+    - recordatorioVencimientoAt : Instant
     --
     + {static} nueva(...) : OrganizacionEvidencia
     + isExpirada() : boolean
@@ -88,7 +90,10 @@ package "Organización y acreditación" {
     - evidenciaId : Long
     - motivo : String
     - payload : String
+    - prevHash : String
+    - hash : String
     --
+    + sellar(prevHash, hash) : void
     + {static} de(...) : OrganizacionEvento
     + {static} deEvidencia(...) : OrganizacionEvento
   }
