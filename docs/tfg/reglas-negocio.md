@@ -35,7 +35,7 @@ Tipos de evidencia admitidos:
 
 - Los valores posibles son `DECLARACION`, `FOTO` y `DOCUMENTO` (`MS/domain/TipoEvidencia.java:4-8`).
 - No existe un mapeo requisito a tipo de evidencia: cualquier requisito acepta cualquiera de los tres tipos. La única restricción de tipo es que `objectKey` solo se acepta con `FOTO` o `DOCUMENTO` (`MS/acreditacion/AcreditacionController.java:76-81`).
-- Los archivos subidos admiten JPEG, PNG, WebP o PDF, detectados por los bytes (`ts_hornero_bff/src/upload/upload.service.ts:67-76`).
+- Los archivos de evidencia de acreditación admiten únicamente JPEG, PNG o PDF, detectados por los bytes y no por el tipo declarado (`ts_hornero_bff/src/upload/upload.service.ts:46` llama con `allowPdf = true`; la detección y el rechazo están en `upload.service.ts:67-76`; `detectEvidenceType` descarta WebP en `ts_hornero_bff/src/upload/image-type.ts:48-57`). WebP sigue admitido solo en las imágenes públicas de organización y en la evidencia de reclamos, que usan `allowPdf = false`.
 - El requisito 7 (`PERSONERIA_JURIDICA_O_AVAL`) menciona en su descripción ocho figuras (Asociación Simple, Asociación Civil, Fichero de Culto, Fundación, Cooperativa, Centro de Jubilados, Centro Vecinal, Aval de otra personería) en `MS/domain/RequisitoAcreditacion.java:53-55`. Esa lista aparece solo como texto de la descripción: una búsqueda en `jar_hornero_ms`, `ts_hornero_admin`, `ts_hornero_bff` y `ts_hornero_astro` no encontró ningún enum, validación ni campo que fuerce la elección de una de las ocho figuras.
 
 Vigencia (modificada por RN-04, decisión del autor del 2026-11-08):
