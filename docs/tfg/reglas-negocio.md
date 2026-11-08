@@ -491,7 +491,7 @@ El RF17 del borrador está implementado en parte: déficit y necesidades abierta
 
 ### Valores extraídos
 
-Redacción del borrador: "puntaje H de historial por organización a partir de entregas confirmadas, rechazos y donaciones sin respuesta, registrado en el legajo".
+Redacción del borrador: "puntaje H de historial por organización a partir de entregas confirmadas, rechazos y donaciones sin respuesta, registrado en el legajo". Decisión del autor (2026-11-08): el RF18 se redacta según lo que existe (ver `revision-word.md`) y se agrega al legajo el cumplimiento.
 
 - El puntaje existe como término de cumplimiento del algoritmo, `TasaCumplimiento`: `(entregadas + m*p0) / (entregadas + fallidas + m)` (`GO/assign/cumplimiento.go:47-54`), con peso 0,15 (`GO/assign/scoring.go:151`).
 - Entradas: donaciones `ENTREGADA` como entregadas y `RECHAZADA` como fallidas, por organización (`MS/asignacion/CumplimientoCalculator.java:25,29-44`). Las `CANCELADA` y las no terminales no cuentan.
@@ -499,7 +499,7 @@ Redacción del borrador: "puntaje H de historial por organización a partir de e
 - Consecuencia relevante: el rechazo de una propuesta del fondo común por el referente tampoco cambia la donación a `RECHAZADA`; solo limpia la necesidad y marca la asignación como `RECHAZADA` (`MS/donacion/DonacionService.java:271-284`). Como `CumplimientoCalculator` cuenta estados de donación y no de asignación, solo los rechazos de ofertas directas llegan a ser "fallidas" del puntaje; los rechazos de propuestas del fondo común no.
 - Se calcula al ejecutar cada ronda con una consulta agrupada (`MS/asignacion/EntradaRondaFactory.java:41`; `MS/domain/DonacionRepository.java:200-202`). No se guarda como valor por organización.
 - Lo que sí se persiste: el término de cumplimiento aplicado a cada asignación (`Asignacion.terminoCumplimiento`, `MS/domain/Asignacion.java:92-94`) y el peso de la ronda (`MS/asignacion/RondaService.java:298-304`). Se muestra en el desglose del puntaje del panel (`ts_hornero_admin/src/components/donacion/DesgloseScore.tsx` y `CriteriosAsignacionPanel.tsx`) y el sitio público lo menciona en un texto (`ts_hornero_astro/src/pages/index.astro:43`).
-- Legajo: `LegajoResponse` no contiene ningún campo de cumplimiento ni de historial (`MS/acreditacion/dto/LegajoResponse.java:13-22`; armado en `MS/acreditacion/AcreditacionService.java:447-495`). No se calcula, guarda ni muestra un puntaje de cumplimiento en el legajo.
+- Legajo (agregado en D4): `LegajoResponse.cumplimiento` (`CumplimientoEnLegajo`) trae la cantidad de entregadas (`ENTREGADA`), la de rechazadas (`RECHAZADA`) y la tasa simple `entregadas / (entregadas + rechazadas)`, o `null` si no hay historial (la vista muestra "Sin historial"). Se calcula al leer el legajo con la misma regla de conteo que `CumplimientoCalculator` (consulta `DonacionRepository.contarPorEstadoDeOrganizacion`) y no se guarda. La vista del legajo (`ts_hornero_admin/src/routes/legajo.tsx`) lo muestra, también en la versión imprimible, con una nota: la tasa no coincide con el término de la ronda, que está suavizado con un valor previo global, y no cuentan las propuestas rechazadas del fondo común ni las donaciones sin responder.
 
 ### Diferencias con el borrador
 
@@ -509,7 +509,7 @@ Redacción del borrador: "puntaje H de historial por organización a partir de e
 | Entregas confirmadas | Entra | Entra (`ENTREGADA`) |
 | Rechazos | Entra | Entra solo si la donación queda en `RECHAZADA` (ofertas directas); el rechazo de una propuesta del fondo común no lo hace |
 | Donaciones sin respuesta | Entra | No entra |
-| Registrado en el legajo | Sí | No: el legajo no incluye cumplimiento |
+| Registrado en el legajo | Sí | Sí, desde D4: entregadas, rechazadas y tasa simple, calculadas al leer y sin almacenar. La tasa del legajo no es el término suavizado de la ronda |
 
 ---
 
@@ -517,7 +517,7 @@ Redacción del borrador: "puntaje H de historial por organización a partir de e
 
 Fuente del criterio: la redacción corregida de RF11 en `docs/tesis/correcciones-requerimientos.md:9-10` ("ponderando déficit de cobertura territorial, urgencia, proximidad, tiempo de espera e historial de cumplimiento de la organización"). El equivalente en `docs/tesis/documento.md` es RF-14 (`docs/tesis/documento.md:330-338`).
 
-Estado: el criterio está en el código. Es el quinto término del puntaje (`GO/assign/scoring.go:285,292`) con peso por defecto 0,15 (`GO/assign/scoring.go:151`), calculado a partir de las donaciones `ENTREGADA` y `RECHAZADA` por organización (`MS/asignacion/CumplimientoCalculator.java:25,29-44`) y suavizado con un prior neutral (`GO/assign/cumplimiento.go:47-54`). No filtra: el comentario de `PesosPorDefecto` indica que "recompensa" sin excluir nunca (`GO/assign/scoring.go:141-145`). Limitación respecto de RF18: no se muestra en el legajo (ver RF18).
+Estado: el criterio está en el código. Es el quinto término del puntaje (`GO/assign/scoring.go:285,292`) con peso por defecto 0,15 (`GO/assign/scoring.go:151`), calculado a partir de las donaciones `ENTREGADA` y `RECHAZADA` por organización (`MS/asignacion/CumplimientoCalculator.java:25,29-44`) y suavizado con un prior neutral (`GO/assign/cumplimiento.go:47-54`). No filtra: el comentario de `PesosPorDefecto` indica que "recompensa" sin excluir nunca (`GO/assign/scoring.go:141-145`). El legajo muestra desde D4 las cantidades y la tasa simple (ver RF18).
 
 ---
 

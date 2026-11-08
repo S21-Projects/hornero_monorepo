@@ -1,6 +1,6 @@
 # Resumen final de la Entrega 4
 
-Rama `tfg/entrega-4`. Código evaluado en las corridas finales: commit `08ead82` (los commits posteriores solo tocan documentación). Fecha: 2026-11-08. Nada de esto está desplegado ni se hizo push.
+Rama `tfg/entrega-4`. Código evaluado en las corridas finales: commit `b1419c2` para microservicio, BFF y panel, y `08ead82` para Go y e2e (los commits posteriores solo tocan documentación). Fecha: 2026-11-08. Nada de esto está desplegado ni se hizo push.
 
 Convenciones: "ya existía" es lo que el código tenía antes de la tarea; "implementado" es lo agregado en esta rama; "no aplica" es lo que el encargo o el borrador suponían y no existe en el proyecto; "pendiente del autor" requiere una decisión o una acción en la Raspberry Pi o en Cloudflare. Los commits están en `git log ca681d6..HEAD`; el seguimiento por tarea está en `odd/tasks/tfg-entrega-4.md`.
 
@@ -29,7 +29,7 @@ Convenciones: "ya existía" es lo que el código tenía antes de la tarea; "impl
 | D1 RN-04 vencimiento de evidencias | Implementado (no existía); V015 pendiente en la Raspberry Pi | `VigenciaEvidenciaService.java`, `EvidenciaVigenciaJob.java`, `V015__evidencia_vencida.sql`, panel de administración |
 | D2 RN-08 sin doble reasignación | Ya existía: `ReentrantLock` de un proceso, bloqueo de fila con re-chequeo, exclusión de la organización que rechazó. Implementado: `pg_try_advisory_lock` entre instancias, índice único V013 y prueba de concurrencia. No aplica: `UPDATE ... WHERE estado` (no cierra ninguna carrera abierta) | `RondaCerrojo.java`, `RondaService.java`, `V013__asignaciones_una_activa_por_donacion.sql` |
 | D3 RN-05 desempate | Implementado (no existía) | `hungarian.go`, `ronda.go`, `scoring.go`, `desempate_test.go`, `EntradaRondaFactory.java` |
-| D4 RF17 y RF18 | **Pendiente del autor.** Existen a medias y el autor decide el alcance; no se implementó nada. El detalle de lo existente está en `reglas-negocio.md` | ninguno |
+| D4 RF17 y RF18 | Decidido por el autor (opción A): RF17 y RF18 se redactan según lo que existe. Implementado: sección de cumplimiento en el legajo (entregadas, rechazadas y tasa simple, calculadas al leer y sin almacenar), también en la vista imprimible; el algoritmo y las reglas de conteo no cambian | `CumplimientoEnLegajo.java`, `LegajoResponse.java`, `AcreditacionService.java`, `DonacionRepository.java`, `legajo.tsx`, `14-acreditacion.e2e.ts`, `reglas-negocio.md` |
 | D5 E2E de CU-07 a CU-10 y reasignación | Implementado | `e2e/tests/14-acreditacion.e2e.ts`, `15-reasignacion.e2e.ts` |
 | E1 Datos de demostración | Implementado: `make demo-up`, `demo-seed`, `demo-reset`, `demo-verify`, `demo-down` en un proyecto de Compose propio | `scripts/demo/demo.sh`, `e2e/scenarios/demo-seed.ts`, `Makefile` |
 | Entrega | Implementado: este documento y `docs/tfg/revision-word.md` | `docs/tfg/RESUMEN.md`, `docs/tfg/revision-word.md` |
@@ -77,18 +77,18 @@ Contraseñas: BCrypt costo 12, rechazo de más de 72 bytes. El acceso vale 15 mi
 | Respaldo remoto | Tres prefijos (`daily/`, `weekly/`, `monthly/`). Retención objetivo 7/4/6 mediante reglas de R2 que **no están creadas**: la crea el autor |
 | CSP | BFF: aplicada. Astro y panel: solo reporte salvo `CSP_MODE=enforce` |
 
-### Conteos de pruebas (corrida final, commit `08ead82`)
+### Conteos de pruebas (corrida final, commit `b1419c2`; Go y e2e de `08ead82`)
 
 | Módulo | Pruebas | Pasadas | Fallidas | Omitidas | Cobertura de líneas |
 |---|---|---|---|---|---|
-| Microservicio (`mvn test -Pcoverage`) | 1274 | 1266 | 0 | 8 (PostgreSQL) | 91,84 % |
+| Microservicio (`mvn test -Pcoverage`) | 1276 | 1268 | 0 | 8 (PostgreSQL) | 91,85 % |
 | BFF (`npx jest --coverage`) | 480 | 480 | 0 | 0 | 96,79 % |
-| Panel (`npx vitest run --coverage`) | 705 | 705 | 0 | 0 | 86,63 % |
+| Panel (`npx vitest run --coverage`) | 707 | 707 | 0 | 0 | 86,63 % |
 | Worker Go (`go test -json`) | 142 con subpruebas | 141 | 0 | 1 | por paquete, 2,5 % a 96,8 % |
-| e2e (`make e2e`) | 151 | 151 | 0 | 0 | no aplica |
+| e2e (`make e2e`) | 151 | 151 | 0 | 0 | no aplica (D4 agregó una aserción en `14-acreditacion`, no ejecutada contra una pila) |
 | Astro | sin pruebas; `npm run build` compila | | | | |
 
-Panel: `npm run build` compila y `npm run lint` da 0 errores y 3 advertencias. Benchmark `Ronda500x500`: 217,9 ms por ronda en Apple M3 Pro (no en la Raspberry Pi). Total de pruebas automatizadas del documento: 1274 + 480 + 705 + 142 = 2601 (más 151 e2e), con las salvedades de las omitidas y de contar subpruebas de Go.
+Panel: `npm run build` compila y `npm run lint` da 0 errores y 3 advertencias. Benchmark `Ronda500x500`: 217,9 ms por ronda en Apple M3 Pro (no en la Raspberry Pi). Total de pruebas automatizadas del documento: 1276 + 480 + 707 + 142 = 2605 (más 151 e2e), con las salvedades de las omitidas y de contar subpruebas de Go.
 
 ### Valores no medidos
 
@@ -179,4 +179,4 @@ Ningún paso está ejecutado. Orden recomendado.
 
 ### 4. Decisiones del autor, fuera de este orden
 
-Alcance de RF17 y RF18 (D4); extender EXIF y WebP a `reclamo-evidencia/`; revisar los 9 hallazgos de gitleaks; habilitar Dependabot en GitHub; si se graba la demo, usar `make demo-up` local o desplegar la rama.
+Extender EXIF y WebP a `reclamo-evidencia/`; revisar los 9 hallazgos de gitleaks; habilitar Dependabot en GitHub; si se graba la demo, usar `make demo-up` local o desplegar la rama.

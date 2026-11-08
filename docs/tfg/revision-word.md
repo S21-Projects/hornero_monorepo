@@ -1,6 +1,6 @@
 # Revisión del Word contra el código (Entrega 4)
 
-Fecha: 2026-11-08 (actualizado al cierre de la entrega, commit de código `08ead82`). Rama: `tfg/entrega-4`. Sigue el orden de las secciones de "TFG Hornero — Correcciones Entrega 3 → Entrega 4".
+Fecha: 2026-11-08 (actualizado al cierre de la entrega, commit de código `b1419c2`). Rama: `tfg/entrega-4`. Sigue el orden de las secciones de "TFG Hornero — Correcciones Entrega 3 → Entrega 4".
 
 Estado de cada punto:
 
@@ -27,7 +27,7 @@ Fuentes de detalle en `docs/tfg/`: `RESUMEN.md` (valores finales, estado por tar
 
 ## 2. Resumen y Abstract (sección 2 del borrador)
 
-- [ ] **Corregir.** "unas 1.950 pruebas automatizadas y 95 pruebas de extremo a extremo" está desactualizado. Conteo final (commit `08ead82`, 2026-11-08): microservicio 1274 (1266 pasan, 8 omitidas por requerir PostgreSQL), BFF 480, panel de administración 705, motor Go 142 con subpruebas (141 pasan, 1 omitida) y 151 de extremo a extremo, todas aprobadas. Suman 2601 pruebas unitarias y de integración, más las 151 e2e. Astro no tiene pruebas.
+- [ ] **Corregir.** "unas 1.950 pruebas automatizadas y 95 pruebas de extremo a extremo" está desactualizado. Conteo final (commit `b1419c2`, 2026-11-08; Go y e2e de `08ead82`): microservicio 1276 (1268 pasan, 8 omitidas por requerir PostgreSQL), BFF 480, panel de administración 707, motor Go 142 con subpruebas (141 pasan, 1 omitida) y 151 de extremo a extremo, todas aprobadas. Suman 2605 pruebas unitarias y de integración, más las 151 e2e. Astro no tiene pruebas.
 - [ ] Revisar "reasigna las donaciones sin respuesta". Es correcto solo para propuestas del fondo común: la oferta directa sin respuesta se cancela (RN-07).
 
 ---
@@ -150,9 +150,10 @@ Fórmula: `S(d,n) = 0,30·D + 0,25·U + 0,17·P + 0,13·E + 0,15·C`. Los pesos 
 
 ### RF17 y RF18
 
-- [ ] **Decidir (pendiente).** No figuran en `docs/tesis/`. Existen a medias. Recomendación: redactarlos según lo implementado y agregar el cumplimiento al legajo.
-  - RF17, texto si se adopta la recomendación: "El sistema debe mostrar en el mapa público, por departamento, un índice de vulnerabilidad territorial con habitantes, comedores, habitantes por comedor y necesidades sin cubrir, en un mapa coroplético". No es mapa de calor, no es por radio y no incluye entregas de 30 días. Los datos se actualizan con un proceso por lotes.
-  - RF18, situación actual: el cumplimiento se calcula en cada ronda y se guarda por asignación. No aparece en el legajo y no incluye donaciones sin respuesta. Solo penaliza ofertas directas rechazadas; el rechazo de una propuesta del fondo común no cuenta.
+- [x] **Decidido (opción A, 2026-11-08).** No figuran en `docs/tesis/`. Se redactan según lo implementado y el legajo muestra el cumplimiento. Pegar estos dos textos:
+  - "RF17 – Indicadores territoriales. El sistema debe mostrar en el mapa público, por departamento, un índice de vulnerabilidad territorial con la cantidad de habitantes, comedores, habitantes por comedor y necesidades sin cubrir, en un mapa coroplético. Los datos se actualizan mediante un proceso por lotes."
+  - "RF18 – Historial de cumplimiento. El sistema debe calcular en cada ronda el término de cumplimiento de cada organización a partir de sus donaciones entregadas y rechazadas, considerarlo en el puntaje (RN-05) y mostrar en su legajo la cantidad de entregas y rechazos y la tasa resultante."
+- [ ] **Corregir.** El texto de RN-05 y el borrador no deben incluir las donaciones sin respuesta en el historial: no cuentan (una oferta directa sin respuesta termina cancelada y una propuesta del fondo común sin respuesta vuelve al fondo). Tampoco cuenta el rechazo de una propuesta del fondo común. La tasa del legajo es simple, entregadas / (entregadas + rechazadas), y no coincide con el término de la ronda, que está suavizado con un valor previo global.
 
 ---
 
@@ -238,11 +239,11 @@ Texto sugerido para el último párrafo (en `docs/tfg/seguridad-c4.md`, sección
 ## 10. Conclusiones (sección 10 del borrador)
 
 - [ ] **Corregir.** Números: tomarlos de `RESUMEN.md`, sección b (conteos finales listados arriba, en la sección 2).
-- [ ] **Corregir.** Objetivo 1: "CU-07 a CU-09 en pruebas E2E" y objetivo 6: "Prueba E2E de exportación (CU-10)". Ya existen (`14-acreditacion.e2e.ts`, 33 casos, y la escalera completa de niveles); el e2e de CU-10 lee el legajo por la API. El PDF no se prueba: lo genera el navegador al imprimir la vista del legajo. Redactar el objetivo 6 sobre los datos del legajo, no sobre el PDF.
+- [ ] **Corregir.** Objetivo 1: "CU-07 a CU-09 en pruebas E2E" y objetivo 6: "Prueba E2E de exportación (CU-10)". Ya existen (`14-acreditacion.e2e.ts`, 33 casos, y la escalera completa de niveles); el e2e de CU-10 lee el legajo por la API. El PDF no se prueba: lo genera el navegador al imprimir la vista del legajo. Redactar el objetivo 6 sobre los datos del legajo, no sobre el PDF; el legajo incluye ahora el historial de cumplimiento (entregas, rechazos y tasa), con una aserción nueva en `14-acreditacion.e2e.ts` que todavía no se ejecutó contra una pila.
 - [ ] **Corregir.** Objetivo 2: "determinismo (RNF16)" es válido a nivel del motor, no de punta a punta. "ronda de 500 × 500 en ⟦X⟧ s": 218 ms por ronda (una corrida final de 217,9 ms; 210 ms en corridas anteriores) en el equipo de desarrollo (M3 Pro), solo el algoritmo. RNF18 no está medido en la Raspberry Pi.
 - [ ] **Corregir.** Objetivo 3: el e2e `15-reasignacion` (5 casos) cubre el camino manual: una donación del fondo común propuesta a una organización que la rechaza vuelve al fondo y las rondas siguientes no se la proponen otra vez a esa organización. Límites del e2e: el vencimiento de una propuesta sin respuesta (3 días) y el trabajo diario de estancadas no se pueden alcanzar de punta a punta (no hay endpoint ni reloj inyectable) y solo los cubren pruebas de integración y unitarias del microservicio. La donación aceptada y no retirada se marca como estancada pero no se reasigna. No afirmar el objetivo como cumplido por completo.
 - [ ] **Corregir.** Objetivo 4: "prueba de inmutabilidad de eventos" existe, con el alcance de 7.4.
-- [ ] **Decidir.** Objetivo 5: "cumplido" solo si RF17 se redacta por departamento (ver RF17).
+- [x] **Decidido.** Objetivo 5: "cumplido" es válido con la redacción de RF17 por departamento (ver RF17).
 - [ ] **Corregir.** "se ejecutaron sin fallas": agregar que hay pruebas omitidas (solo PostgreSQL) y que Astro no tiene pruebas propias.
 - [ ] **Agregar a limitaciones:** el algoritmo no considera cantidades.
 
@@ -261,7 +262,7 @@ Texto sugerido para el último párrafo (en `docs/tfg/seguridad-c4.md`, sección
 ## 12. Anexos (sección 12 del borrador)
 
 - [ ] Anexo D: `docs/tfg/anexo-d-modelo-datos.md`, con los diagramas `er-*.png`. Los tipos salen del código y los CHECK generados por Hibernate están marcados como inferidos.
-- [ ] Anexo E: `docs/tfg/anexo-e-pruebas.md`, con la corrida final del commit `08ead82`.
+- [ ] Anexo E: `docs/tfg/anexo-e-pruebas.md`, con la corrida final del commit `b1419c2`.
 - [ ] Anexo C: la tabla de requisitos es la de RN-01.
 
 ---
@@ -276,7 +277,7 @@ No se revisaron contra el código. Solo una coincidencia: si se quita FEFO como 
 
 - [ ] Cloudflare: comprobar que `hornero-images` tenga el acceso público desactivado.
 - [ ] Revisar los 9 hallazgos de gitleaks en `docs/tfg/seguridad-dependencias.md`, sobre todo `.env.example`.
-- [ ] Decidir RF17 y RF18.
+- [x] RF17 y RF18 decididos (opción A); pegar los textos de la sección "RF17 y RF18".
 - [ ] Decidir si se extiende EXIF y WebP a `reclamo-evidencia/`.
 - [ ] Decidir si se activa `CSP_MODE=enforce`, `EVIDENCIA_RETENCION_ENABLED` y `AUDITORIA_ANCLA_ENABLED`.
 - [ ] Raspberry Pi: medir dump y hash, ejecutar el simulacro de restauración y desplegar la rama con este orden:

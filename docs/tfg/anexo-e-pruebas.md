@@ -1,6 +1,6 @@
 # Anexo E. Evidencia de pruebas
 
-Fecha de ejecución de la corrida final: 2026-11-08. Código evaluado: commit `08ead82` de la rama `tfg/entrega-4` (creada sobre `ca681d6` de `develop`); los números de E.1 son los de esa corrida final y reemplazan a los de la corrida inicial sobre `ca681d6`. Los commits posteriores a `08ead82` solo agregan o modifican documentación en `docs/tfg/`. La corrida final no modificó código de producción ni de pruebas.
+Fecha de ejecución de la corrida final: 2026-11-08. Código evaluado: commit `b1419c2` de la rama `tfg/entrega-4` (creada sobre `ca681d6` de `develop`); los números de E.1 (microservicio, BFF y panel) son los de la corrida sobre ese commit, posterior a D4; Go y e2e son los de la corrida sobre `08ead82`, porque D4 no tocó el worker y la aserción e2e nueva no se ejecutó contra una pila y reemplazan a los de la corrida inicial sobre `ca681d6`. Los commits posteriores a `b1419c2` solo agregan o modifican documentación en `docs/tfg/`.
 
 Entorno: Node v24.11.1, Java 17.0.17, Go 1.26.0 (darwin/arm64).
 
@@ -8,19 +8,19 @@ Entorno: Node v24.11.1, Java 17.0.17, Go 1.26.0 (darwin/arm64).
 
 | Módulo | Comando | Pruebas | Pasadas | Fallidas | Omitidas | Duración | Cobertura de líneas |
 |---|---|---|---|---|---|---|---|
-| `jar_hornero_ms` | `mvn test -Pcoverage` | 1274 | 1266 | 0 | 8 | 69 s (Maven) | 91,84 % (JaCoCo, 5478/5965) |
+| `jar_hornero_ms` | `mvn test -Pcoverage` | 1276 | 1268 | 0 | 8 | 69 s (Maven) | 91,85 % (JaCoCo, 5492/5979) |
 | `ts_hornero_bff` | `npx jest --coverage` | 480 (54 suites) | 480 | 0 | 0 | 3,7 s (`npm ci` aparte: 7 s) | 96,79 % (1328/1372) |
-| `ts_hornero_admin` | `npx vitest run --coverage` | 705 (107 archivos) | 705 | 0 | 0 | 18,7 s (`npm ci` aparte: 4 s) | 86,63 % (3941/4549) |
+| `ts_hornero_admin` | `npx vitest run --coverage` | 707 (107 archivos) | 707 | 0 | 0 | 18,7 s (`npm ci` aparte: 4 s) | 86,63 % (3942/4550) |
 | `ts_hornero_admin` | `npm run build` (`tsc -b && vite build`) | no aplica | no aplica | 0 | no aplica | 7 s | Compila; solo advertencia de tamaño de fragmentos |
 | `ts_hornero_admin` | `npm run lint` | no aplica | no aplica | 0 errores | no aplica | 4 s | 3 advertencias (directivas `eslint-disable` sin uso) |
 | `go_algorithms_worker` | `go test -cover ./...` y `go test -json -count=1 ./...` | 142 (subpruebas incluidas) | 141 | 0 | 1 | 2 s | Por paquete (ver nota) |
 | `go_algorithms_worker` | `go test -bench=Ronda500x500 -benchtime=5x -run=^$ ./internal/assign/` | no aplica | no aplica | 0 | no aplica | 217,9 ms por ronda (ver E.6) | no aplica |
 | `ts_hornero_astro` | `npm run build` | 0 (sin pruebas) | 0 | 0 | 0 | 4 s | Compila; sin pruebas |
-| `e2e` | `make e2e` | 151 (15 archivos) | 151 | 0 | 0 | 201 s | no aplica |
+| `e2e` | `make e2e` | 151 (15 archivos) | 151 | 0 | 0 | 201 s | no aplica; la aserción de D4 en `14-acreditacion` (152.º caso) no se ejecutó contra una pila |
 
 Notas:
 
-- Los conteos de Go son eventos `pass` y `skip` de `go test -json -count=1` (pruebas y subpruebas: 141 aprobadas, 1 omitida, 0 fallidas); la corrida inicial sobre `ca681d6` dio 131 aprobadas y 1 omitida. La cobertura de Go se informa por paquete porque `go test -cover` no imprime un agregado: raíz 2,5 %, `api` 94,2 %, `assign` 96,8 %, `contrato` 85,0 %, `geo` 90,7 %, `metrics` 64,3 %, `radios` 94,3 %, `renacom` 86,3 %. La corrida de cobertura usó la caché de Go para algunos paquetes (raíz, `geo`, `metrics`, `radios`, `renacom`); sus porcentajes no cambian por ello.\n- Las 8 pruebas omitidas del microservicio son las que requieren PostgreSQL (la suite de `mvn test` usa H2); se ejecutan a mano contra un contenedor descartable (E.8 y `docs/tfg/seguridad-c4.md`). La corrida inicial sobre `ca681d6` tenía 1114 pruebas y ninguna omitida.\n- Evolución de los conteos desde la corrida inicial: microservicio 1114 a 1274, BFF 445 a 480, panel de administración 698 a 705, Go 131 a 141 aprobadas, e2e 102 a 151.
+- Los conteos de Go son eventos `pass` y `skip` de `go test -json -count=1` (pruebas y subpruebas: 141 aprobadas, 1 omitida, 0 fallidas); la corrida inicial sobre `ca681d6` dio 131 aprobadas y 1 omitida. La cobertura de Go se informa por paquete porque `go test -cover` no imprime un agregado: raíz 2,5 %, `api` 94,2 %, `assign` 96,8 %, `contrato` 85,0 %, `geo` 90,7 %, `metrics` 64,3 %, `radios` 94,3 %, `renacom` 86,3 %. La corrida de cobertura usó la caché de Go para algunos paquetes (raíz, `geo`, `metrics`, `radios`, `renacom`); sus porcentajes no cambian por ello.\n- Las 8 pruebas omitidas del microservicio son las que requieren PostgreSQL (la suite de `mvn test` usa H2); se ejecutan a mano contra un contenedor descartable (E.8 y `docs/tfg/seguridad-c4.md`). La corrida inicial sobre `ca681d6` tenía 1114 pruebas y ninguna omitida.\n- Evolución de los conteos desde la corrida inicial: microservicio 1114 a 1276, BFF 445 a 480, panel de administración 698 a 707, Go 131 a 141 aprobadas, e2e 102 a 151.
 - Astro no tiene script de prueba en `package.json` ni archivos de prueba. Toda la capa pública renderizada por Astro (incluido el mapa público) queda sin pruebas automáticas.
 - El BFF imprime líneas `ERROR` de Nest (filtro de excepciones, respuestas 404, 502 y 503) durante la corrida; son salida esperada de pruebas que ejercitan ese filtro, y la suite pasó.
 - Las pruebas e2e corrieron sobre una pila aislada: proyecto de Compose propio (`hornero-tfg`), archivo de entorno descartable (secreto JWT y contraseña de base aleatorios, `MAIL_LOG_ONLY=true`, `EVIDENCIA_BORRADO_ENABLED=false`, datos de demostración habilitados) y MinIO local como almacenamiento (`AWS_ENDPOINT_URL=http://minio:9000`, verificado dentro de los contenedores antes de correr). No se leyeron los archivos `.env` del equipo. La pila y sus volúmenes se eliminaron al terminar. Por lo tanto, **los servicios externos (Cloudflare R2 y Resend) no se ejercitaron**: el comportamiento contra esos servicios reales no está probado por esta evidencia.
