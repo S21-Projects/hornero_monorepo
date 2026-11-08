@@ -43,10 +43,10 @@ Route legend: `delegated` means a bounded worker; trigger in parentheses.
 
 ### A. Extraction
 
-- [ ] A1.1-A1.3 Run all suites, coverage and traceability table (delegated, per-action test run; writer
+- [x] A1.1-A1.3 Run all suites, coverage and traceability table (delegated, per-action test run; writer
       for the annex)
-- [ ] A1.4 Benchmark 500 x 500 for RNF18, state which machine (delegated; none exists, needs a Go benchmark)
-- [ ] A1.5 Confirm event-level invariant and determinism tests (delegated)
+- [x] A1.4 Benchmark 500 x 500 for RNF18, state which machine (delegated; none exists, needs a Go benchmark)
+- [x] A1.5 Confirm event-level invariant and determinism tests (delegated)
 - [x] A2 `docs/tfg/reglas-negocio.md` (delegated, mapping trigger)
 - [x] A3 `docs/tfg/cronograma-real.md` (delegated, mapping trigger)
 - [x] A4 `docs/tfg/inventario.md` (delegated, mapping trigger)
@@ -96,6 +96,11 @@ Route legend: `delegated` means a bounded worker; trigger in parentheses.
 - Finding: `TestRondaSuperaAlArgmaxIndependiente` skips with a stale fixture, so "the round beats the
   greedy per-donation pick" is not currently asserted. Fix under D3 or A1.5.
 
+- A1.4: `BenchmarkRonda500x500` 118.9 to 128.5 ms per round on an Apple M3 Pro, not the Pi.
+- A1.5: same input and order gives identical output over 50 runs; with exact score ties, shuffled input
+  changes pairs on all 30 seeds. Known gap for D3. `TestRondaGlobalSuperaAlGreedyBajoContencion` passes.
+- Parent spot check: `go test ./...` all packages ok; `go vet ./...` clean.
+
 ## Next step
 
-Write the A1 annex, the 500 x 500 benchmark and the determinism check. Author must check public access on the R2 bucket in the Cloudflare panel (evidence shares the bucket with public images).
+Block B next. D1 blocked on author policy, D4 on scope. Author must check public access on the R2 bucket in the Cloudflare panel (evidence shares the bucket with public images).
