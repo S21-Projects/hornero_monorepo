@@ -10,6 +10,24 @@ production DB) — check the "Applied to" line before running anything twice.
 
 ---
 
+## 2026-11-08 — `asignaciones`: one PROPUESTA per donation (RN-08)
+
+**Reason**: nothing in the database stopped two `PROPUESTA` assignments for the same donation if two rondas ever overlapped (the ronda lock was an in-process `ReentrantLock`, now a PostgreSQL advisory lock; this index is the second, independent guarantee).
+
+**Before**: `asignaciones` had only the non-unique indexes `idx_asignaciones_donacion` and `idx_asignaciones_ronda`.
+
+**Migration**: `scripts/sql/V013__asignaciones_una_activa_por_donacion.sql` (run `make migrate`). `CREATE UNIQUE INDEX IF NOT EXISTS ux_asignacion_activa_por_donacion ON asignaciones (donacion_id) WHERE estado = 'PROPUESTA'`. Idempotent. If any donation already has more than one `PROPUESTA` row the script aborts with the donation ids and changes nothing; set the stale rows to `CANCELADA` by hand and run it again. Skipped with a notice while the `asignaciones` table does not exist yet. `ACEPTADA` is deliberately not indexed (an admin override can leave an `ACEPTADA` row while the donation returns to the pool). Safe before or after deploying the new MS image: the image does not need the index, and `EsquemaVerificador` logs `ESQUEMA_PENDIENTE` until it exists.
+
+**After**: `\d asignaciones` lists `ux_asignacion_activa_por_donacion` UNIQUE, btree (donacion_id) WHERE estado = 'PROPUESTA'.
+
+**Rollback**: `DROP INDEX IF EXISTS ux_asignacion_activa_por_donacion;` (no data is touched either way).
+
+**Applied to**:
+- [ ] Local dev DB
+- [ ] Pi production DB
+
+---
+
 ## 2026-10-29 — `organizaciones (latitud, longitud)`: index for the map viewport query
 
 **Reason**: the public home loads map pins per viewport (`GET /api/organizaciones/mapa/zona`, a lat/lng box filter) now that the table holds thousands of imported organizaciones. Without an index every pan is a sequential scan.

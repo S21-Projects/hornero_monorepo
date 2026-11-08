@@ -342,4 +342,37 @@ class EsquemaVerificadorTest {
     void defaultState_v006AssumedMigrated() {
         assertThat(esquemaVerificador.eventosReporteMigrados()).isTrue();
     }
+
+    @Test
+    void postgres_missingActiveAssignmentIndex_flagsV013Pending() throws Exception {
+        mockDatabaseProduct("PostgreSQL");
+        when(jdbcTemplate.queryForObject(org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.eq(String.class)))
+                .thenReturn("YES");
+        when(jdbcTemplate.queryForList(org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.eq(String.class)))
+                .thenReturn(java.util.List.of());
+        when(jdbcTemplate.queryForList(org.mockito.ArgumentMatchers.contains("ux_asignacion_activa_por_donacion"), org.mockito.ArgumentMatchers.eq(String.class)))
+                .thenReturn(java.util.List.of("ux_asignacion_activa_por_donacion"));
+
+        esquemaVerificador.run(new DefaultApplicationArguments());
+
+        assertThat(esquemaVerificador.asignacionActivaUnicaMigrada()).isFalse();
+    }
+
+    @Test
+    void postgres_activeAssignmentIndexPresent_notPending() throws Exception {
+        mockDatabaseProduct("PostgreSQL");
+        when(jdbcTemplate.queryForObject(org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.eq(String.class)))
+                .thenReturn("YES");
+        when(jdbcTemplate.queryForList(org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.eq(String.class)))
+                .thenReturn(java.util.List.of());
+
+        esquemaVerificador.run(new DefaultApplicationArguments());
+
+        assertThat(esquemaVerificador.asignacionActivaUnicaMigrada()).isTrue();
+    }
+
+    @Test
+    void defaultState_v013AssumedMigrated() {
+        assertThat(esquemaVerificador.asignacionActivaUnicaMigrada()).isTrue();
+    }
 }

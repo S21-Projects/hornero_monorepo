@@ -113,6 +113,16 @@ public class EsquemaVerificador implements ApplicationRunner {
             SELECT EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'actividad_inmutable' AND prosrc LIKE '%email_intento%')
             """;
 
+    /**
+     * V013 (RN-08): partial unique index allowing one PROPUESTA asignacion per donation, only
+     * meaningful once the asignaciones table exists.
+     */
+    private static final String CHECK_ASIGNACION_ACTIVA_INDICE_SQL = """
+            SELECT 'ux_asignacion_activa_por_donacion' WHERE to_regclass('asignaciones') IS NOT NULL
+              AND NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'ux_asignacion_activa_por_donacion')
+            """;
+
+    private final AtomicBoolean asignacionActivaUnica = new AtomicBoolean(true);
     private final AtomicBoolean purgaEmailIntento = new AtomicBoolean(true);
     private final AtomicBoolean estadoDesdeCompleto = new AtomicBoolean(true);
     private final AtomicBoolean actividadInmutable = new AtomicBoolean(true);
@@ -143,6 +153,26 @@ public class EsquemaVerificador implements ApplicationRunner {
         verificarOrigenOrganizacion();
         verificarEventosReclamo();
         verificarEventosReporte();
+        verificarAsignacionActivaUnica();
+    }
+
+    private void verificarAsignacionActivaUnica() {
+        java.util.List<String> pendientes =
+                jdbcTemplate.queryForList(CHECK_ASIGNACION_ACTIVA_INDICE_SQL, String.class);
+        if (pendientes != null && !pendientes.isEmpty()) {
+            asignacionActivaUnica.set(false);
+            log.error("ESQUEMA_PENDIENTE: the unique index {} is missing, so nothing in the database stops two "
+                    + "PROPUESTA asignaciones for the same donation. Run "
+                    + "scripts/sql/V013__asignaciones_una_activa_por_donacion.sql (make migrate); until then only "
+                    + "the ronda lock and the row lock protect against a double assignment.", pendientes);
+        } else {
+            asignacionActivaUnica.set(true);
+        }
+    }
+
+    /** False when V013 has not been applied. Informational; PostgreSQL only. */
+    public boolean asignacionActivaUnicaMigrada() {
+        return asignacionActivaUnica.get();
     }
 
     private void verificarEventosReporte() {

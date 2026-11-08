@@ -123,7 +123,8 @@ class RondaServiceTest {
         entradaRondaFactory = new EntradaRondaFactory(acreditacionService, cumplimientoCalculator, vulnerabilidadCalculator);
         lenient().when(cumplimientoCalculator.calcular()).thenReturn(java.util.Map.of());
         rondaService = new RondaService(donacionRepository, necesidadRepository, asignacionRepository,
-                rondaRepository, entradaRondaFactory, asignadorClient, usuarioRepository, clock, transactionManager, actividadService, eventPublisher);
+                rondaRepository, entradaRondaFactory, asignadorClient, usuarioRepository, clock, transactionManager, actividadService, eventPublisher,
+                RondaCerrojo.soloEstaInstancia());
 
         // Runs the transactional callback synchronously against the mocked collaborators. `lenient`
         // because the toResponse-only tests (T6) exercise `rondaService` without ever calling
@@ -357,6 +358,38 @@ class RondaServiceTest {
 
         releaseWorker.countDown();
         first.join();
+    }
+
+    // RN-08: the lock may be held by another MS instance. Then this one answers 409 before it reads
+    // the pool or calls the worker.
+    @Test
+    void lockHeldByAnotherInstanceAnswersRondaEnCursoWithoutReadingAnything() {
+        RondaCerrojo ocupado = org.mockito.Mockito.mock(RondaCerrojo.class);
+        when(ocupado.intentar()).thenReturn(java.util.Optional.empty());
+        RondaService servicio = new RondaService(donacionRepository, necesidadRepository, asignacionRepository,
+                rondaRepository, entradaRondaFactory, asignadorClient, usuarioRepository,
+                Clock.fixed(NOW, ZoneOffset.UTC), transactionManager, actividadService, eventPublisher, ocupado);
+
+        assertThatThrownBy(() -> servicio.ejecutar(ADMIN_ID))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("RONDA_EN_CURSO");
+
+        verify(donacionRepository, never()).findByModalidadAndEstadoAndNecesidadIsNull(any(), any());
+        verify(asignadorClient, never()).ejecutar(any());
+    }
+
+    // The lock must be given back whatever happens, or every later ronda answers 409 forever.
+    @Test
+    void lockIsReleasedWhenTheRondaFails() {
+        stubSinAsignaciones(List.of());
+        when(necesidadRepository.findByEstadoInWithOrganizacion(any())).thenReturn(List.of());
+        when(asignadorClient.ejecutar(any()))
+                .thenThrow(new AsignadorNoDisponibleException("down"))
+                .thenReturn(salidaVacia());
+
+        assertThatThrownBy(() -> rondaService.ejecutar(ADMIN_ID)).isInstanceOf(ResponseStatusException.class);
+
+        assertThat(rondaService.ejecutar(ADMIN_ID).getEstado()).isEqualTo(EstadoRonda.COMPLETADA);
     }
 
     // --- Worker failure ---

@@ -199,7 +199,7 @@ Fórmula (`GO/assign/scoring.go:288-293`), con los pesos normalizados por su sum
 
 con los cinco términos del tipo `Desglose` en `[0, 1]` antes de ponderar (`GO/assign/scoring.go:133-139`, `:280-286`).
 
-Pesos por defecto (`GO/assign/scoring.go:146-152`; resueltos en `GO/contrato/ronda_v1.go:323-328`): déficit 0,30; urgencia 0,25; proximidad 0,17; espera 0,13; cumplimiento 0,15. La suma es 1,00. El Java no envía pesos (`MS/asignacion/EntradaRondaFactory.java:45-52` no los asigna), por lo que rigen los valores por defecto. Se admite un override por solicitud, que debe tener cada peso `>= 0` y al menos uno `> 0` (`GO/contrato/ronda_v1.go:184-198`). Cada ronda guarda los pesos usados (`MS/asignacion/RondaService.java:297-303`).
+Pesos por defecto (`GO/assign/scoring.go:146-152`; resueltos en `GO/contrato/ronda_v1.go:323-328`): déficit 0,30; urgencia 0,25; proximidad 0,17; espera 0,13; cumplimiento 0,15. La suma es 1,00. El Java no envía pesos (`MS/asignacion/EntradaRondaFactory.java:45-52` no los asigna), por lo que rigen los valores por defecto. Se admite un override por solicitud, que debe tener cada peso `>= 0` y al menos uno `> 0` (`GO/contrato/ronda_v1.go:184-198`). Cada ronda guarda los pesos usados (`MS/asignacion/RondaService.java:298-304`).
 
 Parámetros por defecto (`GO/assign/scoring.go:182-189`): `DistanciaMediaKm` 8; `DistanciaMaximaKm` 30; `EsperaMaximaDias` 90; `DeficitMaximo` 3; `CumplimientoPseudoObs` 5 (`GO/assign/cumplimiento.go:6`); `PenalizacionNoAsignar` 0,10.
 
@@ -217,7 +217,7 @@ Insumos de cada término, calculados en el microservicio (`MS/asignacion/Entrada
 
 - Déficit: `v = (habitantes/comedores) / mediana(habitantes/comedores) * (1 + necesidades/comedores)` por radio censal (`MS/asignacion/VulnerabilidadCalculator.java:21-25,61-73`). Solo cuentan los radios con población y al menos un comedor (`:62`). La mediana usa el punto medio de los dos valores centrales cuando la cantidad es par (`:80-85`). Los comedores son organizaciones `APROBADA` o `SIN_RECLAMAR` (`:32-33`). Si la organización no tiene radio, o el radio no tiene dato, el trabajador usa 1,0 (neutral) (`GO/geo/deficit.go:32,114-127`).
 - Urgencia: `max(base(prioridad), vencimiento)` con base URGENTE 1,0; MEDIA 0,6; NORMAL 0,3 y un término de vencimiento `1 - dias_hasta_vencimiento/30` acotado a `[0, 1]`, o 0 si no hay fecha (`MS/asignacion/UrgenciaCalculator.java:13-16,21-40`).
-- Espera: días desde la fecha de oferta más reciente de una donación asociada a la organización cuyo estado no sea `CANCELADA` ni `RECHAZADA`; si no hay historial, 90 (`MS/asignacion/RondaService.java:63-64,224-231`; `MS/domain/DonacionRepository.java:38-41`; `MS/asignacion/EntradaRondaFactory.java:84-85`). Es una espera por organización, no por necesidad.
+- Espera: días desde la fecha de oferta más reciente de una donación asociada a la organización cuyo estado no sea `CANCELADA` ni `RECHAZADA`; si no hay historial, 90 (`MS/asignacion/RondaService.java:63-64,225-232`; `MS/domain/DonacionRepository.java:40-43`; `MS/asignacion/EntradaRondaFactory.java:84-85`). Es una espera por organización, no por necesidad.
 - Cumplimiento: `(E + m*p0) / (E + F + m)`, con `E` donaciones `ENTREGADA`, `F` donaciones `RECHAZADA`, `m = 5` y `p0` la tasa global de los candidatos de la ronda, o 0,5 si ninguno tiene historial (`GO/assign/cumplimiento.go:20-37,47-54`; conteos en `MS/asignacion/CumplimientoCalculator.java:25,29-44`; sin historial, la organización toma `p0`).
 - Distancia: Haversine entre la donación y la organización (`GO/assign/scoring.go:194-201`). No se usa PostGIS.
 
@@ -228,7 +228,7 @@ Restricciones duras (par no asignable, `GO/assign/scoring.go:261-275`):
 3. Si ambas partes declaran artículos y no hay ninguno en común (`:268-270`, `:231-245`).
 4. Distancia mayor a `DistanciaMaximaKm = 30` (`:272-275`).
 
-Elegibilidad previa a la ronda, en el microservicio (`MS/asignacion/RondaService.java:249-268`): la necesidad debe tener artículos, no estar vencida, pertenecer a una organización con nivel distinto de N0, tener referente y coordenadas. Las necesidades consideradas son las `ABIERTA` o `EN_PROGRESO` (`:62,220`).
+Elegibilidad previa a la ronda, en el microservicio (`MS/asignacion/RondaService.java:250-269`): la necesidad debe tener artículos, no estar vencida, pertenecer a una organización con nivel distinto de N0, tener referente y coordenadas. Las necesidades consideradas son las `ABIERTA` o `EN_PROGRESO` (`:62,220`).
 
 "Necesidad ya cubierta": no hay una restricción dura específica. Cada necesidad es una columna que recibe como máximo una donación por ronda (ver RN-06), y las necesidades `CUMPLIDA` o `VENCIDA` quedan fuera por el filtro de estado.
 
@@ -244,7 +244,7 @@ Desempate (implementado en la entrega 4; antes no existía): el orden de prefere
 - Costo medido: `BenchmarkRonda500x500` pasó de 119-129 ms a 210 ms por ronda y de 10,9 MB a 35,7 MB (Apple M3 Pro, no la Raspberry Pi).
 - Límite del criterio: si dos matchings coinciden en puntaje total y en los tres niveles, el resultado sigue dependiendo del orden canónico, que es determinista. Dos matchings con puntajes totales iguales en la matemática pero distintos en el último bit de punto flotante no se consideran empate.
 
-Costo de oportunidad guardado: `mejorScore(fila de la donación, solo columnas reales) - puntaje asignado`, donde `mejorScore` toma el mayor puntaje de esa donación ignorando a las demás (`GO/assign/ronda.go:89,137-145`). El piso es 0. Se persiste en `Asignacion.costoOportunidad` (`MS/domain/Asignacion.java:73-74`; `MS/asignacion/RondaService.java:353`), junto con puntaje, distancia, los cinco términos, `deficitFuente` y `codigoRadio` (`MS/domain/Asignacion.java:79-101`; `MS/asignacion/RondaService.java:352-364`).
+Costo de oportunidad guardado: `mejorScore(fila de la donación, solo columnas reales) - puntaje asignado`, donde `mejorScore` toma el mayor puntaje de esa donación ignorando a las demás (`GO/assign/ronda.go:89,137-145`). El piso es 0. Se persiste en `Asignacion.costoOportunidad` (`MS/domain/Asignacion.java:73-74`; `MS/asignacion/RondaService.java:354`), junto con puntaje, distancia, los cinco términos, `deficitFuente` y `codigoRadio` (`MS/domain/Asignacion.java:79-101`; `MS/asignacion/RondaService.java:353-365`).
 
 ### Diferencias con el borrador
 
@@ -260,7 +260,7 @@ Borrador: `S(d,n)= wV V + wU U + wP P + wE E + wH H` con pesos que suman 1.
 | H (historial) | Entregas confirmadas sobre asignaciones aceptadas | `(E + 5*p0)/(E + F + 5)`, con E donaciones `ENTREGADA` y F donaciones `RECHAZADA`; las canceladas y las no terminales no cuentan |
 | Restricción: categoría no habilitada por nivel | Sí | Sí |
 | Restricción: categoría de la donación distinta de la de la necesidad | Sí | Sí, además de exigir artículo en común |
-| Restricción: organización N0 o rechazada | Sí | N0 se filtra antes de la ronda (`RondaService.java:261-263`). "Rechazada" como organización no se filtra aquí; lo que se excluye es la organización que rechazó esa donación |
+| Restricción: organización N0 o rechazada | Sí | N0 se filtra antes de la ronda (`RondaService.java:262-264`). "Rechazada" como organización no se filtra aquí; lo que se excluye es la organización que rechazó esa donación |
 | Restricción: distancia mayor a X km | X por definir | X = 30 km |
 | Restricción: necesidad ya cubierta | Sí | No hay restricción propia (ver arriba) |
 | Desempate por necesidad más antigua y luego id | Sí | Sí (desde la entrega 4): mayor puntaje, necesidad abierta hace más tiempo, menor id. "Más antigua" se mide en días desde `fechaPublicacion`, no desde la fecha de apertura exacta; el último criterio se aplica además a las donaciones |
@@ -272,7 +272,7 @@ Borrador: `S(d,n)= wV V + wU U + wP P + wE E + wH H` con pesos que suman 1.
 
 ### Valores extraídos
 
-- Filas: una por donación del fondo común en estado `OFRECIDA` y sin necesidad (`MS/domain/DonacionRepository.java:28-31`; `MS/asignacion/RondaService.java:215-217`). Cada donación es indivisible y se asigna entera.
+- Filas: una por donación del fondo común en estado `OFRECIDA` y sin necesidad (`MS/domain/DonacionRepository.java:29-33`; `MS/asignacion/RondaService.java:216-218`). Cada donación es indivisible y se asigna entera.
 - Columnas reales: una por necesidad candidata, no por unidad de la necesidad (`GO/assign/ronda.go:66`, `GO/assign/scoring.go:312-326`). No se replican las necesidades: cada necesidad recibe como máximo una donación por ronda.
 - Una organización con dos necesidades abiertas puede recibir dos donaciones (`GO/assign/ronda.go:41-48`).
 - Relleno de la matriz: no hay filas ficticias. Se agrega una columna ficticia por donación (`realCols + n` columnas), con costo `costoDescarte(donación)` en su propia fila e `Inf` en las demás filas (`GO/assign/ronda.go:106-124`). Así siempre hay al menos tantas columnas como filas, que es lo que exige el solver (`GO/assign/hungarian.go:30-33`).
@@ -280,7 +280,7 @@ Borrador: `S(d,n)= wV V + wU U + wP P + wE E + wH H` con pesos que suman 1.
 - Costo prohibitivo: `Inf = math.MaxFloat64 / 4` (`GO/assign/hungarian.go:12`), asignado a los pares infactibles (`GO/assign/scoring.go:317-320`).
 - Costo de dejar sin asignar: `PenalizacionNoAsignar * min(diasEnFondo / EsperaMaximaDias, 1)`, con 0,10 y 90 por defecto (`GO/assign/ronda.go:127-133`). `diasEnFondo` son los días desde `fechaOferta` (`MS/asignacion/EntradaRondaFactory.java:63-64`). Con penalización 0 el costo es 0 (`GO/assign/ronda.go:128-129`). Un par con puntaje 0 tiene costo 0 y no se asigna, porque la asignación exige costo estrictamente negativo (`GO/assign/ronda.go:74`).
 - Tratamiento de lo descartado: una donación queda sin asignar si el solver le da la columna ficticia, ninguna columna, una columna fuera de rango, o un par con costo `>= 0` (`GO/assign/ronda.go:74-78`). Esas donaciones permanecen en el fondo común para la próxima ronda (siguen `OFRECIDA` y sin necesidad; no se modifican en `persistirResultado`).
-- Escritura del resultado: por cada asignación, se bloquea la donación con `findByIdForUpdate` y se descarta el par si ya no es `OFRECIDA` o ya tiene necesidad, o si la necesidad ya no está `ABIERTA` o `EN_PROGRESO` (`MS/asignacion/RondaService.java:312-322`). El conteo `descartadas` de la ronda registra esos pares (`:339`).
+- Escritura del resultado: por cada asignación, se bloquea la donación con `findByIdForUpdate` y se descarta el par si ya no es `OFRECIDA` o ya tiene necesidad, o si la necesidad ya no está `ABIERTA` o `EN_PROGRESO` (`MS/asignacion/RondaService.java:313-323`). El conteo `descartadas` de la ronda registra esos pares (`:339`).
 - Cantidades parciales: el algoritmo no considera cantidades. `Donacion` y `Candidato` del solver no tienen campo de cantidad (`GO/assign/scoring.go:10-35,45-99`) y la necesidad no tiene cantidad. La cantidad existe solo en las líneas de la donación (`MS/domain/DonacionLinea.java:39`). No hay tratamiento de excedentes ni de cantidades parciales: una donación se asigna entera a una necesidad, y esa necesidad queda con una propuesta, sin comparar cantidades.
 - Algoritmo: Jonker-Volgenant, variante de camino mínimo aumentante de Kuhn-Munkres, orden `O(filas^2 * columnas)` (`GO/assign/hungarian.go:14-16`).
 
@@ -317,7 +317,7 @@ Propiedades en `MSR/application.yml:51-61` y valores por defecto replicados en `
 
 Comportamiento (`MS/donacion/DonacionesEstancadasJob.java:63-111`):
 
-- Oferta directa `OFRECIDA` sin respuesta pasada la ventana: se cancela automáticamente (`CANCELADA`) con actor SISTEMA y motivo "sin respuesta del referente" (`MS/donacion/DonacionService.java:396-415`; consulta de candidatas en `MS/domain/DonacionRepository.java:157-160`). No se redirige al fondo común.
+- Oferta directa `OFRECIDA` sin respuesta pasada la ventana: se cancela automáticamente (`CANCELADA`) con actor SISTEMA y motivo "sin respuesta del referente" (`MS/donacion/DonacionService.java:396-415`; consulta de candidatas en `MS/domain/DonacionRepository.java:159-162`). No se redirige al fondo común.
 - Propuesta del fondo común sin respuesta pasada la ventana: se trata como rechazo y la donación vuelve al fondo (`necesidad = null`), la asignación vigente pasa a `RECHAZADA` (`MS/donacion/DonacionService.java:381-389,422-439`).
 - `ACEPTADA` o `EN_CAMINO` más de 14 días, o `PENDIENTE_CONFIRMACION` más de 7 días: no se cancelan ni se reasignan. "Estancada" se calcula, no se guarda (`MS/donacion/EstancamientoDonacion.java:11-42`, comparaciones estrictas `> ventana`). El job lo declara en su Javadoc (`DonacionesEstancadasJob.java:27-28`).
 - El job corre a las 00:15 y también al arrancar (`@EventListener(ApplicationReadyEvent.class)`, `DonacionesEstancadasJob.java:58-61`), para recuperar corridas perdidas.
@@ -342,21 +342,55 @@ Borrador: "propuesta u oferta directa OFRECIDA sin respuesta tras N días corrid
 
 ### Valores extraídos
 
-- UPDATE condicional `WHERE estado='OFRECIDA'`: no existe como sentencia. La verificación se hace en código bajo bloqueo de fila: `findByIdForUpdate` usa `@Lock(PESSIMISTIC_WRITE)` (`MS/domain/DonacionRepository.java:188-190`) y luego se comprueba `estado == OFRECIDA` y `necesidad == null` antes de asignar (`MS/asignacion/RondaService.java:312-316`). Si no se cumple, el par se cuenta como descartado.
-- Control optimista adicional: `Donacion` y `Necesidad` tienen `@Version` (`MS/domain/Donacion.java:34`, `MS/domain/Necesidad.java:27`).
-- Restricción única de asignación activa por donación: no existe. La tabla `asignaciones` declara solo dos índices no únicos (`idx_asignaciones_donacion`, `idx_asignaciones_ronda`) (`MS/domain/Asignacion.java:29-32`). "Solo una asignación `PROPUESTA` a la vez" se sostiene por la lógica anterior (la donación pasa a tener `necesidad` y deja de estar en el fondo), no por una restricción de base de datos.
-- Lock de ronda: un `ReentrantLock` en memoria dentro del microservicio (`MS/asignacion/RondaService.java:78`). `lock.tryLock()` falla con 409 `RONDA_EN_CURSO` (`:115-117`). Tanto la ronda manual (`:105-107`) como la automática (`:110-112`, programada por `MS/asignacion/RondaAutomaticaJob.java:29-33`) pasan por el mismo método `ejecutar`, así que el lock cubre ambas. No es un advisory lock de PostgreSQL ni una bandera en base de datos; el comentario lo justifica porque el microservicio es una sola instancia en la Pi (`RondaService.java:56-58`). No protege si hubiera más de una instancia.
-- Exclusión de lo rechazado: se excluyen las organizaciones cuyo registro de asignación para esa donación está en `RECHAZADA` (`MS/domain/AsignacionRepository.java:20-22`; uso en `MS/asignacion/RondaService.java:233-237`) y el solver las filtra como restricción dura (`GO/assign/scoring.go:262-264,298-307`). La exclusión es por organización, no por necesidad: la donación rechazada nunca vuelve a proponerse a ninguna necesidad de esa organización.
+Estado después de la tarea D2 (entrega 4). Cada punto indica qué existía antes y qué se agregó.
+
+**1. Exclusión entre rondas (agregado; antes era un `ReentrantLock` de un solo proceso).**
+
+- Mecanismo: advisory lock de PostgreSQL **de sesión** (`pg_try_advisory_lock`, clave constante `CLAVE_ADVISORY`) tomado sobre una conexión dedicada del pool durante toda la ronda (`MS/asignacion/RondaCerrojo.java:39,66-105`). Se libera con `pg_advisory_unlock` al terminar y, si eso fallara, se aborta la conexión para que el pool no reutilice una sesión que aún lo tenga (`:139-158`). Si el proceso o la conexión mueren, PostgreSQL lo libera solo.
+- Por qué de sesión y no `pg_advisory_xact_lock`: una ronda son tres pasos, una transacción de lectura, la llamada HTTP al worker (timeout de lectura de 30 s, `MS/asignacion/worker/HttpAsignadorClient.java:24`) y una transacción de escritura (`MS/asignacion/RondaService.java:124-135,148`). El lock de transacción solo cubre lo que dura su transacción: o protege un tramo y deja libres los otros, o obliga a mantener una transacción abierta durante la llamada al worker (una conexión, un snapshot y estado "idle in transaction" por hasta 30 s). El lock de sesión no abre transacción ni toma bloqueos de fila. Alternativa descartada: una fila de "ronda en curso" con índice único parcial; necesita expiración y recuperación si el proceso muere a mitad de ronda.
+- Alcance: toda ronda entra por `RondaService.ejecutar` (`RondaService.java:117-118`), tanto la manual (`MS/asignacion/RondaController.java:42`) como la programada (`MS/asignacion/RondaAutomaticaJob.java:32`). Ninguna ronda se ejecuta al arrancar: los listeners de `ApplicationReadyEvent` del MS son de otros trabajos (estancadas, vencimientos, purgas); cualquier ronda futura que se agregue debe pasar por `ejecutar`. Se mantiene el 409 `RONDA_EN_CURSO` (`RondaService.java:118`). Antes de tomar el lock de la base se toma un permiso en proceso, que rechaza la segunda ronda de la misma JVM sin consultar la base y es la única exclusión cuando la base no es PostgreSQL (H2 en las pruebas).
+- Límite conocido: el lock es por sesión de base de datos, por lo que no funcionaría detrás de un pool de conexiones en modo transacción (por ejemplo PgBouncer en ese modo). El despliegue conecta directo a PostgreSQL. La conexión retenida es una de las 10 del pool por defecto de HikariCP.
+
+**2. Restricción única de asignación activa por donación (agregado; antes no existía).**
+
+- Índice único parcial `ux_asignacion_activa_por_donacion ON asignaciones (donacion_id) WHERE estado = 'PROPUESTA'` en `scripts/sql/V013__asignaciones_una_activa_por_donacion.sql`. Idempotente y transaccional. Si ya hay donaciones con más de una `PROPUESTA`, aborta con un mensaje que lista los ids y no modifica ni borra datos.
+- "Activa" es `PROPUESTA`, la asignación vigente que `DonacionService` resuelve a `ACEPTADA`, `RECHAZADA` o `CANCELADA` (`MS/domain/AsignacionRepository.java`, `findFirstByDonacion_IdAndEstadoOrderByCreadaEnDesc`). `ACEPTADA` queda fuera a propósito: un cambio de estado administrativo puede dejar una fila `ACEPTADA` mientras la donación vuelve al fondo (el rechazo posterior solo resuelve filas `PROPUESTA`), y la ronda siguiente la propondría de nuevo de forma legítima; incluirla convertiría ese caso en una violación de la restricción que deshace una ronda completa.
+- `EsquemaVerificador` registra `ESQUEMA_PENDIENTE` al arrancar si el índice falta (`MS/config/EsquemaVerificador.java:120-122,159-174`). La entidad no declara el índice (Hibernate no maneja índices parciales), por lo que en las pruebas con H2 no existe.
+- La migración no se aplicó a producción. Se aplica con `make migrate` después de un respaldo (hace falta que la tabla `asignaciones` exista; si no, el script avisa y no hace nada).
+
+**3. Cambio de estado condicional (no agregado; ya estaba cubierto).**
+
+- No existe un `UPDATE ... WHERE estado='OFRECIDA'` y no se agregó, porque no cierra ninguna carrera que quede abierta. Al **tomar** una donación, la ronda la bloquea con `findByIdForUpdate`, `@Lock(PESSIMISTIC_WRITE)` (`MS/domain/DonacionRepository.java:190-192`), y comprueba `estado == OFRECIDA` y `necesidad == null` antes de asignar (`RondaService.java:313-317`); si no se cumple, descarta el par (`descartadas`). Al **devolver** una donación, la expiración de propuestas y la cancelación de ofertas también usan `findByIdForUpdate` y re-chequean (`MS/donacion/DonacionService.java:397-398,423-424`); el rechazo del referente (`decidir`, `:258-259`) y las acciones del donante no toman bloqueo de fila y quedan protegidos por el control optimista `@Version` de `Donacion` (`MS/domain/Donacion.java:34`), también presente en `Necesidad` y `Organizacion`: si dos operaciones leen la misma versión, la segunda falla con conflicto concurrente.
+- La redacción del borrador ("UPDATE condicional por estado") describe un mecanismo distinto del implementado. El efecto buscado, que dos operaciones no pisen el estado de una donación, se obtiene con bloqueo pesimista más re-chequeo en la ronda y con `@Version` en el resto.
+
+**4. Exclusión de lo rechazado (sin cambios).**
+
+- Se excluyen las organizaciones cuyo registro de asignación para esa donación está en `RECHAZADA` (`MS/domain/AsignacionRepository.java:20-22`; uso en `RondaService.java:234-238`) y el solver las filtra como restricción dura (`GO/assign/scoring.go:262-264,298-307`). La exclusión es por organización, no por necesidad: es más estricta que el borrador, que habla de "la misma necesidad". No se debilitó.
+
+**5. Propiedades que ya existían.**
+
 - La asignación es de solo agregado: una reasignación inserta una fila nueva y la anterior queda como historial (`MS/domain/Asignacion.java:22-27`).
-- Una donación ya asignada deja el fondo (`necesidad != null`) y por eso no entra a otra ronda (`MS/domain/DonacionRepository.java:28-31`). Del lado de las necesidades no hay filtro equivalente: una necesidad `ABIERTA` o `EN_PROGRESO` que ya tiene una propuesta sigue siendo candidata en rondas posteriores (`MS/asignacion/RondaService.java:62,220`; `:249-268` no consulta donaciones existentes).
+- Una donación ya asignada deja el fondo (`necesidad != null`) y no entra a otra ronda (`MS/domain/DonacionRepository.java:29-33`). Del lado de las necesidades no hay filtro equivalente: una necesidad `ABIERTA` o `EN_PROGRESO` que ya tiene una propuesta sigue siendo candidata (`RondaService.java:62,221`; `:250-269` no consulta donaciones existentes).
+
+**Pruebas** (`MS/src/test/java/org/example/asignacion/`):
+
+| Prueba | Qué verifica | Base de datos |
+|---|---|---|
+| `RondaCerrojoTest` (8 casos) | Lock adquirido y retenido hasta cerrar; rechazo si lo tiene otra instancia; liberación si falla la consulta; aborto de la conexión si falla el unlock; degradación a exclusión en proceso fuera de PostgreSQL | Simulada con Mockito |
+| `RondaServiceTest` | 409 sin leer nada si el lock lo tiene otra instancia; el lock se libera si la ronda falla | Simulada |
+| `RondaConcurrenciaIntegrationTest.twoParallelRondas_secondAnswers409_donationAssignedOnce` | Dos rondas en paralelo: la segunda recibe 409, la donación se asigna una sola vez | H2 y PostgreSQL 16 |
+| `RondaConcurrenciaIntegrationTest.twoRondasThatBothReadTheSamePool_donationIsAssignedOnlyOnce` | Con el lock omitido (otra instancia sin lock compartido), dos rondas leen el mismo fondo y ambas intentan asignar la misma donación: una asigna, la otra descarta, queda una sola fila de asignación | H2 y PostgreSQL 16 |
+| `RondaConcurrenciaIntegrationTest.postgres_*` (3 casos) | El índice V013 rechaza la segunda `PROPUESTA` y admite `RECHAZADA` y `ACEPTADA`; el script es idempotente; con duplicados previos aborta con mensaje claro y sin cambios; el advisory lock excluye a una segunda instancia | Solo PostgreSQL; se omiten en H2 |
+
+Las pruebas del proyecto usan H2 (`src/test/resources/application.yml`); no hay Testcontainers ni otra forma de levantar PostgreSQL. Por eso los casos que dependen de PostgreSQL se omiten por defecto (`mvn test` informa 3 omitidas en esa clase). Se ejecutaron contra un PostgreSQL 16 descartable en un contenedor local (3 corridas, 5 de 5 pasan, ninguna omitida) con variables de entorno `SPRING_DATASOURCE_*` que sobrescriben la configuración de H2; el procedimiento está en el Javadoc de la clase. Un resultado en H2 no prueba un comportamiento de PostgreSQL y no se presenta como tal.
 
 ### Diferencias con el borrador
 
 | Aspecto | Borrador | Código |
 |---|---|---|
-| UPDATE condicional `WHERE estado='OFRECIDA'` | Sí | No hay UPDATE condicional; hay bloqueo pesimista de fila más verificación en código |
-| Restricción única de asignación activa por donación | Sí | No existe |
-| Advisory lock o bandera, incluida la ronda manual | Advisory lock o bandera | `ReentrantLock` en memoria de un solo proceso; cubre manual y automática |
+| UPDATE condicional `WHERE estado='OFRECIDA'` | Sí | No hay UPDATE condicional. En la ronda hay bloqueo pesimista de fila y re-chequeo de estado; en el resto de los caminos, control optimista `@Version` |
+| Restricción única de asignación activa por donación | Sí | Sí, desde la entrega 4: índice único parcial sobre `PROPUESTA` (V013), pendiente de aplicar en producción. `ACEPTADA` no está incluida, con la razón indicada arriba |
+| Advisory lock o bandera, incluida la ronda manual | Advisory lock o bandera | Advisory lock de sesión de PostgreSQL, desde la entrega 4; cubre manual y programada, y funciona con más de una instancia. Se eligió el de sesión y no el de transacción porque la ronda abarca la llamada HTTP al worker |
 | Donación rechazada nunca re-propuesta a la misma necesidad | A la misma necesidad | Nunca re-propuesta a la misma organización (más amplio) |
 
 ---
@@ -445,8 +479,8 @@ Redacción del borrador: "puntaje H de historial por organización a partir de e
 - Entradas: donaciones `ENTREGADA` como entregadas y `RECHAZADA` como fallidas, por organización (`MS/asignacion/CumplimientoCalculator.java:25,29-44`). Las `CANCELADA` y las no terminales no cuentan.
 - Donaciones sin respuesta: una oferta directa sin respuesta termina `CANCELADA` y por eso no cuenta como fallida; una propuesta del fondo sin respuesta vuelve al fondo y no genera una donación `RECHAZADA` (la donación sigue `OFRECIDA`) (`MS/donacion/DonacionService.java:422-439`). Las donaciones sin respuesta no entran en el puntaje.
 - Consecuencia relevante: el rechazo de una propuesta del fondo común por el referente tampoco cambia la donación a `RECHAZADA`; solo limpia la necesidad y marca la asignación como `RECHAZADA` (`MS/donacion/DonacionService.java:271-284`). Como `CumplimientoCalculator` cuenta estados de donación y no de asignación, solo los rechazos de ofertas directas llegan a ser "fallidas" del puntaje; los rechazos de propuestas del fondo común no.
-- Se calcula al ejecutar cada ronda con una consulta agrupada (`MS/asignacion/EntradaRondaFactory.java:41`; `MS/domain/DonacionRepository.java:198-200`). No se guarda como valor por organización.
-- Lo que sí se persiste: el término de cumplimiento aplicado a cada asignación (`Asignacion.terminoCumplimiento`, `MS/domain/Asignacion.java:92-94`) y el peso de la ronda (`MS/asignacion/RondaService.java:297-303`). Se muestra en el desglose del puntaje del panel (`ts_hornero_admin/src/components/donacion/DesgloseScore.tsx` y `CriteriosAsignacionPanel.tsx`) y el sitio público lo menciona en un texto (`ts_hornero_astro/src/pages/index.astro:43`).
+- Se calcula al ejecutar cada ronda con una consulta agrupada (`MS/asignacion/EntradaRondaFactory.java:41`; `MS/domain/DonacionRepository.java:200-202`). No se guarda como valor por organización.
+- Lo que sí se persiste: el término de cumplimiento aplicado a cada asignación (`Asignacion.terminoCumplimiento`, `MS/domain/Asignacion.java:92-94`) y el peso de la ronda (`MS/asignacion/RondaService.java:298-304`). Se muestra en el desglose del puntaje del panel (`ts_hornero_admin/src/components/donacion/DesgloseScore.tsx` y `CriteriosAsignacionPanel.tsx`) y el sitio público lo menciona en un texto (`ts_hornero_astro/src/pages/index.astro:43`).
 - Legajo: `LegajoResponse` no contiene ningún campo de cumplimiento ni de historial (`MS/acreditacion/dto/LegajoResponse.java:13-22`; armado en `MS/acreditacion/AcreditacionService.java:447-495`). No se calcula, guarda ni muestra un puntaje de cumplimiento en el legajo.
 
 ### Diferencias con el borrador
