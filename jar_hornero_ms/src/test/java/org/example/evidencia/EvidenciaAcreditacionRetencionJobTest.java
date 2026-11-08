@@ -8,6 +8,7 @@ import org.example.domain.Organizacion;
 import org.example.domain.OrganizacionEvidencia;
 import org.example.domain.OrganizacionEvidenciaRepository;
 import org.example.domain.RequisitoAcreditacion;
+import org.example.domain.TipoEventoOrganizacion;
 import org.example.domain.TipoEvidencia;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -107,7 +108,8 @@ class EvidenciaAcreditacionRetencionJobTest {
     void deletesTheFileMarksTheRowAndRecordsOneEventPerFile() {
         OrganizacionEvidencia a = fila(5, "org-evidencia/5/a.pdf");
         OrganizacionEvidencia b = fila(6, "org-evidencia/6/b.jpg");
-        when(repository.buscarParaRetencion(eq(EstadoEvidencia.REEMPLAZADA), eq(LocalDate.of(2025, 11, 8)), any(Pageable.class)))
+        when(repository.buscarParaRetencion(eq(EstadoEvidencia.REEMPLAZADA), eq(TipoEventoOrganizacion.EVIDENCIA_REEMPLAZADA),
+                eq(Instant.parse("2025-11-08T12:00:00Z")), eq(LocalDate.of(2025, 11, 8)), any(Pageable.class)))
                 .thenReturn(List.of(a, b));
         AlmacenFalso almacen = new AlmacenFalso(true, Set.of());
 
@@ -134,7 +136,7 @@ class EvidenciaAcreditacionRetencionJobTest {
     void aFailingFileIsLeftUnmarkedForTheNextRunAndDoesNotStopTheBatch() {
         OrganizacionEvidencia mala = fila(5, "org-evidencia/5/mala.pdf");
         OrganizacionEvidencia buena = fila(5, "org-evidencia/5/buena.pdf");
-        when(repository.buscarParaRetencion(any(), any(), any(Pageable.class))).thenReturn(List.of(mala, buena));
+        when(repository.buscarParaRetencion(any(), any(), any(), any(), any(Pageable.class))).thenReturn(List.of(mala, buena));
         AlmacenFalso almacen = new AlmacenFalso(true, Set.of("org-evidencia/5/mala.pdf"));
 
         int borrados = job(almacen, true, 100).ejecutar();
@@ -148,19 +150,20 @@ class EvidenciaAcreditacionRetencionJobTest {
 
     @Test
     void passesTheBatchLimitAndTheCutoffToTheQuery() {
-        when(repository.buscarParaRetencion(any(), any(), any(Pageable.class))).thenReturn(List.of());
+        when(repository.buscarParaRetencion(any(), any(), any(), any(), any(Pageable.class))).thenReturn(List.of());
 
         job(new AlmacenFalso(true, Set.of()), true, 7).ejecutar();
 
         ArgumentCaptor<Pageable> pagina = ArgumentCaptor.forClass(Pageable.class);
-        verify(repository).buscarParaRetencion(eq(EstadoEvidencia.REEMPLAZADA), eq(LocalDate.of(2025, 11, 8)), pagina.capture());
+        verify(repository).buscarParaRetencion(eq(EstadoEvidencia.REEMPLAZADA), eq(TipoEventoOrganizacion.EVIDENCIA_REEMPLAZADA),
+                eq(Instant.parse("2025-11-08T12:00:00Z")), eq(LocalDate.of(2025, 11, 8)), pagina.capture());
         assertThat(pagina.getValue().getPageSize()).isEqualTo(7);
         assertThat(pagina.getValue().getPageNumber()).isZero();
     }
 
     @Test
     void aRepositoryFailureIsSwallowedAndNothingIsDeleted() {
-        when(repository.buscarParaRetencion(any(), any(), any(Pageable.class))).thenThrow(new IllegalStateException("db down"));
+        when(repository.buscarParaRetencion(any(), any(), any(), any(), any(Pageable.class))).thenThrow(new IllegalStateException("db down"));
         AlmacenFalso almacen = new AlmacenFalso(true, Set.of());
 
         assertThat(job(almacen, true, 100).ejecutar()).isZero();
