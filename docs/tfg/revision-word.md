@@ -1,6 +1,6 @@
 # Revisión del Word contra el código (Entrega 4)
 
-Fecha: 2026-11-08. Rama: `tfg/entrega-4`. Sigue el orden de las secciones de "TFG Hornero — Correcciones Entrega 3 → Entrega 4".
+Fecha: 2026-11-08 (actualizado al cierre de la entrega, commit de código `08ead82`). Rama: `tfg/entrega-4`. Sigue el orden de las secciones de "TFG Hornero — Correcciones Entrega 3 → Entrega 4".
 
 Estado de cada punto:
 
@@ -8,7 +8,7 @@ Estado de cada punto:
 - **Decidir:** depende de una decisión del autor.
 - **Esperar:** el dato todavía puede cambiar o aún no se midió.
 
-Fuentes de detalle en `docs/tfg/`: `reglas-negocio.md`, `seguridad-c1.md` a `seguridad-c4.md`, `seguridad-dependencias.md`, `inventario.md`, `cronograma-real.md`, `anexo-d-modelo-datos.md`, `anexo-e-pruebas.md`.
+Fuentes de detalle en `docs/tfg/`: `RESUMEN.md` (valores finales, estado por tarea y pasos de despliegue), `reglas-negocio.md`, `seguridad-c1.md` a `seguridad-c4.md`, `seguridad-dependencias.md`, `inventario.md`, `cronograma-real.md`, `anexo-d-modelo-datos.md`, `anexo-e-pruebas.md`.
 
 **Importante:** los cambios de esta rama no están desplegados. Antes de afirmar que algo funciona "en producción", hay que desplegar la rama y aplicar V013, V014 y V015 en la Raspberry Pi.
 
@@ -20,14 +20,14 @@ Fuentes de detalle en `docs/tfg/`: `reglas-negocio.md`, `seguridad-c1.md` a `seg
 - [ ] **Corregir.** Quitar PostGIS de la Justificación (sección 4) y del criterio P de RN-05. La distancia se calcula con Haversine en el motor de Go.
 - [ ] **Corregir.** Si se menciona Gin, quitarlo. El motor usa `net/http`.
 - [ ] **Corregir.** Reescribir RN-05 y RN-06: las fórmulas del borrador no son las implementadas (sección 6 de este documento).
-- [ ] **Corregir.** Actualizar 7.4 y 7.5: la cadena de hashes tiene alcance parcial, `REVOKE` no protege y la retención 7/4/6 no existe.
+- [ ] **Corregir.** Actualizar 7.4 y 7.5: la cadena de hashes tiene alcance parcial, `REVOKE` no protege, R2 no tiene versionado y la retención 7/4/6 depende de tres reglas de ciclo de vida que el autor debe crear.
 - [ ] **Corregir.** Unificar la numeración de RF, RNF y RN antes de citar identificadores (sección 15).
 
 ---
 
 ## 2. Resumen y Abstract (sección 2 del borrador)
 
-- [ ] **Esperar.** "unas 1.950 pruebas automatizadas y 95 pruebas de extremo a extremo" está desactualizado. Último conteo parcial: MS 1274, BFF 480, admin 705, Go 133 o más, E2E 113 o más. Se están agregando E2E: tomar el número final de `RESUMEN.md`.
+- [ ] **Corregir.** "unas 1.950 pruebas automatizadas y 95 pruebas de extremo a extremo" está desactualizado. Conteo final (commit `08ead82`, 2026-11-08): microservicio 1274 (1266 pasan, 8 omitidas por requerir PostgreSQL), BFF 480, panel de administración 705, motor Go 142 con subpruebas (141 pasan, 1 omitida) y 151 de extremo a extremo, todas aprobadas. Suman 2601 pruebas unitarias y de integración, más las 151 e2e. Astro no tiene pruebas.
 - [ ] Revisar "reasigna las donaciones sin respuesta". Es correcto solo para propuestas del fondo común: la oferta directa sin respuesta se cancela (RN-07).
 
 ---
@@ -191,9 +191,11 @@ Texto sugerido para el último párrafo (en `docs/tfg/seguridad-c4.md`, sección
 ### 7.5 Respaldo
 
 - [ ] **Corregir.** Alcance y cifrado: el respaldo diario es a las 03:15, por temporizador systemd. Se guarda localmente con retención de 14 días. La copia cifrada (AES-256-CBC) solo se genera si `BACKUP_S3_BUCKET` está configurado.
-- [ ] **Esperar.** La retención 7/4/6 no está implementada. La copia remota depende de una regla de ciclo de vida de R2 que el repositorio no documenta como aplicada. Es tarea C5.
-- [ ] **Esperar.** Versionado o copia del bucket de evidencias: no existe. Es tarea C5.
-- [ ] **Esperar (requiere la Raspberry Pi).** Tamaño del dump real y simulacro de restauración. Existe `scripts/backup/restore-check.sh`, pero no verifica la cadena de hashes todavía. La tabla de restauración no se puede completar sin esa ejecución.
+- [ ] **Corregir.** Retención 7/4/6: el script sube cada copia a tres prefijos (`hornero/daily/`, `hornero/weekly/` el día configurado, `hornero/monthly/` el día 01) y ningún código borra del bucket. La retención la deben aplicar tres reglas de ciclo de vida de R2 que **el autor debe crear** en el panel de Cloudflare: `hornero/daily/` a 7 días, `hornero/weekly/` a 28 días y `hornero/monthly/` a 186 días. Hasta crearlas, redactar "el sistema sube las copias por prefijos para aplicar la retención con reglas de ciclo de vida". No crear la regla única de 30 días sobre `hornero/`.
+- [ ] **Corregir.** Versionado: **quitar "el bucket tiene versionado"** del borrador. Cloudflare R2 no tiene versionado de objetos ni replicación (`PutBucketVersioning` y `PutBucketReplication` figuran como no implementadas; documentación oficial leída el 2026-11-08). Lo que existe en el repositorio es `scripts/backup/evidence-copy.sh`, una copia aditiva de los prefijos de evidencia a un segundo bucket, **desactivada por defecto** (`EVIDENCE_COPY_ENABLED=false`) y con el temporizador comentado. Si el autor la activa, el segundo bucket necesita su propia regla de vencimiento. Detalle en `docs/tfg/seguridad-c5.md`.
+- [ ] **Esperar (requiere la Raspberry Pi).** Tamaño del dump real y simulacro de restauración. La plantilla es `docs/tfg/prueba-restauracion.md`, con la tabla de resultados vacía. `scripts/backup/restore-check.sh` ahora compara los conteos de filas y verifica la cadena de hashes de auditoría (detecta un evento alterado), pero solo se probó con datos de demostración en un PostgreSQL local. No hay resultado real: no inventar tiempos ni tamaños.
+
+---
 
 ### 7.6 Tabla de verificación
 
@@ -229,16 +231,16 @@ Texto sugerido para el último párrafo (en `docs/tfg/seguridad-c4.md`, sección
 - [ ] **Corregir.** R5: el medio documentado es microSD.
 - [ ] R6: el reinicio automático de contenedores existe (`restart: unless-stopped`). El monitoreo externo no está en el repositorio: no afirmarlo si no está configurado.
 - [ ] R8: el límite de intentos de inicio de sesión existe. "Revisión con OWASP ZAP antes de cada entrega" no se ejecutó: quitarlo o hacerla. Pruebas de acceso cruzado y de archivos inválidos: existen.
-- [ ] R9: el desacople del correo por interfaz existe según la arquitectura documentada. Túnel alternativo y proveedor alternativo: no están en el repositorio.
+- [ ] R9: el desacople del correo existe como la interfaz `Mailer` (`jar_hornero_ms/src/main/java/org/example/mail/Mailer.java`), con una implementación de Resend y otra que solo registra en el log (`MailerConfig`). Túnel alternativo y proveedor alternativo: no están en el repositorio.
 
 ---
 
 ## 10. Conclusiones (sección 10 del borrador)
 
-- [ ] **Esperar.** Números: tomarlos de `RESUMEN.md` al final.
-- [ ] **Esperar.** Objetivo 1: "CU-07 a CU-09 en pruebas E2E" y objetivo 6: "Prueba E2E de exportación (CU-10)". Al revisarse, no existían; se están agregando. Confirmar antes de dejar esa frase.
-- [ ] **Corregir.** Objetivo 2: "determinismo (RNF16)" es válido a nivel del motor, no de punta a punta. "ronda de 500 × 500 en ⟦X⟧ s": 210 ms en el equipo de desarrollo (M3 Pro), solo el algoritmo. RNF18 no está medido en la Raspberry Pi.
-- [ ] **Esperar.** Objetivo 3: la reasignación estaba cubierta por partes; se está agregando el E2E.
+- [ ] **Corregir.** Números: tomarlos de `RESUMEN.md`, sección b (conteos finales listados arriba, en la sección 2).
+- [ ] **Corregir.** Objetivo 1: "CU-07 a CU-09 en pruebas E2E" y objetivo 6: "Prueba E2E de exportación (CU-10)". Ya existen (`14-acreditacion.e2e.ts`, 33 casos, y la escalera completa de niveles); el e2e de CU-10 lee el legajo por la API. El PDF no se prueba: lo genera el navegador al imprimir la vista del legajo. Redactar el objetivo 6 sobre los datos del legajo, no sobre el PDF.
+- [ ] **Corregir.** Objetivo 2: "determinismo (RNF16)" es válido a nivel del motor, no de punta a punta. "ronda de 500 × 500 en ⟦X⟧ s": 218 ms por ronda (una corrida final de 217,9 ms; 210 ms en corridas anteriores) en el equipo de desarrollo (M3 Pro), solo el algoritmo. RNF18 no está medido en la Raspberry Pi.
+- [ ] **Corregir.** Objetivo 3: el e2e `15-reasignacion` (5 casos) cubre el camino manual: una donación del fondo común propuesta a una organización que la rechaza vuelve al fondo y las rondas siguientes no se la proponen otra vez a esa organización. Límites del e2e: el vencimiento de una propuesta sin respuesta (3 días) y el trabajo diario de estancadas no se pueden alcanzar de punta a punta (no hay endpoint ni reloj inyectable) y solo los cubren pruebas de integración y unitarias del microservicio. La donación aceptada y no retirada se marca como estancada pero no se reasigna. No afirmar el objetivo como cumplido por completo.
 - [ ] **Corregir.** Objetivo 4: "prueba de inmutabilidad de eventos" existe, con el alcance de 7.4.
 - [ ] **Decidir.** Objetivo 5: "cumplido" solo si RF17 se redacta por departamento (ver RF17).
 - [ ] **Corregir.** "se ejecutaron sin fallas": agregar que hay pruebas omitidas (solo PostgreSQL) y que Astro no tiene pruebas propias.
@@ -251,15 +253,15 @@ Texto sugerido para el último párrafo (en `docs/tfg/seguridad-c4.md`, sección
 - [ ] **Coincide.** La entrega con código QR existe en el panel.
 - [ ] **Corregir.** Paso 9, "Legajo exportado a PDF": no genera un PDF propio. Es una vista imprimible (hoja de estilos de impresión), que se guarda como PDF desde el navegador. Decir "vista imprimible del legajo".
 - [ ] **Corregir.** Paso 2, "mapa público e indicadores": es la coropleta por departamento, no un mapa de calor.
-- [ ] **Esperar.** `make demo-seed` y `make demo-reset` están en desarrollo.
-- [ ] **Importante.** La rama no está desplegada en elhornero.org. Si la demo se graba ahí, primero hay que desplegar.
+- [ ] **Corregir.** `make demo-up`, `make demo-seed`, `make demo-reset`, `make demo-verify` y `make demo-down` existen. Corren en un proyecto de Compose propio, local, con MinIO, secretos generados y datos ficticios; se niegan a apuntar a un destino que no sea local. Esos datos nunca llegan a producción.
+- [ ] **Importante.** La demo corre en local con `make demo-up`, no en producción. Cambiar en el borrador la mención de "elhornero.org" como lugar de la demo, salvo que la rama se despliegue antes: hoy no está desplegada ahí.
 
 ---
 
 ## 12. Anexos (sección 12 del borrador)
 
 - [ ] Anexo D: `docs/tfg/anexo-d-modelo-datos.md`, con los diagramas `er-*.png`. Los tipos salen del código y los CHECK generados por Hibernate están marcados como inferidos.
-- [ ] Anexo E: `docs/tfg/anexo-e-pruebas.md`. **Esperar** la versión final.
+- [ ] Anexo E: `docs/tfg/anexo-e-pruebas.md`, con la corrida final del commit `08ead82`.
 - [ ] Anexo C: la tabla de requisitos es la de RN-01.
 
 ---
