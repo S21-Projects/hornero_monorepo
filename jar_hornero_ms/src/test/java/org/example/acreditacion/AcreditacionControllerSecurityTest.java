@@ -86,7 +86,8 @@ class AcreditacionControllerSecurityTest {
 
     private LegajoResponse sampleLegajo() {
         return new LegajoResponse(1L, "Comedor", "comedor", "Calle 1",
-                NivelAcreditacion.N1, Instant.now(), List.of(), List.of(), "disclosure");
+                NivelAcreditacion.N1, Instant.now(), List.of(), List.of(),
+                org.example.acreditacion.dto.CumplimientoEnLegajo.de(0, 0), "disclosure");
     }
 
     // --- GET /{id}/legajo ---

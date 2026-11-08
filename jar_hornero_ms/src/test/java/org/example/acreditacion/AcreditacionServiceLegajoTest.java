@@ -2,7 +2,15 @@ package org.example.acreditacion;
 
 import org.example.acreditacion.dto.LegajoResponse;
 import org.example.acreditacion.dto.RequisitoEnLegajo;
+import org.example.domain.Donacion;
+import org.example.domain.DonacionRepository;
+import org.example.domain.EstadoDonacion;
+import org.example.domain.EstadoNecesidad;
 import org.example.domain.EstadoOrganizacion;
+import org.example.domain.Necesidad;
+import org.example.domain.NecesidadRepository;
+import org.example.domain.PrioridadNecesidad;
+import org.example.user.Donante;
 import org.example.domain.EstadoRequisitoLegajo;
 import org.example.domain.NivelAcreditacion;
 import org.example.domain.Organizacion;
@@ -38,6 +46,12 @@ class AcreditacionServiceLegajoTest {
 
     @Autowired
     private UsuarioRepository usuarioRepository;
+
+    @Autowired
+    private DonacionRepository donacionRepository;
+
+    @Autowired
+    private NecesidadRepository necesidadRepository;
 
     private Organizacion organizacion;
     private Administrador administrador;
@@ -223,5 +237,69 @@ class AcreditacionServiceLegajoTest {
                 .filter(r -> r.requisito() == RequisitoAcreditacion.SERVICIO_REGULAR_GRATUITO).findFirst().orElseThrow();
         assertThat(b.estado()).isEqualTo(EstadoRequisitoLegajo.VENCIDA);
         assertThat(b.graciaVencida()).isTrue();
+    }
+
+    private Necesidad necesidadDe(Organizacion org) {
+        Necesidad n = new Necesidad();
+        n.setOrganizacion(org);
+        n.setPrioridad(PrioridadNecesidad.NORMAL);
+        n.setEstado(EstadoNecesidad.ABIERTA);
+        n.setFechaPublicacion(LocalDate.now());
+        return necesidadRepository.save(n);
+    }
+
+    private Donante donante() {
+        Donante d = new Donante();
+        d.setNombre("Donante");
+        d.setEmail("donante" + System.nanoTime() + "@test.com");
+        d.setPassword("hash");
+        d.setActivo(true);
+        return (Donante) usuarioRepository.save(d);
+    }
+
+    private void donacion(Donante donante, Necesidad necesidad, EstadoDonacion estado) {
+        Donacion d = new Donacion();
+        d.setDonante(donante);
+        d.setNecesidad(necesidad);
+        d.setEstado(estado);
+        d.setFechaOferta(LocalDate.now());
+        donacionRepository.save(d);
+    }
+
+    @Test
+    void legajoCumplimientoCountsDeliveredAndRejectedOfThisOrganizationOnly() {
+        Necesidad propia = necesidadDe(organizacion);
+        Organizacion otra = new Organizacion();
+        otra.setNombre("Otra");
+        otra.setSlug("otra-" + System.nanoTime());
+        otra.setEstado(EstadoOrganizacion.PENDIENTE);
+        otra.setNivel(NivelAcreditacion.N0);
+        otra = entityManager.persistFlushFind(otra);
+        Necesidad ajena = necesidadDe(otra);
+        Donante d = donante();
+        donacion(d, propia, EstadoDonacion.ENTREGADA);
+        donacion(d, propia, EstadoDonacion.ENTREGADA);
+        donacion(d, propia, EstadoDonacion.ENTREGADA);
+        donacion(d, propia, EstadoDonacion.RECHAZADA);
+        donacion(d, propia, EstadoDonacion.CANCELADA);
+        donacion(d, propia, EstadoDonacion.EN_CAMINO);
+        donacion(d, ajena, EstadoDonacion.RECHAZADA);
+
+        var cumplimiento = acreditacionService.legajo(organizacion.getId()).cumplimiento();
+
+        assertThat(cumplimiento.entregadas()).isEqualTo(3);
+        assertThat(cumplimiento.rechazadas()).isEqualTo(1);
+        assertThat(cumplimiento.tasa()).isEqualTo(0.75);
+    }
+
+    @Test
+    void legajoCumplimientoHasNullRateWithoutHistory() {
+        donacion(donante(), necesidadDe(organizacion), EstadoDonacion.CANCELADA);
+
+        var cumplimiento = acreditacionService.legajo(organizacion.getId()).cumplimiento();
+
+        assertThat(cumplimiento.entregadas()).isZero();
+        assertThat(cumplimiento.rechazadas()).isZero();
+        assertThat(cumplimiento.tasa()).isNull();
     }
 }

@@ -5,6 +5,7 @@ import org.example.notificacion.NotificacionEvento;
 import org.springframework.context.ApplicationEventPublisher;
 import org.example.acreditacion.dto.AcreditacionResponse;
 import org.example.acreditacion.dto.ColaAuditoriaFiltro;
+import org.example.acreditacion.dto.CumplimientoEnLegajo;
 import org.example.acreditacion.dto.EventoResponse;
 import org.example.acreditacion.dto.EvidenciaEnColaResponse;
 import org.example.acreditacion.dto.EvidenciaResponse;
@@ -12,6 +13,8 @@ import org.example.acreditacion.dto.LegajoResponse;
 import org.example.acreditacion.dto.RequisitoEnLegajo;
 import org.example.acreditacion.dto.TabCola;
 import org.example.domain.CategoriaAlimento;
+import org.example.domain.DonacionRepository;
+import org.example.domain.EstadoDonacion;
 import org.example.domain.EstadoEvidencia;
 import org.example.domain.EstadoRequisitoLegajo;
 import org.example.domain.EstadoOrganizacion;
@@ -71,6 +74,7 @@ public class AcreditacionService {
     private final UsuarioRepository usuarioRepository;
     private final OrganizacionRepository organizacionRepository;
     private final ApplicationEventPublisher eventPublisher;
+    private final DonacionRepository donacionRepository;
 
     /** RN-04, months an approval stays valid. Field injection with defaults keeps slice tests constructible. */
     @org.springframework.beans.factory.annotation.Value("${app.evidencia.vigencia.meses:12}")
@@ -509,7 +513,23 @@ public class AcreditacionService {
                 .toList();
 
         return new LegajoResponse(org.getId(), org.getNombre(), org.getSlug(), org.getDireccion(),
-                nivelActual(org), nivelDesde, requisitos, eventosResponse, DISCLOSURE);
+                nivelActual(org), nivelDesde, requisitos, eventosResponse, cumplimientoDe(orgId), DISCLOSURE);
+    }
+
+    /** Same counting rule as {@code CumplimientoCalculator}: only ENTREGADA and RECHAZADA count. */
+    private CumplimientoEnLegajo cumplimientoDe(Long orgId) {
+        int entregadas = 0;
+        int rechazadas = 0;
+        for (Object[] fila : donacionRepository.contarPorEstadoDeOrganizacion(
+                orgId, Set.of(EstadoDonacion.ENTREGADA, EstadoDonacion.RECHAZADA))) {
+            int cantidad = ((Long) fila[1]).intValue();
+            if (fila[0] == EstadoDonacion.ENTREGADA) {
+                entregadas = cantidad;
+            } else {
+                rechazadas = cantidad;
+            }
+        }
+        return CumplimientoEnLegajo.de(entregadas, rechazadas);
     }
 
     private LocalDate graciaHastaDe(OrganizacionEvidencia e) {
