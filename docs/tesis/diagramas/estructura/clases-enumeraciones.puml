@@ -33,6 +33,7 @@ enum EstadoEvidencia {
   APROBADA
   OBSERVADA
   REEMPLAZADA
+  VENCIDA
 }
 enum TipoEvidencia {
   DECLARACION
@@ -55,6 +56,7 @@ enum TipoEventoOrganizacion {
   RECLAMO_RECHAZADO
   REPORTE_CONFIRMADO
   REPORTE_DESCARTADO
+  EVIDENCIA_VENCIDA
 }
 enum CategoriaAlimento {
   NO_PERECEDERO

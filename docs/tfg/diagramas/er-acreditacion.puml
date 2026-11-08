@@ -35,6 +35,8 @@ entity "organizacion_evidencia" as evidencia {
   revisado_por : BIGINT (N) <<sin FK>>
   revisado_en : TIMESTAMP (N)
   observacion : VARCHAR(1000) (N)
+  archivo_eliminado_at : TIMESTAMP (N)
+  recordatorio_vencimiento_at : TIMESTAMP (N)
 }
 
 entity "organizacion_evento" as evento {
@@ -51,6 +53,8 @@ entity "organizacion_evento" as evento {
   evidencia_id : BIGINT (N) <<sin FK>>
   motivo : VARCHAR(1000) (N)
   payload : TEXT (N)
+  prev_hash : VARCHAR(64) (N)
+  hash : VARCHAR(64) (N)
 }
 
 entity "reclamos_organizacion" as reclamos {
