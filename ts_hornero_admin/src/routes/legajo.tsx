@@ -26,6 +26,10 @@ const ESTADO_LABEL: Record<string, string> = {
   VENCIDA: 'Vencida',
 };
 
+function formatTasa(tasa: number | null): string {
+  return tasa === null ? 'Sin historial' : `${Math.round(tasa * 100)} %`;
+}
+
 export default function LegajoPage() {
   const { id } = useParams<{ id: string }>();
   const organizacionId = id ? Number(id) : undefined;
@@ -88,6 +92,22 @@ export default function LegajoPage() {
                   </div>
                 ))}
               </div>
+            </Card>
+
+            <Card style={{ padding: 16, marginTop: 16 }}>
+              <Text variant="title" style={{ marginBottom: 8 }}>Historial de cumplimiento</Text>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <Text variant="body-sm">Entregadas: {legajo.data.cumplimiento.entregadas}</Text>
+                <Text variant="body-sm">Rechazadas: {legajo.data.cumplimiento.rechazadas}</Text>
+                <Text variant="body-sm">
+                  Tasa de cumplimiento: {formatTasa(legajo.data.cumplimiento.tasa)}
+                </Text>
+              </div>
+              <Text variant="micro" color="ink-3" style={{ marginTop: 8, display: 'block' }}>
+                Tasa simple: entregadas / (entregadas + rechazadas). No coincide con el término de
+                cumplimiento de la ronda, que está suavizado con un valor previo global. No cuentan las
+                propuestas del fondo común rechazadas ni las donaciones sin responder.
+              </Text>
             </Card>
 
             <Card style={{ padding: 16, marginTop: 16 }}>

@@ -54,6 +54,7 @@ const LEGAJO: LegajoResponse = {
     },
   ],
   eventos: [],
+  cumplimiento: { entregadas: 3, rechazadas: 1, tasa: 0.75 },
   disclosure: 'Datos declarados y auditados, no verificados por el sistema.',
 };
 
@@ -138,5 +139,39 @@ describe('LegajoPage — task 4b.6 (D-02 wiring)', () => {
     expect(screen.getAllByText('Vencida').length).toBeGreaterThan(0);
     expect(screen.getByText('Gracia vencida')).toBeInTheDocument();
     expect(screen.queryByText(/Vencida · Vencida/)).not.toBeInTheDocument();
+  });
+
+  it('shows delivered and rejected counts, the rate and the note about the round term', () => {
+    vi.mocked(useEvidenciasPendientes).mockReturnValue({
+      data: [] as EvidenciaResponse[],
+      isLoading: false,
+      isError: false,
+    } as ReturnType<typeof useEvidenciasPendientes>);
+
+    render(<LegajoPage />, { wrapper: Wrapper });
+
+    expect(screen.getByText('Historial de cumplimiento')).toBeInTheDocument();
+    expect(screen.getByText('Entregadas: 3')).toBeInTheDocument();
+    expect(screen.getByText('Rechazadas: 1')).toBeInTheDocument();
+    expect(screen.getByText('Tasa de cumplimiento: 75 %')).toBeInTheDocument();
+    expect(screen.getByText(/suavizado/i)).toBeInTheDocument();
+    expect(screen.getByText(/sin responder/i)).toBeInTheDocument();
+  });
+
+  it('shows "Sin historial" when the rate is null', () => {
+    vi.mocked(useEvidenciasPendientes).mockReturnValue({
+      data: [] as EvidenciaResponse[],
+      isLoading: false,
+      isError: false,
+    } as ReturnType<typeof useEvidenciasPendientes>);
+    vi.mocked(useLegajo).mockReturnValue({
+      data: { ...LEGAJO, cumplimiento: { entregadas: 0, rechazadas: 0, tasa: null } },
+      isLoading: false,
+      isError: false,
+    } as ReturnType<typeof useLegajo>);
+
+    render(<LegajoPage />, { wrapper: Wrapper });
+
+    expect(screen.getByText('Tasa de cumplimiento: Sin historial')).toBeInTheDocument();
   });
 });
