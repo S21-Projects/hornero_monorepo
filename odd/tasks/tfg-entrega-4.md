@@ -71,8 +71,8 @@ Route legend: `delegated` means a bounded worker; trigger in parentheses.
 ### D. Business rules
 
 - [ ] D1 RN-04 evidence expiry (BLOCKED: author must choose policy a or b)
-- [ ] D2 RN-08 no double reassignment, concurrency test
-- [ ] D3 RN-05 deterministic tie-break, including `ORDER BY` on candidate and pool queries (none today)
+- [x] D2 RN-08 no double reassignment, concurrency test (`e3aa1e7`; V013 pending on the Pi)
+- [x] D3 RN-05 deterministic tie-break with `ORDER BY` (`5b44586`, `b5732bf`)
 - [ ] D5 E2E for CU-07 to CU-10 and reassignment (proposed to author, not yet confirmed)
 - [ ] D4 RF17 and RF18 (BLOCKED: author decides scope after A2)
 
@@ -108,6 +108,10 @@ Route legend: `delegated` means a bounded worker; trigger in parentheses.
   admin 698 pass with builds ok; astro build ok, no tests, updated astro 7.0.3 to 7.4.7. No major bumps.
   OWASP dependency-check did not run, so there is no Maven vulnerability result.
 
+- D2 and D3: risk tier medium (`gentle-ai review assess`, RDD off, writer self-verification). Writer report:
+  `mvn test` 1138 run, 0 failures, 3 skipped PostgreSQL-only; 5 concurrency cases passed 3 of 3 on a throwaway
+  `postgres:16`. Parent spot check: `go test ./...` all ok. Benchmark rose to about 210 ms per round.
+
 ## Next step
 
-D3 and D2 in progress, then C2, C3, C4, E1, D5, C5 local parts, B2, B4. D1 blocked on author policy, D4 on scope. Author must check public access on the R2 bucket in the Cloudflare panel (evidence shares the bucket with public images).
+C2 in progress, then C3, C4, E1, D5, C5 local parts, B2, B4. D1 blocked on author policy, D4 on scope. Author must check public access on the R2 bucket in the Cloudflare panel (evidence shares the bucket with public images).
