@@ -38,8 +38,8 @@ Los siguientes valores se guardan como texto en la columna indicada, sin tabla d
 | `RequisitoAcreditacion` | `organizacion_evidencia.requisito`, `organizacion_evento.requisito` | SERVICIO_REGULAR_GRATUITO, NO_DISCRIMINACION, SEDE_INSCRIPTA_INDIVIDUALMENTE, CONDICIONES_SANITARIAS_ADECUADAS, SIN_KIOSCO_MISMO_DOMICILIO, PERSONERIA_JURIDICA_O_AVAL, ACEPTA_AUDITORIAS_SIN_AVISO |
 | `NivelAcreditacion` | `organizaciones.nivel`, `organizacion_evento.nivel_antes/despues` | N0, N1, N2, N3 |
 | `TipoEvidencia` | `organizacion_evidencia.tipo_evidencia` | DECLARACION, FOTO, DOCUMENTO |
-| `EstadoEvidencia` | `organizacion_evidencia.estado` | PENDIENTE, APROBADA, OBSERVADA, REEMPLAZADA |
-| `TipoEventoOrganizacion` | `organizacion_evento.tipo` | MIGRACION_INICIAL, ORGANIZACION_REGISTRADA, REGISTRO_RECHAZADO, EVIDENCIA_ADJUNTADA, EVIDENCIA_REEMPLAZADA, REQUISITO_APROBADO, REQUISITO_OBSERVADO, NIVEL_ELEVADO, NIVEL_REDUCIDO, REFERENTE_REASIGNADO, IMPORTADA_RENACOM, RECLAMO_APROBADO, RECLAMO_RECHAZADO, REPORTE_CONFIRMADO, REPORTE_DESCARTADO |
+| `EstadoEvidencia` | `organizacion_evidencia.estado` | PENDIENTE, APROBADA, OBSERVADA, REEMPLAZADA, VENCIDA (RN-04; la fija solo el trabajo diario) |
+| `TipoEventoOrganizacion` | `organizacion_evento.tipo` | MIGRACION_INICIAL, ORGANIZACION_REGISTRADA, REGISTRO_RECHAZADO, EVIDENCIA_ADJUNTADA, EVIDENCIA_REEMPLAZADA, REQUISITO_APROBADO, REQUISITO_OBSERVADO, NIVEL_ELEVADO, NIVEL_REDUCIDO, REFERENTE_REASIGNADO, IMPORTADA_RENACOM, RECLAMO_APROBADO, RECLAMO_RECHAZADO, REPORTE_CONFIRMADO, REPORTE_DESCARTADO, EVIDENCIA_VENCIDA (RN-04, actor `SISTEMA`) |
 | `EstadoOrganizacion` | `organizaciones.estado` | PENDIENTE, APROBADA, RECHAZADA, SIN_RECLAMAR, INACTIVA |
 | `TipoOrganizacion` | `organizaciones.tipo` | COMEDOR, COPITA, ROPERO, MERENDERO, OTRO |
 | `OrigenOrganizacion` | `organizaciones.origen` | PLATAFORMA, RENACOM |
@@ -83,13 +83,15 @@ Entidad: `domain/OrganizacionEvidencia.java`. Índice `idx_evidencia_org (organi
 | object_key | VARCHAR | N | Clave del archivo en el almacenamiento de objetos. |
 | declaracion | VARCHAR(2000) | N | Texto de la declaración. |
 | valido_desde | DATE | N | Inicio de vigencia (el constructor usa la fecha actual si no se indica). |
-| valido_hasta | DATE | N | Fin de vigencia. |
-| estado | VARCHAR | NN; enum (CHECK inferido) | Estado de revisión (se crea como PENDIENTE). |
+| valido_hasta | DATE | N | Fin de vigencia. Desde RN-04 la fija la aprobación: fecha de aprobación más `EVIDENCIA_VIGENCIA_MESES` (12 por defecto), conservando una fecha anterior ya presente en la fila (`AcreditacionService.java:261-262`). El script V015 completa las filas `APROBADA` heredadas con `NULL`. |
+| estado | VARCHAR | NN; enum (CHECK inferido, ampliado por V015) | Estado de revisión (se crea como PENDIENTE). `VENCIDA`: la aprobación venció y el trabajo diario movió la fila (`VigenciaEvidenciaService.java:62`). |
 | cargado_por | BIGINT | NN; sin FK | Id del usuario que cargó la evidencia. |
 | cargado_en | TIMESTAMP | NN | Momento de carga. |
 | revisado_por | BIGINT | N; sin FK | Id del usuario que revisó. |
 | revisado_en | TIMESTAMP | N | Momento de revisión. |
 | observacion | VARCHAR(1000) | N | Observación del revisor. |
+| archivo_eliminado_at | TIMESTAMP | N | Momento en que la retención borró el archivo del almacenamiento (la fila se conserva). |
+| recordatorio_vencimiento_at | TIMESTAMP | N | Momento en que se envió el único aviso previo al vencimiento (RN-04); evita enviarlo dos veces. |
 
 ### organizacion_evento
 

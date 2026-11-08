@@ -38,13 +38,15 @@ Tipos de evidencia admitidos:
 - Los archivos subidos admiten JPEG, PNG, WebP o PDF, detectados por los bytes (`ts_hornero_bff/src/upload/upload.service.ts:67-76`).
 - El requisito 7 (`PERSONERIA_JURIDICA_O_AVAL`) menciona en su descripción ocho figuras (Asociación Simple, Asociación Civil, Fichero de Culto, Fundación, Cooperativa, Centro de Jubilados, Centro Vecinal, Aval de otra personería) en `MS/domain/RequisitoAcreditacion.java:53-55`. Esa lista aparece solo como texto de la descripción: una búsqueda en `jar_hornero_ms`, `ts_hornero_admin`, `ts_hornero_bff` y `ts_hornero_astro` no encontró ningún enum, validación ni campo que fuerce la elección de una de las ocho figuras.
 
-Vigencia:
+Vigencia (modificada por RN-04, decisión del autor del 2026-11-08):
 
-- No hay una vigencia en días por requisito. La vigencia es un par de fechas por cada fila de evidencia: `validoDesde` (por defecto, la fecha de hoy; `MS/domain/OrganizacionEvidencia.java:107`) y `validoHasta` (nullable; `null` significa que nunca vence; `MS/domain/OrganizacionEvidencia.java:64-66`).
-- Esas fechas las envía quien carga la evidencia (`MS/acreditacion/dto/CargarEvidenciaRequest.java:16-22`). El sistema no calcula `validoHasta` a partir de ninguna cantidad de días.
-- Una evidencia está expirada si `validoHasta != null && validoHasta < hoy` (`MS/domain/OrganizacionEvidencia.java:154-156`).
+- La vigencia sigue siendo un par de fechas por fila de evidencia: `validoDesde` (por defecto, la fecha de hoy; `MS/domain/OrganizacionEvidencia.java:120`) y `validoHasta` (nullable; `null` significa que nunca vence).
+- Estado previo a RN-04, que explica los datos heredados: quien cargaba la evidencia enviaba ambas fechas (`MS/acreditacion/dto/CargarEvidenciaRequest.java:16-22`) y el sistema no calculaba `validoHasta`. Por eso una fila podía tener `validoHasta` ingresada por el referente, o `null`.
+- Ahora la aprobación fija `validoHasta` a la fecha de aprobación más `EVIDENCIA_VIGENCIA_MESES` meses (12 por defecto), igual para los ocho requisitos y los tres tipos de evidencia (`MS/acreditacion/AcreditacionService.java:261-262`; regla de fechas en `MS/acreditacion/VigenciaEvidencia.java:20-23`). Si la fila ya tenía una fecha anterior a esa, se conserva la anterior: un documento que vence antes no se extiende por la aprobación. Una fecha posterior se recorta al período configurado.
+- Una evidencia está expirada si `validoHasta != null && validoHasta < hoy` (`MS/domain/OrganizacionEvidencia.java:177-179`). El valor se sigue derivando en lectura; además, el trabajo diario persiste el estado `VENCIDA` (ver RN-04).
+- Filas existentes: el script `scripts/sql/V015__evidencia_vencida.sql` completa las filas `APROBADA` con `valido_hasta` nulo con `GREATEST(revisado_en + 1 año, hoy + 30 días)` y no modifica las que ya tienen fecha.
 
-Estados de evidencia: `PENDIENTE`, `APROBADA`, `OBSERVADA`, `REEMPLAZADA` (`MS/domain/EstadoEvidencia.java:7-12`). No existe el estado `VENCIDA` en `EstadoEvidencia`. En el legajo los estados por requisito son `APROBADA`, `OBSERVADA`, `PENDIENTE`, `FALTANTE` (`MS/domain/EstadoRequisitoLegajo.java:8-13`); tampoco hay `VENCIDA` ahí.
+Estados de evidencia: `PENDIENTE`, `APROBADA`, `OBSERVADA`, `REEMPLAZADA` y, desde RN-04, `VENCIDA` (`MS/domain/EstadoEvidencia.java:7-13`). En el legajo los estados por requisito son `APROBADA`, `OBSERVADA`, `PENDIENTE`, `FALTANTE` y `VENCIDA` (`MS/domain/EstadoRequisitoLegajo.java:8-14`).
 
 ### Diferencias con el borrador
 
@@ -55,7 +57,7 @@ Borrador: "8 requisitos con nivel, evidencia admitida, vigencia en días por req
 | Cantidad de requisitos | 8 | 8 (coincide) |
 | Nivel por requisito | Dato por completar | Extraído en la tabla anterior |
 | Evidencia admitida por requisito | Dato por completar | No existe mapeo por requisito; los tres tipos valen para los ocho |
-| Vigencia en días por requisito | Dato por completar | No existe. La vigencia es una fecha `validoHasta` opcional por evidencia, ingresada por el usuario; `null` no vence |
+| Vigencia en días por requisito | Dato por completar | No existe por requisito. La vigencia es única para todos: un año desde la aprobación, configurable en meses (`app.evidencia.vigencia.meses`, 12 por defecto). Antes de RN-04 era una fecha opcional ingresada por el usuario; esa fecha se conserva si es anterior |
 | Ocho figuras de personería | Implícito como regla | Solo texto descriptivo; no se valida |
 
 ---
@@ -163,15 +165,30 @@ Borrador: "un escalón arriba o abajo, siempre por un admin con motivo registrad
 
 ### Valores extraídos
 
-- No existe ningún job que marque evidencias como vencidas. La única tarea programada de vencimiento es `VencimientoNecesidadesJob`, que cambia necesidades `ABIERTA` o `EN_PROGRESO` a `VENCIDA` cuando su `fechaVencimiento` pasó (`MS/necesidad/VencimientoNecesidadesJob.java:35-48`). Se refiere a las necesidades, no a evidencias de acreditación.
-- No existe el estado `VENCIDA` para evidencia (`MS/domain/EstadoEvidencia.java:7-12`). No hay un `TipoActividad` ni un `TipoEventoOrganizacion` de vencimiento de evidencia: los únicos `*_VENCID*` de `MS/actividad/TipoActividad.java` son `NECESIDADES_VENCIDAS`, `DONACION_VENCIDA` y `DONACION_PROPUESTA_VENCIDA` (líneas 60, 70, 71), y `MS/domain/TipoEventoOrganizacion.java:8-50` no contiene ninguno.
-- El vencimiento se deriva en lectura: `isExpirada()` no se persiste (`MS/domain/OrganizacionEvidencia.java:151-156`). No se registra evento alguno cuando una evidencia pasa a estar expirada.
-- Pestaña "vencidas" de la cola de auditoría: `TabCola.VENCIDAS` (`MS/acreditacion/dto/TabCola.java:9-12`); la consulta devuelve cualquier fila con `validoHasta` pasado sin importar su `estado`, y la pestaña de pendientes excluye las expiradas (`MS/domain/OrganizacionEvidenciaRepository.java:52-69`; uso en `MS/acreditacion/AcreditacionService.java:366-370`).
-- Legajo: una evidencia aprobada y expirada sigue figurando como `APROBADA` con el indicador `expirada = true` (`MS/acreditacion/AcreditacionService.java:473-485`).
-- Efecto sobre el nivel: ninguno automático. Ninguna ruta de código baja el nivel por vencimiento; el comentario en `MS/acreditacion/AcreditacionService.java:421-423` lo describe como "record-and-warn".
-- Efecto sobre la elevación: una evidencia `APROBADA` pero expirada no cuenta para `requisitosCompletos` y bloquea la elevación (`MS/acreditacion/AcreditacionService.java:432-435`).
-- Efecto sobre necesidades abiertas: ninguno. Las necesidades de una organización con evidencia expirada no se suspenden ni se cierran (no hay código que relacione ambas cosas; el cupo y la categoría se verifican solo al crear o relanzar en `NecesidadService.java:77-102,221-226`).
-- Notificación de vencimiento de evidencia: no existe. Los eventos de notificación de evidencia que se publican son `EvidenciaObservada` (`MS/acreditacion/AcreditacionService.java:278-279`) y el cambio de nivel.
+Propósito (decisión del autor, 2026-11-08): confirmar que los comedores siguen activos sin perjudicarlos de forma instantánea. Estado del código en la rama `tfg/entrega-4`.
+
+| Aspecto | Comportamiento implementado | Fuente |
+|---|---|---|
+| Vigencia | `validoHasta = fecha de aprobación + EVIDENCIA_VIGENCIA_MESES` (12 por defecto); una fecha anterior ya presente en la fila se conserva | `MS/acreditacion/AcreditacionService.java:261-262`; `MS/acreditacion/VigenciaEvidencia.java:20-23`; `MS/resources/application.yml:127-134` |
+| Estado nuevo | `EstadoEvidencia.VENCIDA`, asignado solo por el trabajo diario; tipo de evento nuevo `EVIDENCIA_VENCIDA` | `MS/domain/EstadoEvidencia.java:13`; `MS/domain/TipoEventoOrganizacion.java:56` |
+| Trabajo diario | `EvidenciaVigenciaJob`: a las 00:20 (Buenos Aires, `EVIDENCIA_VIGENCIA_CRON`) y una vez al iniciar (RNF17: la Raspberry Pi puede estar apagada), con el patrón de `DonacionesEstancadasJob`. Una transacción por evidencia; una fila que falla se omite y se registra | `MS/acreditacion/EvidenciaVigenciaJob.java:28-34` |
+| Transición | Cada `APROBADA` con `validoHasta < hoy` pasa a `VENCIDA` y se agrega un evento `EVIDENCIA_VENCIDA` con actor `SISTEMA` por el camino sellado de la cadena (C4). El evento no se modifica (el disparador V014 lo prohíbe); solo cambia el estado de la fila. Idempotente: una segunda ejecución no hace nada | `MS/acreditacion/VigenciaEvidenciaService.java:61-80` |
+| Nivel | Nunca cambia automáticamente. El evento `EVIDENCIA_VENCIDA` tiene `nivelDespues = null`, por lo que no altera la reconstrucción del nivel (`AcreditacionReplay.reconstruir`, que solo considera eventos con `nivelDespues`) | `MS/acreditacion/AcreditacionReplay.java:24-32`; prueba `AcreditacionInvariantTest.expiringEvidenceNeverChangesTheDerivedLevelAndAnAdminCanStillLower` |
+| Elevación | Una evidencia `VENCIDA` sigue bloqueando la elevación: el criterio es `estado == APROBADA && !isExpirada()` | `MS/acreditacion/AcreditacionService.java:445-452` |
+| Necesidades abiertas | Sin cambios: no hay código que relacione el vencimiento con las necesidades; ninguna restricción nueva salvo el bloqueo de elevación | (ausencia de código; `NecesidadService.java:77-102,221-226` no consulta evidencias) |
+| Gracia | `EVIDENCIA_VIGENCIA_GRACIA_DIAS` (30 por defecto) después de la fecha de vencimiento. Durante la gracia nada cambia. Pasada la gracia, la cola del administrador marca "Gracia vencida" y el administrador baja el nivel un escalón con motivo por el flujo manual existente (`cambiarNivel`). No existe reducción automática | `MS/acreditacion/VigenciaEvidencia.java:26-33`; `MS/acreditacion/AcreditacionService.java:515-523` |
+| Reemplazo | El referente reemplaza la evidencia con el flujo existente (`cargarEvidencia` marca la anterior, también `VENCIDA`, como `REEMPLAZADA`); una nueva aprobación fija una nueva vigencia. Aprobar directamente una fila `VENCIDA` responde 409 | `MS/acreditacion/AcreditacionService.java:221-247` (reemplazo) y `:252-262` (aprobación) |
+| Aviso al referente | Al vencer: correo con la fecha de vencimiento y el fin de la gracia. Antes de vencer: un único recordatorio `EVIDENCIA_VIGENCIA_RECORDATORIO_DIAS` (30 por defecto; 0 lo desactiva) antes de la fecha, marcado en `recordatorio_vencimiento_at` para no repetirlo. Usa el mecanismo existente de notificaciones (evento posterior a la confirmación de la transacción); el manejo de `MAIL_LOG_ONLY` no cambia | `MS/acreditacion/VigenciaEvidenciaService.java:61-110`; `MS/notificacion/NotificacionService.java:312-333`; `MS/mail/NotificacionesEmailTemplates.java:120-138` |
+| Pestaña "Vencidas" | Sin cambio en la consulta (toda fila con `validoHasta` pasada, incluidas las `VENCIDA`: `MS/domain/OrganizacionEvidenciaRepository.java:81`). La respuesta agrega `graciaHasta` y `graciaVencida`; la pantalla muestra el estado "Vencida", "Venció el ...", "En gracia hasta el ..." o la insignia "Gracia vencida" | `ts_hornero_admin/src/routes/auditoria.tsx:57-80` |
+| Legajo y página del referente | El estado `VENCIDA` se muestra en español; el mensaje indica el plazo de gracia | `MS/acreditacion/AcreditacionService.java:492`; `ts_hornero_admin/src/components/acreditacion/RequisitoCard.tsx:35-40,58-70` |
+
+Reducción de nivel con requisitos `VENCIDA`: `cambiarNivel` hacia abajo solo exige un motivo no vacío y no consulta las evidencias (`MS/acreditacion/AcreditacionService.java:334-338`); la prueba `anAdminCanStillLowerTheLevelWhenRequirementsAreVencida` lo confirma.
+
+Consistencia de `isExpirada()`: se lee en `AcreditacionService.java:450` (elevación), `:501` y `:517` (legajo y gracia) y en los DTO `EvidenciaResponse.java:39` y `EvidenciaEnColaResponse.java:47,64`. Todos son coherentes con `VENCIDA`, porque una fila `VENCIDA` siempre tiene `validoHasta` pasada. El único caso en que difieren es una fila `VENCIDA` con fecha futura editada a mano en la base de datos; la pantalla del referente la trata como vencida igualmente (`RequisitoCard.tsx:35-39`).
+
+Interacción con la retención de archivos (`EvidenciaAcreditacionRetencionJob`, C3): la consulta de retención selecciona las filas con `validoHasta < hoy - N meses` sin mirar el estado (`MS/domain/OrganizacionEvidenciaRepository.java:59`). Por lo tanto, el archivo de una evidencia `VENCIDA` se borra recién N meses (12 por defecto, `EVIDENCIA_RETENCION_MESES`) después de su fecha de vencimiento, y solo si `EVIDENCIA_RETENCION_ENABLED=true` (apagado por defecto). La fila y sus eventos se conservan. La prueba `aVencidaRowIsACandidateOnlyNMonthsAfterItsExpiryDate` lo verifica.
+
+Datos existentes (V015): las filas `APROBADA` con `valido_hasta` nulo reciben `GREATEST(revisado_en + 1 año, hoy + 30 días)`; así ninguna fecha asignada es anterior a la fecha del despliegue más 30 días y nadie queda vencido de inmediato. Las filas con fecha propia no se tocan; las que ya estaban vencidas pasan a `VENCIDA` al iniciar el microservicio y su gracia de 30 días cuenta desde ese vencimiento (si ya terminó, el administrador las ve de inmediato con "Gracia vencida"). El script y el orden de despliegue están en `docs/db-changes.md`.
 
 ### Diferencias con el borrador
 
@@ -179,13 +196,14 @@ Borrador: "job diario marca VENCIDA, registra evento, muestra en pestaña vencid
 
 | Aspecto | Borrador | Código |
 |---|---|---|
-| Job diario que marca `VENCIDA` | Existe | No existe para evidencias. Solo existe el job de necesidades |
-| Estado `VENCIDA` de evidencia | Existe | No existe; el vencimiento se deriva en lectura |
-| Evento al vencer | Se registra | No se registra ningún evento |
-| Pestaña de vencidas | Existe | Existe (`TabCola.VENCIDAS`) |
-| Evidencia vencida bloquea la elevación | Sí | Sí (`AcreditacionService.java:432-435`) |
-| Necesidades continúan o se suspenden | Indeciso | Continúan sin cambios; no hay mecanismo de suspensión |
-| Descenso de nivel por vencimiento | No mencionado | No existe; el nivel nunca baja solo |
+| Job diario que marca `VENCIDA` | Existe | Existe desde RN-04 (`EvidenciaVigenciaJob`); antes no existía |
+| Estado `VENCIDA` de evidencia | Existe | Existe desde RN-04 |
+| Evento al vencer | Se registra | Se registra `EVIDENCIA_VENCIDA` con actor `SISTEMA`, sellado en la cadena; no altera el nivel |
+| Pestaña de vencidas | Existe | Existe; ahora muestra el estado, la fecha y si la gracia terminó |
+| Evidencia vencida bloquea la elevación | Sí | Sí |
+| Necesidades continúan o se suspenden | Indeciso | Continúan sin cambios (decisión del autor); no hay mecanismo de suspensión |
+| Política de vigencia | Indecisa | Un año desde la aprobación, 30 días de gracia, reducción manual posterior por un administrador |
+| Descenso de nivel por vencimiento | No mencionado | No es automático: lo decide el administrador después de la gracia |
 
 ---
 
