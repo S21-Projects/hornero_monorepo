@@ -95,5 +95,10 @@ public enum TipoActividad {
     // Accreditation evidence files (org-evidencia/): an admin downloaded one, and the retention
     // job deleted one from the bucket (the row and its events stay)
     EVIDENCIA_ACREDITACION_DESCARGADA,
-    EVIDENCIA_ACREDITACION_ARCHIVO_BORRADO
+    EVIDENCIA_ACREDITACION_ARCHIVO_BORRADO,
+
+    // C4: the daily verification of the accreditation event hash chain found a defect, and the
+    // daily anchor was written to the bucket (only when AUDITORIA_ANCLA_ENABLED=true)
+    AUDITORIA_CADENA_ROTA,
+    AUDITORIA_ANCLA_PUBLICADA
 }

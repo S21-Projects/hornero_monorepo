@@ -51,7 +51,7 @@ public class EvidenciaAlmacenConfig {
     }
 
     /** Shared by every store adapter, so the S3-compatible quirks are handled in one place. */
-    static S3Client crearClienteS3(String endpoint, String region, String accessKeyId, String secretAccessKey) {
+    public static S3Client crearClienteS3(String endpoint, String region, String accessKeyId, String secretAccessKey) {
         return S3Client.builder()
                 .endpointOverride(URI.create(endpoint))
                 .region(Region.of(region.isBlank() ? "auto" : region))
