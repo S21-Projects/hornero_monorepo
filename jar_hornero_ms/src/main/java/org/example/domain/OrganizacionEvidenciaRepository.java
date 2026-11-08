@@ -39,6 +39,8 @@ public interface OrganizacionEvidenciaRepository extends Repository<Organizacion
      */
     boolean existsByOrganizacion_IdAndObjectKey(Long organizacionId, String objectKey);
 
+    Optional<OrganizacionEvidencia> findFirstByOrganizacion_IdAndObjectKey(Long organizacionId, String objectKey);
+
     /**
      * AD-8 (tesis-core-features, slice 4a): backs the cross-org audit queue. {@code vencidas =
      * true} returns any row whose {@code validoHasta} has passed regardless of {@code estado}

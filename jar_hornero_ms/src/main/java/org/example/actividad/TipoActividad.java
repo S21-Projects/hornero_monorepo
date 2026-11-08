@@ -90,5 +90,10 @@ public enum TipoActividad {
     COORDENADAS_MINIMIZADAS,
     // Claim evidence objects deleted from the bucket: counts only, never keys or paths
     EVIDENCIA_RECLAMO_BORRADA,
-    EVIDENCIA_HUERFANA_BORRADA
+    EVIDENCIA_HUERFANA_BORRADA,
+
+    // Accreditation evidence files (org-evidencia/): an admin downloaded one, and the retention
+    // job deleted one from the bucket (the row and its events stay)
+    EVIDENCIA_ACREDITACION_DESCARGADA,
+    EVIDENCIA_ACREDITACION_ARCHIVO_BORRADO
 }

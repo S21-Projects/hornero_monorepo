@@ -65,6 +65,9 @@ class AcreditacionControllerSecurityTest {
     private AcreditacionService acreditacionService;
 
     @MockBean
+    private EvidenciaDescargaAuditor descargaAuditor;
+
+    @MockBean
     private OrganizacionRepository organizacionRepository;
 
     @MockBean

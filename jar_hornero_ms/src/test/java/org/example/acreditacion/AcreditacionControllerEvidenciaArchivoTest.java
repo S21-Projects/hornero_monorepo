@@ -52,6 +52,9 @@ class AcreditacionControllerEvidenciaArchivoTest {
     private AcreditacionService acreditacionService;
 
     @MockBean
+    private EvidenciaDescargaAuditor descargaAuditor;
+
+    @MockBean
     private OrganizacionRepository organizacionRepository;
 
     @MockBean
@@ -104,6 +107,7 @@ class AcreditacionControllerEvidenciaArchivoTest {
         mockMvc.perform(get(PATH).param("objectKey", KEY).with(authentication(auth(5L, "REFERENTE"))))
                 .andExpect(status().isNoContent());
         verify(acreditacionService).existeArchivoEvidencia(1L, KEY);
+        verifyNoInteractions(descargaAuditor);
     }
 
     @Test
@@ -113,6 +117,17 @@ class AcreditacionControllerEvidenciaArchivoTest {
         mockMvc.perform(get(PATH).param("objectKey", KEY).with(authentication(auth(2L, "ADMINISTRADOR"))))
                 .andExpect(status().isNoContent());
         verify(acreditacionService).existeArchivoEvidencia(1L, KEY);
+        verify(descargaAuditor).registrar(1L, KEY);
+    }
+
+    @Test
+    void adminDownloadIsNotRecordedWhenTheAuthorizationFails() throws Exception {
+        doThrow(new ResponseStatusException(HttpStatus.NOT_FOUND, "EVIDENCIA_NO_ENCONTRADA"))
+                .when(acreditacionService).existeArchivoEvidencia(1L, KEY);
+
+        mockMvc.perform(get(PATH).param("objectKey", KEY).with(authentication(auth(2L, "ADMINISTRADOR"))))
+                .andExpect(status().isNotFound());
+        verifyNoInteractions(descargaAuditor);
     }
 
     @Test
