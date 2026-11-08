@@ -127,6 +127,22 @@ public class EsquemaVerificador implements ApplicationRunner {
             SELECT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'organizacion_evento_inmutable' AND NOT tgisinternal)
             """;
 
+    /**
+     * V015 (RN-04): the CHECK constraints on organizacion_evidencia.estado and organizacion_evento.tipo
+     * that still reject VENCIDA / EVIDENCIA_VENCIDA.
+     */
+    private static final String CHECK_VIGENCIA_CHECKS_PENDIENTES_SQL = """
+            SELECT conname FROM pg_constraint
+            WHERE contype = 'c'
+              AND ((conrelid = to_regclass('organizacion_evidencia')
+                    AND pg_get_constraintdef(oid) ~ '\\mestado\\M'
+                    AND pg_get_constraintdef(oid) NOT LIKE '%VENCIDA%')
+                OR (conrelid = to_regclass('organizacion_evento')
+                    AND pg_get_constraintdef(oid) ~ '\\mtipo\\M'
+                    AND pg_get_constraintdef(oid) NOT LIKE '%EVIDENCIA_VENCIDA%'))
+            """;
+
+    private final AtomicBoolean vigenciaEvidencia = new AtomicBoolean(true);
     private final AtomicBoolean eventosInmutables = new AtomicBoolean(true);
     private final AtomicBoolean asignacionActivaUnica = new AtomicBoolean(true);
     private final AtomicBoolean purgaEmailIntento = new AtomicBoolean(true);
@@ -161,6 +177,24 @@ public class EsquemaVerificador implements ApplicationRunner {
         verificarEventosReporte();
         verificarAsignacionActivaUnica();
         verificarEventosInmutables();
+        verificarVigenciaEvidencia();
+    }
+
+    private void verificarVigenciaEvidencia() {
+        java.util.List<String> pendientes = jdbcTemplate.queryForList(CHECK_VIGENCIA_CHECKS_PENDIENTES_SQL, String.class);
+        if (pendientes != null && !pendientes.isEmpty()) {
+            vigenciaEvidencia.set(false);
+            log.error("ESQUEMA_PENDIENTE: CHECK constraints {} reject the VENCIDA evidence state / EVIDENCIA_VENCIDA "
+                    + "event. Run scripts/sql/V015__evidencia_vencida.sql (make migrate); until then the daily "
+                    + "expiry job fails for every row and logs a warning.", pendientes);
+        } else {
+            vigenciaEvidencia.set(true);
+        }
+    }
+
+    /** False when V015 has not widened the CHECK constraints. Informational; PostgreSQL only. */
+    public boolean vigenciaEvidenciaMigrada() {
+        return vigenciaEvidencia.get();
     }
 
     private void verificarEventosInmutables() {
