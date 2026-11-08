@@ -10,6 +10,26 @@ production DB) — check the "Applied to" line before running anything twice.
 
 ---
 
+## 2026-11-08 — `organizacion_evento`: hash chain columns and immutability trigger (C4)
+
+**Reason**: the accreditation event log is append-only in the application only. C4 chains its rows per organization (`hash = SHA-256(prev_hash || canonical content)`) so that an edited, deleted-in-the-middle or reordered event is detected, and adds a trigger so ad hoc SQL cannot edit or delete events. See `docs/tfg/seguridad-c4.md`.
+
+**Before**: no `prev_hash` / `hash` columns, no unique index, no trigger. `organizacion_evento` accepted any UPDATE or DELETE from SQL.
+
+**Migration** (three parts):
+
+1. By `ddl-auto=update`, on the first boot of the new MS image: nullable columns `prev_hash varchar(64)` and `hash varchar(64)`, plus the unique index `ux_evento_org_prev_hash (organizacion_id, prev_hash)`. Existing rows keep `NULL`, which PostgreSQL treats as distinct, so the index builds on a table with history. Additive (RNF07).
+2. The MS seals the existing rows at startup (`CadenaArranque`, on `ApplicationReadyEvent`): idempotent, resumable, in insertion order, one transaction per organization. It is Java and not SQL because the canonical encoding lives in `CadenaHash`.
+3. `scripts/sql/V014__organizacion_evento_inmutable.sql` (run `make migrate`, after the MS has booted once with this code). Installs the trigger `organizacion_evento_inmutable` (rejects UPDATE, DELETE and TRUNCATE for every role, except the one-time sealing of a row with `hash IS NULL AND prev_hash IS NULL`) and revokes DELETE and TRUNCATE (and UPDATE when no row is left unsealed) from `PUBLIC` and from a non-superuser running role. Aborts with a clear message if the table or the `hash` column is missing. Idempotent and transactional. `EsquemaVerificador` logs `ESQUEMA_PENDIENTE` until the trigger exists.
+
+**After**: `\d organizacion_evento` lists `prev_hash`, `hash`, the index `ux_evento_org_prev_hash` and the two triggers. `SELECT count(*) FROM organizacion_evento WHERE hash IS NULL` is 0 once the MS has started. The REVOKE does not bind a superuser (the compose default for the application role) and the owner can grant it back; only the trigger holds for every role, until it is dropped.
+
+**Rollback**: `DROP TRIGGER organizacion_evento_inmutable ON organizacion_evento; DROP TRIGGER organizacion_evento_inmutable_truncate ON organizacion_evento; GRANT UPDATE, DELETE, TRUNCATE ON organizacion_evento TO <application role>;`. The columns and the unique index can stay (the previous code ignores them, and its inserts leave `NULL`, which the next start seals); to remove them: `DROP INDEX IF EXISTS ux_evento_org_prev_hash; ALTER TABLE organizacion_evento DROP COLUMN IF EXISTS hash, DROP COLUMN IF EXISTS prev_hash;`. Anchors already written to the bucket (`audit/anchors/`) are not removed by any rollback.
+
+**Applied to**: columns, index and sealing happen automatically on first boot of the new image in each environment. V014: not applied to production by the author of this change; pending in every environment.
+
+---
+
 ## 2026-11-08 — `organizacion_evidencia.archivo_eliminado_at`: retention marker (C3)
 
 **Reason**: the optional retention job deletes the bucket file of replaced or long-expired accreditation evidence and records when, keeping the row and its events.

@@ -93,7 +93,7 @@ Entidad: `domain/OrganizacionEvidencia.java`. Índice `idx_evidencia_org (organi
 
 ### organizacion_evento
 
-Entidad: `domain/OrganizacionEvento.java`. Índice `idx_evento_org_ocurrido (organizacion_id, ocurrido_en)`. Bitácora de eventos de acreditación. La entidad no define columnas de hash ni encadenamiento.
+Entidad: `domain/OrganizacionEvento.java`. Índices `idx_evento_org_ocurrido (organizacion_id, ocurrido_en)` y único `ux_evento_org_prev_hash (organizacion_id, prev_hash)` (C4: impide que dos eventos de una organización tengan el mismo predecesor, es decir, una bifurcación de la cadena). Bitácora de eventos de acreditación, de solo agregado, encadenada por organización con SHA-256 (`hash = SHA-256(prev_hash || contenido canónico)`; ver `docs/tfg/seguridad-c4.md`). El script V014 agrega un disparador que rechaza `UPDATE`, `DELETE` y `TRUNCATE` (salvo el sellado único de una fila heredada).
 
 | Columna | Tipo | Restricciones | Descripción |
 |---|---|---|---|
@@ -109,6 +109,8 @@ Entidad: `domain/OrganizacionEvento.java`. Índice `idx_evento_org_ocurrido (org
 | evidencia_id | BIGINT | N; sin FK | Evidencia involucrada. |
 | motivo | VARCHAR(1000) | N | Motivo declarado. |
 | payload | TEXT | N | Datos adicionales en texto. |
+| prev_hash | VARCHAR(64) | N; parte del índice único `ux_evento_org_prev_hash` | Hash del evento anterior de la misma organización; 64 ceros para el primero. Nulo solo en filas anteriores al relleno de C4. |
+| hash | VARCHAR(64) | N | `SHA-256(prev_hash \|\| contenido canónico)` en hexadecimal minúsculas. Nulo solo en filas anteriores al relleno de C4, que el microservicio sella al iniciar. |
 
 ### reclamos_organizacion
 
