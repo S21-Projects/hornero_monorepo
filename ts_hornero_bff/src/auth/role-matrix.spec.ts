@@ -138,6 +138,7 @@ const EXPECTED_ACCESS: Record<string, Access> = {
   'POST /reportes': 'any-authenticated',
   'POST /rondas': [Role.ADMINISTRADOR],
   'POST /usuarios/:id/anonimizar': [Role.ADMINISTRADOR],
+  'POST /usuarios/:id/sesiones/revocar': [Role.ADMINISTRADOR],
   'POST /upload/org-banner/:id': [Role.REFERENTE, Role.ADMINISTRADOR],
   'POST /upload/org-evidencia/:id': [Role.REFERENTE, Role.ADMINISTRADOR],
   'POST /upload/org-profile/:id': [Role.REFERENTE, Role.ADMINISTRADOR],

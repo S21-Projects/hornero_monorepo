@@ -29,6 +29,8 @@ public enum TipoActividad {
     // Users
     USUARIO_ACTIVADO,
     USUARIO_DESACTIVADO,
+    // Admin-forced logout of every session of a user (refresh tokens revoked)
+    SESIONES_REVOCADAS,
     // N15/D12: right to erasure (admin-run); the entry never holds the data subject's data
     USUARIO_ANONIMIZADO,
 

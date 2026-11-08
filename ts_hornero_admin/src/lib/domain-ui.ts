@@ -179,6 +179,7 @@ export const ACCION_ACTIVIDAD: Record<string, string> = {
   TOKENS_PURGADOS: 'Limpieza de sesiones vencidas',
   ACTIVIDAD_PURGADA: 'Purga por retención',
   USUARIO_ANONIMIZADO: 'Usuario anonimizado',
+  SESIONES_REVOCADAS: 'Sesiones revocadas por un administrador',
   EMAIL_INTENTO_PURGADO: 'Correos de intentos fallidos borrados (automático)',
   COORDENADAS_MINIMIZADAS: 'Coordenadas de donaciones reducidas (automático)',
   EVIDENCIA_RECLAMO_BORRADA: 'Evidencia de reclamos borrada',

@@ -24,6 +24,18 @@ describe('UsuariosService', () => {
     expect(res).toEqual({ id: 7, nombre: 'Usuario eliminado' });
   });
 
+  it('revocarSesiones POSTs to the MS revoke endpoint with the bearer token', async () => {
+    post.mockResolvedValue({ data: '' });
+
+    await service.revocarSesiones(7, 'tok');
+
+    expect(post).toHaveBeenCalledWith(
+      'http://ms.test/api/usuarios/7/sesiones/revocar',
+      {},
+      { headers: { Authorization: 'Bearer tok' } },
+    );
+  });
+
   describe('findAll', () => {
     it('GETs the MS list with the bearer token and no query when no filter is given', async () => {
       get.mockResolvedValue({ data: { content: [] } });

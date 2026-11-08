@@ -12,6 +12,7 @@ describe('UsuariosController', () => {
     findAll: jest.Mock;
     toggleActivo: jest.Mock;
     anonimizar: jest.Mock;
+    revocarSesiones: jest.Mock;
   };
 
   const requestWithToken = (token?: string) =>
@@ -22,6 +23,7 @@ describe('UsuariosController', () => {
       findAll: jest.fn(),
       toggleActivo: jest.fn(),
       anonimizar: jest.fn(),
+      revocarSesiones: jest.fn(),
     };
     const module: TestingModule = await Test.createTestingModule({
       controllers: [UsuariosController],
@@ -52,6 +54,27 @@ describe('UsuariosController', () => {
         UnauthorizedException,
       );
       expect(service.anonimizar).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('revocarSesiones', () => {
+    it('is restricted to ADMINISTRADOR', () => {
+      expect(rolesOf('revocarSesiones')).toEqual([Role.ADMINISTRADOR]);
+    });
+
+    it('forwards the id with the cookie token', async () => {
+      service.revocarSesiones.mockResolvedValue(undefined);
+
+      await controller.revocarSesiones(7, requestWithToken('tok'));
+
+      expect(service.revocarSesiones).toHaveBeenCalledWith(7, 'tok');
+    });
+
+    it('rejects a request without access_token', () => {
+      expect(() => controller.revocarSesiones(7, requestWithToken())).toThrow(
+        UnauthorizedException,
+      );
+      expect(service.revocarSesiones).not.toHaveBeenCalled();
     });
   });
 
