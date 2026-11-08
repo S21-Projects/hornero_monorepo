@@ -23,10 +23,12 @@ public interface DonacionRepository extends JpaRepository<Donacion, Long> {
      * {@code OFRECIDA}, {@code necesidad IS NULL}. {@code LEFT JOIN FETCH d.lineas} avoids an N+1
      * against {@code donacion_lineas} when {@code EntradaRondaFactory} walks each donación's
      * articulo ids inside the same read transaction (feature catalogo-articulos); {@code DISTINCT}
-     * dedupes the parent row fan-out from that one-to-many fetch.
+     * dedupes the parent row fan-out from that one-to-many fetch. RN-05: ordered by id so
+     * the worker input is the same for the same pool.
      */
     @Query("SELECT DISTINCT d FROM Donacion d LEFT JOIN FETCH d.lineas "
-            + "WHERE d.modalidad = :modalidad AND d.estado = :estado AND d.necesidad IS NULL")
+            + "WHERE d.modalidad = :modalidad AND d.estado = :estado AND d.necesidad IS NULL "
+            + "ORDER BY d.id ASC")
     List<Donacion> findByModalidadAndEstadoAndNecesidadIsNull(@Param("modalidad") ModalidadDonacion modalidad,
                                                                 @Param("estado") EstadoDonacion estado);
 

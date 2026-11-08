@@ -74,6 +74,9 @@ public class EntradaRondaFactory {
         CandidatoEntradaV1 c = new CandidatoEntradaV1();
         c.setNecesidadId(n.getId());
         c.setOrganizacionId(organizacion.getId());
+        // RN-05 tie-break key. Clamped at 0 like diasEnFondo: the worker rejects a negative count.
+        c.setDiasAbierta(n.getFechaPublicacion() != null
+                ? (int) Math.max(0, ChronoUnit.DAYS.between(n.getFechaPublicacion(), hoy)) : 0);
         c.setLatitud(organizacion.getLatitud());
         c.setLongitud(organizacion.getLongitud());
         // The radio is always sent when known; the deficit only when computed. Omitting it makes the

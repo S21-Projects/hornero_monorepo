@@ -27,6 +27,8 @@ public class CandidatoEntradaV1 {
     private Double deficit;
     private double urgencia;
     private int diasDesdeUltimaDonacion;
+    // RN-05 tie-break key: days since the necesidad was published (>= 0). Never part of the score.
+    private int diasAbierta;
     private List<String> categoriasAceptadas;
     private List<String> categoriasPermitidas;
     private CumplimientoV1 cumplimiento; // null until slice 6b
