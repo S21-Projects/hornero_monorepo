@@ -51,11 +51,13 @@ export class Actor {
     const headers: Record<string, string> = { ...extraHeaders };
     const cookie = this.cookieHeader();
     if (cookie) headers.cookie = cookie;
-    if (body !== undefined) headers['content-type'] = 'application/json';
+    const multipart = body instanceof FormData;
+    // fetch sets the multipart boundary itself; JSON bodies get an explicit content type.
+    if (body !== undefined && !multipart) headers['content-type'] = 'application/json';
     const res = await fetch(`${this.baseUrl}${path}`, {
       method,
       headers,
-      body: body === undefined ? undefined : JSON.stringify(body),
+      body: body === undefined ? undefined : multipart ? body : JSON.stringify(body),
     });
     const setCookies = res.headers.getSetCookie();
     this.absorb(setCookies);
@@ -86,6 +88,12 @@ export class Actor {
       headers['idempotency-key'] = opts.key ?? randomUUID();
     }
     return this.request<T>('POST', path, body, headers);
+  };
+  /** Multipart upload of one file under the form field `field` (the BFF upload routes read `image`). */
+  upload = <T = any>(path: string, field: string, file: { bytes: Uint8Array; name: string; type: string }) => {
+    const form = new FormData();
+    form.append(field, new Blob([file.bytes as BlobPart], { type: file.type }), file.name);
+    return this.request<T>('POST', path, form);
   };
   patch = <T = any>(path: string, body?: unknown) => this.request<T>('PATCH', path, body);
   del = <T = any>(path: string) => this.request<T>('DELETE', path);
