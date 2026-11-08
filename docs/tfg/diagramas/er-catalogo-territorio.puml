@@ -1,0 +1,69 @@
+@startuml
+hide circle
+skinparam linetype ortho
+skinparam shadowing false
+skinparam dpi 150
+skinparam defaultFontName Helvetica
+skinparam defaultFontSize 12
+skinparam entity {
+  BackgroundColor #FFFFFF
+  BorderColor #444444
+  FontColor #111111
+}
+skinparam ArrowColor #444444
+
+entity "usuarios" as usuarios {
+  * id : BIGINT <<PK>>
+}
+
+entity "organizaciones" as organizaciones {
+  * id : BIGINT <<PK>>
+  --
+  * version : BIGINT
+  * nombre : VARCHAR
+  slug : VARCHAR <<UNIQUE>> (N)
+  descripcion : VARCHAR(1000) (N)
+  tipo : VARCHAR <<enum TipoOrganizacion>> (N)
+  direccion : VARCHAR (N)
+  latitud : DOUBLE (N)
+  longitud : DOUBLE (N)
+  * validada : BOOLEAN
+  estado : VARCHAR <<enum EstadoOrganizacion>> (N)
+  administrador_id : BIGINT <<FK>> (N)
+  nivel : VARCHAR <<enum NivelAcreditacion>> (N)
+  referente_id : BIGINT <<FK>> (N)
+  origen : VARCHAR <<enum OrigenOrganizacion>> (N)
+  origen_id : VARCHAR (N) <<índice único parcial>>
+  asistentes_declarados : INTEGER (N)
+  codigo_radio : VARCHAR(9) (N) <<sin FK>>
+  profile_image_key : VARCHAR (N)
+  banner_key : VARCHAR (N)
+  acepta_donaciones : BOOLEAN (N)
+  sitio_web_url : VARCHAR(500) (N)
+  donacion_directa_url : VARCHAR(500) (N)
+  acepta_donaciones_pendiente : BOOLEAN (N)
+  sitio_web_url_pendiente : VARCHAR(500) (N)
+  donacion_directa_url_pendiente : VARCHAR(500) (N)
+  info_publica_pendiente_en : TIMESTAMP (N)
+}
+
+entity "poblacion_radio" as poblacion {
+  * codigo_radio : VARCHAR(9) <<PK>>
+  --
+  * habitantes : INTEGER <<CHECK >= 0>>
+}
+
+entity "articulos" as articulos {
+  * id : BIGINT <<PK>>
+  --
+  nombre : VARCHAR (N)
+  categoria : VARCHAR <<enum CategoriaAlimento>> (N)
+  unidad : VARCHAR <<enum UnidadArticulo>> (N)
+  * activo : BOOLEAN
+}
+
+usuarios |o--o{ organizaciones : "valida\n(administrador_id)"
+usuarios |o--o{ organizaciones : "es referente de\n(referente_id)"
+poblacion |o..o{ organizaciones : "habitantes del radio\n(codigo_radio, sin FK)"
+
+@enduml
