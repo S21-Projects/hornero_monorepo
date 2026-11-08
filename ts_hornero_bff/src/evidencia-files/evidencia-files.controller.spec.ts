@@ -52,7 +52,7 @@ describe('EvidenciaFilesController', () => {
     controller = module.get<EvidenciaFilesController>(EvidenciaFilesController);
   });
 
-  it('serves a PDF inline with nosniff', async () => {
+  it('serves a PDF as an attachment with nosniff, never inline', async () => {
     imagesService.getObject.mockResolvedValue({
       body: Readable.from([Buffer.from('%PDF-1.7')]),
       contentType: 'application/pdf',
@@ -61,8 +61,27 @@ describe('EvidenciaFilesController', () => {
     await controller.serve(5, 'doc.pdf', requestWith(), response);
 
     expect(set).toHaveBeenCalledWith('Content-Type', 'application/pdf');
-    expect(set).toHaveBeenCalledWith('Content-Disposition', 'inline');
+    expect(set).toHaveBeenCalledWith(
+      'Content-Disposition',
+      'attachment; filename="doc.pdf"',
+    );
+    expect(set).not.toHaveBeenCalledWith('Content-Disposition', 'inline');
     expect(set).toHaveBeenCalledWith('X-Content-Type-Options', 'nosniff');
+  });
+
+  it('serves images as attachments too', async () => {
+    const { response, set } = fakeResponse();
+    await controller.serve(5, 'foto.jpg', requestWith(), response);
+    expect(set).toHaveBeenCalledWith(
+      'Content-Disposition',
+      'attachment; filename="foto.jpg"',
+    );
+  });
+
+  it('falls back to a bare attachment when the filename has unsafe characters', async () => {
+    const { response, set } = fakeResponse();
+    await controller.serve(5, 'a"b;c.jpg', requestWith(), response);
+    expect(set).toHaveBeenCalledWith('Content-Disposition', 'attachment');
   });
 
   it('streams the object when the MS confirms the row (204)', async () => {
