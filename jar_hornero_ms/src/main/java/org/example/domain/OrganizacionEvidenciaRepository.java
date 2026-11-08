@@ -39,6 +39,22 @@ public interface OrganizacionEvidenciaRepository extends Repository<Organizacion
      */
     boolean existsByOrganizacion_IdAndObjectKey(Long organizacionId, String objectKey);
 
+    boolean existsByOrganizacion_IdAndObjectKeyAndArchivoEliminadoAtIsNotNull(Long organizacionId, String objectKey);
+
+    /**
+     * Retention candidates: rows that still have a file and whose file is no longer needed, i.e.
+     * {@code REEMPLAZADA}, or expired before {@code corte}. Oldest row first so a capped run makes
+     * steady progress. A read; the job marks the rows it handled through {@code save}.
+     */
+    @Query("SELECT e FROM OrganizacionEvidencia e JOIN FETCH e.organizacion "
+            + "WHERE e.objectKey IS NOT NULL AND e.archivoEliminadoAt IS NULL "
+            + "AND (e.estado = :reemplazada OR (e.validoHasta IS NOT NULL AND e.validoHasta < :corte)) "
+            + "ORDER BY e.id")
+    List<OrganizacionEvidencia> buscarParaRetencion(
+            @Param("reemplazada") EstadoEvidencia reemplazada,
+            @Param("corte") LocalDate corte,
+            Pageable pageable);
+
     Optional<OrganizacionEvidencia> findFirstByOrganizacion_IdAndObjectKey(Long organizacionId, String objectKey);
 
     /**
