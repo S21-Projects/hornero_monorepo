@@ -62,7 +62,7 @@ Route legend: `delegated` means a bounded worker; trigger in parentheses.
 ### C. Security
 
 - [x] C1 BCrypt cost 12 (shared bean: OTP and delivery codes also slower; not measured on the Pi)
-- [ ] C2 Sessions: password-change and admin revocation, CSP mode, e2e on cookies and revoked refresh
+- [x] C2 Sessions: admin revocation, e2e on cookies and revoked refresh (no in-session password change exists; CSP stays report-only in Astro and admin, author decides)
 - [ ] C3 Evidence: EXIF removal, configurable size, attachment, admin download event, retention
 - [ ] C4 Audit: hash chain, daily verification, R2 anchors, DB permissions
 - [ ] C5 Backups: retention, evidence copy, dump size, restore drill (needs production authorization)
@@ -70,7 +70,7 @@ Route legend: `delegated` means a bounded worker; trigger in parentheses.
 
 ### D. Business rules
 
-- [ ] D1 RN-04 evidence expiry (BLOCKED: author must choose policy a or b)
+- [ ] D1 RN-04 evidence expiry. Author decided on 2026-11-08: evidence expires one year after approval. BLOCKED on grace period and level reduction policy
 - [x] D2 RN-08 no double reassignment, concurrency test (`e3aa1e7`; V013 pending on the Pi)
 - [x] D3 RN-05 deterministic tie-break with `ORDER BY` (`5b44586`, `b5732bf`)
 - [ ] D5 E2E for CU-07 to CU-10 and reassignment (proposed to author, not yet confirmed)
@@ -112,6 +112,11 @@ Route legend: `delegated` means a bounded worker; trigger in parentheses.
   `mvn test` 1138 run, 0 failures, 3 skipped PostgreSQL-only; 5 concurrency cases passed 3 of 3 on a throwaway
   `postgres:16`. Parent spot check: `go test ./...` all ok. Benchmark rose to about 210 ms per round.
 
+- C2 (`5217c73`, `e044923`, `b737cb0`, `5583d8b`): `make e2e` 113 of 113 passed in 137 s on an isolated stack with
+  MinIO confirmed; `mvn test` 1143 run, 0 failures, 3 skipped; BFF 449 passed; admin 698 passed.
+- BFF eslint: 343 errors at `ca681d6`, 352 after the dependency bump, 366 at `5583d8b`. Not a gate in this
+  repo, reported to the author; 14 new errors come from C2 files.
+
 ## Next step
 
-C2 in progress, then C3, C4, E1, D5, C5 local parts, B2, B4. D1 blocked on author policy, D4 on scope. Author must check public access on the R2 bucket in the Cloudflare panel (evidence shares the bucket with public images).
+C3 in progress, then C4, E1, D5, C5 local parts, B2, B4. D1 blocked on author policy, D4 on scope. Author must check public access on the R2 bucket in the Cloudflare panel (evidence shares the bucket with public images).
