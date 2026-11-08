@@ -53,10 +53,10 @@ Route legend: `delegated` means a bounded worker; trigger in parentheses.
 
 ### B. Diagrams
 
-- [ ] B1 Data dictionary and full ER, `docs/tfg/anexo-d-modelo-datos.md`
+- [x] B1 Data dictionary and full ER, `docs/tfg/anexo-d-modelo-datos.md`
 - [ ] B2 Update class and ER diagrams if C or D add entities
-- [ ] B3 Corrected deployment diagram (no Redis; it does not exist)
-- [ ] B4 Reassignment sequence diagram (optional)
+- [x] B3 Corrected deployment diagram (no Redis; it does not exist)
+- [ ] B4 Reassignment sequence diagram (optional, after D2)
 
 ### C. Security
 
@@ -72,6 +72,7 @@ Route legend: `delegated` means a bounded worker; trigger in parentheses.
 - [ ] D1 RN-04 evidence expiry (BLOCKED: author must choose policy a or b)
 - [ ] D2 RN-08 no double reassignment, concurrency test
 - [ ] D3 RN-05 deterministic tie-break, including `ORDER BY` on candidate and pool queries (none today)
+- [ ] D5 E2E for CU-07 to CU-10 and reassignment (proposed to author, not yet confirmed)
 - [ ] D4 RF17 and RF18 (BLOCKED: author decides scope after A2)
 
 ### E. Demo
@@ -103,4 +104,4 @@ Route legend: `delegated` means a bounded worker; trigger in parentheses.
 
 ## Next step
 
-Block B next. D1 blocked on author policy, D4 on scope. Author must check public access on the R2 bucket in the Cloudflare panel (evidence shares the bucket with public images).
+C1 and C6 next, with B2 after C and D. D1 blocked on author policy, D4 on scope. Author must check public access on the R2 bucket in the Cloudflare panel (evidence shares the bucket with public images).

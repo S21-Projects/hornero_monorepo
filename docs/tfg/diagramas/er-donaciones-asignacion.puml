@@ -1,0 +1,146 @@
+@startuml
+hide circle
+skinparam linetype ortho
+skinparam shadowing false
+skinparam dpi 150
+skinparam defaultFontName Helvetica
+skinparam defaultFontSize 12
+skinparam entity {
+  BackgroundColor #FFFFFF
+  BorderColor #444444
+  FontColor #111111
+}
+skinparam ArrowColor #444444
+
+entity "usuarios" as usuarios {
+  * id : BIGINT <<PK>>
+}
+entity "organizaciones" as organizaciones {
+  * id : BIGINT <<PK>>
+}
+entity "articulos" as articulos {
+  * id : BIGINT <<PK>>
+}
+
+entity "necesidades" as necesidades {
+  * id : BIGINT <<PK>>
+  --
+  * version : BIGINT
+  descripcion : VARCHAR(1000) (N)
+  * prioridad : VARCHAR <<enum PrioridadNecesidad>>
+  * estado : VARCHAR <<enum EstadoNecesidad>>
+  fecha_publicacion : DATE (N)
+  fecha_vencimiento : DATE (N)
+  categoria : VARCHAR <<enum CategoriaAlimento>> (N)
+  * organizacion_id : BIGINT <<FK>>
+}
+
+entity "necesidad_articulos" as necArt {
+  * id : BIGINT <<PK>>
+  --
+  * articulo_id : BIGINT <<FK>>
+  * necesidad_id : BIGINT <<FK>>
+}
+
+entity "donaciones" as donaciones {
+  * id : BIGINT <<PK>>
+  --
+  * version : BIGINT
+  fecha_oferta : DATE (N)
+  fecha_entrega : DATE (N)
+  * estado : VARCHAR <<enum EstadoDonacion>>
+  estado_desde : TIMESTAMP (N)
+  observaciones : VARCHAR(1000) (N)
+  * donante_id : BIGINT <<FK>>
+  necesidad_id : BIGINT <<FK>> (N)
+  modalidad : VARCHAR <<enum ModalidadDonacion>> (N)
+  categoria : VARCHAR <<enum CategoriaAlimento>> (N)
+  latitud : DOUBLE (N)
+  longitud : DOUBLE (N)
+  confirmada_donante_en : TIMESTAMP (N)
+  confirmada_referente_en : TIMESTAMP (N)
+  override_motivo : VARCHAR(500) (N)
+  override_admin_id : BIGINT (N) <<sin FK>>
+  override_en : TIMESTAMP (N)
+}
+
+entity "donacion_lineas" as lineas {
+  * id : BIGINT <<PK>>
+  --
+  * articulo_id : BIGINT <<FK>>
+  cantidad : NUMERIC (N)
+  * donacion_id : BIGINT <<FK>>
+}
+
+entity "codigos_entrega" as codigos {
+  * id : BIGINT <<PK>>
+  --
+  * donacion_id : BIGINT <<FK>>
+  * emisor_id : BIGINT <<sin FK>>
+  * emisor_parte : VARCHAR <<enum Parte>>
+  * codigo_hash : VARCHAR
+  * expira_en : TIMESTAMP
+  * intentos : INTEGER
+  * usado : BOOLEAN
+  * creado_en : TIMESTAMP
+}
+
+entity "rondas" as rondas {
+  * id : BIGINT <<PK>>
+  --
+  * ejecutada_en : TIMESTAMP
+  finalizada_en : TIMESTAMP (N)
+  ejecutada_por : BIGINT (N) <<sin FK>>
+  * origen : VARCHAR <<enum OrigenRonda>>
+  * estado : VARCHAR <<enum EstadoRonda>>
+  error : VARCHAR(1000) (N)
+  * version_contrato : INTEGER
+  * donaciones_consideradas : INTEGER
+  * candidatos_considerados : INTEGER
+  * asignadas : INTEGER
+  * sin_asignar : INTEGER
+  * descartadas : INTEGER
+  score_total : DOUBLE (N)
+  peso_deficit : DOUBLE (N)
+  peso_urgencia : DOUBLE (N)
+  peso_proximidad : DOUBLE (N)
+  peso_espera : DOUBLE (N)
+  peso_cumplimiento : DOUBLE (N)
+}
+
+entity "asignaciones" as asignaciones {
+  * id : BIGINT <<PK>>
+  --
+  * ronda_id : BIGINT <<FK>>
+  * donacion_id : BIGINT <<FK>>
+  * necesidad_id : BIGINT <<FK>>
+  * organizacion_id : BIGINT <<FK>>
+  * estado : VARCHAR <<enum EstadoAsignacion>>
+  * creada_en : TIMESTAMP
+  resuelta_en : TIMESTAMP (N)
+  * score : DOUBLE
+  * costo_oportunidad : DOUBLE
+  * distancia_km : DOUBLE
+  * termino_deficit : DOUBLE
+  * termino_urgencia : DOUBLE
+  * termino_proximidad : DOUBLE
+  * termino_espera : DOUBLE
+  termino_cumplimiento : DOUBLE (N)
+  deficit_fuente : VARCHAR (N)
+  codigo_radio : VARCHAR (N)
+}
+
+organizaciones ||--o{ necesidades : "publica"
+necesidades ||--o{ necArt : "solicita"
+articulos ||--o{ necArt : "es solicitado en"
+necesidades |o--o{ donaciones : "recibe"
+usuarios ||--o{ donaciones : "ofrece\n(donante_id)"
+donaciones ||--o{ lineas : "contiene"
+articulos ||--o{ lineas : "es donado en"
+donaciones ||--o{ codigos : "emite"
+rondas ||--o{ asignaciones : "resuelve"
+donaciones ||--o{ asignaciones : "es propuesta en"
+necesidades ||--o{ asignaciones : "recibe propuesta de"
+organizaciones ||--o{ asignaciones : "es candidata en"
+
+@enduml

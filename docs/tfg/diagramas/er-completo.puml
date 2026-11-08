@@ -1,0 +1,155 @@
+@startuml
+title Modelo de datos completo (claves y relaciones)
+hide circle
+skinparam linetype ortho
+skinparam shadowing false
+skinparam dpi 150
+skinparam defaultFontName Helvetica
+skinparam defaultFontSize 12
+skinparam entity {
+  BackgroundColor #FFFFFF
+  BorderColor #444444
+  FontColor #111111
+}
+skinparam ArrowColor #444444
+
+entity "usuarios" as usuarios {
+  * id <<PK>>
+  --
+  tipo, nombre, email
+}
+entity "organizaciones" as organizaciones {
+  * id <<PK>>
+  --
+  administrador_id <<FK>>
+  referente_id <<FK>>
+  codigo_radio
+}
+entity "organizacion_evidencia" as evidencia {
+  * id <<PK>>
+  --
+  organizacion_id <<FK>>
+}
+entity "organizacion_evento" as evento {
+  * id <<PK>>
+  --
+  organizacion_id <<FK>>
+}
+entity "reclamos_organizacion" as reclamos {
+  * id <<PK>>
+  --
+  organizacion_id <<FK>>
+  referente_id <<FK>>
+  resuelto_por_id <<FK>>
+}
+entity "reclamo_organizacion_evidencias" as reclamoEv {
+  reclamo_id <<FK>>
+  object_key
+}
+entity "reportes_organizacion" as reportes {
+  * id <<PK>>
+  --
+  organizacion_id <<FK>>
+  reportante_id <<FK>>
+  organizacion_duplicada_id <<FK>>
+  resuelto_por_id <<FK>>
+}
+entity "necesidades" as necesidades {
+  * id <<PK>>
+  --
+  organizacion_id <<FK>>
+}
+entity "articulos" as articulos {
+  * id <<PK>>
+}
+entity "necesidad_articulos" as necArt {
+  * id <<PK>>
+  --
+  articulo_id <<FK>>
+  necesidad_id <<FK>>
+}
+entity "donaciones" as donaciones {
+  * id <<PK>>
+  --
+  donante_id <<FK>>
+  necesidad_id <<FK>>
+}
+entity "donacion_lineas" as lineas {
+  * id <<PK>>
+  --
+  articulo_id <<FK>>
+  donacion_id <<FK>>
+}
+entity "codigos_entrega" as codigos {
+  * id <<PK>>
+  --
+  donacion_id <<FK>>
+}
+entity "rondas" as rondas {
+  * id <<PK>>
+}
+entity "asignaciones" as asignaciones {
+  * id <<PK>>
+  --
+  ronda_id <<FK>>
+  donacion_id <<FK>>
+  necesidad_id <<FK>>
+  organizacion_id <<FK>>
+}
+entity "poblacion_radio" as poblacion {
+  * codigo_radio <<PK>>
+}
+entity "refresh_tokens" as refresh {
+  * id <<PK>>
+  --
+  usuario_id
+}
+entity "password_reset_tokens" as reset {
+  * id <<PK>>
+  --
+  usuario_id
+}
+entity "codigos_verificacion" as otp {
+  * id <<PK>>
+  --
+  email
+}
+entity "idempotency_keys" as idem {
+  * id <<PK>>
+  --
+  usuario_id
+}
+entity "actividad" as actividad {
+  * id <<PK>>
+  --
+  actor_usuario_id
+}
+
+usuarios |o--o{ organizaciones : "valida / es referente"
+organizaciones ||--o{ evidencia
+organizaciones ||--o{ evento
+organizaciones ||--o{ reclamos
+usuarios ||--o{ reclamos
+reclamos ||--o{ reclamoEv
+organizaciones ||--o{ reportes
+usuarios ||--o{ reportes
+organizaciones ||--o{ necesidades
+necesidades ||--o{ necArt
+articulos ||--o{ necArt
+necesidades |o--o{ donaciones
+usuarios ||--o{ donaciones
+donaciones ||--o{ lineas
+articulos ||--o{ lineas
+donaciones ||--o{ codigos
+rondas ||--o{ asignaciones
+donaciones ||--o{ asignaciones
+necesidades ||--o{ asignaciones
+organizaciones ||--o{ asignaciones
+poblacion |o..o{ organizaciones
+usuarios ||..o{ refresh
+usuarios ||..o{ reset
+usuarios ||..o{ idem
+usuarios |o..o{ actividad
+usuarios }o..o{ otp
+
+@enduml

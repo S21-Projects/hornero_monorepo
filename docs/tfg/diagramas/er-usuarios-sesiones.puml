@@ -1,0 +1,97 @@
+@startuml
+hide circle
+skinparam linetype ortho
+skinparam shadowing false
+skinparam dpi 150
+skinparam defaultFontName Helvetica
+skinparam defaultFontSize 12
+skinparam entity {
+  BackgroundColor #FFFFFF
+  BorderColor #444444
+  FontColor #111111
+}
+skinparam ArrowColor #444444
+
+entity "usuarios" as usuarios {
+  * id : BIGINT <<PK>>
+  --
+  * tipo : VARCHAR <<discriminador>>
+  * nombre : VARCHAR
+  * email : VARCHAR <<UNIQUE>>
+  * password : VARCHAR <<hash>>
+  * activo : BOOLEAN
+  * email_verificado : BOOLEAN <<default true>>
+}
+
+entity "refresh_tokens" as refresh {
+  * id : BIGINT <<PK>>
+  --
+  * jti : VARCHAR <<UNIQUE>>
+  * usuario_id : BIGINT <<sin FK>>
+  * family_id : VARCHAR
+  * issued_at : TIMESTAMP
+  * expires_at : TIMESTAMP
+  revoked_at : TIMESTAMP (N)
+  rotated_at : TIMESTAMP (N)
+}
+
+entity "password_reset_tokens" as reset {
+  * id : BIGINT <<PK>>
+  --
+  * usuario_id : BIGINT <<sin FK>>
+  * token_hash : VARCHAR(64) <<UNIQUE>>
+  * creado_en : TIMESTAMP
+  * expira_en : TIMESTAMP
+  usado_en : TIMESTAMP (N)
+}
+
+entity "codigos_verificacion" as otp {
+  * id : BIGINT <<PK>>
+  --
+  * email : VARCHAR <<sin FK>>
+  * codigo_hash : VARCHAR
+  * expira_en : TIMESTAMP
+  * intentos : INTEGER
+  * usado : BOOLEAN
+  * creado_en : TIMESTAMP
+}
+
+entity "idempotency_keys" as idem {
+  * id : BIGINT <<PK>>
+  --
+  * usuario_id : BIGINT <<sin FK>>
+  * clave : VARCHAR(36)
+  * operacion : VARCHAR(200)
+  * huella : VARCHAR(64)
+  * estado : VARCHAR(20) <<enum EstadoIdempotencia>>
+  respuesta_status : INTEGER (N)
+  respuesta_body : TEXT (N)
+  * creada_en : TIMESTAMP
+  * expira_en : TIMESTAMP
+}
+
+entity "actividad" as actividad {
+  * id : BIGINT <<PK>>
+  --
+  * ocurrido_en : TIMESTAMP
+  actor_usuario_id : BIGINT (N) <<sin FK>>
+  * actor_tipo : VARCHAR(20)
+  * accion : VARCHAR(50)
+  * resultado : VARCHAR(10) <<enum ResultadoActividad>>
+  entidad_tipo : VARCHAR(40) (N)
+  entidad_id : BIGINT (N) <<sin FK>>
+  detalle : VARCHAR(500) (N)
+  antes : VARCHAR(200) (N)
+  despues : VARCHAR(200) (N)
+  motivo : VARCHAR(500) (N)
+  ip : VARCHAR(45) (N)
+  email_intento : VARCHAR(254) (N)
+}
+
+usuarios ||..o{ refresh : "sesiones\n(usuario_id, sin FK)"
+usuarios ||..o{ reset : "recuperaciones\n(usuario_id, sin FK)"
+usuarios ||..o{ idem : "operaciones\n(usuario_id, sin FK)"
+usuarios |o..o{ actividad : "actor\n(actor_usuario_id, sin FK)"
+usuarios }o..o{ otp : "email, sin FK"
+
+@enduml
