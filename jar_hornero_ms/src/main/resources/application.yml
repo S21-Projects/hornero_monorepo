@@ -133,6 +133,15 @@ app:
       meses: ${EVIDENCIA_RETENCION_MESES:12}
       max-por-corrida: ${EVIDENCIA_RETENCION_MAX:100}
       cron: ${EVIDENCIA_RETENCION_CRON:0 30 4 * * *}
+  auditoria:
+    cadena:
+      # Daily verification of the accreditation event hash chain (also runs once at startup).
+      cron: ${AUDITORIA_CADENA_CRON:0 40 3 * * *}
+    ancla:
+      # Publishes the daily anchor to <bucket>/audit/anchors/YYYY-MM-DD.txt. OFF by default and
+      # separate from every other flag: local stacks share the production bucket, so only an
+      # explicit AUDITORIA_ANCLA_ENABLED=true (the Pi) builds an S3 client for it. Write-only.
+      habilitada: ${AUDITORIA_ANCLA_ENABLED:false}
   worker:
     url: ${WORKER_URL:}
   radios:
