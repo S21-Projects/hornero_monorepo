@@ -184,6 +184,8 @@ export const ACCION_ACTIVIDAD: Record<string, string> = {
   COORDENADAS_MINIMIZADAS: 'Coordenadas de donaciones reducidas (automático)',
   EVIDENCIA_RECLAMO_BORRADA: 'Evidencia de reclamos borrada',
   EVIDENCIA_HUERFANA_BORRADA: 'Evidencia huérfana borrada (automático)',
+  EVIDENCIA_ACREDITACION_DESCARGADA: 'Evidencia de acreditación descargada',
+  EVIDENCIA_ACREDITACION_ARCHIVO_BORRADO: 'Archivo de evidencia de acreditación borrado por retención (automático)',
 };
 
 export function labelAccion(codigo: string): string {

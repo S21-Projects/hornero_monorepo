@@ -50,6 +50,7 @@ public class AcreditacionController {
 
     private final AcreditacionService acreditacionService;
     private final OrganizacionRepository organizacionRepository;
+    private final EvidenciaDescargaAuditor descargaAuditor;
 
     @Operation(summary = "Get the current accreditation level (admin or owning referente)")
     @GetMapping("/acreditacion")
@@ -126,6 +127,11 @@ public class AcreditacionController {
     public void archivoEvidencia(@PathVariable Long id, @RequestParam String objectKey) {
         requireAdminOrOwningReferente(id);
         acreditacionService.existeArchivoEvidencia(id, objectKey);
+        // Recorded on authorization (the BFF streams the bytes right after this 204). Only admins:
+        // an owning referente reading their own file is not an audit event.
+        if (isAdmin()) {
+            descargaAuditor.registrar(id, objectKey);
+        }
     }
 
     @Operation(summary = "Export the full legajo (admin or owning referente — D-01)")

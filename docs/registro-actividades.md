@@ -86,6 +86,13 @@ Además de ids, la tabla guarda dos datos personales, ambos justificados:
 - Barrido de evidencia huérfana (`EVIDENCIA_HUERFANA_BORRADA`, actor SISTEMA): un resumen por
   corrida con la cantidad de archivos borrados; no se registra nada si no se borró ninguno.
   Ninguno de los dos guarda claves, rutas ni ids de organización.
+- Descarga de evidencia de acreditación por un administrador (`EVIDENCIA_ACREDITACION_DESCARGADA`,
+  actor: el administrador, entidad `EVIDENCIA` con el id de la evidencia): el detalle nombra la
+  organización y no copia la clave del objeto. Se registra al autorizar la descarga, en el microservicio;
+  si el registro falla, la autorización falla y no se entrega el archivo. La descarga del referente
+  propietario no se registra.
+- Borrado de archivo por retención (`EVIDENCIA_ACREDITACION_ARCHIVO_BORRADO`, actor `SISTEMA`, entidad
+  `EVIDENCIA`): un registro por archivo borrado; la fila de la evidencia y sus eventos se conservan.
 
 ### Notificaciones por email (N13)
 
