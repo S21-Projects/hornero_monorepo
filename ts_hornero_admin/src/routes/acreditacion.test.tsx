@@ -366,6 +366,15 @@ describe('AcreditacionPage — guidance by nivel', () => {
     expect(screen.getByText('0 de 1 requisitos aprobados')).toBeInTheDocument();
   });
 
+  it('treats a stored VENCIDA state as expired even if the date alone does not say so', () => {
+    mockLegajo(buildLegajo([{ ...N1_FALTANTE, estado: 'VENCIDA', expirada: false }], 'N1'));
+
+    render(<AcreditacionPage />, { wrapper: Wrapper });
+
+    expect(screen.getByText('Vencida')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /renovar evidencia/i })).toBeInTheDocument();
+  });
+
   it('tells the referente the grace period is over once it is', () => {
     mockLegajo(
       buildLegajo(
