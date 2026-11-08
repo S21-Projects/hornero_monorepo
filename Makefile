@@ -83,8 +83,10 @@ backup:
 # Restore drill: restore DUMP (default: newest in backups/, .dump or .dump.enc)
 # into a throwaway postgres container and sanity-check it. Never touches the
 # real DB. Usage: make restore-check [DUMP=backups/hornero-....dump]
+#   [RESTORE_ARGS="--expect usuarios=12 --ms-image <ms image>"]  (row counts + hash chain,
+#   see docs/tfg/prueba-restauracion.md)
 restore-check:
-	@ENV_FILE=$(ENV_FILE) scripts/backup/restore-check.sh $(DUMP)
+	@ENV_FILE=$(ENV_FILE) scripts/backup/restore-check.sh $(DUMP) $(RESTORE_ARGS)
 
 # Backup first, then apply every scripts/sql/V*.sql in order. Each script is
 # idempotent (see scripts/sql/README.md), so re-running is safe. Restart the
