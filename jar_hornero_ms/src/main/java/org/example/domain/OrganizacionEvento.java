@@ -36,7 +36,13 @@ import java.time.Instant;
 @Entity
 @Table(
         name = "organizacion_evento",
-        indexes = @Index(name = "idx_evento_org_ocurrido", columnList = "organizacion_id, ocurrido_en"))
+        indexes = {
+                @Index(name = "idx_evento_org_ocurrido", columnList = "organizacion_id, ocurrido_en"),
+                // C4: two events of one organization can never share a predecessor, so the chain
+                // cannot fork even if a writer forgot the row lock. NULLs (not yet sealed rows) are
+                // distinct in PostgreSQL and H2, so the column can be added to a table with history.
+                @Index(name = "ux_evento_org_prev_hash", columnList = "organizacion_id, prev_hash", unique = true)
+        })
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class OrganizacionEvento {
@@ -86,6 +92,14 @@ public class OrganizacionEvento {
     @Column(columnDefinition = "text")
     private String payload;
 
+    /** Hash of the previous event of the same organization (64 zeros for the first). Null only before the C4 backfill. */
+    @Column(name = "prev_hash", length = 64)
+    private String prevHash;
+
+    /** {@code SHA-256(prev_hash || canonical content)}, see {@code org.example.auditoria.CadenaHash}. */
+    @Column(name = "hash", length = 64)
+    private String hash;
+
     private OrganizacionEvento(
             Organizacion organizacion,
             TipoEventoOrganizacion tipo,
@@ -97,7 +111,8 @@ public class OrganizacionEvento {
             Long evidenciaId) {
         this.organizacion = organizacion;
         this.tipo = tipo;
-        this.ocurridoEn = Instant.now();
+        // Microseconds: the precision PostgreSQL stores, so the hashed value equals the value read back.
+        this.ocurridoEn = Instant.now().truncatedTo(java.time.temporal.ChronoUnit.MICROS);
         this.actorUsuarioId = actor != null ? actor.getId() : null;
         this.actorTipo = actor != null ? resolveDiscriminatorValue(actor) : "SISTEMA";
         this.nivelAntes = nivelAntes;
@@ -135,6 +150,18 @@ public class OrganizacionEvento {
             RequisitoAcreditacion requisito,
             Long evidenciaId) {
         return new OrganizacionEvento(organizacion, tipo, actor, motivo, null, null, requisito, evidenciaId);
+    }
+
+    /**
+     * Stamps the chain links, once, by the single chain writer ({@code org.example.auditoria}).
+     * Everything else about the row stays read-only.
+     */
+    public void sellar(String prevHash, String hash) {
+        if (this.hash != null) {
+            throw new IllegalStateException("event already sealed");
+        }
+        this.prevHash = prevHash;
+        this.hash = hash;
     }
 
     /** Same reflection pattern as {@code JwtService.resolveDiscriminatorValue}. */
