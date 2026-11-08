@@ -74,7 +74,7 @@ Route legend: `delegated` means a bounded worker; trigger in parentheses.
 - [x] D2 RN-08 no double reassignment, concurrency test (`e3aa1e7`; V013 pending on the Pi)
 - [x] D3 RN-05 deterministic tie-break with `ORDER BY` (`5b44586`, `b5732bf`)
 - [x] D5 E2E for CU-07 to CU-10 and reassignment (`3cb6eb0`; proposal expiry and daily job not reachable end to end)
-- [ ] D4 RF17 and RF18 (BLOCKED: author decides scope after A2)
+- [ ] D4 Author chose option A on 2026-11-08: RF17 and RF18 text follows what exists; add compliance to the legajo
 
 ### E. Demo
 
@@ -139,4 +139,4 @@ Route legend: `delegated` means a bounded worker; trigger in parentheses.
 
 ## Next step
 
-D4 awaits the author. Author steps on Cloudflare and the Pi are listed in RESUMEN. No push, PR or merge requested. D1 blocked on author policy, D4 on scope. Author must check public access on the R2 bucket in the Cloudflare panel (evidence shares the bucket with public images).
+D4 legajo compliance in progress. Author steps on Cloudflare and the Pi are listed in RESUMEN. No push, PR or merge requested. D1 blocked on author policy, D4 on scope. Author must check public access on the R2 bucket in the Cloudflare panel (evidence shares the bucket with public images).
