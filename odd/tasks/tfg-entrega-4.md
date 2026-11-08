@@ -55,9 +55,9 @@ Route legend: `delegated` means a bounded worker; trigger in parentheses.
 ### B. Diagrams
 
 - [x] B1 Data dictionary and full ER, `docs/tfg/anexo-d-modelo-datos.md`
-- [ ] B2 Update class and ER diagrams if C or D add entities
+- [x] B2 Update class and ER diagrams (`bed194b`)
 - [x] B3 Corrected deployment diagram (no Redis; it does not exist)
-- [ ] B4 Reassignment sequence diagram (optional, after D2)
+- [x] B4 Reassignment sequence diagrams (`1f2ad8c`)
 
 ### C. Security
 
@@ -65,7 +65,7 @@ Route legend: `delegated` means a bounded worker; trigger in parentheses.
 - [x] C2 Sessions: admin revocation, e2e on cookies and revoked refresh (no in-session password change exists; CSP stays report-only in Astro and admin, author decides)
 - [x] C3 Evidence: EXIF removal, configurable size, attachment, admin download event, retention off by default (`5717b41` to `2e75ca4`; reclamo-evidencia keeps EXIF and WebP, reported to author)
 - [x] C4 Audit: per-organization hash chain on `organizacion_evento`, daily verification, anchors off by default, V014 trigger (`200b32f` to `9a04c56`; `actividad` not chained, purged by design)
-- [ ] C5 Backups: retention, evidence copy, dump size, restore drill (needs production authorization)
+- [ ] C5 Backups: local parts done (`d56f60a`, `900d605`, `ce616d7`). Pending for the author: three R2 lifecycle rules, dump size and restore drill on the Pi
 - [ ] C6 Dependency audits, dependabot, secret scan (done except human review of 9 gitleaks findings)
 
 ### D. Business rules
@@ -131,6 +131,9 @@ Route legend: `delegated` means a bounded worker; trigger in parentheses.
 - E1 and D5: `make e2e` 151 of 151 passed in 235 s, 15 files, isolated stack with MinIO confirmed. Demo refusal paths
   tested by the writer. Finding: `EventoResponse` Javadoc says owner legajo hides `actorUsuarioId`, controller does not.
 
+- C5 local: `bash -n` and shellcheck clean; drill on throwaway `postgres:16` passes on a good dump and fails on a tampered event
+  and a wrong count. R2 has no versioning per Cloudflare docs read 2026-11-08, so `evidence-copy.sh` is disabled by default.
+
 ## Next step
 
-C5 local parts in progress, then B2, B4, full e2e rerun, RESUMEN. D1 blocked on author policy, D4 on scope. Author must check public access on the R2 bucket in the Cloudflare panel (evidence shares the bucket with public images).
+Final suites, RESUMEN and review document in progress. D4 awaits the author. D1 blocked on author policy, D4 on scope. Author must check public access on the R2 bucket in the Cloudflare panel (evidence shares the bucket with public images).
