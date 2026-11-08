@@ -1,6 +1,6 @@
 # Anexo E. Evidencia de pruebas
 
-Fecha de ejecución: 2026-11-08. Código evaluado: commit `ca681d6` de la rama `develop`. Las pruebas se ejecutaron en un worktree separado (rama `tfg/entrega-4`, creada sobre ese commit). Las pruebas de Go agregadas en esta entrega (ver E.5 a E.7) se ejecutaron sobre el mismo árbol más tres archivos nuevos de prueba; no se modificó código de producción.
+Fecha de ejecución de la corrida final: 2026-11-08. Código evaluado: commit `08ead82` de la rama `tfg/entrega-4` (creada sobre `ca681d6` de `develop`); los números de E.1 son los de esa corrida final y reemplazan a los de la corrida inicial sobre `ca681d6`. Los commits posteriores a `08ead82` solo agregan o modifican documentación en `docs/tfg/`. La corrida final no modificó código de producción ni de pruebas.
 
 Entorno: Node v24.11.1, Java 17.0.17, Go 1.26.0 (darwin/arm64).
 
@@ -8,20 +8,24 @@ Entorno: Node v24.11.1, Java 17.0.17, Go 1.26.0 (darwin/arm64).
 
 | Módulo | Comando | Pruebas | Pasadas | Fallidas | Omitidas | Duración | Cobertura de líneas |
 |---|---|---|---|---|---|---|---|
-| `jar_hornero_ms` | `mvn test -Pcoverage` | 1114 | 1114 | 0 | 0 | 42 s | 90,8 % (JaCoCo, 4820/5311) |
-| `ts_hornero_bff` | `npm ci && npx jest --coverage` | 445 | 445 | 0 | 0 | 11 s (incluye `npm ci`) | 96,35 % (1297/1346) |
-| `ts_hornero_admin` | `npm ci && npx vitest run --coverage` | 698 (107 archivos) | 698 | 0 | 0 | 20 s (incluye `npm ci`) | 86,57 % (3920/4528) |
-| `go_algorithms_worker` | `go test -cover ./...` | 133 | 132 | 0 | 1 | 2 s | Por paquete (ver nota) |
-| `ts_hornero_astro` | no aplica | 0 | 0 | 0 | 0 | no aplica | Sin pruebas |
-| `e2e` | `make e2e` | 151 (15 archivos) | 151 | 0 | 0 | 235 s | no aplica |
+| `jar_hornero_ms` | `mvn test -Pcoverage` | 1274 | 1266 | 0 | 8 | 69 s (Maven) | 91,84 % (JaCoCo, 5478/5965) |
+| `ts_hornero_bff` | `npx jest --coverage` | 480 (54 suites) | 480 | 0 | 0 | 3,7 s (`npm ci` aparte: 7 s) | 96,79 % (1328/1372) |
+| `ts_hornero_admin` | `npx vitest run --coverage` | 705 (107 archivos) | 705 | 0 | 0 | 18,7 s (`npm ci` aparte: 4 s) | 86,63 % (3941/4549) |
+| `ts_hornero_admin` | `npm run build` (`tsc -b && vite build`) | no aplica | no aplica | 0 | no aplica | 7 s | Compila; solo advertencia de tamaño de fragmentos |
+| `ts_hornero_admin` | `npm run lint` | no aplica | no aplica | 0 errores | no aplica | 4 s | 3 advertencias (directivas `eslint-disable` sin uso) |
+| `go_algorithms_worker` | `go test -cover ./...` y `go test -json -count=1 ./...` | 142 (subpruebas incluidas) | 141 | 0 | 1 | 2 s | Por paquete (ver nota) |
+| `go_algorithms_worker` | `go test -bench=Ronda500x500 -benchtime=5x -run=^$ ./internal/assign/` | no aplica | no aplica | 0 | no aplica | 217,9 ms por ronda (ver E.6) | no aplica |
+| `ts_hornero_astro` | `npm run build` | 0 (sin pruebas) | 0 | 0 | 0 | 4 s | Compila; sin pruebas |
+| `e2e` | `make e2e` | 151 (15 archivos) | 151 | 0 | 0 | 201 s | no aplica |
 
 Notas:
 
-- Los conteos de Go incluyen subpruebas. Los 131 eventos de aprobación de la corrida del commit `ca681d6` pasan a 133 con las dos pruebas nuevas de esta entrega (E.5 y E.7); la omitida es la misma antes y después. La cobertura de Go se informa por paquete porque `go test -cover` no imprime un agregado: raíz 2,5 %, `api` 94,2 %, `assign` 96,5 %, `contrato` 84,9 %, `geo` 90,7 %, `metrics` 64,3 %, `radios` 94,3 %, `renacom` 86,3 %.
+- Los conteos de Go son eventos `pass` y `skip` de `go test -json -count=1` (pruebas y subpruebas: 141 aprobadas, 1 omitida, 0 fallidas); la corrida inicial sobre `ca681d6` dio 131 aprobadas y 1 omitida. La cobertura de Go se informa por paquete porque `go test -cover` no imprime un agregado: raíz 2,5 %, `api` 94,2 %, `assign` 96,8 %, `contrato` 85,0 %, `geo` 90,7 %, `metrics` 64,3 %, `radios` 94,3 %, `renacom` 86,3 %. La corrida de cobertura usó la caché de Go para algunos paquetes (raíz, `geo`, `metrics`, `radios`, `renacom`); sus porcentajes no cambian por ello.\n- Las 8 pruebas omitidas del microservicio son las que requieren PostgreSQL (la suite de `mvn test` usa H2); se ejecutan a mano contra un contenedor descartable (E.8 y `docs/tfg/seguridad-c4.md`). La corrida inicial sobre `ca681d6` tenía 1114 pruebas y ninguna omitida.\n- Evolución de los conteos desde la corrida inicial: microservicio 1114 a 1274, BFF 445 a 480, panel de administración 698 a 705, Go 131 a 141 aprobadas, e2e 102 a 151.
 - Astro no tiene script de prueba en `package.json` ni archivos de prueba. Toda la capa pública renderizada por Astro (incluido el mapa público) queda sin pruebas automáticas.
 - El BFF imprime líneas `ERROR` de Nest (filtro de excepciones, respuestas 404, 502 y 503) durante la corrida; son salida esperada de pruebas que ejercitan ese filtro, y la suite pasó.
 - Las pruebas e2e corrieron sobre una pila aislada: proyecto de Compose propio (`hornero-tfg`), archivo de entorno descartable (secreto JWT y contraseña de base aleatorios, `MAIL_LOG_ONLY=true`, `EVIDENCIA_BORRADO_ENABLED=false`, datos de demostración habilitados) y MinIO local como almacenamiento (`AWS_ENDPOINT_URL=http://minio:9000`, verificado dentro de los contenedores antes de correr). No se leyeron los archivos `.env` del equipo. La pila y sus volúmenes se eliminaron al terminar. Por lo tanto, **los servicios externos (Cloudflare R2 y Resend) no se ejercitaron**: el comportamiento contra esos servicios reales no está probado por esta evidencia.
-- El total de e2e subió de 102 (corrida de `ca681d6`) a 151: 11 casos del archivo `13-session-revocation` (tarea C2) y 38 casos nuevos de la tarea D5 (`14-acreditacion`, 33 casos, y `15-reasignacion`, 5). La corrida de 151 casos se hizo sobre la rama `tfg/entrega-4` con los archivos de D5, en una pila aislada igual a la descrita arriba (MinIO local confirmado en bff y ms antes de correr); su duración de 235 s incluye las esperas por el límite de frecuencia de autenticación del BFF (5 inicios de sesión por minuto), de modo que no mide el rendimiento del sistema.
+- El total de e2e subió de 102 (corrida de `ca681d6`) a 151: 11 casos del archivo `13-session-revocation` (tarea C2) y 38 casos nuevos de la tarea D5 (`14-acreditacion`, 33 casos, y `15-reasignacion`, 5). La corrida de 151 casos se hizo sobre la rama `tfg/entrega-4` con los archivos de D5, en una pila aislada igual a la descrita arriba (MinIO local confirmado en bff y ms antes de correr); su duración de 235 s (corrida de D5) incluye las esperas por el límite de frecuencia de autenticación del BFF (5 inicios de sesión por minuto), de modo que no mide el rendimiento del sistema.
+- Corrida e2e final (commit `08ead82`): 151 de 151 casos, 15 archivos, 201 s, en una pila aislada nueva (proyecto `hornero-tfg`, archivo de entorno descartable con secreto JWT y contraseña de base generados, `SEED_DEMO_DATA=true`, `MAIL_LOG_ONLY=true`, `EVIDENCIA_BORRADO_ENABLED=false`, `EVIDENCIA_RETENCION_ENABLED=false`, `AUDITORIA_ANCLA_ENABLED=false`, MinIO local). Antes de correr se confirmó dentro de `bff` y `ms` que `AWS_ENDPOINT_URL=http://minio:9000` y el bucket `hornero-images`. La base se levantó vacía y se siguió el orden de despliegue de la Raspberry Pi: arranque de la imagen, comprobación de que `organizacion_evento` no tuviera filas con `hash IS NULL` (0), `make migrate` (respaldo y aplicación de V001 a V015, todos con salida 0) y reinicio del microservicio. El arranque sobre una base vacía registra 6 avisos `ESQUEMA_PENDIENTE` (entre ellos los de V004, V006, V008, V009 y V013; no se registró el texto del sexto) hasta aplicar los scripts; la comprobación posterior al reinicio figura en la sección E.9. La pila, sus volúmenes y el archivo de entorno se eliminaron al terminar.
 - Todas las duraciones son de una única corrida en la máquina del autor; no son mediciones repetidas.
 
 ## E.2 Prueba omitida
@@ -132,7 +136,7 @@ Comando: `go test -bench=Ronda500x500 -benchtime=5x -run=^$ ./internal/assign/`
 | 3 | 124,3 ms | 10,9 MB | 2020 |
 | 4 | 122,0 ms | 10,9 MB | 2020 |
 
-Esas cuatro corridas son anteriores al desempate de RN-05. Después de implementarlo (orden canónico y criterio secundario en el solver), tres corridas con el mismo comando dieron 210,7 ms, 210,8 ms y 210,1 ms, con 35,7 MB y 2532 a 2533 asignaciones de memoria por ronda, en la misma máquina.
+Esas cuatro corridas son anteriores al desempate de RN-05. En la corrida final (commit `08ead82`) una sola ejecución con `-benchtime=5x` dio 217,9 ms por ronda, 35,7 MB y 2533 asignaciones de memoria, en la misma máquina. Después de implementarlo (orden canónico y criterio secundario en el solver), tres corridas con el mismo comando dieron 210,7 ms, 210,8 ms y 210,1 ms, con 35,7 MB y 2532 a 2533 asignaciones de memoria por ronda, en la misma máquina.
 
 Máquina: la del autor, una Mac con Apple M3 Pro (`machdep.cpu.brand_string`), 12 hilos lógicos y 38 654 705 664 bytes (36 GiB) de memoria (`hw.memsize`). **No es la Raspberry Pi** de producción. El límite de 30 segundos de RNF18 está holgadamente cumplido en esta máquina (unos 0,21 s con el desempate; 0,12 s antes), pero **no está probado en la Raspberry Pi**; extrapolar a ese equipo requiere medirlo allí.
 
@@ -164,3 +168,16 @@ Se agregaron `RondaCerrojoTest` (8 casos, base simulada), dos casos nuevos en `R
 | El advisory lock excluye a una segunda instancia y se libera al cerrar | Omitida | Pasa |
 
 El proyecto no tiene una forma de levantar PostgreSQL desde `mvn test` (H2 y sin Testcontainers), de modo que las dos últimas filas se omiten por defecto y se ejecutaron a mano contra un contenedor local `postgres:16` con variables `SPRING_DATASOURCE_*` (3 corridas, 5 de 5). Un resultado en H2 no prueba un comportamiento de PostgreSQL. No se probó con dos procesos del MS reales ni en la Raspberry Pi, y el índice V013 no se aplicó a la base de producción.
+
+## E.9 Orden de despliegue y esquema sobre una base vacía
+
+Se ejercitó la secuencia de la Raspberry Pi sobre una base PostgreSQL 16 vacía, en una pila local aislada (proyecto `hornero-tfg`, MinIO local, archivo de entorno descartable). Fecha: 2026-11-08, commit `08ead82`. Se hizo en dos corridas de la pila: la primera ejecutó además `make e2e` (E.1) y la segunda se dedicó solo a verificar el estado del esquema después de migrar.
+
+| Paso | Resultado observado |
+|---|---|
+| Primer arranque del microservicio con la base vacía | Sano. 6 avisos `ESQUEMA_PENDIENTE` en el log (los scripts `V*.sql` no se habían aplicado) en ambas corridas |
+| Filas de `organizacion_evento` con `hash IS NULL` | 0 |
+| `make migrate` (respaldo y V001 a V015 en orden) | Salida 0; el respaldo se escribió en un directorio temporal fuera del repositorio |
+| Reinicio del microservicio y búsqueda de `ESQUEMA_PENDIENTE` solo en el log posterior al reinicio (`docker compose logs --since`) | 0 apariciones; el log posterior incluye `hash chain backfill complete (idempotent): 0 event(s) sealed` y `hash chain verified: 3 event(s) in 3 chain(s), 0 pending seal` |
+
+Limitación: en la primera corrida el recuento posterior al reinicio se hizo con una ventana de 5 minutos que todavía incluía el primer arranque (dio 6) y por eso se descartó; el resultado válido es el de la segunda corrida, con la ventana acotada a la hora del reinicio. Los datos son de demostración sembrados por el propio microservicio, por lo que "3 eventos" no es una medida de rendimiento ni de volumen real.
