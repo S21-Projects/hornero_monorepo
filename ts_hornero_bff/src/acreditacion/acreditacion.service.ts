@@ -3,6 +3,7 @@ import {
   ForbiddenException,
   Injectable,
   NotFoundException,
+  GoneException,
 } from '@nestjs/common';
 import { HttpService } from '@nestjs/axios';
 import { ConfigService } from '@nestjs/config';
@@ -144,6 +145,10 @@ export class AcreditacionService {
           throw new NotFoundException('Evidencia no encontrada');
         if (status === 400)
           throw new BadRequestException('Clave de evidencia inválida');
+        if (status === 410)
+          throw new GoneException(
+            'El archivo fue eliminado por la política de retención',
+          );
       }
       throw err;
     }

@@ -520,6 +520,12 @@ public class AcreditacionService {
         if (!evidenciaRepository.existsByOrganizacion_IdAndObjectKey(organizacionId, objectKey)) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "EVIDENCIA_NO_ENCONTRADA");
         }
+        // The row (and its history) stays after retention, but the file is gone: say so instead of
+        // letting the BFF hit a missing object and answer 500.
+        if (evidenciaRepository.existsByOrganizacion_IdAndObjectKeyAndArchivoEliminadoAtIsNotNull(
+                organizacionId, objectKey)) {
+            throw new ResponseStatusException(HttpStatus.GONE, "EVIDENCIA_ARCHIVO_ELIMINADO");
+        }
     }
 
     /** Server-owned constant (AD-11): no client can omit or reword this statement. */

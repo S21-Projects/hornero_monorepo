@@ -6,6 +6,7 @@ import {
   BadRequestException,
   ForbiddenException,
   NotFoundException,
+  GoneException,
 } from '@nestjs/common';
 import { AcreditacionService } from './acreditacion.service';
 
@@ -183,6 +184,14 @@ describe('AcreditacionService', () => {
     await expect(
       service.verificarArchivoEvidencia(1, OBJECT_KEY, TOKEN),
     ).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it('throws GoneException when the MS says the file was deleted by retention (410)', async () => {
+    getMock.mockRejectedValueOnce(axiosErrorWithStatus(410));
+
+    await expect(
+      service.verificarArchivoEvidencia(1, OBJECT_KEY, TOKEN),
+    ).rejects.toBeInstanceOf(GoneException);
   });
 
   it('throws BadRequestException when the MS answers 400', async () => {

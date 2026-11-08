@@ -124,6 +124,15 @@ app:
       gracia-dias: ${EVIDENCIA_BARRIDO_GRACIA_DIAS:7}
       max-por-corrida: ${EVIDENCIA_BARRIDO_MAX:500}
       cron: ${EVIDENCIA_BARRIDO_CRON:0 50 3 * * *}
+    retencion:
+      # Accreditation evidence (org-evidencia/) file retention. OFF by default and separate from
+      # EVIDENCIA_BORRADO_ENABLED (which is on in production for claim evidence): local stacks share
+      # the production bucket, so only an explicit EVIDENCIA_RETENCION_ENABLED=true can ever build a
+      # store that deletes these files. Rows and events are kept; only the bucket object goes.
+      habilitada: ${EVIDENCIA_RETENCION_ENABLED:false}
+      meses: ${EVIDENCIA_RETENCION_MESES:12}
+      max-por-corrida: ${EVIDENCIA_RETENCION_MAX:100}
+      cron: ${EVIDENCIA_RETENCION_CRON:0 30 4 * * *}
   worker:
     url: ${WORKER_URL:}
   radios:

@@ -46,7 +46,13 @@ public class EvidenciaAlmacenConfig {
             log.warn("[evidencia] object storage not configured: claim evidence will not be deleted");
             return new EvidenciaAlmacenNoOp();
         }
-        S3Client s3 = S3Client.builder()
+        S3Client s3 = crearClienteS3(endpoint, region, accessKeyId, secretAccessKey);
+        return new EvidenciaAlmacenS3(s3, bucket);
+    }
+
+    /** Shared by every store adapter, so the S3-compatible quirks are handled in one place. */
+    static S3Client crearClienteS3(String endpoint, String region, String accessKeyId, String secretAccessKey) {
+        return S3Client.builder()
                 .endpointOverride(URI.create(endpoint))
                 .region(Region.of(region.isBlank() ? "auto" : region))
                 .forcePathStyle(true)
@@ -58,7 +64,6 @@ public class EvidenciaAlmacenConfig {
                 .requestChecksumCalculation(RequestChecksumCalculation.WHEN_REQUIRED)
                 .responseChecksumValidation(ResponseChecksumValidation.WHEN_REQUIRED)
                 .build();
-        return new EvidenciaAlmacenS3(s3, bucket);
     }
 
     /** One daemon thread and a short queue: evidence deletion is rare and must never block a request. */

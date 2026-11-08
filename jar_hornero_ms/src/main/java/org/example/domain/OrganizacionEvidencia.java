@@ -90,6 +90,14 @@ public class OrganizacionEvidencia {
     @Column(length = 1000)
     private String observacion;
 
+    /**
+     * Set once by the retention job when the file was deleted from the bucket. The row, its
+     * {@code objectKey} and its events stay; downloads of the file answer 410 from then on.
+     */
+    @Setter
+    @Column(name = "archivo_eliminado_at")
+    private Instant archivoEliminadoAt;
+
     private OrganizacionEvidencia(
             Organizacion organizacion,
             RequisitoAcreditacion requisito,

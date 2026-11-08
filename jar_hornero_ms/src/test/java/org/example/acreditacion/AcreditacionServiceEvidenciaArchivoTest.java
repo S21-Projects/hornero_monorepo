@@ -117,4 +117,21 @@ class AcreditacionServiceEvidenciaArchivoTest {
         acreditacionService.existeArchivoEvidencia(organizacion.getId(), key);
         // no exception — legajo history stays viewable
     }
+
+    @Test
+    void aRowWhoseFileWasDeletedByRetentionIs410() {
+        String key = claveDe(organizacion, "retenida.pdf");
+        OrganizacionEvidencia retenida = OrganizacionEvidencia.nueva(organizacion,
+                RequisitoAcreditacion.NO_DISCRIMINACION, TipoEvidencia.DOCUMENTO, null, LocalDate.now(), null, 1L, key);
+        retenida.setEstado(org.example.domain.EstadoEvidencia.REEMPLAZADA);
+        retenida.setArchivoEliminadoAt(java.time.Instant.now());
+        evidenciaRepository.save(retenida);
+
+        assertThatThrownBy(() -> acreditacionService.existeArchivoEvidencia(organizacion.getId(), key))
+                .isInstanceOf(ResponseStatusException.class)
+                .satisfies(ex -> {
+                    assertThat(((ResponseStatusException) ex).getStatusCode()).isEqualTo(HttpStatus.GONE);
+                    assertThat(((ResponseStatusException) ex).getReason()).isEqualTo("EVIDENCIA_ARCHIVO_ELIMINADO");
+                });
+    }
 }

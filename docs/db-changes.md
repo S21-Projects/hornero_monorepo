@@ -10,6 +10,22 @@ production DB) — check the "Applied to" line before running anything twice.
 
 ---
 
+## 2026-11-08 — `organizacion_evidencia.archivo_eliminado_at`: retention marker (C3)
+
+**Reason**: the optional retention job deletes the bucket file of replaced or long-expired accreditation evidence and records when, keeping the row and its events.
+
+**Before**: no such column.
+
+**Migration**: none by hand. The column is nullable with no default, which `ddl-auto=update` creates by itself when the new MS image first boots (the same way the earlier nullable columns were added), so no `scripts/sql` file and no `EsquemaVerificador` check exist for it. Existing rows keep `NULL`, meaning "file not deleted".
+
+**After**: `\d organizacion_evidencia` lists `archivo_eliminado_at timestamp(6) with time zone`, nullable. Nothing writes it unless `EVIDENCIA_RETENCION_ENABLED=true`.
+
+**Rollback**: `ALTER TABLE organizacion_evidencia DROP COLUMN IF EXISTS archivo_eliminado_at;` (only after turning the job off; any files it already deleted from the bucket do not come back).
+
+**Applied to**: created automatically on first boot of the new image in each environment.
+
+---
+
 ## 2026-11-08 — `asignaciones`: one PROPUESTA per donation (RN-08)
 
 **Reason**: nothing in the database stopped two `PROPUESTA` assignments for the same donation if two rondas ever overlapped (the ronda lock was an in-process `ReentrantLock`, now a PostgreSQL advisory lock; this index is the second, independent guarantee).
