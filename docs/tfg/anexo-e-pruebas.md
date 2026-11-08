@@ -150,3 +150,16 @@ Esta prueba es complementaria y no reemplaza a `TestRondaSuperaAlArgmaxIndependi
 - La cobertura de líneas mide ejecución, no verificación de requisitos.
 - Astro (capa pública) no tiene pruebas.
 - La trazabilidad es por funcionalidad y por lectura de pruebas, no por identificadores; los conteos por archivo están sobreestimados cuando el archivo mezcla casos de uso.
+
+## E.8 Concurrencia de rondas (RN-08)
+
+Se agregaron `RondaCerrojoTest` (8 casos, base simulada), dos casos nuevos en `RondaServiceTest` y `RondaConcurrenciaIntegrationTest` (5 casos) en `jar_hornero_ms/src/test/java/org/example/asignacion/`. El detalle de cada prueba y del diseño del lock está en `docs/tfg/reglas-negocio.md`, RN-08.
+
+| Escenario | H2 (`mvn test`) | PostgreSQL 16 descartable |
+|---|---|---|
+| Dos rondas en paralelo en una instancia: la segunda recibe 409 `RONDA_EN_CURSO`, la donación se asigna una vez | Pasa | Pasa |
+| Dos rondas que leen el mismo fondo con el lock omitido: una asigna y la otra descarta; una sola fila de asignación | Pasa | Pasa |
+| El índice V013 rechaza la segunda `PROPUESTA`; V013 es idempotente; V013 aborta con mensaje claro si hay duplicados previos | Omitida | Pasa |
+| El advisory lock excluye a una segunda instancia y se libera al cerrar | Omitida | Pasa |
+
+El proyecto no tiene una forma de levantar PostgreSQL desde `mvn test` (H2 y sin Testcontainers), de modo que las dos últimas filas se omiten por defecto y se ejecutaron a mano contra un contenedor local `postgres:16` con variables `SPRING_DATASOURCE_*` (3 corridas, 5 de 5). Un resultado en H2 no prueba un comportamiento de PostgreSQL. No se probó con dos procesos del MS reales ni en la Raspberry Pi, y el índice V013 no se aplicó a la base de producción.

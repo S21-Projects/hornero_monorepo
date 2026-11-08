@@ -49,12 +49,12 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.locks.ReentrantLock;
 
 /**
  * Orchestrates one ronda (AD-9): read candidates under a transaction, call the worker outside any
- * transaction, then persist the result under a second transaction. A {@link ReentrantLock} bounds
- * concurrent execution to one ronda at a time (the MS is a single instance on the Pi).
+ * transaction, then persist the result under a second transaction. A {@link RondaCerrojo} bounds
+ * concurrent execution to one ronda at a time across MS instances (RN-08); see its Javadoc for why
+ * it is a session-level advisory lock and not a transaction-level one.
  */
 @Service
 public class RondaService {
@@ -75,7 +75,7 @@ public class RondaService {
     private final TransactionTemplate transactionTemplate;
     private final ActividadService actividadService;
     private final ApplicationEventPublisher eventPublisher;
-    private final ReentrantLock lock = new ReentrantLock();
+    private final RondaCerrojo cerrojo;
 
     public RondaService(DonacionRepository donacionRepository,
                          NecesidadRepository necesidadRepository,
@@ -87,7 +87,8 @@ public class RondaService {
                          Clock clock,
                          PlatformTransactionManager transactionManager,
                          ActividadService actividadService,
-                         ApplicationEventPublisher eventPublisher) {
+                         ApplicationEventPublisher eventPublisher,
+                         RondaCerrojo cerrojo) {
         this.donacionRepository = donacionRepository;
         this.necesidadRepository = necesidadRepository;
         this.asignacionRepository = asignacionRepository;
@@ -99,6 +100,7 @@ public class RondaService {
         this.transactionTemplate = new TransactionTemplate(transactionManager);
         this.actividadService = actividadService;
         this.eventPublisher = eventPublisher;
+        this.cerrojo = cerrojo;
     }
 
     /** Manual trigger ({@code POST /api/rondas}). */
@@ -112,9 +114,8 @@ public class RondaService {
     }
 
     private Ronda ejecutar(Long adminId, OrigenRonda origen) {
-        if (!lock.tryLock()) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "RONDA_EN_CURSO");
-        }
+        RondaCerrojo.Candado candado = cerrojo.intentar()
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.CONFLICT, "RONDA_EN_CURSO"));
         try {
             // Build the worker input (EntradaRondaV1) inside the same read transaction as `leer()`
             // (AD-9): EntradaRondaFactory walks lazy collections (Donacion.lineas,
@@ -148,7 +149,7 @@ public class RondaService {
             registrar(adminId, origen, ronda, null);
             return ronda;
         } finally {
-            lock.unlock();
+            candado.close();
         }
     }
 
