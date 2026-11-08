@@ -5,6 +5,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
 import org.springframework.data.domain.PageRequest;
+import jakarta.persistence.EntityManager;
 
 import java.time.Instant;
 import java.time.LocalDate;
@@ -17,6 +18,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 class OrganizacionEvidenciaRetencionQueryTest {
 
     private static final LocalDate CORTE = LocalDate.of(2025, 11, 8);
+    private static final Instant CORTE_REEMPLAZO = Instant.parse("2025-11-08T12:00:00Z");
 
     @Autowired
     private TestEntityManager entityManager;
@@ -40,19 +42,51 @@ class OrganizacionEvidenciaRetencionQueryTest {
         return repository.save(e);
     }
 
+    /** Writes the EVIDENCIA_REEMPLAZADA event of a row, dated {@code cuando} (null = no event at all). */
+    private void reemplazadaEl(OrganizacionEvidencia e, Instant cuando) {
+        if (cuando == null) {
+            return;
+        }
+        OrganizacionEvento ev = entityManager.persistAndFlush(OrganizacionEvento.deEvidencia(org,
+                TipoEventoOrganizacion.EVIDENCIA_REEMPLAZADA, null, "test", e.getRequisito(), e.getId()));
+        EntityManager em = entityManager.getEntityManager();
+        em.createNativeQuery("UPDATE organizacion_evento SET ocurrido_en = ?1 WHERE id = ?2")
+                .setParameter(1, java.sql.Timestamp.from(cuando)).setParameter(2, ev.getId()).executeUpdate();
+        em.clear();
+    }
+
     private List<String> claves(int max) {
-        return repository.buscarParaRetencion(EstadoEvidencia.REEMPLAZADA, CORTE, PageRequest.of(0, max))
+        return repository.buscarParaRetencion(EstadoEvidencia.REEMPLAZADA,
+                        TipoEventoOrganizacion.EVIDENCIA_REEMPLAZADA, CORTE_REEMPLAZO, CORTE, PageRequest.of(0, max))
                 .stream().map(OrganizacionEvidencia::getObjectKey).toList();
     }
 
     @Test
     void selectsReplacedRowsAndRowsExpiredBeforeTheCutoff() {
-        fila("org-evidencia/1/reemplazada.pdf", EstadoEvidencia.REEMPLAZADA, null);
+        reemplazadaEl(fila("org-evidencia/1/reemplazada.pdf", EstadoEvidencia.REEMPLAZADA, null),
+                CORTE_REEMPLAZO.minusSeconds(1));
         fila("org-evidencia/1/vencida-hace-mucho.pdf", EstadoEvidencia.APROBADA, CORTE.minusDays(1));
         entityManager.flush();
 
         assertThat(claves(10)).containsExactlyInAnyOrder(
                 "org-evidencia/1/reemplazada.pdf", "org-evidencia/1/vencida-hace-mucho.pdf");
+    }
+
+    @Test
+    void aReplacedRowIsNotACandidateUntilNMonthsAfterItsReplacement() {
+        reemplazadaEl(fila("org-evidencia/1/reemplazada-hace-poco.pdf", EstadoEvidencia.REEMPLAZADA, null),
+                CORTE_REEMPLAZO.plusSeconds(1));
+        entityManager.flush();
+
+        assertThat(claves(10)).isEmpty();
+    }
+
+    @Test
+    void aReplacedRowWithNoKnownReplacementDateIsNeverACandidate() {
+        fila("org-evidencia/1/reemplazada-sin-evento.pdf", EstadoEvidencia.REEMPLAZADA, null);
+        entityManager.flush();
+
+        assertThat(claves(10)).isEmpty();
     }
 
     @Test
@@ -69,8 +103,9 @@ class OrganizacionEvidenciaRetencionQueryTest {
 
     @Test
     void skipsRowsWithoutFileAndRowsWhoseFileWasAlreadyDeleted() {
-        fila(null, EstadoEvidencia.REEMPLAZADA, null);
+        reemplazadaEl(fila(null, EstadoEvidencia.REEMPLAZADA, null), CORTE_REEMPLAZO.minusSeconds(1));
         OrganizacionEvidencia yaBorrada = fila("org-evidencia/1/ya-borrada.pdf", EstadoEvidencia.REEMPLAZADA, null);
+        reemplazadaEl(yaBorrada, CORTE_REEMPLAZO.minusSeconds(1));
         yaBorrada.setArchivoEliminadoAt(Instant.parse("2026-01-01T00:00:00Z"));
         repository.save(yaBorrada);
         entityManager.flush();
@@ -80,9 +115,10 @@ class OrganizacionEvidenciaRetencionQueryTest {
 
     @Test
     void honoursTheBatchLimitOldestRowFirst() {
-        fila("org-evidencia/1/a.pdf", EstadoEvidencia.REEMPLAZADA, null);
-        fila("org-evidencia/1/b.pdf", EstadoEvidencia.REEMPLAZADA, null);
-        fila("org-evidencia/1/c.pdf", EstadoEvidencia.REEMPLAZADA, null);
+        for (String k : List.of("a", "b", "c")) {
+            reemplazadaEl(fila("org-evidencia/1/" + k + ".pdf", EstadoEvidencia.REEMPLAZADA, null),
+                    CORTE_REEMPLAZO.minusSeconds(1));
+        }
         entityManager.flush();
 
         assertThat(claves(2)).containsExactly("org-evidencia/1/a.pdf", "org-evidencia/1/b.pdf");

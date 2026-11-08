@@ -53,7 +53,7 @@ Ningún valor real se versiona: `.env.example` solo trae las variables comentada
 
 ## 4. Retención
 
-- Candidatos: filas con archivo, sin `archivo_eliminado_at`, en estado `REEMPLAZADA` (de inmediato, porque la fila no guarda la fecha del reemplazo) o con `valido_hasta` anterior a hoy menos N meses.
+- Candidatos: filas con archivo y sin `archivo_eliminado_at` que cumplan una de dos condiciones: (a) estado `REEMPLAZADA` y la fecha de reemplazo anterior a hoy menos N meses; (b) `valido_hasta` anterior a hoy menos N meses. La fecha de reemplazo es la del evento `EVIDENCIA_REEMPLAZADA` de esa evidencia en `organizacion_evento`. Se eligió el evento y no una columna nueva porque `cargarEvidencia` lo escribe en el mismo punto donde marca la fila como reemplazada, el registro es de solo agregado, y por lo tanto también existe para las filas anteriores a este cambio, sin migración ni relleno. Si una fila `REEMPLAZADA` no tiene ese evento, la fecha es desconocida y su archivo no se borra nunca por esa vía (falla en el lado seguro). `OrganizacionEvidenciaRetencionQueryTest` cubre reemplazada hace menos de N meses (no), hace más (sí) y sin fecha (no).
 - Por cada archivo: borra el objeto, completa `archivo_eliminado_at`, y registra un evento `EVIDENCIA_ACREDITACION_ARCHIVO_BORRADO` (actor `SISTEMA`). La fila y los eventos de acreditación se conservan. Si el borrado falla, la fila queda sin marcar y se reintenta en la corrida siguiente. Cada corrida deja un resumen en el log (cantidad borrada, fallida y candidata), sin claves.
 - Protección contra borrados no deseados, en capas:
   1. Indicador propio `EVIDENCIA_RETENCION_ENABLED`, por defecto `false`. No se reutiliza `EVIDENCIA_BORRADO_ENABLED`: ese valor está en `true` en la Pi para la evidencia de reclamos, de modo que reutilizarlo habilitaría este borrado sin una decisión expresa. Como los entornos locales apuntan al bucket de producción, el indicador no se activa en ningún lado.
@@ -68,19 +68,20 @@ Ningún valor real se versiona: `.env.example` solo trae las variables comentada
 Esto borra archivos del bucket de producción y no se puede deshacer: los objetos eliminados no vuelven (el versionado del bucket y la copia de evidencias de C5 todavía no están resueltos). Pasos sugeridos, todos a cargo del autor:
 
 1. Respaldar el bucket de evidencias (o confirmar que existe una copia) antes de activar.
-2. Contar candidatos con una consulta de solo lectura:
-   `SELECT estado, count(*) FROM organizacion_evidencia WHERE object_key IS NOT NULL AND archivo_eliminado_at IS NULL AND (estado = 'REEMPLAZADA' OR (valido_hasta IS NOT NULL AND valido_hasta < CURRENT_DATE - INTERVAL '12 months')) GROUP BY estado;`
+2. Contar candidatos con una consulta de solo lectura (reemplazo anterior a 12 meses o vencimiento anterior a 12 meses; ajustar el intervalo si se cambia `EVIDENCIA_RETENCION_MESES`):
+   `SELECT e.estado, count(*) FROM organizacion_evidencia e WHERE e.object_key IS NOT NULL AND e.archivo_eliminado_at IS NULL AND ((e.estado = 'REEMPLAZADA' AND (SELECT max(ev.ocurrido_en) FROM organizacion_evento ev WHERE ev.tipo = 'EVIDENCIA_REEMPLAZADA' AND ev.evidencia_id = e.id) < now() - INTERVAL '12 months') OR (e.valido_hasta IS NOT NULL AND e.valido_hasta < CURRENT_DATE - INTERVAL '12 months')) GROUP BY e.estado;`
+   Para ver las filas `REEMPLAZADA` que nunca se borrarían por no tener fecha de reemplazo: `SELECT count(*) FROM organizacion_evidencia e WHERE e.estado = 'REEMPLAZADA' AND e.object_key IS NOT NULL AND NOT EXISTS (SELECT 1 FROM organizacion_evento ev WHERE ev.tipo = 'EVIDENCIA_REEMPLAZADA' AND ev.evidencia_id = e.id);`
 3. En el `.env` de la Pi, agregar `EVIDENCIA_RETENCION_ENABLED=true` y una primera corrida acotada, por ejemplo `EVIDENCIA_RETENCION_MAX=5`.
 4. Recrear el servicio: `docker compose up -d ms`. Verificar en el log la advertencia de retención activada.
 5. Tras la primera corrida (o ajustando `EVIDENCIA_RETENCION_CRON` para una prueba), revisar el resumen del log y los eventos `EVIDENCIA_ACREDITACION_ARCHIVO_BORRADO`; subir el máximo si el resultado es el esperado.
 6. Para desactivarla: quitar la variable (o `false`) y recrear `ms`.
 
-Decisión pendiente relacionada: D1 (vencimiento de evidencias a un año de la aprobación, con período de gracia sin definir). La retención borra archivos de evidencias vencidas hace N meses; conviene fijar D1 antes de activarla.
+Decisión pendiente relacionada: D1 (vencimiento de evidencias a un año de la aprobación, con período de gracia sin definir). La retención borra archivos de evidencias reemplazadas o vencidas hace N meses; conviene fijar D1 antes de activarla.
 
 ## 5. Lo que no se hace
 
 - No hay análisis antivirus (no hay ClamAV ni equivalente). La defensa es la validación por firma, la recodificación de imágenes, el tipo de contenido fijado, `nosniff` y `attachment`. Un PDF con contenido activo se almacena y se entrega sin modificar.
-- Las imágenes de evidencia de reclamos (`reclamo-evidencia/`) no se recodifican: conservan EXIF y GPS, y siguen aceptando WebP. Comparten la función de subida pero no la ruta de evidencia de acreditación.
+- **Brecha conocida:** las imágenes de evidencia de reclamos (`reclamo-evidencia/`) siguen conservando EXIF y GPS y siguen aceptando WebP. No se recodifican. Esos archivos pueden contener documentos de identidad, de modo que la brecha es relevante; no se modificó ese código en esta tarea. Comparten la función de subida pero no la ruta de evidencia de acreditación.
 - La recodificación descarta también el perfil de color ICC. Las imágenes se vuelven a comprimir (JPEG a calidad 90), de modo que el archivo almacenado no es idéntico al subido.
 - El límite de 5 MB que muestra la interfaz de administración está fijo en el cliente; el valor efectivo lo decide el servidor con `UPLOAD_MAX_MB`.
 - El carácter privado del bucket en Cloudflare sigue sin poder verificarse desde el repositorio (ver `docs/tfg/inventario.md`).

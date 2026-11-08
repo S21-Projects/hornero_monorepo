@@ -42,16 +42,24 @@ public interface OrganizacionEvidenciaRepository extends Repository<Organizacion
     boolean existsByOrganizacion_IdAndObjectKeyAndArchivoEliminadoAtIsNotNull(Long organizacionId, String objectKey);
 
     /**
-     * Retention candidates: rows that still have a file and whose file is no longer needed, i.e.
-     * {@code REEMPLAZADA}, or expired before {@code corte}. Oldest row first so a capped run makes
-     * steady progress. A read; the job marks the rows it handled through {@code save}.
+     * Retention candidates: rows that still have a file and whose file is no longer needed. A
+     * {@code REEMPLAZADA} row qualifies only when its {@code EVIDENCIA_REEMPLAZADA} event is older
+     * than {@code corteReemplazo}; a row with no such event has an unknown replacement date, the
+     * subquery yields NULL, the comparison is not true and the row is never selected (fail safe).
+     * Any row whose validity ended before {@code corte} qualifies too. Oldest row first so a capped
+     * run makes steady progress. A read; the job marks the rows it handled through {@code save}.
      */
     @Query("SELECT e FROM OrganizacionEvidencia e JOIN FETCH e.organizacion "
             + "WHERE e.objectKey IS NOT NULL AND e.archivoEliminadoAt IS NULL "
-            + "AND (e.estado = :reemplazada OR (e.validoHasta IS NOT NULL AND e.validoHasta < :corte)) "
+            + "AND ((e.estado = :reemplazada AND "
+            + "      (SELECT MAX(ev.ocurridoEn) FROM OrganizacionEvento ev "
+            + "       WHERE ev.tipo = :tipoReemplazo AND ev.evidenciaId = e.id) < :corteReemplazo) "
+            + "     OR (e.validoHasta IS NOT NULL AND e.validoHasta < :corte)) "
             + "ORDER BY e.id")
     List<OrganizacionEvidencia> buscarParaRetencion(
             @Param("reemplazada") EstadoEvidencia reemplazada,
+            @Param("tipoReemplazo") TipoEventoOrganizacion tipoReemplazo,
+            @Param("corteReemplazo") java.time.Instant corteReemplazo,
             @Param("corte") LocalDate corte,
             Pageable pageable);
 

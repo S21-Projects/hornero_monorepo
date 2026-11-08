@@ -6,6 +6,7 @@ import org.example.actividad.TipoActividad;
 import org.example.domain.EstadoEvidencia;
 import org.example.domain.OrganizacionEvidencia;
 import org.example.domain.OrganizacionEvidenciaRepository;
+import org.example.domain.TipoEventoOrganizacion;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -14,12 +15,14 @@ import org.springframework.stereotype.Component;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.ZoneOffset;
 import java.util.List;
 
 /**
  * Retention of accreditation evidence files. Deletes from the bucket the file of every evidence row
- * that is {@code REEMPLAZADA}, or whose validity ended more than {@code meses} months ago, and sets
- * {@code archivo_eliminado_at}. The row, its {@code objectKey} and its events are kept; downloads
+ * that was replaced, or whose validity ended, more than {@code meses} months ago, and sets
+ * {@code archivo_eliminado_at}. The replacement date is the timestamp of the row's
+ * {@code EVIDENCIA_REEMPLAZADA} event; with no such event the date is unknown and the file is kept. The row, its {@code objectKey} and its events are kept; downloads
  * of a deleted file answer 410.
  *
  * <p><b>Disabled by default.</b> Two independent guards: this job returns immediately unless
@@ -74,8 +77,10 @@ public class EvidenciaAcreditacionRetencionJob {
         }
         try {
             LocalDate corte = LocalDate.now(clock).minusMonths(meses);
+            Instant corteReemplazo = clock.instant().atZone(ZoneOffset.UTC).minusMonths(meses).toInstant();
             List<OrganizacionEvidencia> candidatas = repository.buscarParaRetencion(
-                    EstadoEvidencia.REEMPLAZADA, corte, PageRequest.of(0, maxPorCorrida));
+                    EstadoEvidencia.REEMPLAZADA, TipoEventoOrganizacion.EVIDENCIA_REEMPLAZADA, corteReemplazo, corte,
+                    PageRequest.of(0, maxPorCorrida));
             int borrados = 0;
             int fallidos = 0;
             for (OrganizacionEvidencia evidencia : candidatas) {
@@ -86,7 +91,8 @@ public class EvidenciaAcreditacionRetencionJob {
                 }
             }
             log.info("[evidencia] retention run: {} files deleted, {} failed, {} candidates (batch limit {}, "
-                    + "expiry cutoff {})", borrados, fallidos, candidatas.size(), maxPorCorrida, corte);
+                    + "expiry cutoff {}, replacement cutoff {})", borrados, fallidos, candidatas.size(), maxPorCorrida, corte,
+                    corteReemplazo);
             return borrados;
         } catch (RuntimeException e) {
             log.warn("[evidencia] accreditation retention failed: {}", e.getClass().getSimpleName());
