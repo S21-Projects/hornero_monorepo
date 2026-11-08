@@ -70,7 +70,7 @@ Route legend: `delegated` means a bounded worker; trigger in parentheses.
 
 ### D. Business rules
 
-- [ ] D1 RN-04 evidence expiry. Author decided on 2026-11-08: one year after approval, 30 days of grace, then manual reduction by an admin; open needs stay open. Purpose: confirm canteens remain active without harming them instantly
+- [x] D1 RN-04 evidence expiry: one year after approval, 30 days of grace, then manual reduction by an admin; open needs stay open (`68ab319` to `8dbede6`; V015 pending on the Pi)
 - [x] D2 RN-08 no double reassignment, concurrency test (`e3aa1e7`; V013 pending on the Pi)
 - [x] D3 RN-05 deterministic tie-break with `ORDER BY` (`5b44586`, `b5732bf`)
 - [ ] D5 E2E for CU-07 to CU-10 and reassignment (proposed to author, not objected)
@@ -125,6 +125,9 @@ Route legend: `delegated` means a bounded worker; trigger in parentheses.
 - C4: writer report: `mvn test` 1239 run, 0 failures, 8 skipped; 93 tests on real PostgreSQL 16, 0 failures;
   BFF 480 passed. REVOKE does not bind an owner or superuser; compose default app role is superuser.
 
+- D1: writer report: `mvn test` 1274 run, 0 failures, 8 skipped; V015 applied twice on throwaway Postgres. Parent
+  reran the full admin suite after the last fix.
+
 ## Next step
 
-D1 in progress, then E1, D5, C5 local parts, B2, B4, full e2e rerun, RESUMEN. D1 blocked on author policy, D4 on scope. Author must check public access on the R2 bucket in the Cloudflare panel (evidence shares the bucket with public images).
+E1 and D5 in progress, then C5 local parts, B2, B4, full e2e rerun, RESUMEN. D1 blocked on author policy, D4 on scope. Author must check public access on the R2 bucket in the Cloudflare panel (evidence shares the bucket with public images).
