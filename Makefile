@@ -1,4 +1,4 @@
-.PHONY: up down up-local seed backup restore-check migrate e2e escenario coverage mapa-datos mapa-fixture importar-renacom importar-poblacion mapa-radios
+.PHONY: up down up-local seed backup restore-check migrate e2e escenario demo-up demo-seed demo-reset demo-down demo-verify coverage mapa-datos mapa-fixture importar-renacom importar-poblacion mapa-radios
 
 ## Docker only — two modes, both full-stack including Postgres.
 ## The Pi runs docker compose directly, not through this Makefile
@@ -31,6 +31,27 @@ e2e:
 ## Usage: make escenario ESC=fondo-comun N=5   (no ESC lists the scenarios). See e2e/README.md.
 escenario:
 	cd e2e && npx tsx scenarios/run.ts $(ESC) --n $(or $(N),3)
+
+## Demo for recording the thesis demo: a DEDICATED compose project (own volumes, local MinIO, generated
+## .env.demo with random secrets, fictional data). Never reads .env / .env.local and refuses any non-local
+## target. demo-reset drops only that project's own volumes. See scripts/demo/demo.sh and e2e/README.md.
+##   make demo-up && make demo-seed        # first time (stop other stacks first: same host ports)
+##   make demo-reset                       # back to the initial demo state
+##   make demo-verify EMAIL=nuevo@example.com   # stands in for the OTP email of an account made on camera
+demo-up:
+	@scripts/demo/demo.sh up
+
+demo-seed:
+	@scripts/demo/demo.sh seed
+
+demo-reset:
+	@scripts/demo/demo.sh reset
+
+demo-down:
+	@scripts/demo/demo.sh down
+
+demo-verify:
+	@scripts/demo/demo.sh verify "$(EMAIL)"
 
 ## Coverage (report-only, no thresholds; outputs are gitignored). Runs each service's unit
 ## suite with coverage and prints one line-coverage summary per service. See docs/validacion-calidad.md.

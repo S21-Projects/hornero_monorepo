@@ -6,6 +6,7 @@ Thumbs.db
 .env
 .env.local
 .env.desa
+.env.demo
 .env.*.local
 
 # AI / tooling internals
