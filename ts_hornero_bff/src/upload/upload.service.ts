@@ -3,6 +3,7 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { detectEvidenceType, detectImageType } from './image-type.js';
+import { sanitizeEvidenceImage } from './evidence-image.js';
 
 @Injectable()
 export class UploadService {
@@ -74,13 +75,19 @@ export class UploadService {
           : 'File content does not match an allowed image type (jpeg, png, or webp)',
       );
     }
+    // Accreditation evidence is re-encoded so EXIF/GPS never reach the bucket; a corrupt image
+    // throws here, before anything is stored. PDFs and the other prefixes are stored as sent.
+    const body =
+      allowPdf && (detected.ext === 'jpg' || detected.ext === 'png')
+        ? await sanitizeEvidenceImage(file.buffer, detected.ext)
+        : file.buffer;
     const key = `${prefix}/${randomUUID()}.${detected.ext}`;
 
     await this.s3.send(
       new PutObjectCommand({
         Bucket: this.bucket,
         Key: key,
-        Body: file.buffer,
+        Body: body,
         ContentType: detected.mimetype,
       }),
     );
