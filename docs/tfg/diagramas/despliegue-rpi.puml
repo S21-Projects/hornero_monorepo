@@ -29,7 +29,7 @@ cloud "Cloudflare" as cf {
   }
   node "Cloudflare R2" as r2 {
     artifact "Bucket hornero-images\nprefijos: org-profile/, org-banner/,\norg-evidencia/, reclamo-evidencia/" as bucket
-    artifact "Bucket de respaldos (opcional)\nBACKUP_S3_BUCKET, prefijo hornero/\ncopias cifradas" as bucketBk
+    artifact "Bucket de respaldos (opcional)\nBACKUP_S3_BUCKET, copias cifradas en\nhornero/daily/, hornero/weekly/, hornero/monthly/" as bucketBk
   }
 }
 

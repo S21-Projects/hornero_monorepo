@@ -446,7 +446,8 @@ restaurable de forma selectiva). `make backup` llama al mismo script; los dumps 
 | `BACKUP_S3_ENDPOINT`           | —              | Endpoint S3/R2 del bucket de backups                        |
 | `BACKUP_AWS_ACCESS_KEY_ID` / `BACKUP_AWS_SECRET_ACCESS_KEY` | — | Credenciales **propias** del bucket de backups |
 | `BACKUP_PASSPHRASE`            | —              | Frase de cifrado (obligatoria con `BACKUP_S3_BUCKET`)       |
-| `BACKUP_S3_PREFIX`             | `hornero/`     | Prefijo de las keys                                         |
+| `BACKUP_S3_PREFIX`             | `hornero/`     | Prefijo base; las copias van a `<prefijo>daily/`, `weekly/` y `monthly/` |
+| `BACKUP_WEEKLY_DAY`            | `7`            | Día ISO (1 = lunes ... 7 = domingo) cuya copia se guarda también como semanal |
 
 Opcionales: `BACKUP_DIR`, `BACKUP_AWS_CLI_IMAGE`, `BACKUP_AWS_DOCKER_ARGS`
 (ver cabecera de `backup.sh`). `chmod 600 .env`: ahí viven la passphrase y las keys.
@@ -480,10 +481,13 @@ ls -l backups/
    sin ella los dumps cifrados no se pueden abrir.
 4. Completar `BACKUP_S3_*`, `BACKUP_AWS_*` y `BACKUP_PASSPHRASE` en el `.env` y repetir la prueba
    de C.2. Cada dump se cifra con `openssl enc -aes-256-cbc -pbkdf2` y se sube con la imagen
-   `amazon/aws-cli` (no requiere instalar nada en el host) a `s3://<bucket>/hornero/`.
-5. **Retención remota:** no la hace el script. Configurarla en el bucket: R2 → bucket →
-   Settings → Object lifecycle rules → eliminar objetos con prefijo `hornero/` después de N días
-   (**30 días**, definido en D11).
+   `amazon/aws-cli` (no requiere instalar nada en el host) a `s3://<bucket>/hornero/daily/` (y además a `weekly/` el día `BACKUP_WEEKLY_DAY` y a `monthly/` el día 01, en UTC).
+5. **Retención remota:** no la hace el script (ningún código borra de un bucket). Se configura en
+   el bucket con **tres** reglas de ciclo de vida, una por prefijo: `hornero/daily/` a los 7 días,
+   `hornero/weekly/` a los 28 y `hornero/monthly/` a los 186. Los valores exactos y el motivo están
+   en `docs/tfg/seguridad-c5.md`. **No usar** una única regla sobre `hornero/` (la de 30 días que
+   figuraba antes): borraría también las copias semanales y mensuales. Esta retención 7/4/6 reemplaza
+   a los 30 días de D11.
 
 ### C.4 — Simulacro de restauración (restore drill)
 
@@ -498,8 +502,10 @@ BACKUP_PASSPHRASE=… make restore-check DUMP=hornero-<fecha>.dump.enc   # bajad
 
 Levanta un Postgres descartable (misma imagen que el compose, sin puertos publicados, se borra
 al terminar), restaura ahí, cuenta filas de `usuarios`, `organizaciones`, `necesidades`,
-`donaciones` y `refresh_tokens` y termina con `RESULT: OK` o un código de salida distinto de
-cero. **Nunca toca la DB real.** Registrar fecha y resultado de cada simulacro en
+`donaciones` y `refresh_tokens`, y termina con `RESULT: OK` o un código de salida distinto de
+cero. Con `--expect TABLA=N` compara los conteos con los esperados, y con `--ms-image` corre el
+verificador real de la cadena de hashes; además imprime una fila Markdown para
+`docs/tfg/prueba-restauracion.md`. **Nunca toca la DB real.** Registrar fecha y resultado de cada simulacro en
 `docs/seguridad-matriz-riesgos.md`. Frecuencia definida en D11: **una vez por cuatrimestre**, y además
 ante cada cambio de esquema o de passphrase.
 
@@ -550,14 +556,15 @@ que volver a iniciar sesión.
 | Frecuencia del simulacro                               | Una vez por cuatrimestre | Definido (D11) |
 | RPO (pérdida máxima de datos)                          | 24 horas | Definido (D11) |
 | RTO (tiempo máximo para volver a operar)               | 4 horas | Definido (D11) |
-| Retención local / remota                               | 14 días / 30 días | Definido (D11) |
+| Retención local / remota                               | 14 días / 7 diarias, 4 semanales, 6 mensuales (reemplaza los 30 días de D11) | Definido (C5); reglas de R2 sin aplicar |
 
 ### C.7 — Riesgo residual
 
 - **Imágenes (y futuras evidencias) en R2 no están cubiertas** por este mecanismo: solo se
   respalda Postgres. Si alguien borra o sobrescribe objetos en `hornero-images`, no hay copia.
-  Opciones, no implementadas: activar el versionado/replicación del bucket, o un
-  `aws s3 sync` periódico hacia el bucket de backups.
+  R2 no ofrece versionado ni replicación (`docs/tfg/seguridad-c5.md`). Existe `scripts/backup/evidence-copy.sh`
+  (copia aditiva con `rclone copy` a un segundo bucket), desactivado por defecto y sin temporizador
+  habilitado (`deploy/systemd/hornero-evidence-copy.*`).
 - **Restaurar una base antigua sobre un bucket más nuevo:** el barrido de evidencia huérfana
   (`EVIDENCIA_BARRIDO_*`) borra los archivos de `reclamo-evidencia/` que la base no referencia, y
   corre apenas arranca `ms`. Con una base restaurada, los archivos de reclamos posteriores al
