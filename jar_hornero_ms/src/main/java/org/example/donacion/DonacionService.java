@@ -361,6 +361,9 @@ public class DonacionService {
 
         DonacionResponse response = toResponse(donacionRepository.save(d));
         actividadService.registrar(Registro.de(TipoActividad.DONACION_OVERRIDE)
+                // Explicit actor: the route is admin-only (@PreAuthorize), and the entry must name the
+                // administrator even if it is ever built outside a populated SecurityContext (C4).
+                .actor(adminId, "ADMINISTRADOR")
                 .entidad("DONACION", id).cambio(estadoAntes, nuevoEstado).motivo(motivo));
         if (nuevoEstado == EstadoDonacion.ACEPTADA
                 || nuevoEstado == EstadoDonacion.RECHAZADA
