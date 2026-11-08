@@ -27,7 +27,7 @@ public class AnclaAuditoriaConfig {
         S3Client crear(String endpoint, String region, String accessKeyId, String secretAccessKey);
     }
 
-    @Bean(destroyMethod = "")
+    @Bean
     public AnclaAuditoriaAlmacen anclaAuditoriaAlmacen(
             @Value("${app.auditoria.ancla.habilitada:false}") boolean habilitada,
             @Value("${app.evidencia.s3.endpoint:}") String endpoint,
