@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
 import { S3Client } from '@aws-sdk/client-s3';
 import { BadRequestException } from '@nestjs/common';
+import sharp from 'sharp';
 import { UploadService } from './upload.service';
 
 jest.mock('@aws-sdk/client-s3', () => {
@@ -56,7 +57,11 @@ describe('UploadService', () => {
   it('uploadOrgEvidencia() writes under org-evidencia/{orgId}/', async () => {
     const file = {
       mimetype: 'image/jpeg',
-      buffer: JPEG_BYTES,
+      buffer: await sharp({
+        create: { width: 8, height: 8, channels: 3, background: '#fff' },
+      })
+        .jpeg()
+        .toBuffer(),
     } as Express.Multer.File;
 
     const key = await service.uploadOrgEvidencia(7, file);
@@ -97,6 +102,68 @@ describe('UploadService', () => {
     await expect(service.uploadOrgBanner(3, file)).rejects.toThrow(
       /content does not match/i,
     );
+  });
+
+  describe('evidence image re-encoding', () => {
+    const lastBody = (): unknown => (lastSentInput() as { Body: unknown }).Body;
+
+    const gpsJpeg = () =>
+      sharp({
+        create: { width: 30, height: 10, channels: 3, background: '#a33' },
+      })
+        .withExif({
+          IFD0: { ImageDescription: 'HORNEROCAM-1234' },
+          IFD3: { GPSLatitudeRef: 'S', GPSLatitude: '31/1 24/1 0/1' },
+        })
+        .jpeg()
+        .toBuffer();
+
+    it('stores the re-encoded bytes, without EXIF or GPS', async () => {
+      const original = await gpsJpeg();
+      expect((await sharp(original).metadata()).exif).toBeDefined();
+
+      await service.uploadOrgEvidencia(7, {
+        mimetype: 'image/jpeg',
+        buffer: original,
+      } as Express.Multer.File);
+
+      const stored = lastBody() as Buffer;
+      expect(stored.includes('HORNEROCAM-1234')).toBe(false);
+      expect((await sharp(stored).metadata()).exif).toBeUndefined();
+      expect(lastSentInput()).toMatchObject({ ContentType: 'image/jpeg' });
+    });
+
+    it('rejects a corrupt image and stores nothing', async () => {
+      const s3Instance = (S3Client as unknown as jest.Mock).mock.results[0]
+        .value as { send: jest.Mock };
+      s3Instance.send.mockClear();
+      const corrupt = Buffer.concat([JPEG_BYTES, Buffer.from('garbage')]);
+
+      await expect(
+        service.uploadOrgEvidencia(7, {
+          mimetype: 'image/jpeg',
+          buffer: corrupt,
+        } as Express.Multer.File),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(s3Instance.send).not.toHaveBeenCalled();
+    });
+
+    it('leaves PDFs byte-for-byte untouched', async () => {
+      const pdf = Buffer.from('%PDF-1.7\n%binary');
+      await service.uploadOrgEvidencia(7, {
+        mimetype: 'application/pdf',
+        buffer: pdf,
+      } as Express.Multer.File);
+      expect(lastBody()).toBe(pdf);
+    });
+
+    it('does not re-encode profile, banner or claim images', async () => {
+      await service.uploadOrgBanner(3, {
+        mimetype: 'image/jpeg',
+        buffer: JPEG_BYTES,
+      } as Express.Multer.File);
+      expect(lastBody()).toBe(JPEG_BYTES);
+    });
   });
 
   describe('PDF evidence', () => {
