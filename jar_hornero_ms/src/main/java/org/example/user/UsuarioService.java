@@ -89,6 +89,20 @@ public class UsuarioService {
         return toResponse(saved);
     }
 
+    /**
+     * Admin-forced logout: revokes every refresh token of the user. An access token already issued
+     * stays valid until it expires (15 minutes). The actor is the admin in the security context.
+     */
+    @Transactional
+    public void revocarSesiones(Long id) {
+        Usuario u = usuarioRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Usuario not found"));
+        refreshTokenService.revokeAllFor(u.getId());
+        actividadService.registrar(ActividadService.Registro.de(TipoActividad.SESIONES_REVOCADAS)
+                .entidad("USUARIO", u.getId())
+                .detalle("sesiones revocadas por administrador"));
+    }
+
     private UsuarioResponse toResponse(Usuario u) {
         return UsuarioResponse.de(u);
     }

@@ -75,4 +75,15 @@ export class UsuariosController {
   anonimizar(@Param('id', ParseIntPipe) id: number, @Req() req: Request) {
     return this.usuariosService.anonimizar(id, this.getToken(req));
   }
+
+  @Roles(Role.ADMINISTRADOR)
+  @Post(':id/sesiones/revocar')
+  @HttpCode(204)
+  @ApiOperation({
+    summary:
+      'Revoke every refresh token of a user, forcing logout (ADMINISTRADOR only)',
+  })
+  revocarSesiones(@Param('id', ParseIntPipe) id: number, @Req() req: Request) {
+    return this.usuariosService.revocarSesiones(id, this.getToken(req));
+  }
 }

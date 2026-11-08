@@ -17,7 +17,9 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.http.HttpStatus;
 
 @Tag(name = "Usuarios", description = "User management")
 @RestController
@@ -43,6 +45,14 @@ public class UsuarioController {
     public UsuarioResponse toggleActivo(@PathVariable Long id,
                                         @Valid @RequestBody UpdateActivoRequest request) {
         return usuarioService.toggleActivo(id, request.getActivo(), request.getMotivo());
+    }
+
+    /** Forces logout: revokes every refresh token of the user. Audited with the admin as actor. */
+    @PostMapping("/{id}/sesiones/revocar")
+    @PreAuthorize("hasRole('ADMINISTRADOR')")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void revocarSesiones(@PathVariable Long id) {
+        usuarioService.revocarSesiones(id);
     }
 
     /** N15/D12: right to erasure. Irreversible; see {@link UsuarioAnonimizacionService}. */

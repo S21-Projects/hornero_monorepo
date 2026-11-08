@@ -67,4 +67,26 @@ class UsuarioControllerSecurityTest {
 
         mockMvc.perform(post(PATH).with(authentication(auth(1L, "ADMINISTRADOR")))).andExpect(status().isOk());
     }
+
+    private static final String REVOKE_PATH = "/api/usuarios/7/sesiones/revocar";
+
+    @Test
+    void revokeSessions_anonymous_isForbidden() throws Exception {
+        mockMvc.perform(post(REVOKE_PATH)).andExpect(status().isForbidden());
+        verifyNoInteractions(usuarioService);
+    }
+
+    @Test
+    void revokeSessions_donanteAndReferente_areForbidden() throws Exception {
+        mockMvc.perform(post(REVOKE_PATH).with(authentication(auth(2L, "DONANTE")))).andExpect(status().isForbidden());
+        mockMvc.perform(post(REVOKE_PATH).with(authentication(auth(2L, "REFERENTE")))).andExpect(status().isForbidden());
+        verifyNoInteractions(usuarioService);
+    }
+
+    @Test
+    void revokeSessions_admin_isNoContent() throws Exception {
+        mockMvc.perform(post(REVOKE_PATH).with(authentication(auth(1L, "ADMINISTRADOR"))))
+                .andExpect(status().isNoContent());
+        org.mockito.Mockito.verify(usuarioService).revocarSesiones(7L);
+    }
 }

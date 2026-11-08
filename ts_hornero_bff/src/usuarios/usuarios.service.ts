@@ -55,4 +55,13 @@ export class UsuariosService {
     );
     return data;
   }
+
+  /** Forces logout: the MS revokes every refresh token of the user and audits the admin as actor. */
+  async revocarSesiones(id: number, accessToken: string) {
+    await this.httpService.axiosRef.post(
+      `${this.msUrl}/api/usuarios/${id}/sesiones/revocar`,
+      {},
+      { headers: this.authHeaders(accessToken) },
+    );
+  }
 }

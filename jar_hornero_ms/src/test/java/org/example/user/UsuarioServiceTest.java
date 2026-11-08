@@ -141,4 +141,31 @@ class UsuarioServiceTest {
         assertThat(captor.getValue().accion()).isEqualTo(TipoActividad.USUARIO_ACTIVADO);
         assertThat(captor.getValue().antes()).isEqualTo("inactivo");
     }
+
+    @Test
+    void revocarSesiones_revokesAllRefreshTokensAndRecordsTheAdminAction() {
+        Donante donante = new Donante(7L, "Don", "don@test.com", "encoded", true);
+        when(usuarioRepository.findById(7L)).thenReturn(Optional.of(donante));
+
+        usuarioService.revocarSesiones(7L);
+
+        verify(refreshTokenService).revokeAllFor(7L);
+        org.mockito.ArgumentCaptor<ActividadService.Registro> captor =
+                org.mockito.ArgumentCaptor.forClass(ActividadService.Registro.class);
+        verify(actividadService).registrar(captor.capture());
+        assertThat(captor.getValue().accion()).isEqualTo(TipoActividad.SESIONES_REVOCADAS);
+        assertThat(captor.getValue().entidadTipo()).isEqualTo("USUARIO");
+        assertThat(captor.getValue().entidadId()).isEqualTo(7L);
+    }
+
+    @Test
+    void revocarSesiones_unknownUser_is404AndRecordsNothing() {
+        when(usuarioRepository.findById(99L)).thenReturn(Optional.empty());
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> usuarioService.revocarSesiones(99L))
+                .isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
+
+        verify(refreshTokenService, never()).revokeAllFor(any());
+        verify(actividadService, never()).registrar(any());
+    }
 }
