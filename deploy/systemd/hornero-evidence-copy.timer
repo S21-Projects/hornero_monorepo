@@ -1,0 +1,18 @@
+# NOT ENABLED. Everything below is commented out on purpose.
+# To enable (after configuring EVIDENCE_COPY_* and testing `evidence-copy.sh --dry-run`):
+#   uncomment the lines, then
+#   sudo cp deploy/systemd/hornero-evidence-copy.{service,timer} /etc/systemd/system/
+#   sudo systemctl daemon-reload && sudo systemctl enable --now hornero-evidence-copy.timer
+#
+# [Unit]
+# Description=Weekly Hornero evidence copy
+#
+# [Timer]
+# # Sundays 04:30 local time, after the 03:15 database backup.
+# OnCalendar=Sun *-*-* 04:30:00
+# Persistent=true
+# RandomizedDelaySec=10min
+# Unit=hornero-evidence-copy.service
+#
+# [Install]
+# WantedBy=timers.target
