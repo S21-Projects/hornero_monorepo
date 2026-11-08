@@ -8,5 +8,7 @@ public enum EstadoEvidencia {
     PENDIENTE,
     APROBADA,
     OBSERVADA,
-    REEMPLAZADA
+    REEMPLAZADA,
+    /** RN-04: was APROBADA and its validoHasta passed; set by the daily job, never by a person. */
+    VENCIDA
 }

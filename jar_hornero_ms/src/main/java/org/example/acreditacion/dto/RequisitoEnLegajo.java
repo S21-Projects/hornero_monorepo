@@ -37,5 +37,9 @@ public record RequisitoEnLegajo(
          * otherwise. Shown to the owning referente so they know what to fix (the legajo route is
          * ADMINISTRADOR/owning-REFERENTE only).
          */
-        String observacion) {
+        String observacion,
+        /** RN-04: last day of the grace period for an expired evidence; {@code null} otherwise. */
+        LocalDate graciaHasta,
+        /** RN-04: true once the grace period is over (the admin may then reduce the level by hand). */
+        boolean graciaVencida) {
 }

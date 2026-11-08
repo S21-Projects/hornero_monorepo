@@ -72,6 +72,14 @@ public class AcreditacionService {
     private final OrganizacionRepository organizacionRepository;
     private final ApplicationEventPublisher eventPublisher;
 
+    /** RN-04, months an approval stays valid. Field injection with defaults keeps slice tests constructible. */
+    @org.springframework.beans.factory.annotation.Value("${app.evidencia.vigencia.meses:12}")
+    private int vigenciaMeses = VigenciaEvidencia.MESES_POR_DEFECTO;
+
+    /** RN-04, days after expiry during which nothing changes except the elevation block. */
+    @org.springframework.beans.factory.annotation.Value("${app.evidencia.vigencia.gracia-dias:30}")
+    private int graciaDias = VigenciaEvidencia.GRACIA_DIAS_POR_DEFECTO;
+
     private void validateTransition(NivelAcreditacion actual, NivelAcreditacion siguiente) {
         boolean valid = TRANSICIONES_PERMITIDAS.getOrDefault(actual, Set.of()).contains(siguiente);
         if (!valid) {
@@ -245,6 +253,13 @@ public class AcreditacionService {
         Administrador admin = requireAdministrador(actorUsuarioId);
         OrganizacionEvidencia evidencia = findEvidenciaOrThrow(evidenciaId);
 
+        if (evidencia.getEstado() == EstadoEvidencia.VENCIDA) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "La evidencia está vencida: el referente debe reemplazarla con una nueva");
+        }
+        // RN-04: validity runs from the approval; a date already on the row that is earlier is kept.
+        evidencia.fijarValidoHasta(VigenciaEvidencia.vencimientoAlAprobar(
+                LocalDate.now(), vigenciaMeses, evidencia.getValidoHasta()));
         evidencia.setEstado(EstadoEvidencia.APROBADA);
         evidencia.setRevisadoPor(admin.getId());
         evidencia.setRevisadoEn(java.time.Instant.now());
@@ -367,7 +382,7 @@ public class AcreditacionService {
 
         return evidenciaRepository.buscarCola(vencidas, EstadoEvidencia.PENDIENTE, LocalDate.now(),
                         requisitos, filtro.tipoEvidencia(), pageable)
-                .map(EvidenciaEnColaResponse::from);
+                .map(e -> EvidenciaEnColaResponse.from(e, graciaDias));
     }
 
     private Set<RequisitoAcreditacion> requisitosPorNivel(NivelAcreditacion nivel) {
@@ -466,13 +481,15 @@ public class AcreditacionService {
 
             if (vigente == null) {
                 requisitos.add(new RequisitoEnLegajo(requisito, requisito.getNivelExigido(),
-                        EstadoRequisitoLegajo.FALTANTE, null, null, null, null, false, null, null, null, null, null));
+                        EstadoRequisitoLegajo.FALTANTE, null, null, null, null, false, null, null, null, null, null,
+                        null, false));
                 continue;
             }
 
             EstadoRequisitoLegajo estadoLegajo = switch (vigente.getEstado()) {
                 case APROBADA -> EstadoRequisitoLegajo.APROBADA;
                 case OBSERVADA -> EstadoRequisitoLegajo.OBSERVADA;
+                case VENCIDA -> EstadoRequisitoLegajo.VENCIDA;
                 default -> EstadoRequisitoLegajo.PENDIENTE;
             };
             String auditorNombre = vigente.getRevisadoPor() != null
@@ -482,7 +499,8 @@ public class AcreditacionService {
             requisitos.add(new RequisitoEnLegajo(requisito, requisito.getNivelExigido(), estadoLegajo,
                     vigente.getTipoEvidencia(), vigente.getDeclaracion(), vigente.getValidoDesde(),
                     vigente.getValidoHasta(), vigente.isExpirada(), auditorNombre, vigente.getRevisadoEn(),
-                    vigente.getObjectKey(), vigente.getCargadoEn(), vigente.getObservacion()));
+                    vigente.getObjectKey(), vigente.getCargadoEn(), vigente.getObservacion(),
+                    graciaHastaDe(vigente), graciaVencidaDe(vigente)));
         }
 
         List<EventoResponse> eventosResponse = eventos.stream()
@@ -492,6 +510,16 @@ public class AcreditacionService {
 
         return new LegajoResponse(org.getId(), org.getNombre(), org.getSlug(), org.getDireccion(),
                 nivelActual(org), nivelDesde, requisitos, eventosResponse, DISCLOSURE);
+    }
+
+    private LocalDate graciaHastaDe(OrganizacionEvidencia e) {
+        boolean vencida = e.getEstado() == EstadoEvidencia.VENCIDA
+                || (e.getEstado() == EstadoEvidencia.APROBADA && e.isExpirada());
+        return vencida ? VigenciaEvidencia.finDeGracia(e.getValidoHasta(), graciaDias) : null;
+    }
+
+    private boolean graciaVencidaDe(OrganizacionEvidencia e) {
+        return graciaHastaDe(e) != null && LocalDate.now().isAfter(graciaHastaDe(e));
     }
 
     /**

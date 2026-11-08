@@ -32,9 +32,22 @@ public record EvidenciaEnColaResponse(
         Instant cargadoEn,
         Long revisadoPor,
         Instant revisadoEn,
-        String observacion) {
+        String observacion,
+        /** RN-04: last day of the grace period for an expired evidence; {@code null} when not expired. */
+        LocalDate graciaHasta,
+        /** RN-04: true once the grace period is over. */
+        boolean graciaVencida) {
 
     public static EvidenciaEnColaResponse from(OrganizacionEvidencia evidencia) {
+        return from(evidencia, org.example.acreditacion.VigenciaEvidencia.GRACIA_DIAS_POR_DEFECTO);
+    }
+
+    public static EvidenciaEnColaResponse from(OrganizacionEvidencia evidencia, int graciaDias) {
+        boolean vencida = evidencia.getEstado() == EstadoEvidencia.VENCIDA
+                || (evidencia.getEstado() == EstadoEvidencia.APROBADA && evidencia.isExpirada());
+        LocalDate graciaHasta = vencida
+                ? org.example.acreditacion.VigenciaEvidencia.finDeGracia(evidencia.getValidoHasta(), graciaDias)
+                : null;
         return new EvidenciaEnColaResponse(
                 evidencia.getId(),
                 evidencia.getOrganizacion().getId(),
@@ -53,6 +66,8 @@ public record EvidenciaEnColaResponse(
                 evidencia.getCargadoEn(),
                 evidencia.getRevisadoPor(),
                 evidencia.getRevisadoEn(),
-                evidencia.getObservacion());
+                evidencia.getObservacion(),
+                graciaHasta,
+                graciaHasta != null && LocalDate.now().isAfter(graciaHasta));
     }
 }

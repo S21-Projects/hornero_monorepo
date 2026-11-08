@@ -187,6 +187,10 @@ public class NotificacionService {
             return nivelCambiado(e);
         } else if (evento instanceof EvidenciaObservada e) {
             return evidenciaObservada(e);
+        } else if (evento instanceof EvidenciaVencida e) {
+            return evidenciaVencida(e);
+        } else if (evento instanceof EvidenciaPorVencer e) {
+            return evidenciaPorVencer(e);
         }
         throw new IllegalArgumentException("unhandled event " + evento.getClass().getSimpleName());
     }
@@ -302,6 +306,28 @@ public class NotificacionService {
         }
         return List.of(new Envio("evidencia-observada", NotificacionesEmailTemplates.evidenciaObservada(
                 ref.getEmail(), ref.getNombre(), org.getNombre(), e.requisito(), e.observacion(),
+                panelUrl + "/acreditacion"), "ORGANIZACION", org.getId()));
+    }
+
+    private List<Envio> evidenciaVencida(EvidenciaVencida e) {
+        Organizacion org = organizacion(e.organizacionId());
+        Usuario ref = org.getReferente();
+        if (!notificable(ref)) {
+            return List.of();
+        }
+        return List.of(new Envio("evidencia-vencida", NotificacionesEmailTemplates.evidenciaVencida(
+                ref.getEmail(), ref.getNombre(), org.getNombre(), e.requisito(), e.vencioEl(), e.graciaHasta(),
+                panelUrl + "/acreditacion"), "ORGANIZACION", org.getId()));
+    }
+
+    private List<Envio> evidenciaPorVencer(EvidenciaPorVencer e) {
+        Organizacion org = organizacion(e.organizacionId());
+        Usuario ref = org.getReferente();
+        if (!notificable(ref)) {
+            return List.of();
+        }
+        return List.of(new Envio("evidencia-por-vencer", NotificacionesEmailTemplates.evidenciaPorVencer(
+                ref.getEmail(), ref.getNombre(), org.getNombre(), e.requisito(), e.venceEl(),
                 panelUrl + "/acreditacion"), "ORGANIZACION", org.getId()));
     }
 
