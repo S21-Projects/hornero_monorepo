@@ -64,7 +64,7 @@ Route legend: `delegated` means a bounded worker; trigger in parentheses.
 - [x] C1 BCrypt cost 12 (shared bean: OTP and delivery codes also slower; not measured on the Pi)
 - [x] C2 Sessions: admin revocation, e2e on cookies and revoked refresh (no in-session password change exists; CSP stays report-only in Astro and admin, author decides)
 - [x] C3 Evidence: EXIF removal, configurable size, attachment, admin download event, retention off by default (`5717b41` to `2e75ca4`; reclamo-evidencia keeps EXIF and WebP, reported to author)
-- [ ] C4 Audit: hash chain, daily verification, R2 anchors, DB permissions
+- [x] C4 Audit: per-organization hash chain on `organizacion_evento`, daily verification, anchors off by default, V014 trigger (`200b32f` to `9a04c56`; `actividad` not chained, purged by design)
 - [ ] C5 Backups: retention, evidence copy, dump size, restore drill (needs production authorization)
 - [ ] C6 Dependency audits, dependabot, secret scan (done except human review of 9 gitleaks findings)
 
@@ -73,7 +73,7 @@ Route legend: `delegated` means a bounded worker; trigger in parentheses.
 - [ ] D1 RN-04 evidence expiry. Author decided on 2026-11-08: evidence expires one year after approval. BLOCKED on grace period and level reduction policy
 - [x] D2 RN-08 no double reassignment, concurrency test (`e3aa1e7`; V013 pending on the Pi)
 - [x] D3 RN-05 deterministic tie-break with `ORDER BY` (`5b44586`, `b5732bf`)
-- [ ] D5 E2E for CU-07 to CU-10 and reassignment (proposed to author, not yet confirmed)
+- [ ] D5 E2E for CU-07 to CU-10 and reassignment (proposed to author, not objected)
 - [ ] D4 RF17 and RF18 (BLOCKED: author decides scope after A2)
 
 ### E. Demo
@@ -122,6 +122,9 @@ Route legend: `delegated` means a bounded worker; trigger in parentheses.
   had fixed a defect: replaced files were deleted on the next run instead of N months later. sharp on arm64
   verified by inspection only.
 
+- C4: writer report: `mvn test` 1239 run, 0 failures, 8 skipped; 93 tests on real PostgreSQL 16, 0 failures;
+  BFF 480 passed. REVOKE does not bind an owner or superuser; compose default app role is superuser.
+
 ## Next step
 
-C4 in progress, then E1, D5, C5 local parts, B2, B4. D1 blocked on author policy, D4 on scope. Author must check public access on the R2 bucket in the Cloudflare panel (evidence shares the bucket with public images).
+E1 and D5 in progress, then C5 local parts, B2, B4, full e2e rerun, RESUMEN. D1 blocked on author policy, D4 on scope. Author must check public access on the R2 bucket in the Cloudflare panel (evidence shares the bucket with public images).
