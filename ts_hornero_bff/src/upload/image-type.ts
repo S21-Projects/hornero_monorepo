@@ -36,13 +36,14 @@ export function detectImageType(
 }
 
 export interface DetectedEvidenceType {
-  mimetype: DetectedImageType['mimetype'] | 'application/pdf';
-  ext: DetectedImageType['ext'] | 'pdf';
+  mimetype: 'image/jpeg' | 'image/png' | 'application/pdf';
+  ext: 'jpg' | 'png' | 'pdf';
 }
 
 /**
- * Accreditation evidence additionally accepts PDFs, identified by the `%PDF-` header. Used only
- * by the evidence upload path; banners, profile images and claim evidence stay image-only.
+ * Accreditation evidence accepts exactly JPEG, PNG and PDF (the `%PDF-` header). WebP is not
+ * allowed here even though banners and profile images still take it. Used only by the evidence
+ * upload path.
  */
 export function detectEvidenceType(
   buffer: Buffer | undefined,
@@ -51,7 +52,9 @@ export function detectEvidenceType(
   if (startsWith(buffer, 0, [0x25, 0x50, 0x44, 0x46, 0x2d])) {
     return { mimetype: 'application/pdf', ext: 'pdf' };
   }
-  return detectImageType(buffer);
+  const image = detectImageType(buffer);
+  if (!image || image.ext === 'webp') return null;
+  return image as DetectedEvidenceType;
 }
 
 const ALLOWED_MIMETYPES = ['image/jpeg', 'image/png', 'image/webp'];
@@ -76,22 +79,17 @@ export function imageMimeFilter(
   );
 }
 
-/** Like `imageMimeFilter`, but also lets `application/pdf` through (evidence upload only). */
+const EVIDENCE_MIMETYPES = ['image/jpeg', 'image/png', 'application/pdf'];
+
+/** Accreditation evidence filter: JPEG, PNG or PDF only (no WebP). */
 export function evidenceMimeFilter(
   _req: unknown,
   file: Express.Multer.File,
   cb: FileFilterCallback,
 ): void {
-  if (
-    ALLOWED_MIMETYPES.includes(file.mimetype) ||
-    file.mimetype === 'application/pdf'
-  ) {
+  if (EVIDENCE_MIMETYPES.includes(file.mimetype)) {
     cb(null, true);
     return;
   }
-  cb(
-    new BadRequestException(
-      'Unsupported file type (jpeg, png, or webp images, or PDF only)',
-    ),
-  );
+  cb(new BadRequestException('Unsupported file type (jpeg, png, or pdf only)'));
 }

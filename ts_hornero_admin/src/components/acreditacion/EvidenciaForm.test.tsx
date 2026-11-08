@@ -132,7 +132,7 @@ describe('EvidenciaForm', () => {
     expect(screen.getByText(/archivo listo: acta\.pdf/i)).toBeInTheDocument();
   });
 
-  it('accepts images and PDFs in the file input', async () => {
+  it('accepts only JPEG, PNG and PDF in the file input (no WebP)', async () => {
     const user = userEvent.setup();
     render(<EvidenciaForm organizacionId={5} requisito="NO_DISCRIMINACION" />, { wrapper: Wrapper });
 
@@ -140,7 +140,7 @@ describe('EvidenciaForm', () => {
 
     expect(screen.getByLabelText(/archivo/i)).toHaveAttribute(
       'accept',
-      'image/jpeg,image/png,image/webp,application/pdf',
+      'image/jpeg,image/png,application/pdf',
     );
   });
 

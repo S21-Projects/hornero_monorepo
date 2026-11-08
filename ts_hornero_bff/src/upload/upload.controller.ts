@@ -112,9 +112,7 @@ export class UploadController {
     @Req() req: AuthedRequest,
   ): Promise<{ key: string }> {
     if (!file)
-      throw new BadRequestException(
-        'File is required (jpeg, png, webp, or pdf, max 5 MB)',
-      );
+      throw new BadRequestException('File is required (jpeg, png, or pdf)');
 
     await this.assertSesionActiva(req);
     if (req.user?.tipo !== Role.ADMINISTRADOR) {

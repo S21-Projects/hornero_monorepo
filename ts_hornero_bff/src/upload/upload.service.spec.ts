@@ -132,6 +132,49 @@ describe('UploadService', () => {
     });
   });
 
+  describe('WebP', () => {
+    const WEBP_BYTES = Buffer.concat([
+      Buffer.from('RIFF'),
+      Buffer.from([0x24, 0x00, 0x00, 0x00]),
+      Buffer.from('WEBPVP8 '),
+    ]);
+    const webpFile = {
+      mimetype: 'image/webp',
+      buffer: WEBP_BYTES,
+    } as Express.Multer.File;
+
+    it('is rejected as accreditation evidence', async () => {
+      await expect(
+        service.uploadOrgEvidencia(7, webpFile),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    it('is still accepted for org profile and banner images', async () => {
+      await expect(service.uploadOrgProfile(3, webpFile)).resolves.toMatch(
+        /\.webp$/,
+      );
+      await expect(service.uploadOrgBanner(3, webpFile)).resolves.toMatch(
+        /\.webp$/,
+      );
+    });
+  });
+
+  it('rejects an executable renamed .jpg as evidence, before anything is stored', async () => {
+    const s3Instance = (S3Client as unknown as jest.Mock).mock.results[0]
+      .value as { send: jest.Mock };
+    s3Instance.send.mockClear();
+    const exe = {
+      originalname: 'virus.jpg',
+      mimetype: 'image/jpeg',
+      buffer: Buffer.concat([Buffer.from('MZ'), Buffer.alloc(64, 0)]),
+    } as Express.Multer.File;
+
+    await expect(service.uploadOrgEvidencia(7, exe)).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
+    expect(s3Instance.send).not.toHaveBeenCalled();
+  });
+
   it('never defaults an unknown type to jpg', async () => {
     const file = {
       mimetype: 'application/octet-stream',

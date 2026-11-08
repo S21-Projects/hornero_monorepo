@@ -219,7 +219,7 @@ export function EvidenciaForm({ organizacionId, requisito, onSubmitted, onCancel
             ref={fileInputRef}
             id={`archivo-${requisito}`}
             type="file"
-            accept="image/jpeg,image/png,image/webp,application/pdf"
+            accept="image/jpeg,image/png,application/pdf"
             onChange={(e) => {
               const file = e.target.files?.[0];
               if (file) void handleFile(file);
