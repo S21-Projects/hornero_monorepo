@@ -1,0 +1,50 @@
+version: 2
+updates:
+  - package-ecosystem: "npm"
+    directory: "/ts_hornero_bff"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+  - package-ecosystem: "npm"
+    directory: "/ts_hornero_admin"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+  - package-ecosystem: "npm"
+    directory: "/ts_hornero_astro"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+  - package-ecosystem: "npm"
+    directory: "/e2e"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+  - package-ecosystem: "gomod"
+    directory: "/go_algorithms_worker"
+    schedule:
+      interval: "weekly"
+  - package-ecosystem: "maven"
+    directory: "/jar_hornero_ms"
+    schedule:
+      interval: "weekly"
+  - package-ecosystem: "docker"
+    directory: "/go_algorithms_worker"
+    schedule:
+      interval: "weekly"
+  - package-ecosystem: "docker"
+    directory: "/jar_hornero_ms"
+    schedule:
+      interval: "weekly"
+  - package-ecosystem: "docker"
+    directory: "/ts_hornero_admin"
+    schedule:
+      interval: "weekly"
+  - package-ecosystem: "docker"
+    directory: "/ts_hornero_astro"
+    schedule:
+      interval: "weekly"
+  - package-ecosystem: "docker"
+    directory: "/ts_hornero_bff"
+    schedule:
+      interval: "weekly"
