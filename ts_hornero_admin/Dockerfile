@@ -18,7 +18,7 @@ RUN npm run build
 
 # ---- Runtime stage ----
 # Static build served by nginx with SPA history fallback.
-FROM nginx:1.27-alpine AS runtime
+FROM nginx:1.31-alpine AS runtime
 
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 # The CSP snippet is a template: the official image renders /etc/nginx/templates/* with envsubst
