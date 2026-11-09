@@ -36,9 +36,11 @@ node "Worker de asignaciones (interno, HTTP, sin puerto expuesto)" as asignacion
 cloud "Servicios externos" as externos {
   artifact "Almacenamiento de objetos" as bucket
   artifact "Servicio de correo" as correo
+  artifact "Cartografía" as cartografia
 }
 
 navegador --> proxy : HTTPS
+navegador --> cartografia : HTTPS
 proxy --> sitio
 proxy --> panel
 proxy --> bff
@@ -48,6 +50,7 @@ panel --> bff
 bff --> backend
 backend --> db
 bff --> bucket
+backend --> bucket
 backend --> correo
 sitio --> correo
 

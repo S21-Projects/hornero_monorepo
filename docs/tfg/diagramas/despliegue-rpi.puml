@@ -37,6 +37,10 @@ cloud "Resend" as resendCloud {
   artifact "API de correo" as mailer
 }
 
+cloud "OpenStreetMap" as osm {
+  artifact "Servidor de tiles" as tiles
+}
+
 node "Raspberry Pi 5\n<<dispositivo>>\nRaspberry Pi OS 64-bit\nalmacenamiento: microSD" as pi {
 
   artifact "cloudflared\n<<servicio systemd del host>>" as cloudflared
@@ -68,6 +72,7 @@ node "Raspberry Pi 5\n<<dispositivo>>\nRaspberry Pi OS 64-bit\nalmacenamiento: m
 }
 
 navegador -right-> tunnel : HTTPS 443
+navegador --> tiles : HTTPS
 tunnel --> cloudflared : tunel
 cloudflared --> astro : HTTP localhost
 cloudflared --> admin : HTTP localhost
