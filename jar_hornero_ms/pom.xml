@@ -20,7 +20,7 @@
     <properties>
         <java.version>17</java.version>
         <!-- Claim evidence deletion (S3 API only; R2 in production, MinIO locally). -->
-        <aws.sdk.version>2.55.16</aws.sdk.version>
+        <aws.sdk.version>2.57.10</aws.sdk.version>
     </properties>
 
     <dependencyManagement>
