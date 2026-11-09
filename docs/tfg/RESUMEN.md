@@ -151,8 +151,9 @@ Ningún paso está ejecutado. Orden recomendado.
 4. Comprobar `SELECT count(*) FROM organizacion_evento WHERE hash IS NULL;` = 0.
 5. `make migrate`: hace respaldo y aplica en orden todos los `V*.sql` (idempotentes). Los nuevos son V013 (índice único de `PROPUESTA`; aborta con los ids si hay duplicados), V014 (disparador de solo agregado sobre `organizacion_evento`) y V015 (amplía los CHECK para `VENCIDA` y rellena `valido_hasta` de las evidencias aprobadas sin vencimiento: un año desde la revisión, con piso de 30 días desde la ejecución).
 6. Reiniciar el microservicio y confirmar que el log no contiene `ESQUEMA_PENDIENTE`. En la prueba local con base vacía se observó 0 después de migrar y reiniciar.
-7. Medir: tamaño del dump cifrado, tiempo de un hash BCrypt y de la ronda 500 x 500 en la Pi; ejecutar el simulacro de `prueba-restauracion.md`.
+7. Medir: tamaño del dump cifrado, tiempo de un hash BCrypt y de la ronda 500 x 500 en la Pi; ejecutar el simulacro de `prueba-restauracion.md` con los datos reales y reemplazar o complementar la fila local del 2026-11-09 (sección 5), que valida el procedimiento pero no es evidencia de producción.
 8. Completar `BACKUP_*` (opcionales) y probar `scripts/backup/backup.sh --no-upload` y luego una corrida real; comprobar los prefijos en el bucket.
+9. Guardar `BACKUP_PASSPHRASE` fuera de la Raspberry Pi (por ejemplo, en un gestor de contraseñas). Si se pierde junto con la Pi, los respaldos cifrados no se pueden restaurar.
 
 ### 3. Indicadores y su valor por defecto
 
@@ -179,4 +180,4 @@ Ningún paso está ejecutado. Orden recomendado.
 
 ### 4. Decisiones del autor, fuera de este orden
 
-Extender EXIF y WebP a `reclamo-evidencia/`; revisar los 9 hallazgos de gitleaks; habilitar Dependabot en GitHub; si se graba la demo, usar `make demo-up` local o desplegar la rama.
+Extender EXIF y WebP a `reclamo-evidencia/`; definir el procedimiento de supresión manual; revisar los 9 hallazgos de gitleaks; habilitar Dependabot en GitHub; si se graba la demo, usar `make demo-up` local o desplegar la rama.
