@@ -160,4 +160,19 @@ describe('ActividadPage', () => {
 
     expect(screen.getByText('Todavía no hay actividad registrada')).toBeInTheDocument();
   });
+
+  it('shows the pager with a rows-per-page selector when there is more than one page', () => {
+    vi.mocked(useActividad).mockReturnValue({
+      data: { content: [fila({})], number: 0, size: 10, totalElements: 30, totalPages: 3 },
+      isLoading: false,
+      isError: false,
+      isFetching: false,
+    } as unknown as ReturnType<typeof useActividad>);
+
+    render(<ActividadPage />, { wrapper: Wrapper });
+
+    expect(screen.getByText(/Página 1 de 3 · 30 resultados/)).toBeInTheDocument();
+    expect(screen.getByText('por página')).toBeInTheDocument();
+    expect(vi.mocked(useActividad)).toHaveBeenLastCalledWith(expect.objectContaining({ page: 0, size: 10 }));
+  });
 });

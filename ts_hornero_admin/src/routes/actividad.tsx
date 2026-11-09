@@ -40,6 +40,7 @@ const finDelDia = (d: string) => (d ? new Date(`${d}T23:59:59.999-03:00`).toISOS
 
 export default function ActividadPage() {
   const [page, setPage] = useState(0);
+  const [pageSize, setPageSize] = useState(PAGE_SIZE);
   const [accion, setAccion] = useState('');
   const [resultado, setResultado] = useState('');
   const [usuario, setUsuario] = useState('');
@@ -49,7 +50,7 @@ export default function ActividadPage() {
   const usuarioId = Number(usuario);
   const { data, isLoading, isError, isFetching, refetch } = useActividad({
     page,
-    size: PAGE_SIZE,
+    size: pageSize,
     actorUsuarioId: Number.isInteger(usuarioId) && usuarioId > 0 ? usuarioId : undefined,
     accion: accion || undefined,
     resultado: resultado || undefined,
@@ -171,8 +172,10 @@ export default function ActividadPage() {
             isLoading={isLoading}
             isError={isError}
             onRetry={() => { void refetch(); }}
-            page={data ?? { number: 0, size: PAGE_SIZE, totalElements: 0, totalPages: 0 }}
+            page={data ?? { number: 0, size: pageSize, totalElements: 0, totalPages: 0 }}
             onPageChange={setPage}
+            pageSize={pageSize}
+            onPageSizeChange={(n) => { setPageSize(n); setPage(0); }}
             isFetching={isFetching}
             toolbar={
               <>
