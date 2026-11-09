@@ -1,6 +1,6 @@
 # ---- Build stage ----
 # Vite 8 requires Node >= 20.19 || >= 22 — use 22 to match the rest of the stack.
-FROM node:22-alpine AS builder
+FROM node:26-alpine AS builder
 
 WORKDIR /app
 
