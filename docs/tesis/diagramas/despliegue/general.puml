@@ -45,9 +45,13 @@ cloud "Servicios externos" as externos {
   node "Servicio de correo" as correo {
     artifact "API de correo" as mailer
   }
+  node "Servicio de cartografía" as cartografia {
+    artifact "Tiles del mapa" as tiles
+  }
 }
 
 navegador --> proxy : HTTPS
+navegador --> tiles : HTTPS
 
 proxy --> astro : HTTP
 proxy --> admin : HTTP
@@ -59,6 +63,7 @@ ms --> db : JDBC
 ms --> worker : HTTP interno
 
 bff -right-> bucket : S3
+ms --> bucket : S3 (borrado de evidencias)
 astro --> mailer : HTTPS
 ms -right-> mailer : HTTPS
 
