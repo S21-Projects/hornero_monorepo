@@ -61,13 +61,21 @@ Interpretación:
 - Cadena `ROTA`: el verificador encontró un evento alterado; la restauración no es confiable hasta compararla con las anclas publicadas (`docs/tfg/seguridad-c4.md`).
 - Un arranque del microservicio sobre una base anterior a la cadena de hashes sella primero los eventos heredados y luego verifica, por lo que en ese caso "íntegra" solo significa "consistente desde el relleno".
 
-## 5. Resultados (VACÍA: no se ejecutó)
+## 5. Resultados
 
 | Fecha (UTC) | Archivo | Tamaño (bytes) | Duración (s) | Conteos restaurado/esperado | Cadena de hashes | Resultado |
 |---|---|---|---|---|---|---|
-| | | | | | | |
+| 2026-11-09 20:50 | hornero-20261109T205038Z.dump.enc | 549680 (dump sin cifrar: 549657) | respaldo 1; restauración <1 (`pg_restore`); total 10 | 9/9 tablas controladas iguales | dump anterior a la cadena; verificador OK (2734 eventos en 2731 cadenas, 0 pendientes de sellar) | `RESULT: OK` (código de salida 0) |
 
-Datos a registrar además de la fila: quién ejecutó el simulacro, versión de la imagen de PostgreSQL y del microservicio, y si se detuvo `ms` para igualar los conteos.
+Datos de la ejecución del 2026-11-09:
+
+- Ejecutó: el autor (Luciano), en su equipo de desarrollo.
+- Entorno: local (`.env.local`, datos de demostración), no producción. Valida el procedimiento, no el estado de la base de la Raspberry Pi; queda pendiente repetirlo allí.
+- Respaldo: `backup.sh --no-upload` con un bucket ficticio y una passphrase aleatoria descartable, solo para ejercitar el cifrado. No se subió nada.
+- Imágenes: `postgres:16-alpine` (servidor 16.15) y `hornero-tfg-ms:latest` para el verificador.
+- `ms`: no estaba en ejecución (solo se levantó `postgres` con `--no-deps`), por lo que los conteos no cambiaron entre el respaldo y la verificación.
+- Cadena: la base de origen es anterior a la cadena de hashes, así que el resultado significa "consistente desde el relleno", no integridad histórica (ver sección 4).
+- Los archivos de la prueba (volcado, copia cifrada, passphrase) se eliminaron después de registrar el resultado.
 
 ## 6. Prueba del procedimiento en un entorno local (no es un resultado)
 
