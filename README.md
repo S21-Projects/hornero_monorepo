@@ -1,156 +1,233 @@
-# Hornero — Setup & Deploy Guide
+# Hornero
 
-> **Note:** This project started as a polyrepo (each service had its own git repository).
-> It was consolidated into this monorepo on 2026-06-08.
-> The individual git histories were not migrated — only the source code was carried over.
+Plataforma web para organizar donaciones de alimentos hacia comedores y merenderos comunitarios de
+Argentina. Es el código del Trabajo Final de Grado "Hornero" (sistema de acreditación, asignación
+priorizada y trazabilidad de donaciones).
 
-Hornero is a monorepo composed of five services:
+- Las **organizaciones** (comedores, merenderos, copas de leche) publican sus **necesidades**.
+- Los **donantes** realizan **donaciones**, de forma directa a una organización o a un fondo común.
+- Los **administradores** validan y acreditan a las organizaciones por niveles (N1, N2, N3) a partir de
+  evidencias auditadas, y conservan un legajo con bitácora inmutable por organización.
+- Las donaciones al fondo común se asignan mediante **rondas**: un trabajador en Go (`go_algorithms_worker`)
+  resuelve un problema de asignación (algoritmo húngaro) con puntajes de cercanía, necesidad, espera y
+  cumplimiento. Detalle en [`docs/worker-asignacion.md`](docs/worker-asignacion.md).
 
-| Service | Stack | Port |
-|---------|-------|------|
-| `jar_hornero_ms` | Spring Boot 3.2.5 / Java 17 | 8081 |
-| `ts_hornero_bff` | NestJS 11 / Node 20 | 3001 |
-| `ts_hornero_astro` | Astro (SSR) — public site | 4321 |
-| `ts_hornero_admin` | React/Vite SPA — panel for all authenticated roles | 5173 |
-| `postgres` | PostgreSQL 16 | 5432 |
+El sitio público de producción está en <https://elhornero.org>.
 
-> `ts_hornero_app` (the original Next.js frontend) is deprecated, superseded by
-> `ts_hornero_astro` + `ts_hornero_admin`. It is no longer referenced by the
-> Makefile or docker-compose, but the code is still in the repo for now.
+> Idioma: este README está en español. Los demás README y `CLAUDE.md` están en inglés. Los términos de
+> dominio (organizaciones, necesidades, donaciones, ronda, acreditación, legajo) se mantienen en español,
+> igual que en el código.
 
 ---
 
-## Architecture
+## Arquitectura
 
 ```
-Browser
-  │
-  ├──► ts_hornero_astro  :4321   (public site — Astro SSR)
-  │
-  ├──► ts_hornero_admin  :5173   (admin/referente/donante panel — React/Vite SPA)
-  │
-  ▼
-ts_hornero_bff  :3001   (NestJS BFF — auth proxy + aggregation)
-  │
-  ▼
-jar_hornero_ms  :8081   (Spring Boot — domain logic, JWT issuer)
-  │
-  ▼
-PostgreSQL      :5432
+Navegador
+  ├──► ts_hornero_astro  :4321   sitio público anónimo (Astro SSR)
+  └──► ts_hornero_admin  :5173   panel autenticado, todos los roles (React/Vite SPA)
+              │
+              ▼
+       ts_hornero_bff    :3001   BFF (NestJS): proxy de autenticación y agregación
+              │
+              ▼
+       jar_hornero_ms    :8081   microservicio (Spring Boot): lógica de dominio, emisor de JWT
+         │          │
+         ▼          └──► go_algorithms_worker :8090   (interno, sin puerto en el host)
+     PostgreSQL :5432          solo se invoca desde el MS en POST /api/rondas
 ```
 
-Images (org banners/profile pictures) are stored in an S3-compatible bucket
-(Cloudflare R2 in production) — the BFF reads/writes it server-side, the
-browser never touches it directly. See `.env.example` for the `AWS_*` vars.
+- El microservicio es la autoridad real de autorización; el BFF y el panel aplican controles adicionales.
+- El worker es interno: no publica puerto en el host y solo lo llama el MS por HTTP
+  (`WORKER_URL=http://worker:8090`). Si está caído, el MS arranca y atiende todo lo demás; solo la
+  ronda responde `503`.
+- Las imágenes y evidencias se guardan en un bucket compatible con S3 (Cloudflare R2 en producción,
+  MinIO en local). Solo el BFF y el MS lo acceden, desde el servidor.
+
+## Servicios
+
+| Servicio | Tecnología | Puerto | README |
+|---|---|---|---|
+| `jar_hornero_ms` | Spring Boot 3.2.5, Java 17, Maven | 8081 | [README](jar_hornero_ms/README.md) |
+| `ts_hornero_bff` | NestJS 11, Node 20 | 3001 | [README](ts_hornero_bff/README.md) |
+| `ts_hornero_admin` | React 19, Vite 8, TypeScript 6 | 5173 | [README](ts_hornero_admin/README.md) |
+| `ts_hornero_astro` | Astro 7 (SSR), Node 22 | 4321 | [README](ts_hornero_astro/README.md) |
+| `go_algorithms_worker` | Go 1.26 | 8090 (interno) | [README](go_algorithms_worker/README.md) |
+| `postgres` | PostgreSQL 16 | 5432 (solo loopback) | — |
+
+Las versiones provienen de `pom.xml`, `package.json`, `go.mod` y los `Dockerfile` de cada servicio.
+
+## Mapa del repositorio
+
+| Ruta | Contenido |
+|---|---|
+| `jar_hornero_ms/`, `ts_hornero_bff/`, `ts_hornero_admin/`, `ts_hornero_astro/`, `go_algorithms_worker/` | Los cinco servicios de aplicación |
+| `ts_hornero_app/` | **En desuso**: frontend original en Next.js. El código sigue en el repositorio pero no está referenciado por el `Makefile` ni por `docker-compose.yml`. No se desarrolla sobre él |
+| `e2e/` | Pruebas de extremo a extremo a nivel API, escenarios manuales y datos de demostración ([README](e2e/README.md)) |
+| `scripts/` | `demo/` (stack de demostración), `sql/` (cambios de esquema idempotentes), `backup/` (respaldo y simulacro de restauración), `mapa/` (datos del mapa de vulnerabilidad), `seed.ts` |
+| `deploy/systemd/` | Unidades systemd de respaldo y copia de evidencias para la Raspberry Pi |
+| `docs/` | Documentación técnica; `docs/tfg/` y `docs/tesis/` agrupan el material de la tesis |
+| `bruno/` | Colección de [Bruno](https://www.usebruno.com/) para probar el BFF a mano ([README](bruno/README.md)) |
+| `claude_design/` | Maquetas JSX/CSS de referencia. **No** están conectadas a la aplicación |
+| `openspec/`, `odd/` | Artefactos de proceso de desarrollo (especificaciones y listas de tareas) |
+| `docker-compose.yml`, `Makefile` | Orquestación del stack y atajos de comandos |
 
 ---
 
-## Seeded Credentials
+## Inicio rápido para evaluadores: stack de demostración
 
-Demo accounts exist **only with `SEED_DEMO_DATA=true`** — which `make up-local` sets for you, so
-the local stack and e2e keep them. Production (`make up` / the Pi) creates no demo data.
+La forma más corta de ver el sistema funcionando es el stack de demostración. Es un proyecto de Docker
+Compose propio (`hornero-demo`), con volúmenes propios, MinIO local, secretos aleatorios generados en
+`.env.demo` (ignorado por git) y datos ficticios. No lee `.env` ni `.env.local`, no usa servicios externos
+y se niega a operar contra un destino que no sea `localhost`.
 
-| Role | Email | Password |
-|------|-------|----------|
-| Admin | admin@hornero.ar | Admin123! |
-| Referente | referente@hornero.ar | Ref123! |
-| Donante | donante@hornero.ar | Don123! |
+### Requisitos previos
 
-Production needs a real super admin: set `SUPER_ADMIN_EMAIL` and `SUPER_ADMIN_PASSWORD`
-(no defaults — the MS refuses to start without both). The password must follow the NIST
-SP 800-63B policy (15–64 characters, not common, no email/name/"hornero"). An existing admin with
-that email is never modified. See `docs/deploy-rpi-cloudflare.md` (A.4-ter) for retiring the
-legacy `@hornero.ar` demo accounts.
+- Docker con Compose V2 y `make`.
+- `openssl` (el script lo usa para generar los secretos) y Node.js 20 o superior (la carga de datos usa `tsx` desde `e2e/`).
+- Los puertos 3001, 8081, 5173, 4321 y 5432 del equipo deben estar libres: si hay otro stack en marcha, deténgalo antes (`make down`).
 
-To test real flows with real emails, use Gmail plus-addressing
-(`usuario+donante@gmail.com`, `usuario+referente@gmail.com`) — all land in one inbox. Local and
-e2e keep `MAIL_LOG_ONLY=true` (no mail is sent).
-
----
-
-## Local Dev
-
-Docker only — no local Java or Node required. Two modes, both full-stack
-including Postgres:
-
-### `make up` — prod-parity
-
-Uses the root `.env` as-is. Whatever bucket/DB it points to is what you get —
-use this to test against the real thing before deploying.
-
-**Prerequisites:** Docker 24+ with Compose V2
+### Pasos
 
 ```bash
-cp .env.example .env
-# Edit .env: set a real JWT_SECRET (min 32 random chars) — see below
-
-make up
+make demo-up      # primera vez: genera .env.demo, construye y levanta el stack, aplica scripts/sql/V*.sql
+make demo-seed    # carga los datos ficticios (unos 2 minutos: el registro tiene límite de tasa) e imprime los accesos
 ```
 
-| Service | URL |
-|---------|-----|
-| Astro (public site) | http://localhost:4321 |
-| Admin panel | http://localhost:5173 |
-| BFF | http://localhost:3001 |
-| BFF Swagger | http://localhost:3001/api/docs |
-| MS | http://localhost:8081 |
-| MS Swagger | http://localhost:8081/swagger-ui.html |
+Direcciones:
+
+| Qué | URL |
+|---|---|
+| Sitio público y mapa | <http://localhost:4321> |
+| Panel (todos los roles) | <http://localhost:5173> |
+| BFF y su Swagger | <http://localhost:3001>, <http://localhost:3001/api/docs> |
+
+### Accesos ficticios
+
+Todas las cuentas usan la misma contraseña, que existe solo dentro del stack de demostración
+(definida en `scripts/demo/demo.sh`): `Luna-Pampa-Rio-2026!`
+
+| Rol | Correo | Detalle |
+|---|---|---|
+| Administrador | `admin.demo@example.com` | audita evidencias, ejecuta rondas |
+| Referente | `referente.naranjos@example.com` | Comedor Los Naranjos (N3) |
+| Referente | `referente.sol@example.com` | Merendero Sol de Barrio (N2) |
+| Referente | `referente.molino@example.com` | Copa de Leche El Molino (N1, con evidencia N2 pendiente y observada) |
+| Donante | `donante.ana@example.com` | — |
+| Donante | `donante.luis@example.com` | — |
+
+### Otros comandos de la demostración
 
 ```bash
-make down        # stop
-docker compose down -v   # stop + delete DB volume
+make demo-verify EMAIL=nuevo@example.com   # marca como verificada una cuenta registrada durante la demo
+                                           # (el correo OTP nunca se envía: el stack usa MAIL_LOG_ONLY)
+make demo-reset   # vuelve al estado inicial: borra los volúmenes del proyecto demo y vuelve a cargar los datos
+make demo-down    # detiene el stack conservando los datos
 ```
 
-### `make up-local` — fast local, no real bucket
-
-Same stack, but with dummy secrets and a local MinIO container instead of R2 —
-never touches the real production bucket. Good for quick mockups/UI work.
-
-```bash
-cp .env.example .env.local
-# In .env.local: set MAIL_LOG_ONLY=true (never send real email from local) and
-# empty the AWS_* lines (the stack falls back to the local MinIO bucket).
-# `make up-local` turns on SEED_DEMO_DATA, so SUPER_ADMIN_* can stay empty.
-
-make up-local
-```
+`make demo-reset` pide escribir el nombre del proyecto antes de borrar. El guion sugerido para recorrer la
+demostración y el modelo de seguridad completo están en la sección "Demo for recording" de
+[`e2e/README.md`](e2e/README.md).
 
 ---
 
-## Environment Variables Reference
+## Desarrollo local
 
-One root `.env` file is shared by every service in `docker-compose.yml`. Full
-reference with comments: `.env.example`.
+Solo con Docker: no hay modo de desarrollo nativo con recarga en caliente. Hay dos modos de stack completo.
 
-| Variable | Used by | Description |
-|----------|---------|-------------|
-| `JWT_SECRET` | MS + BFF | HS256 signing secret — must match in both services (min 32 chars) |
-| `RESEND_API_KEY`, `OTP_FROM_EMAIL` | MS | OTP email delivery (Resend). Missing either → MS fails at startup unless `MAIL_LOG_ONLY=true` |
-| `MAIL_LOG_ONLY` | MS | `true` logs OTP codes instead of sending (local dev only; default `false`) |
-| `SEED_DEMO_DATA` | MS | `true` seeds demo users/orgs/necesidades/donaciones (set by `make up-local`; default `false`) |
-| `SUPER_ADMIN_EMAIL`, `SUPER_ADMIN_PASSWORD` | MS | Required (no defaults) unless `SEED_DEMO_DATA=true`. Password: NIST policy, ≥15 chars |
-| `SERVER_PORT` | MS | HTTP port (default 8081) |
-| `FRONTEND_URL` | BFF | Primary allowed CORS origin |
-| `CORS_ORIGINS` | BFF | Full CORS allowlist — every browser origin calling the BFF with credentials |
-| `NODE_ENV` | BFF, Astro | `production` sets `sameSite=none; secure` auth cookies (requires HTTPS) |
-| `PUBLIC_BFF_URL` | Astro (build arg) | BFF URL baked into the SSR bundle — rebuild required to change |
-| `PUBLIC_SPA_URL` | Astro (build arg) | Admin panel URL baked into the SSR bundle |
-| `VITE_BFF_URL` | Admin (build arg) | BFF URL baked into the SPA bundle |
-| `RESEND_API_KEY`, `CONTACTO_FROM_EMAIL`, `CONTACTO_TO_EMAIL` | Astro | Contact form mail delivery (Resend). Missing any → logged, not sent |
-| `TURNSTILE_SECRET` | Astro | Server-side half of the contact form's bot check. Empty → gate is inert |
-| `AWS_ENDPOINT_URL`, `AWS_S3_BUCKET_NAME`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_DEFAULT_REGION` | BFF | S3-compatible bucket for images (Cloudflare R2 in prod) |
-| `DB_NAME`, `DB_USERNAME`, `DB_PASSWORD` | MS, Postgres | Database credentials (`DB_HOST`/`DB_PORT` are hardcoded to `postgres:5432` in Docker) |
-| `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD` | Docker `postgres` service | Must match `DB_NAME`/`DB_USERNAME`/`DB_PASSWORD` |
+```bash
+cp .env.example .env.local   # en .env.local: MAIL_LOG_ONLY=true y vaciar las variables AWS_* (se usa MinIO local)
+make up-local                # stack rápido: MinIO local y SEED_DEMO_DATA=true (cuentas y datos de ejemplo)
 
-Env file template: `.env.example`. Copy it to `.env` (prod-parity, `make up`) or to `.env.local`
-(fast local, `make up-local`; see above).
+cp .env.example .env         # completar JWT_SECRET (mínimo 32 caracteres aleatorios), ver el archivo
+make up                      # equivalente a producción: usa .env tal cual
+```
+
+`make down` detiene el stack (`docker compose down -v` borra también el volumen de la base). Todas las
+variables están documentadas con comentarios en [`.env.example`](.env.example); los archivos `.env*` reales
+están ignorados por git y no deben subirse.
+
+Con `make up-local` la base queda con cuentas de ejemplo (`SEED_DEMO_DATA=true`), que son las que usan las
+pruebas e2e. Para el recorrido de evaluación se recomienda el stack de demostración de la sección anterior.
+
+### Otros atajos del `Makefile`
+
+| Comando | Qué hace |
+|---|---|
+| `make seed` | ejecuta `scripts/seed.ts` contra el BFF |
+| `make backup` | `pg_dump` verificado de la base en ejecución hacia `backups/` |
+| `make restore-check` | restaura un respaldo en un contenedor Postgres descartable y lo verifica |
+| `make migrate` | respaldo y luego aplica `scripts/sql/V*.sql` en orden (idempotente) |
+| `make coverage` | cobertura de líneas de los cuatro servicios con pruebas |
+| `make escenario ESC=fondo-comun N=5` | deja el stack local en un estado conocido para pruebas manuales |
+| `make mapa-datos`, `make importar-renacom`, `make importar-poblacion`, `make mapa-radios` | datos del mapa de vulnerabilidad (ver [`scripts/mapa/README.md`](scripts/mapa/README.md)) |
 
 ---
 
-## Deploy
+## Pruebas
 
-Production runs on a Raspberry Pi behind a Cloudflare Tunnel — full runbook,
-including the R2 bucket decision tree and backup guidance, in
-[`docs/deploy-rpi-cloudflare.md`](docs/deploy-rpi-cloudflare.md).
+No hay un comando agregado en la raíz; se ejecutan por servicio desde su directorio:
 
-Railway is no longer used for hosting.
+| Servicio | Comando |
+|---|---|
+| `jar_hornero_ms` | `mvn test` |
+| `ts_hornero_bff` | `npm test` (Jest); `npm run test:e2e` para las pruebas e2e del propio BFF |
+| `ts_hornero_admin` | `npm test` (Vitest); `npm run lint`; `npm run build` ejecuta además `tsc -b` |
+| `go_algorithms_worker` | `go test ./...` |
+| `ts_hornero_astro` | no tiene pruebas automáticas; `npm run build` verifica que compile |
+
+`make coverage` corre las suites unitarias con cobertura y muestra un resumen por servicio (informe sin
+umbrales; ver [`docs/validacion-calidad.md`](docs/validacion-calidad.md)).
+
+**Pruebas e2e a nivel API** (`make e2e`): ejercen el flujo completo de donaciones contra el stack real
+(BFF, MS, Postgres, worker). Requieren que el stack ya esté en marcha con datos de ejemplo, es decir,
+`make up-local` en otra terminal; no funcionan contra `make up` (sin cuentas de ejemplo) ni contra el
+stack de demostración (usa otras cuentas). Detalles en [`e2e/README.md`](e2e/README.md).
+
+---
+
+## Documentación de la tesis
+
+| Ubicación | Propósito |
+|---|---|
+| [`docs/tfg/RESUMEN.md`](docs/tfg/RESUMEN.md) | Resumen de la Entrega 4: tareas, estado y archivos |
+| [`docs/tfg/reglas-negocio.md`](docs/tfg/reglas-negocio.md) | Reglas de negocio extraídas del código |
+| [`docs/tfg/inventario.md`](docs/tfg/inventario.md) | Inventario técnico del sistema |
+| [`docs/tfg/anexo-d-modelo-datos.md`](docs/tfg/anexo-d-modelo-datos.md) | Anexo D: diccionario de datos y modelo entidad-relación |
+| [`docs/tfg/anexo-e-pruebas.md`](docs/tfg/anexo-e-pruebas.md) | Anexo E: evidencia de pruebas y cobertura |
+| [`docs/tfg/seguridad-c1.md`](docs/tfg/seguridad-c1.md) a [`seguridad-c5.md`](docs/tfg/seguridad-c5.md) | Seguridad: hash de contraseñas, sesiones, evidencias, auditoría, respaldo |
+| [`docs/tfg/seguridad-dependencias.md`](docs/tfg/seguridad-dependencias.md) | Auditoría de dependencias y secretos |
+| [`docs/tfg/prueba-restauracion.md`](docs/tfg/prueba-restauracion.md) | Procedimiento y registro del simulacro de restauración |
+| [`docs/tfg/cronograma-real.md`](docs/tfg/cronograma-real.md) | Cronograma real a partir del historial de git |
+| [`docs/tfg/revision-word.md`](docs/tfg/revision-word.md) | Revisión del documento Word contra el código |
+| [`docs/tfg/diagramas/`](docs/tfg/diagramas/) | Diagramas PlantUML y PNG: ER, despliegue, secuencia de reasignación |
+| [`docs/tesis/diagramas/`](docs/tesis/diagramas/) | Diagramas de la tesis por tipo: `arquitectura`, `casos-uso`, `despliegue`, `estructura`, `secuencia`, `ui` |
+| [`docs/tesis/documento.md`](docs/tesis/documento.md) | Borrador del documento de tesis |
+
+Otras referencias técnicas en `docs/`: [`worker-asignacion.md`](docs/worker-asignacion.md) (algoritmo de
+ronda), [`mapa-vulnerabilidad.md`](docs/mapa-vulnerabilidad.md),
+[`security-access-token-httponly.md`](docs/security-access-token-httponly.md),
+[`politica-datos-y-respaldo.md`](docs/politica-datos-y-respaldo.md),
+[`db-changes.md`](docs/db-changes.md).
+
+---
+
+## Despliegue
+
+Producción se ejecuta en una Raspberry Pi 5 con Docker Compose, detrás de un túnel de Cloudflare, con
+imágenes en Cloudflare R2. Los servicios solo escuchan en loopback; el túnel (un `cloudflared` en el
+host) apunta a esos puertos. El procedimiento completo, el modelo de respaldo y las unidades systemd
+están en [`docs/deploy-rpi-cloudflare.md`](docs/deploy-rpi-cloudflare.md). Los secretos de producción no
+forman parte del repositorio: se configuran en el archivo `.env` del servidor a partir de
+[`.env.example`](.env.example).
+
+Railway ya no se utiliza.
+
+## Historial
+
+El proyecto comenzó como varios repositorios independientes y se unificó en este monorepo el 2026-06-08.
+Los historiales individuales no se migraron; solo se trasladó el código fuente.
+
+## Licencia
+
+[MIT](LICENSE), Copyright (c) 2026 S21-Projects.

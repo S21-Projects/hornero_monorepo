@@ -14,6 +14,8 @@ make e2e             # or: cd e2e && npm install && npm test
 - `E2E_ADMIN_EMAIL` / `E2E_ADMIN_PASSWORD` override the seeded admin (`admin@hornero.ar`).
 - Needs the demo data: run it against `make up-local` (it sets `SEED_DEMO_DATA=true`); a production-like
   stack (`make up`) has no demo accounts.
+- It does not work against the demo stack (`make demo-up`), which has different fictional accounts, nor
+  against `make up` (no demo accounts). The demo stack has its own section below.
 - Uses the demo accounts seeded by the MS `DataInitializer` (donante, referente, referente2,
   referente3, admin) and the seeded needs/articulos. It does not reset the DB: every run creates
   fresh donations tagged with a unique marker and never relies on absolute counts.

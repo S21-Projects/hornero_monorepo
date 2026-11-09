@@ -25,6 +25,29 @@ Every script in this directory MUST be:
 - **Reversible in principle** — even if no automated rollback script exists, the corresponding
   `docs/db-changes.md` entry must document the rollback statement.
 
+## Scripts
+
+All are idempotent and transactional. `make migrate` (repository root) backs up the database first and
+then applies every `V*.sql` in order; the manual procedure below applies one script.
+
+| Script | Purpose |
+|---|---|
+| `V001__donaciones_necesidad_id_nullable.sql` | allow fondo comun donations without a necesidad |
+| `V002__rondas_ejecutada_por_nullable.sql` | allow scheduled (AUTOMATICA) rondas, which have no executing user |
+| `V003__optimistic_version_columns.sql` | initialise the `@Version` columns of donaciones, necesidades, organizaciones |
+| `V004__actividad_inmutable.sql` | database-level immutability of the activity log |
+| `V005__donaciones_estado_desde_backfill.sql` | backfill `donaciones.estado_desde` |
+| `V006__actividad_purga_email_intento.sql` | let the retention job clear `actividad.email_intento` after 90 days |
+| `V007__organizacion_origen.sql` | external-registry provenance of organizaciones (ReNaCoM import) |
+| `V008__reclamo_eventos.sql` | widen the event type CHECK for claim approved/rejected events |
+| `V009__reporte_eventos.sql` | widen the event type CHECK for report confirmed/discarded events |
+| `V010__organizaciones_origen_id_unique_dedup.sql` | drop the redundant unique constraint on `organizaciones.origen_id` |
+| `V011__poblacion_radio.sql` | population per census radio, denominator of the live ronda vulnerability |
+| `V012__organizaciones_lat_lng_idx.sql` | index for the public map viewport query |
+| `V013__asignaciones_una_activa_por_donacion.sql` | at most one active (PROPUESTA) assignment per donation |
+| `V014__organizacion_evento_inmutable.sql` | database-level immutability of the accreditation event log |
+| `V015__evidencia_vencida.sql` | evidence expiry state (VENCIDA) and its backfill |
+
 ## Run procedure
 
 1. **Back up first.** From the repo root, on the target host:

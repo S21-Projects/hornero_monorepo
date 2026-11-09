@@ -46,7 +46,15 @@ make down             # stop docker; `docker compose down -v` to also drop the D
 make e2e              # API-level e2e tests (e2e/) against an already-running `make up-local` stack
 make escenario ESC=fondo-comun N=5  # leave the local stack in a known state for manual UI testing (no ESC lists them; see e2e/README.md)
 make seed             # run scripts/seed.ts against the BFF (creates seed users/orgs)
-make backup           # gzipped pg_dump of the running postgres into backups/ (gitignored)
+make backup           # verified pg_dump (custom format) of the running postgres into backups/ (gitignored),
+                      # via scripts/backup/backup.sh
+make restore-check    # restore the newest dump into a throwaway postgres and sanity-check it (never touches the real DB)
+make coverage         # report-only line coverage for ms, bff, admin and worker (see docs/validacion-calidad.md)
+make demo-up          # thesis demo stack: dedicated compose project `hornero-demo`, generated .env.demo, local MinIO
+make demo-seed        # load the fictional demo data (about 2 min) and print the logins
+make demo-verify EMAIL=x@example.com  # mark a demo account verified (stands in for the OTP email)
+make demo-reset       # wipe the demo project's own volumes and reseed
+make demo-down        # stop the demo stack, keep its data
 make migrate          # backup, then apply every scripts/sql/V*.sql in order (idempotent);
                       # add ENV_FILE=.env.local for the local stack, restart ms afterwards
 ```
@@ -151,9 +159,12 @@ present (checked via `document.cookie`, since `access_token` itself is unreadabl
 
 ## MS persistence notes
 
-- `spring.jpa.hibernate.ddl-auto=update` — schema is auto-migrated from entities; there are no
-  migration files. Be deliberate about entity changes against a shared DB.
-- `DataInitializer` seeds the admin and demo accounts on startup (see README for credentials).
+- `spring.jpa.hibernate.ddl-auto=update` — schema is auto-migrated from entities. There is no
+  Flyway/Liquibase; what `ddl-auto` cannot do (relax NOT NULL, widen CHECK constraints, triggers, indexes)
+  lives in the hand-written idempotent `scripts/sql/V001`..`V015` (`make migrate`). Be deliberate about
+  entity changes against a shared DB.
+- `DataInitializer` seeds the admin and demo accounts on startup when `SEED_DEMO_DATA=true`
+  (credentials: `e2e/README.md`). Without it, `SUPER_ADMIN_EMAIL`/`SUPER_ADMIN_PASSWORD` are required.
 - The healthcheck used by docker-compose hits the public springdoc endpoint `/v3/api-docs`
   (no actuator dependency) — keep that endpoint public if you touch `SecurityConfig`.
 
@@ -188,4 +199,13 @@ enable it locally.
   truth for every service. `.env.local` (`make up-local`) is a copy of it with
   `MAIL_LOG_ONLY=true`. In practice the team's `.env.local` uses the production R2 bucket
   (`hornero-images`); blank `AWS_*` would fall back to local MinIO. There is no separate template.
+- `scripts/demo/demo.sh` — guarded demo stack behind `make demo-*` (own compose project, never reads
+  `.env`/`.env.local`); data comes from `e2e/scenarios/demo-seed.ts`. See `e2e/README.md`.
+- `scripts/backup/` — `backup.sh`, `restore-check.sh`, `evidence-copy.sh` behind `make backup` /
+  `make restore-check` and the systemd units in `deploy/systemd/`.
+- `scripts/mapa/` — vulnerability-map data pipeline (`make mapa-datos`, `importar-renacom`,
+  `importar-poblacion`, `mapa-radios`); see `scripts/mapa/README.md`.
+- `docs/tfg/` and `docs/tesis/` — thesis material (business rules, inventory, security annexes, test
+  evidence, diagrams in `docs/tfg/diagramas/` and `docs/tesis/diagramas/`). Spanish; read-only reference
+  for feature work.
 - `docs/deploy-rpi-cloudflare.md` — production deploy runbook (Raspberry Pi + Cloudflare Tunnel).
