@@ -13,7 +13,7 @@ interface ImageDropZoneProps {
 
 const ACCEPTED = ['image/jpeg', 'image/png', 'image/webp'];
 
-/** Click-or-drag image uploader. Ported from ts_hornero_app's ImageDropZone (donor-facing org edit form). */
+/** Click-or-drag image uploader. */
 export function ImageDropZone({
   label,
   hint = 'JPG, PNG o WEBP · Máx. 5 MB',
