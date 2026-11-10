@@ -1,0 +1,52 @@
+@startsalt
+' Hornero — Wireframe (salt): vista imprimible del legajo de acreditación.
+' Cubre CU-10 (exportar legajo). Accesible al referente sobre su propia
+' organización y al administrador sobre cualquiera (decisiones-posteriores.md, D-01).
+' Boceto de baja fidelidad: no es una captura de la aplicación en ejecución;
+' el mecanismo de acreditación progresiva está diseñado en
+' openspec/changes/acreditacion-progresiva/ y no aplicado aún al código.
+
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Helvetica
+skinparam defaultFontSize 12
+
+{
+  {^"Legajo de acreditación" | [Imprimir / Exportar a PDF]}
+  --
+  "* La evidencia de este legajo es declarada por la organización y auditada
+  por un administrador. No es verificada de forma independiente por el sistema."
+  --
+  {
+    Comedor Los Horneros
+    Nivel actual: **N2 — Operativa** (vigente desde 03/2026)
+    Dirección: Bv. San Juan 1234, Córdoba
+  }
+  --
+  {
+    Estado de los 8 requisitos del catálogo
+    {#
+      Requisito | Nivel | Estado
+      Servicio regular gratuito | N1 | Aprobado
+      No discriminación | N1 | Aprobado
+      Sede inscripta individualmente | N1 | Aprobado
+      Condiciones sanitarias adecuadas | N2 | Observado
+      Sin kiosco en el mismo domicilio | N2 | Aprobado (vencido)
+      Radio 50 km Banco de Alimentos | N2 | Pendiente de auditoría
+      Personería jurídica o aval | N3 | Faltante
+      Acepta auditorías sin aviso | N3 | Faltante
+    }
+  }
+  --
+  {
+    Historial cronológico de eventos
+    {#
+      Fecha | Hecho | Rol del actor
+      12/03/2026 | Organización registrada | Sistema
+      20/03/2026 | Nivel elevado N0 -> N1 | Administrador
+      02/06/2026 | Evidencia presentada: condiciones sanitarias | Referente
+      05/06/2026 | Requisito observado: "falta foto del depósito" | Administrador
+      18/07/2026 | Nivel elevado N1 -> N2 | Administrador
+    }
+  }
+}
+@endsalt

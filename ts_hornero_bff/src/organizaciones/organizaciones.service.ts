@@ -1,8 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import { HttpService } from '@nestjs/axios';
 import { ConfigService } from '@nestjs/config';
+import { buildQuery } from '../common/build-query.js';
 import { CrearOrganizacionDto } from './dto/crear-organizacion.dto.js';
 import { ActualizarOrganizacionDto } from './dto/actualizar-organizacion.dto.js';
+import { ActualizarInfoPublicaDto } from './dto/actualizar-info-publica.dto.js';
+import { AsignarReferenteDto } from './dto/asignar-referente.dto.js';
 
 @Injectable()
 export class OrganizacionesService {
@@ -28,7 +31,7 @@ export class OrganizacionesService {
     return data;
   }
 
-  async miOrganizacion(accessToken: string) {
+  async misOrganizaciones(accessToken: string) {
     const { data } = await this.httpService.axiosRef.get(
       `${this.msUrl}/api/organizaciones/mia`,
       { headers: this.authHeaders(accessToken) },
@@ -36,26 +39,79 @@ export class OrganizacionesService {
     return data;
   }
 
-  async listarValidadas(accessToken?: string) {
-    const url = `${this.msUrl}/api/organizaciones`;
-    try {
-      const { data } = await this.httpService.axiosRef.get(
-        url,
-        accessToken ? { headers: this.authHeaders(accessToken) } : {},
-      );
-      return data;
-    } catch (err: any) {
-      const status = err?.response?.status;
-      const body = JSON.stringify(err?.response?.data);
-      throw new Error(`MS ${status} on GET ${url}: ${body}`);
-    }
-  }
-
-  async listarPendientes(accessToken: string) {
+  async listarTodas(
+    accessToken: string,
+    params: {
+      sinReferente?: string;
+      referenteIds?: string;
+      q?: string;
+      page?: string;
+      size?: string;
+      sort?: string;
+    } = {},
+  ) {
     const { data } = await this.httpService.axiosRef.get(
-      `${this.msUrl}/api/organizaciones/pendientes`,
+      `${this.msUrl}/api/organizaciones/todas${buildQuery(params)}`,
       { headers: this.authHeaders(accessToken) },
     );
+    return data;
+  }
+
+  async asignarReferente(
+    id: number,
+    dto: AsignarReferenteDto,
+    accessToken: string,
+  ) {
+    const { data } = await this.httpService.axiosRef.patch(
+      `${this.msUrl}/api/organizaciones/${id}/referente`,
+      dto,
+      { headers: this.authHeaders(accessToken) },
+    );
+    return data;
+  }
+
+  async listarValidadas(
+    accessToken?: string,
+    page?: string,
+    size?: string,
+    sort?: string,
+  ) {
+    const url = `${this.msUrl}/api/organizaciones${buildQuery({ page, size, sort })}`;
+    const { data } = await this.httpService.axiosRef.get(
+      url,
+      accessToken ? { headers: this.authHeaders(accessToken) } : {},
+    );
+    return data;
+  }
+
+  async listarPendientes(
+    accessToken: string,
+    page?: string,
+    size?: string,
+    sort?: string,
+  ) {
+    const url = `${this.msUrl}/api/organizaciones/pendientes${buildQuery({ page, size, sort })}`;
+    const { data } = await this.httpService.axiosRef.get(url, {
+      headers: this.authHeaders(accessToken),
+    });
+    return data;
+  }
+
+  async mapa() {
+    const { data } = await this.httpService.axiosRef.get(
+      `${this.msUrl}/api/organizaciones/mapa`,
+    );
+    return data;
+  }
+
+  async mapaZona(
+    minLat?: string,
+    maxLat?: string,
+    minLng?: string,
+    maxLng?: string,
+  ) {
+    const url = `${this.msUrl}/api/organizaciones/mapa/zona${buildQuery({ minLat, maxLat, minLng, maxLng })}`;
+    const { data } = await this.httpService.axiosRef.get(url);
     return data;
   }
 
@@ -84,10 +140,45 @@ export class OrganizacionesService {
     return data;
   }
 
-  async actualizar(id: number, dto: ActualizarOrganizacionDto, accessToken: string) {
+  async actualizar(
+    id: number,
+    dto: ActualizarOrganizacionDto,
+    accessToken: string,
+  ) {
     const { data } = await this.httpService.axiosRef.patch(
       `${this.msUrl}/api/organizaciones/${id}`,
       dto,
+      { headers: this.authHeaders(accessToken) },
+    );
+    return data;
+  }
+
+  async actualizarInfoPublica(
+    id: number,
+    dto: ActualizarInfoPublicaDto,
+    accessToken: string,
+  ) {
+    const { data } = await this.httpService.axiosRef.patch(
+      `${this.msUrl}/api/organizaciones/${id}/info-publica`,
+      dto,
+      { headers: this.authHeaders(accessToken) },
+    );
+    return data;
+  }
+
+  async aprobarInfoPublica(id: number, accessToken: string) {
+    const { data } = await this.httpService.axiosRef.patch(
+      `${this.msUrl}/api/organizaciones/${id}/info-publica/aprobar`,
+      {},
+      { headers: this.authHeaders(accessToken) },
+    );
+    return data;
+  }
+
+  async rechazarInfoPublica(id: number, accessToken: string) {
+    const { data } = await this.httpService.axiosRef.patch(
+      `${this.msUrl}/api/organizaciones/${id}/info-publica/rechazar`,
+      {},
       { headers: this.authHeaders(accessToken) },
     );
     return data;

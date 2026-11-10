@@ -1,0 +1,211 @@
+@startuml
+skinparam shadowing false
+skinparam linetype ortho
+skinparam defaultFontName Helvetica
+skinparam defaultFontSize 12
+skinparam class {
+  BackgroundColor #FFFFFF
+  BorderColor #444444
+  ArrowColor #444444
+}
+hide empty members
+
+enum NivelAcreditacion {
+  N0 : REGISTRADA
+  N1 : IDENTIFICADA
+  N2 : OPERATIVA
+  N3 : ACREDITADA
+}
+enum RequisitoAcreditacion {
+  SERVICIO_REGULAR_GRATUITO
+  NO_DISCRIMINACION
+  SEDE_INSCRIPTA_INDIVIDUALMENTE
+  CONDICIONES_SANITARIAS_ADECUADAS
+  SIN_KIOSCO_MISMO_DOMICILIO
+  RADIO_50KM_BANCO_ALIMENTOS
+  PERSONERIA_JURIDICA_O_AVAL
+  ACEPTA_AUDITORIAS_SIN_AVISO
+  --
+  - nivelExigido : NivelAcreditacion
+}
+enum EstadoEvidencia {
+  PENDIENTE
+  APROBADA
+  OBSERVADA
+  REEMPLAZADA
+  VENCIDA
+}
+enum TipoEvidencia {
+  DECLARACION
+  FOTO
+  DOCUMENTO
+}
+enum TipoEventoOrganizacion {
+  MIGRACION_INICIAL
+  ORGANIZACION_REGISTRADA
+  REGISTRO_RECHAZADO
+  EVIDENCIA_ADJUNTADA
+  EVIDENCIA_REEMPLAZADA
+  REQUISITO_APROBADO
+  REQUISITO_OBSERVADO
+  NIVEL_ELEVADO
+  NIVEL_REDUCIDO
+  REFERENTE_REASIGNADO
+  IMPORTADA_RENACOM
+  RECLAMO_APROBADO
+  RECLAMO_RECHAZADO
+  REPORTE_CONFIRMADO
+  REPORTE_DESCARTADO
+  EVIDENCIA_VENCIDA
+}
+enum CategoriaAlimento {
+  NO_PERECEDERO
+  REFRIGERADO
+  CONGELADO
+  --
+  - nivelMinimo : NivelAcreditacion
+  --
+  + {static} masExigente(categorias : Collection<CategoriaAlimento>) : CategoriaAlimento
+}
+enum UnidadArticulo {
+  KG
+  PAQUETE
+  LITRO
+  UNIDAD
+}
+enum EstadoOrganizacion {
+  PENDIENTE
+  APROBADA
+  RECHAZADA
+  SIN_RECLAMAR
+  INACTIVA
+}
+enum TipoOrganizacion {
+  COMEDOR
+  COPITA
+  ROPERO
+  MERENDERO
+  OTRO
+}
+enum EstadoNecesidad {
+  ABIERTA
+  EN_PROGRESO
+  CUMPLIDA
+  VENCIDA
+}
+enum PrioridadNecesidad {
+  URGENTE
+  MEDIA
+  NORMAL
+}
+enum EstadoDonacion {
+  OFRECIDA
+  ACEPTADA
+  RECHAZADA
+  EN_CAMINO
+  PENDIENTE_CONFIRMACION
+  ENTREGADA
+  CANCELADA
+  --
+  + isTerminal() : boolean
+}
+enum ModalidadDonacion {
+  DIRECTA
+  FONDO_COMUN
+}
+enum EstadoRonda {
+  COMPLETADA
+  FALLIDA
+}
+enum EstadoAsignacion {
+  PROPUESTA
+  ACEPTADA
+  RECHAZADA
+  CANCELADA
+}
+
+' Arrange the enums in a compact grid for an A4 portrait page
+NivelAcreditacion -[hidden]right- RequisitoAcreditacion
+RequisitoAcreditacion -[hidden]right- EstadoEvidencia
+EstadoEvidencia -[hidden]right- TipoEvidencia
+NivelAcreditacion -[hidden]down- TipoEventoOrganizacion
+TipoEventoOrganizacion -[hidden]right- CategoriaAlimento
+CategoriaAlimento -[hidden]right- UnidadArticulo
+UnidadArticulo -[hidden]right- EstadoOrganizacion
+TipoEventoOrganizacion -[hidden]down- TipoOrganizacion
+TipoOrganizacion -[hidden]right- EstadoNecesidad
+EstadoNecesidad -[hidden]right- PrioridadNecesidad
+PrioridadNecesidad -[hidden]right- EstadoDonacion
+TipoOrganizacion -[hidden]down- ModalidadDonacion
+ModalidadDonacion -[hidden]right- EstadoRonda
+EstadoRonda -[hidden]right- EstadoAsignacion
+
+enum OrigenRonda {
+  MANUAL
+  AUTOMATICA
+}
+enum OrigenOrganizacion {
+  PLATAFORMA
+  RENACOM
+}
+enum RolReclamo {
+  RESPONSABLE
+  VOLUNTARIO
+  INTEGRANTE
+}
+enum EstadoReclamo {
+  PENDIENTE
+  APROBADO
+  RECHAZADO
+}
+enum MotivoReporte {
+  INACTIVO
+  DATOS_INCORRECTOS
+  DUPLICADO
+  OTRO
+}
+enum EstadoReporte {
+  PENDIENTE
+  CONFIRMADO
+  DESCARTADO
+}
+enum TipoActor {
+  ADMINISTRADOR
+  REFERENTE
+  DONANTE
+  SISTEMA
+  ANONIMO
+}
+enum ResultadoActividad {
+  EXITO
+  FALLO
+}
+enum TipoActividad {
+  DONACION_CREADA
+  DONACION_DECISION
+  DONACION_ESTADO_ACTUALIZADO
+  DONACION_CANCELADA
+  DONACION_ELIMINADA
+  DONACION_OVERRIDE
+  DONACION_VENCIDA
+  DONACION_PROPUESTA_VENCIDA
+  DONACIONES_ESTANCADAS_PROCESADAS
+  ENTREGA_CODIGO_GENERADO
+  ENTREGA_CODIGO_VERIFICACION
+  ENTREGA_CODIGO_BLOQUEO
+  RONDA_EJECUTADA
+  ...
+  (subconjunto vinculado a donaciones)
+}
+
+ModalidadDonacion -[hidden]down- OrigenRonda
+OrigenRonda -[hidden]right- OrigenOrganizacion
+OrigenOrganizacion -[hidden]right- RolReclamo
+RolReclamo -[hidden]right- EstadoReclamo
+OrigenRonda -[hidden]down- MotivoReporte
+MotivoReporte -[hidden]right- EstadoReporte
+EstadoReporte -[hidden]right- TipoActor
+TipoActor -[hidden]right- ResultadoActividad
+ResultadoActividad -[hidden]right- TipoActividad
+
+@enduml

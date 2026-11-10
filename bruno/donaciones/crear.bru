@@ -13,6 +13,7 @@ post {
 headers {
   Content-Type: application/json
   Cookie: access_token={{accessToken}}
+  Idempotency-Key: {{$guid}}
 }
 
 body:json {

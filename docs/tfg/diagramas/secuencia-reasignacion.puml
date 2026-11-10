@@ -1,0 +1,72 @@
+@startuml
+!include ../../tesis/diagramas/secuencia/_estilo.iuml
+
+title Reasignación de donaciones del fondo común (propuesta sin respuesta y siguiente ronda)
+
+actor "Administrador" as Admin
+participant "Proceso diario\n(00:15 y al iniciar)" as Job
+participant "Backend" as Back
+database "PostgreSQL" as DB
+participant "Worker\n(HTTP interno)" as Worker
+
+== Proceso diario: propuestas vencidas ==
+
+Job -> DB : Buscar donaciones con una asignación PROPUESTA\ncreada hace más de 3 días
+DB --> Job : Identificadores de donaciones
+loop por cada donación, en su propia transacción
+  Job -> Back : Expirar propuesta (donación, fecha de corte)
+  activate Back
+  Back -> DB : SELECT donación FOR UPDATE
+  Back -> DB : Leer la asignación PROPUESTA más reciente
+  alt la donación ya no está OFRECIDA en el fondo común con necesidad,\no la propuesta ya no está vencida
+    Back --> Job : Sin cambios
+  else la propuesta sigue vigente y vencida
+    Back -> DB : Quitar la necesidad de la donación\n(sigue OFRECIDA, vuelve al fondo)
+    Back -> DB : Asignación pasa a RECHAZADA,\ncon fecha de resolución
+    Back -> DB : Registrar actividad con actor SISTEMA\n(propuesta vencida, sin respuesta del referente)
+    Back --> Job : Propuesta expirada
+  end
+  deactivate Back
+end
+alt conflicto de versión en una donación
+  Job -> Job : Omitir esa donación hasta la próxima corrida
+end
+
+== Siguiente ronda ==
+
+Admin -> Back : Ejecutar ronda
+activate Back
+Back -> DB : pg_try_advisory_lock (sesión)
+alt otra ronda en curso
+  Back --> Admin : 409 RONDA_EN_CURSO
+else lock obtenido
+  group transacción de lectura
+    Back -> DB : Leer donaciones OFRECIDA del fondo común sin necesidad\n(incluye las devueltas) y necesidades candidatas
+    Back -> DB : Leer las organizaciones con asignación RECHAZADA\npor cada donación
+  end
+  Back -> Worker : Donaciones, candidatas y exclusiones
+  alt el worker no responde o responde algo inválido
+    Worker --> Back : Error
+    Back -> DB : Registrar la ronda como fallida
+    Back --> Admin : 503 o 502
+  else respuesta válida
+    Worker --> Back : Asignaciones propuestas
+    group transacción de escritura
+      Back -> DB : Registrar la ronda
+      loop por cada asignación propuesta por el worker
+        Back -> DB : SELECT donación FOR UPDATE
+        alt la donación ya no está OFRECIDA sin necesidad,\no la necesidad ya no es elegible
+          Back -> Back : Contar como descartada
+        else el estado sigue siendo el leído
+          Back -> DB : Asignar la necesidad a la donación
+          Back -> DB : Insertar asignación PROPUESTA con su puntaje
+        end
+      end
+    end
+    Back --> Admin : Ronda completada
+  end
+  Back -> DB : pg_advisory_unlock
+end
+deactivate Back
+
+@enduml

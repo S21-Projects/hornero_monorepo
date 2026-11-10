@@ -1,0 +1,38 @@
+@startsalt
+' Hornero — Wireframe (salt): mapa público de organizaciones y necesidades.
+' Cubre CU-04 (consultar necesidades en el mapa). Acceso anónimo, sin cuenta.
+' Boceto de baja fidelidad: no es una captura de la aplicación en ejecución.
+
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Helvetica
+skinparam defaultFontSize 12
+
+{
+  {^"Hornero" | "Buscar organización o barrio..." | [Iniciar sesión]}
+  --
+  {
+    {
+      Mapa de Córdoba Capital
+      .
+      ()  Comedor Los Horneros — 3 necesidades abiertas
+      .
+      ()  Merendero San José — 1 necesidad abierta
+      .
+      ()  Copita de Leche Norte — sin necesidades abiertas
+      .
+      "(cada punto del mapa se corresponde con una fila de esta lista)"
+    } | {
+      Necesidades abiertas cerca tuyo
+      {#
+        Organización | Necesidad | Prioridad
+        Comedor Los Horneros | Leche en polvo | Urgente
+        Comedor Los Horneros | Arroz y fideos | Media
+        Merendero San José | Yerba y azúcar | Normal
+      }
+      [Ver detalle de la organización]
+    }
+  }
+  --
+  "Sólo se muestran organizaciones aprobadas y sus necesidades abiertas."
+}
+@endsalt

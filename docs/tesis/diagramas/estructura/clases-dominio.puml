@@ -1,0 +1,296 @@
+@startuml
+skinparam shadowing false
+skinparam linetype ortho
+skinparam defaultFontName Helvetica
+skinparam defaultFontSize 12
+skinparam class {
+  BackgroundColor #FFFFFF
+  BorderColor #444444
+  ArrowColor #444444
+}
+hide empty members
+
+package "Usuarios" {
+  abstract class Usuario {
+    - id : Long
+    - nombre : String
+    - email : String
+    - password : String
+    - activo : boolean
+    - emailVerificado : boolean
+  }
+
+  class Administrador
+  class Referente
+  class Donante
+
+  Usuario <|-- Administrador
+  Usuario <|-- Referente
+  Usuario <|-- Donante
+}
+
+package "Organización y acreditación" {
+  class Organizacion {
+    - id : Long
+    - nombre : String
+    - slug : String
+    - descripcion : String
+    - tipo : TipoOrganizacion
+    - direccion : String
+    - latitud : Double
+    - longitud : Double
+    - validada : Boolean
+    - estado : EstadoOrganizacion
+    - nivel : NivelAcreditacion
+    - origen : OrigenOrganizacion
+    - origenId : String
+    - asistentesDeclarados : Integer
+    - codigoRadio : String
+    - profileImageKey : String
+    - bannerKey : String
+    - aceptaDonaciones : Boolean
+    - sitioWebUrl : String
+    - donacionDirectaUrl : String
+    - aceptaDonacionesPendiente : Boolean
+    - sitioWebUrlPendiente : String
+    - donacionDirectaUrlPendiente : String
+    - infoPublicaPendienteEn : LocalDateTime
+  }
+
+  class OrganizacionEvidencia {
+    - id : Long
+    - requisito : RequisitoAcreditacion
+    - tipoEvidencia : TipoEvidencia
+    - objectKey : String
+    - declaracion : String
+    - validoDesde : LocalDate
+    - validoHasta : LocalDate
+    - estado : EstadoEvidencia
+    - cargadoPor : Long
+    - cargadoEn : Instant
+    - revisadoPor : Long
+    - revisadoEn : Instant
+    - observacion : String
+    - archivoEliminadoAt : Instant
+    - recordatorioVencimientoAt : Instant
+    --
+    + {static} nueva(...) : OrganizacionEvidencia
+    + isExpirada() : boolean
+  }
+
+  class OrganizacionEvento {
+    - id : Long
+    - tipo : TipoEventoOrganizacion
+    - ocurridoEn : Instant
+    - actorUsuarioId : Long
+    - actorTipo : String
+    - nivelAntes : NivelAcreditacion
+    - nivelDespues : NivelAcreditacion
+    - requisito : RequisitoAcreditacion
+    - evidenciaId : Long
+    - motivo : String
+    - payload : String
+    - prevHash : String
+    - hash : String
+    --
+    + sellar(prevHash, hash) : void
+    + {static} de(...) : OrganizacionEvento
+    + {static} deEvidencia(...) : OrganizacionEvento
+  }
+
+  class AcreditacionReplay {
+    + {static} reconstruir(eventos : List<OrganizacionEvento>) : NivelAcreditacion
+  }
+
+  class ReclamoOrganizacion {
+    - id : Long
+    - rol : RolReclamo
+    - telefono : String
+    - mensaje : String
+    - evidenciaKeys : List<String>
+    - estado : EstadoReclamo
+    - motivoRechazo : String
+    - creadoEn : Instant
+    - resueltoEn : Instant
+  }
+
+  class ReporteOrganizacion {
+    - id : Long
+    - motivo : MotivoReporte
+    - detalle : String
+    - estado : EstadoReporte
+    - notaResolucion : String
+    - creadoEn : Instant
+    - resueltoEn : Instant
+  }
+}
+
+package "Catálogo de artículos" {
+  class Articulo {
+    - id : Long
+    - nombre : String
+    - categoria : CategoriaAlimento
+    - unidad : UnidadArticulo
+    - activo : boolean
+  }
+}
+
+package "Necesidades y donaciones" {
+  class Necesidad {
+    - id : Long
+    - descripcion : String
+    - prioridad : PrioridadNecesidad
+    - estado : EstadoNecesidad
+    - fechaPublicacion : LocalDate
+    - fechaVencimiento : LocalDate
+    - categoria : CategoriaAlimento
+  }
+
+  class NecesidadArticulo {
+    - id : Long
+  }
+
+  class Donacion {
+    - id : Long
+    - modalidad : ModalidadDonacion
+    - categoria : CategoriaAlimento
+    - latitud : Double
+    - longitud : Double
+    - fechaOferta : LocalDate
+    - fechaEntrega : LocalDate
+    - estado : EstadoDonacion
+    - estadoDesde : Instant
+    - observaciones : String
+    - confirmadaDonanteEn : Instant
+    - confirmadaReferenteEn : Instant
+    - overrideMotivo : String
+    - overrideAdminId : Long
+    - overrideEn : Instant
+    --
+    + getModalidadEfectiva() : ModalidadDonacion
+  }
+
+  class DonacionLinea {
+    - id : Long
+    - cantidad : BigDecimal
+  }
+}
+
+package "Verificación" {
+  class CodigoVerificacion {
+    - id : Long
+    - email : String
+    - codigoHash : String
+    - expiraEn : Instant
+    - intentos : int
+    - usado : boolean
+    - creadoEn : Instant
+  }
+}
+
+package "Entrega" {
+  class CodigoEntrega {
+    - id : Long
+    - emisorId : Long
+    - emisorParte : Parte
+    - codigoHash : String
+    - expiraEn : Instant
+    - intentos : int
+    - usado : boolean
+    - creadoEn : Instant
+  }
+}
+
+package "Asignación" {
+  class Ronda {
+    - id : Long
+    - ejecutadaEn : Instant
+    - finalizadaEn : Instant
+    - ejecutadaPor : Long
+    - origen : OrigenRonda
+    - estado : EstadoRonda
+    - error : String
+    - versionContrato : int
+    - donacionesConsideradas : int
+    - candidatosConsiderados : int
+    - asignadas : int
+    - sinAsignar : int
+    - descartadas : int
+    - scoreTotal : double
+    - pesoDeficit : double
+    - pesoUrgencia : double
+    - pesoProximidad : double
+    - pesoEspera : double
+    - pesoCumplimiento : double
+  }
+
+  class Asignacion {
+    - id : Long
+    - estado : EstadoAsignacion
+    - creadaEn : Instant
+    - resueltaEn : Instant
+    - score : double
+    - costoOportunidad : double
+    - distanciaKm : double
+    - terminoDeficit : double
+    - terminoUrgencia : double
+    - terminoProximidad : double
+    - terminoEspera : double
+    - terminoCumplimiento : Double
+    - deficitFuente : String
+    - codigoRadio : String
+  }
+
+  class PoblacionRadio {
+    - codigoRadio : String
+    - habitantes : int
+  }
+}
+
+package "Trazabilidad" {
+  class Actividad {
+    - id : Long
+    - ocurridoEn : Instant
+    - actorUsuarioId : Long
+    - actorTipo : TipoActor
+    - accion : TipoActividad
+    - resultado : ResultadoActividad
+    - entidadTipo : String
+    - entidadId : Long
+    - detalle : String
+    - antes : String
+    - despues : String
+    - motivo : String
+    - ip : String
+    - emailIntento : String
+  }
+}
+
+Organizacion "1" *-- "0..*" Necesidad : publica >
+Necesidad "0..1" --> "0..*" Donacion : recibe >
+OrganizacionEvidencia "0..*" --> "1" Organizacion : corresponde a >
+OrganizacionEvento "0..*" --> "1" Organizacion : refiere a >
+Organizacion "0..*" --> "0..1" Administrador : validadoPor >
+Organizacion "0..*" --> "0..1" Referente : referente >
+Donacion "0..*" --> "1" Donante : donante >
+AcreditacionReplay ..> OrganizacionEvento : usa >
+Donacion "1" *-- "0..*" CodigoEntrega : emite >
+Ronda "1" *-- "0..*" Asignacion : resuelve >
+Asignacion "0..*" --> "1" Donacion : propone >
+Asignacion "0..*" --> "1" Necesidad : propone >
+Asignacion "0..*" --> "1" Organizacion : candidata >
+Necesidad "1" *-- "1..*" NecesidadArticulo : solicita >
+NecesidadArticulo "0..*" --> "1" Articulo : refiere a >
+Donacion "1" *-- "1..*" DonacionLinea : contiene >
+DonacionLinea "0..*" --> "1" Articulo : refiere a >
+ReclamoOrganizacion "0..*" --> "1" Organizacion : reclama >
+ReclamoOrganizacion "0..*" --> "1" Referente : referente >
+ReclamoOrganizacion "0..*" --> "0..1" Administrador : resueltoPor >
+ReporteOrganizacion "0..*" --> "1" Organizacion : reporta >
+ReporteOrganizacion "0..*" --> "0..1" Organizacion : organizacionDuplicada >
+ReporteOrganizacion "0..*" --> "1" Usuario : reportante >
+ReporteOrganizacion "0..*" --> "0..1" Administrador : resueltoPor >
+Organizacion "0..*" ..> "0..1" PoblacionRadio : codigoRadio >
+Actividad "0..*" ..> "0..1" Donacion : entidadId (entidadTipo = DONACION) >
+
+@enduml

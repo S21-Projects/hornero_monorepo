@@ -1,0 +1,108 @@
+@startuml
+hide circle
+skinparam linetype ortho
+skinparam shadowing false
+skinparam dpi 150
+skinparam defaultFontName Helvetica
+skinparam defaultFontSize 12
+skinparam entity {
+  BackgroundColor #FFFFFF
+  BorderColor #444444
+  FontColor #111111
+}
+skinparam ArrowColor #444444
+
+entity "usuarios" as usuarios {
+  * id : BIGINT <<PK>>
+}
+entity "organizaciones" as organizaciones {
+  * id : BIGINT <<PK>>
+}
+
+entity "organizacion_evidencia" as evidencia {
+  * id : BIGINT <<PK>>
+  --
+  * organizacion_id : BIGINT <<FK>>
+  * requisito : VARCHAR <<enum RequisitoAcreditacion>>
+  * tipo_evidencia : VARCHAR <<enum TipoEvidencia>>
+  object_key : VARCHAR (N)
+  declaracion : VARCHAR(2000) (N)
+  valido_desde : DATE (N)
+  valido_hasta : DATE (N)
+  * estado : VARCHAR <<enum EstadoEvidencia>>
+  * cargado_por : BIGINT <<sin FK>>
+  * cargado_en : TIMESTAMP
+  revisado_por : BIGINT (N) <<sin FK>>
+  revisado_en : TIMESTAMP (N)
+  observacion : VARCHAR(1000) (N)
+  archivo_eliminado_at : TIMESTAMP (N)
+  recordatorio_vencimiento_at : TIMESTAMP (N)
+}
+
+entity "organizacion_evento" as evento {
+  * id : BIGINT <<PK>>
+  --
+  * organizacion_id : BIGINT <<FK>>
+  * tipo : VARCHAR <<enum TipoEventoOrganizacion>>
+  * ocurrido_en : TIMESTAMP
+  actor_usuario_id : BIGINT (N) <<sin FK>>
+  actor_tipo : VARCHAR (N)
+  nivel_antes : VARCHAR (N) <<enum NivelAcreditacion>>
+  nivel_despues : VARCHAR (N) <<enum NivelAcreditacion>>
+  requisito : VARCHAR (N) <<enum RequisitoAcreditacion>>
+  evidencia_id : BIGINT (N) <<sin FK>>
+  motivo : VARCHAR(1000) (N)
+  payload : TEXT (N)
+  prev_hash : VARCHAR(64) (N)
+  hash : VARCHAR(64) (N)
+}
+
+entity "reclamos_organizacion" as reclamos {
+  * id : BIGINT <<PK>>
+  --
+  * version : BIGINT
+  * organizacion_id : BIGINT <<FK>>
+  * referente_id : BIGINT <<FK>>
+  * rol : VARCHAR <<enum RolReclamo>>
+  * telefono : VARCHAR(40)
+  mensaje : VARCHAR(1000) (N)
+  * estado : VARCHAR <<enum EstadoReclamo>>
+  motivo_rechazo : VARCHAR(1000) (N)
+  resuelto_por_id : BIGINT <<FK>> (N)
+  * creado_en : TIMESTAMP
+  resuelto_en : TIMESTAMP (N)
+}
+
+entity "reclamo_organizacion_evidencias" as reclamoEv {
+  * reclamo_id : BIGINT <<FK>>
+  * object_key : VARCHAR
+}
+
+entity "reportes_organizacion" as reportes {
+  * id : BIGINT <<PK>>
+  --
+  * version : BIGINT
+  * organizacion_id : BIGINT <<FK>>
+  * reportante_id : BIGINT <<FK>>
+  * motivo : VARCHAR <<enum MotivoReporte>>
+  organizacion_duplicada_id : BIGINT <<FK>> (N)
+  detalle : VARCHAR(1000) (N)
+  * estado : VARCHAR <<enum EstadoReporte>>
+  nota_resolucion : VARCHAR(1000) (N)
+  resuelto_por_id : BIGINT <<FK>> (N)
+  * creado_en : TIMESTAMP
+  resuelto_en : TIMESTAMP (N)
+}
+
+organizaciones ||--o{ evidencia : "presenta"
+organizaciones ||--o{ evento : "registra"
+organizaciones ||--o{ reclamos : "es reclamada en"
+usuarios ||--o{ reclamos : "reclama\n(referente_id)"
+usuarios |o--o{ reclamos : "resuelve\n(resuelto_por_id)"
+reclamos ||--o{ reclamoEv : "adjunta"
+organizaciones ||--o{ reportes : "es reportada en"
+usuarios ||--o{ reportes : "reporta\n(reportante_id)"
+usuarios |o--o{ reportes : "resuelve\n(resuelto_por_id)"
+organizaciones |o--o{ reportes : "duplicada de"
+
+@enduml

@@ -1,0 +1,91 @@
+@startuml
+skinparam shadowing false
+skinparam defaultFontName Helvetica
+skinparam ArrowColor #444444
+skinparam nodesep 25
+skinparam ranksep 45
+skinparam node {
+  BackgroundColor #FFFFFF
+  BorderColor #666666
+}
+skinparam database {
+  BackgroundColor #FFFFFF
+  BorderColor #666666
+}
+skinparam cloud {
+  BackgroundColor #FAFAFA
+  BorderColor #888888
+}
+
+node "Dispositivo del usuario" as cliente {
+  artifact "Navegador web" as navegador
+}
+
+cloud "Cloudflare" as cf {
+  node "Red perimetral (edge)" as edge {
+    artifact "DNS + TLS + Tunnel\nelhornero.org\npanel.elhornero.org\napi.elhornero.org" as tunnel
+  }
+  node "Cloudflare R2" as r2 {
+    artifact "Bucket hornero-images" as bucket
+  }
+}
+
+cloud "Resend" as resendCloud {
+  artifact "API de correo" as mailer
+}
+
+cloud "OpenStreetMap" as osm {
+  artifact "Servidor de tiles" as tiles
+}
+
+node "Raspberry Pi 5\n<<dispositivo>>\nRaspberry Pi OS 64-bit" as pi {
+
+  artifact "cloudflared\n<<servicio systemd>>" as cloudflared
+
+  node "Docker Engine\ndocker compose" as docker {
+
+    node "Contenedor: astro" as cAstro {
+      artifact "Astro SSR\n:4321" as astro
+    }
+    node "Contenedor: admin" as cAdmin {
+      artifact "React SPA\n:5173" as admin
+    }
+    node "Contenedor: bff" as cBff {
+      artifact "NestJS\n:3001" as bff
+    }
+    node "Contenedor: ms" as cMs {
+      artifact "Spring Boot\n:8081" as ms
+    }
+    node "Contenedor: worker" as cWorker {
+      artifact "Go\nsin puerto expuesto" as worker
+    }
+    node "Contenedor: postgres" as cPg {
+      database "PostgreSQL 16\n:5432" as db
+      artifact "hornero_pgdata\n<<volumen>>" as vol
+    }
+  }
+}
+
+navegador --> tunnel : HTTPS 443
+navegador --> tiles : HTTPS
+
+tunnel --> cloudflared : túnel
+cloudflared --> astro : HTTP
+cloudflared --> admin : HTTP
+cloudflared --> bff : HTTP
+
+astro --> bff : HTTP
+bff --> ms : HTTP + JWT
+ms --> db : JDBC
+ms --> worker : HTTP interno
+db --> vol : monta
+
+bff --> bucket : S3
+ms --> bucket : S3 (borrado de evidencias)
+ms --> mailer : HTTPS
+astro --> mailer : HTTPS
+
+cliente -[hidden]down- cf
+cf -[hidden]down- pi
+
+@enduml

@@ -1,4 +1,13 @@
-import { IsEnum, IsNumber, IsOptional, IsString } from 'class-validator';
+import {
+  IsBoolean,
+  IsEnum,
+  IsNumber,
+  IsOptional,
+  IsString,
+  IsUrl,
+  MaxLength,
+  ValidateIf,
+} from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { TipoOrganizacion } from './crear-organizacion.dto.js';
 
@@ -8,7 +17,10 @@ export class ActualizarOrganizacionDto {
   @IsString()
   nombre?: string;
 
-  @ApiPropertyOptional({ example: 'COMEDOR', enum: Object.values(TipoOrganizacion) })
+  @ApiPropertyOptional({
+    example: 'COMEDOR',
+    enum: Object.values(TipoOrganizacion),
+  })
   @IsOptional()
   @IsEnum(TipoOrganizacion)
   tipo?: TipoOrganizacion;
@@ -42,4 +54,25 @@ export class ActualizarOrganizacionDto {
   @IsOptional()
   @IsString()
   bannerKey?: string;
+
+  @ApiPropertyOptional({ example: false })
+  @IsOptional()
+  @IsBoolean()
+  aceptaDonaciones?: boolean;
+
+  // Referente writes route through the MS pending-approval snapshot.
+  // '' is the explicit clear sentinel and must skip the @IsUrl check.
+  @ApiPropertyOptional({ example: 'https://miorganizacion.org' })
+  @IsOptional()
+  @MaxLength(500)
+  @ValidateIf((_o, v) => v !== '')
+  @IsUrl({ protocols: ['http', 'https'], require_protocol: true })
+  sitioWebUrl?: string;
+
+  @ApiPropertyOptional({ example: 'https://mpago.la/miorganizacion' })
+  @IsOptional()
+  @MaxLength(500)
+  @ValidateIf((_o, v) => v !== '')
+  @IsUrl({ protocols: ['http', 'https'], require_protocol: true })
+  donacionDirectaUrl?: string;
 }

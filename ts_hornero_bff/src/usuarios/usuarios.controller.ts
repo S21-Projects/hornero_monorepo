@@ -2,9 +2,12 @@ import {
   Body,
   Controller,
   Get,
+  HttpCode,
   Param,
   ParseIntPipe,
   Patch,
+  Post,
+  Query,
   Req,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -13,6 +16,7 @@ import type { Request } from 'express';
 import { Roles } from '../auth/decorators/roles.decorator.js';
 import { Role } from '../common/enums/role.enum.js';
 import { UsuariosService } from './usuarios.service.js';
+import { ToggleActivoDto } from './dto/toggle-activo.dto.js';
 
 @ApiTags('usuarios')
 @Controller('usuarios')
@@ -27,9 +31,27 @@ export class UsuariosController {
 
   @Roles(Role.ADMINISTRADOR)
   @Get()
-  @ApiOperation({ summary: 'List all users (ADMINISTRADOR only)' })
-  findAll(@Req() req: Request) {
-    return this.usuariosService.findAll(this.getToken(req));
+  @ApiOperation({
+    summary:
+      'List users, paged and filterable by tipo / activo / q (ADMINISTRADOR only)',
+  })
+  findAll(
+    @Req() req: Request,
+    @Query('tipo') tipo?: string,
+    @Query('activo') activo?: string,
+    @Query('q') q?: string,
+    @Query('page') page?: string,
+    @Query('size') size?: string,
+    @Query('sort') sort?: string,
+  ) {
+    return this.usuariosService.findAll(this.getToken(req), {
+      tipo,
+      activo,
+      q,
+      page,
+      size,
+      sort,
+    });
   }
 
   @Roles(Role.ADMINISTRADOR)
@@ -37,9 +59,31 @@ export class UsuariosController {
   @ApiOperation({ summary: 'Toggle user active status (ADMINISTRADOR only)' })
   toggleActivo(
     @Param('id', ParseIntPipe) id: number,
-    @Body() body: object,
+    @Body() body: ToggleActivoDto,
     @Req() req: Request,
   ) {
     return this.usuariosService.toggleActivo(id, body, this.getToken(req));
+  }
+
+  @Roles(Role.ADMINISTRADOR)
+  @Post(':id/anonimizar')
+  @HttpCode(200)
+  @ApiOperation({
+    summary:
+      'Anonymize a user (right to erasure, irreversible; ADMINISTRADOR only)',
+  })
+  anonimizar(@Param('id', ParseIntPipe) id: number, @Req() req: Request) {
+    return this.usuariosService.anonimizar(id, this.getToken(req));
+  }
+
+  @Roles(Role.ADMINISTRADOR)
+  @Post(':id/sesiones/revocar')
+  @HttpCode(204)
+  @ApiOperation({
+    summary:
+      'Revoke every refresh token of a user, forcing logout (ADMINISTRADOR only)',
+  })
+  revocarSesiones(@Param('id', ParseIntPipe) id: number, @Req() req: Request) {
+    return this.usuariosService.revocarSesiones(id, this.getToken(req));
   }
 }

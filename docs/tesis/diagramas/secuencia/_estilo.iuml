@@ -1,0 +1,11 @@
+' Estilo compartido por los diagramas de secuencia.
+skinparam shadowing false
+skinparam defaultFontName Helvetica
+skinparam defaultFontSize 12
+skinparam sequenceMessageAlign center
+skinparam participant {
+  BackgroundColor #FFFFFF
+  BorderColor #444444
+}
+skinparam sequenceLifeLineBorderColor #444444
+skinparam sequenceGroupBackgroundColor #F5F5F5

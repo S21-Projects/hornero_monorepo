@@ -1,13 +1,18 @@
 package org.example.necesidad;
 
+import org.example.idempotencia.Idempotente;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.example.common.PageData;
 import org.example.necesidad.dto.ActualizarNecesidadRequest;
 import org.example.necesidad.dto.CrearNecesidadRequest;
+import org.example.necesidad.dto.RelanzarNecesidadRequest;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -22,8 +27,6 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.util.List;
-
 @Tag(name = "Necesidades", description = "Organization needs management")
 @RestController
 @RequestMapping("/api/necesidades")
@@ -34,6 +37,7 @@ public class NecesidadController {
 
     @Operation(summary = "Create a need for the authenticated referente's organization")
     @PostMapping
+    @Idempotente
     @ResponseStatus(HttpStatus.CREATED)
     @PreAuthorize("hasRole('REFERENTE')")
     public NecesidadResponse crear(@Valid @RequestBody CrearNecesidadRequest request) {
@@ -44,12 +48,13 @@ public class NecesidadController {
 
     @Operation(summary = "List needs, optionally filtered by organization")
     @GetMapping
-    public ResponseEntity<List<NecesidadResponse>> listar(
-            @RequestParam(required = false) Long organizacionId) {
-        List<NecesidadResponse> result = organizacionId == null
-                ? necesidadService.findAll()
-                : necesidadService.findByOrganizacion(organizacionId);
-        return ResponseEntity.ok(result);
+    public PageData<NecesidadResponse> listar(
+            @RequestParam(required = false) Long organizacionId,
+            @PageableDefault(size = 20, sort = "id") Pageable pageable) {
+        Page<NecesidadResponse> page = organizacionId == null
+                ? necesidadService.findAll(pageable)
+                : necesidadService.findByOrganizacion(organizacionId, pageable);
+        return PageData.from(page);
     }
 
     @Operation(summary = "Get a need by ID")
@@ -66,6 +71,17 @@ public class NecesidadController {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         Long referenteId = (Long) auth.getPrincipal();
         return necesidadService.actualizar(id, request, referenteId);
+    }
+
+    @Operation(summary = "Relaunch an expired need with a new expiry date")
+    @PostMapping("/{id}/relanzar")
+    @Idempotente
+    @PreAuthorize("hasRole('REFERENTE')")
+    public NecesidadResponse relanzar(@PathVariable Long id,
+                                      @Valid @RequestBody RelanzarNecesidadRequest request) {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        Long referenteId = (Long) auth.getPrincipal();
+        return necesidadService.relanzar(id, request, referenteId);
     }
 
     @Operation(summary = "Delete a need")

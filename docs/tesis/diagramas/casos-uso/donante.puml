@@ -1,0 +1,25 @@
+@startuml
+' Hornero — Casos de uso del Donante
+!include _estilo.iuml
+
+actor "Donante" as Donante
+
+rectangle "Hornero" {
+  usecase "CU-04\nConsultar necesidades\nen el mapa" as CU04
+  usecase "CU-05\nOfrecer donación" as CU05
+  usecase "CU-12\nVerificar correo\nelectrónico" as CU12
+  usecase "CU-13\nValidar entrega con\ncódigo de un solo uso" as CU13
+  usecase "CU-11\nAsignar donaciones\ndel fondo común" as CU11
+  usecase "Registrar evento\nen la bitácora" as Bitacora
+}
+
+Donante --> CU04
+Donante --> CU05
+Donante --> CU12
+Donante --> CU13
+
+CU05 ..> CU13 : <<include>>
+CU05 ..> CU11 : <<extend>>\n(donación al fondo común)
+CU13 ..> Bitacora : <<include>>
+
+@enduml

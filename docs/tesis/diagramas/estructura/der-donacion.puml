@@ -1,0 +1,111 @@
+@startuml
+hide circle
+skinparam linetype ortho
+skinparam shadowing false
+skinparam defaultFontName Helvetica
+skinparam defaultFontSize 12
+skinparam entity {
+  BackgroundColor #FFFFFF
+  BorderColor #444444
+  FontColor #111111
+}
+
+entity "necesidades" as necesidades {
+  * id : BIGINT <<PK>>
+  --
+  * organizacion_id : BIGINT <<FK>>
+  descripcion : VARCHAR(1000) (N)
+  * prioridad : VARCHAR <<URGENTE | MEDIA | NORMAL>>
+  * estado : VARCHAR <<ABIERTA | EN_PROGRESO | CUMPLIDA | VENCIDA>>
+  fecha_publicacion : DATE (N)
+  fecha_vencimiento : DATE (N)
+  categoria : VARCHAR <<enum CategoriaAlimento>> (N) <<derivada>>
+}
+
+entity "necesidad_articulos" as necesidadArticulos {
+  * id : BIGINT <<PK>>
+  --
+  * necesidad_id : BIGINT <<FK>>
+  * articulo_id : BIGINT <<FK>>
+}
+
+entity "articulos" as articulos {
+  * id : BIGINT <<PK>>
+  --
+  * nombre : VARCHAR
+  * categoria : VARCHAR <<enum CategoriaAlimento>>
+  * unidad : VARCHAR <<enum UnidadArticulo>>
+  * activo : BOOLEAN
+}
+
+entity "donaciones" as donaciones {
+  * id : BIGINT <<PK>>
+  --
+  * donante_id : BIGINT <<FK>>
+  necesidad_id : BIGINT <<FK>> (N)
+  modalidad : VARCHAR <<enum ModalidadDonacion>> (N)
+  categoria : VARCHAR <<enum CategoriaAlimento>> (N) <<derivada>>
+  latitud : DOUBLE (N)
+  longitud : DOUBLE (N)
+  fecha_oferta : DATE (N)
+  fecha_entrega : DATE (N)
+  * estado : VARCHAR <<enum EstadoDonacion>>
+  estado_desde : TIMESTAMP (N) <<inicio del estado actual>>
+  observaciones : VARCHAR(1000) (N)
+  confirmada_donante_en : TIMESTAMP (N)
+  confirmada_referente_en : TIMESTAMP (N)
+  override_motivo : VARCHAR(500) (N)
+  override_admin_id : BIGINT (N) <<id suelto, sin FK>>
+  override_en : TIMESTAMP (N)
+}
+
+entity "donacion_lineas" as donacionLineas {
+  * id : BIGINT <<PK>>
+  --
+  * donacion_id : BIGINT <<FK>>
+  * articulo_id : BIGINT <<FK>>
+  * cantidad : NUMERIC
+}
+
+entity "codigos_entrega" as codigoEntrega {
+  * id : BIGINT <<PK>>
+  --
+  * donacion_id : BIGINT <<FK>>
+  * emisor_id : BIGINT
+  * emisor_parte : VARCHAR
+  * codigo_hash : VARCHAR <<BCrypt>>
+  * expira_en : TIMESTAMP
+  * intentos : INTEGER
+  * usado : BOOLEAN
+  * creado_en : TIMESTAMP
+}
+
+entity "codigos_verificacion" as otp {
+  * id : BIGINT <<PK>>
+  --
+  * email : VARCHAR <<sin FK a usuarios>>
+  * codigo_hash : VARCHAR <<BCrypt>>
+  * expira_en : TIMESTAMP
+  * intentos : INTEGER
+  * usado : BOOLEAN
+  * creado_en : TIMESTAMP
+}
+
+entity "usuarios" as usuarios {
+  * id : BIGINT <<PK>>
+}
+
+entity "organizaciones" as organizaciones {
+  * id : BIGINT <<PK>>
+}
+
+organizaciones ||--o{ necesidades : "publica"
+necesidades ||--o{ donaciones : "recibe"
+usuarios ||--o{ donaciones : "ofrece\n(donante_id)"
+donaciones ||--o{ codigoEntrega : "emite"
+necesidades ||--o{ necesidadArticulos : "solicita"
+articulos ||--o{ necesidadArticulos : "es solicitado en"
+donaciones ||--o{ donacionLineas : "contiene"
+articulos ||--o{ donacionLineas : "es donado en"
+
+@enduml

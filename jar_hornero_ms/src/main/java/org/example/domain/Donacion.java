@@ -4,7 +4,15 @@ import jakarta.persistence.*;
 import lombok.*;
 import org.example.user.Donante;
 
+import java.time.Clock;
+import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalTime;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Objects;
 
 @Entity
 @Table(name = "donaciones")
@@ -18,6 +26,14 @@ public class Donacion {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    /**
+     * Optimistic lock (N11). Two concurrent operations on the same row: the first commit wins, the
+     * other fails with CONFLICTO_CONCURRENTE (409). Existing rows are initialised to 0 by
+     * scripts/sql/V003__optimistic_version_columns.sql.
+     */
+    @Version
+    private Long version;
+
     private LocalDate fechaOferta;
 
     private LocalDate fechaEntrega;
@@ -26,6 +42,24 @@ public class Donacion {
     @Column(nullable = false)
     private EstadoDonacion estado;
 
+    /**
+     * N12/D4: when the donación entered its current {@link #estado}. Nullable only for rows that
+     * predate the column (see {@link #getEstadoDesdeEfectivo}); every estado change refreshes it
+     * ({@link #cambiarEstado}, backed by a {@code @PreUpdate} safety net).
+     */
+    @Column(name = "estado_desde")
+    private Instant estadoDesde;
+
+    @Transient
+    @Getter(AccessLevel.NONE)
+    @Setter(AccessLevel.NONE)
+    private EstadoDonacion estadoCargado;
+
+    @Transient
+    @Getter(AccessLevel.NONE)
+    @Setter(AccessLevel.NONE)
+    private Instant estadoDesdeCargado;
+
     @Column(length = 1000)
     private String observaciones;
 
@@ -33,7 +67,114 @@ public class Donacion {
     @JoinColumn(name = "donante_id", nullable = false)
     private Donante donante;
 
+    // Nullable per AD-3/AD-13 (tesis-core-features slice 5b): a FONDO_COMUN donación waits in the
+    // pool with no necesidad until a ronda assigns it. The underlying FK relaxation lives in the
+    // hand-written `scripts/sql/V001__donaciones_necesidad_id_nullable.sql` — see EsquemaVerificador
+    // for the runtime guard that keeps FONDO_COMUN creation safe until that script has run.
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "necesidad_id", nullable = false)
+    @JoinColumn(name = "necesidad_id", nullable = true)
     private Necesidad necesidad;
+
+    // Additive/nullable per the D4 convention: null == DIRECTA (every donación created before this
+    // change). Immutable after creation (`updatable = false`) — no code path, including the
+    // ADMINISTRADOR override, may change a donación's channel post-creation
+    // (`specs/donacion-fondo-comun/spec.md` "Modalidad Vocabulary and Immutability").
+    @Enumerated(EnumType.STRING)
+    @Column(name = "modalidad", nullable = true, updatable = false)
+    private ModalidadDonacion modalidad;
+
+    // The following three fields are populated only for FONDO_COMUN donations, at creation time.
+    // `latitud`/`longitud` are the donante-marked pickup point fed to the ronda solver
+    // (`scoring.go:10-17`) and are write-only: no `DonacionResponse`/`DonacionActivaResponse` ever
+    // serializes them (`specs/donacion-fondo-comun/spec.md` "Location and Categoria Required for
+    // Pool Donations").
+    @Enumerated(EnumType.STRING)
+    @Column(name = "categoria", nullable = true)
+    private CategoriaAlimento categoria;
+
+    @Column(name = "latitud")
+    private Double latitud;
+
+    @Column(name = "longitud")
+    private Double longitud;
+
+    @Column(name = "confirmada_donante_en")
+    private Instant confirmadaDonanteEn;
+
+    @Column(name = "confirmada_referente_en")
+    private Instant confirmadaReferenteEn;
+
+    @Column(name = "override_motivo", length = 500)
+    private String overrideMotivo;
+
+    @Column(name = "override_admin_id")
+    private Long overrideAdminId;
+
+    @Column(name = "override_en")
+    private Instant overrideEn;
+
+    // Feature catalogo-articulos, decision 4: N lines of articulo + cantidad, for both
+    // modalidades. Additive table (`donacion_lineas`), nothing existing is dropped or renamed.
+    @OneToMany(mappedBy = "donacion", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<DonacionLinea> lineas = new ArrayList<>();
+
+    /**
+     * Coalesced read per the D4 convention: a {@code null} {@link #modalidad} (every donación
+     * created before this change) is {@code DIRECTA}. Callers should prefer this over the raw
+     * {@link #getModalidad()} getter for any decision that depends on the donación's channel.
+     */
+    public ModalidadDonacion getModalidadEfectiva() {
+        return modalidad != null ? modalidad : ModalidadDonacion.DIRECTA;
+    }
+
+    /** The one way production code changes the estado: it also stamps {@link #estadoDesde}. */
+    public void cambiarEstado(EstadoDonacion nuevo, Clock clock) {
+        this.estado = nuevo;
+        this.estadoDesde = clock.instant();
+    }
+
+    /**
+     * {@link #estadoDesde}, or for a row that predates the column the start of {@code fechaOferta}
+     * in the given zone (the best lower bound available). {@code null} when neither is known.
+     */
+    public Instant getEstadoDesdeEfectivo(ZoneId zona) {
+        if (estadoDesde != null) {
+            return estadoDesde;
+        }
+        return fechaOferta != null ? fechaOferta.atStartOfDay(zona).toInstant() : null;
+    }
+
+    /**
+     * Last {@code fechaOferta} whose start of day is strictly before {@code corte}: lets a query
+     * apply the null-{@code estadoDesde} fallback with a plain date comparison.
+     */
+    public static LocalDate fechaLimiteFallback(Instant corte, ZoneId zona) {
+        ZonedDateTime local = corte.atZone(zona);
+        LocalDate fecha = local.toLocalDate();
+        return local.toLocalTime().equals(LocalTime.MIDNIGHT) ? fecha.minusDays(1) : fecha;
+    }
+
+    @PrePersist
+    void alPersistir() {
+        if (estadoDesde == null) {
+            estadoDesde = Instant.now();
+        }
+    }
+
+    /** Safety net: an estado change through the plain setter still refreshes {@code estadoDesde}. */
+    @PreUpdate
+    void alActualizar() {
+        if (estadoCargado != null && estado != estadoCargado
+                && Objects.equals(estadoDesde, estadoDesdeCargado)) {
+            estadoDesde = Instant.now();
+        }
+    }
+
+    @PostLoad
+    @PostPersist
+    @PostUpdate
+    void recordarEstadoPersistido() {
+        estadoCargado = estado;
+        estadoDesdeCargado = estadoDesde;
+    }
 }

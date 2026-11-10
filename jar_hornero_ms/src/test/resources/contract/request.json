@@ -1,0 +1,31 @@
+{
+  "version": 1,
+  "donaciones": [
+    {
+      "id": 17,
+      "latitud": -31.41,
+      "longitud": -64.18,
+      "categoria": "NO_PERECEDERO",
+      "diasEnFondo": 12,
+      "organizacionesExcluidas": [5],
+      "articuloIds": [101, 102]
+    }
+  ],
+  "candidatos": [
+    {
+      "necesidadId": 40,
+      "organizacionId": 8,
+      "diasAbierta": 21,
+      "latitud": -31.40,
+      "longitud": -64.20,
+      "urgencia": 0.6,
+      "diasDesdeUltimaDonacion": 14,
+      "categoriasAceptadas": ["NO_PERECEDERO"],
+      "categoriasPermitidas": ["NO_PERECEDERO"],
+      "articuloIds": [102, 103],
+      "cumplimiento": { "entregadas": 8, "fallidas": 1 }
+    }
+  ],
+  "pesos": null,
+  "parametros": null
+}

@@ -17,7 +17,7 @@ headers {
 
 body:json {
   {
-    "estado": "ACEPTADA"
+    "estado": "EN_CAMINO"
   }
 }
 
@@ -26,6 +26,7 @@ vars:pre-request {
 }
 
 docs {
-  Protected — referente only. Updates the status of a donation offer.
-  Typical `estado` values: PENDIENTE | ACEPTADA | RECHAZADA.
+  Protected — donante only. Drives a donation forward from ACEPTADA/EN_CAMINO.
+  Legal `estado` targets: EN_CAMINO | CANCELADA. The referente's ACEPTADA/RECHAZADA
+  decision is now a separate endpoint — see `decidir.bru`.
 }

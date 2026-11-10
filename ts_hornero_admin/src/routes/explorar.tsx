@@ -1,0 +1,92 @@
+import { useState } from 'react';
+import { Link } from 'react-router-dom';
+import { useNecesidades } from '../lib/hooks/useNecesidades';
+import { usePageClamp } from '../lib/hooks/usePageClamp';
+import { PRIORIDAD, CATEGORIA_ALIMENTO, UNIDAD_ARTICULO, FALLBACK_BADGE } from '../lib/domain-ui';
+import { formatFecha } from '../lib/format';
+import { AsyncSection } from '../components/AsyncSection';
+import { Badge } from '../components/Badge';
+import { Card } from '../components/ui/Card';
+import { Pager } from '../components/ui/Pager';
+import { Text } from '../components/ui/Typography';
+import { PageHeader } from '../components/ui/PageHeader';
+
+const PAGE_SIZE = 20;
+
+export default function ExplorarPage() {
+  const [page, setPage] = useState(0);
+  const { data, isLoading, isError, isFetching } = useNecesidades({ page, size: PAGE_SIZE });
+  usePageClamp(page, setPage, data?.totalPages);
+
+  const necesidades = data?.content ?? [];
+  const abiertas = necesidades.filter((n) => n.estado === 'ABIERTA');
+
+  return (
+    <div>
+      <PageHeader
+        title="Explorar necesidades"
+        description="Encontrá necesidades abiertas de organizaciones y elegí a cuál querés ayudar."
+      />
+
+      <AsyncSection
+        isLoading={isLoading}
+        isError={isError}
+        isEmpty={!isLoading && !isError && necesidades.length === 0}
+        emptyLabel="No hay necesidades abiertas en este momento."
+      >
+        {abiertas.length === 0 && (
+          <Text variant="body-sm" color="ink-2" style={{ marginBottom: 16 }}>
+            No hay necesidades abiertas en esta página — probá con otra.
+          </Text>
+        )}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          {abiertas.map((n) => {
+            const prioridadCfg = PRIORIDAD[n.prioridad] ?? FALLBACK_BADGE;
+            return (
+              <Card key={n.id} as="article" style={{ padding: '20px 24px' }}>
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, marginBottom: 8 }}>
+                  <Badge tone={prioridadCfg.tone} label={prioridadCfg.label} />
+                </div>
+                <Text variant="title" style={{ marginBottom: 6 }}>{n.descripcion}</Text>
+                <Text variant="body-sm" color="ink-2" style={{ marginBottom: 4 }}>
+                  {n.organizacionNombre ?? 'Organización'}
+                </Text>
+                {n.fechaVencimiento && (
+                  <Text variant="caption" color="ink-3" style={{ marginBottom: 12 }}>
+                    Vence: {formatFecha(n.fechaVencimiento)}
+                  </Text>
+                )}
+                {n.articulos && n.articulos.length > 0 && (
+                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 12 }}>
+                    {n.articulos.map((a) => (
+                      <Badge
+                        key={a.id}
+                        tone={CATEGORIA_ALIMENTO[a.categoria]?.tone ?? 'neutral'}
+                        label={`${a.nombre} (${UNIDAD_ARTICULO[a.unidad]})`}
+                      />
+                    ))}
+                  </div>
+                )}
+                <div>
+                  <Link
+                    to={`/necesidades/${n.id}`}
+                    style={{
+                      color: 'var(--horn)',
+                      fontWeight: 600,
+                      fontSize: 'var(--fs-body-sm)',
+                      textDecoration: 'none',
+                    }}
+                  >
+                    Ver detalle →
+                  </Link>
+                </div>
+              </Card>
+            );
+          })}
+        </div>
+
+        {data && <Pager page={data} onPageChange={setPage} disabled={isFetching} />}
+      </AsyncSection>
+    </div>
+  );
+}

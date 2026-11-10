@@ -1,12 +1,70 @@
 package org.example.domain;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDate;
+import java.util.Collection;
 import java.util.List;
 
 @Repository
 public interface NecesidadRepository extends JpaRepository<Necesidad, Long> {
 
     List<Necesidad> findByOrganizacion_Id(Long organizacionId);
+
+    Page<Necesidad> findByOrganizacion_Id(Long organizacionId, Pageable pageable);
+
+    /** D2/N4: public listings skip expired necesidades. */
+    Page<Necesidad> findByEstadoNot(EstadoNecesidad estado, Pageable pageable);
+
+    /**
+     * M3: public listing for callers who are not admins. Hides expired necesidades and those of
+     * organizations at N0 (a null level counts as N0), except the necesidades of organizations
+     * whose referente is {@code usuarioId} (null for anonymous callers matches nothing).
+     */
+    @Query(value = "SELECT n FROM Necesidad n JOIN n.organizacion o LEFT JOIN o.referente r "
+            + "WHERE n.estado <> org.example.domain.EstadoNecesidad.VENCIDA "
+            + "AND ((o.nivel IS NOT NULL AND o.nivel <> org.example.domain.NivelAcreditacion.N0) OR r.id = :usuarioId)",
+            countQuery = "SELECT COUNT(n) FROM Necesidad n JOIN n.organizacion o LEFT JOIN o.referente r "
+            + "WHERE n.estado <> org.example.domain.EstadoNecesidad.VENCIDA "
+            + "AND ((o.nivel IS NOT NULL AND o.nivel <> org.example.domain.NivelAcreditacion.N0) OR r.id = :usuarioId)")
+    Page<Necesidad> findPublicas(@Param("usuarioId") Long usuarioId, Pageable pageable);
+
+    Page<Necesidad> findByOrganizacion_IdAndEstadoNot(Long organizacionId, EstadoNecesidad estado, Pageable pageable);
+
+    /** `specs/organizacion-acreditacion/spec.md` "Level-Driven Concurrency Caps". */
+    long countByOrganizacion_IdAndEstadoIn(Long organizacionId, Collection<EstadoNecesidad> estados);
+
+    /**
+     * Broad open-necesidad fetch for a ronda (AD-9): estado filter only. The remaining AD-9
+     * eligibility predicate (not past {@code fechaVencimiento}, organización with a referente,
+     * organización with coordinates, organización above N0) is applied in Java by
+     * {@code RondaService}, so it stays covered by plain unit tests instead of a JPQL fixture.
+     * {@code LEFT JOIN FETCH n.articulos} avoids an N+1 against {@code necesidad_articulos} when
+     * {@code EntradaRondaFactory} walks each candidate's articulo ids inside the same read
+     * transaction (feature catalogo-articulos); {@code DISTINCT} dedupes the parent row fan-out
+     * from that one-to-many fetch. RN-05: ordered oldest published first, then lower id, so the
+     * worker input never depends on the database's physical row order.
+     */
+    @Query("SELECT DISTINCT n FROM Necesidad n JOIN FETCH n.organizacion o LEFT JOIN FETCH o.referente "
+            + "LEFT JOIN FETCH n.articulos WHERE n.estado IN :estados "
+            + "ORDER BY n.fechaPublicacion ASC NULLS LAST, n.id ASC")
+    List<Necesidad> findByEstadoInWithOrganizacion(@Param("estados") Collection<EstadoNecesidad> estados);
+
+    /**
+     * D2/N3: bulk-moves necesidades in {@code estados} whose {@code fechaVencimiento} is strictly
+     * before {@code hoy} to {@code destino}. A null {@code fechaVencimiento} never matches (never
+     * expires); the boundary day itself is not expired. Returns the number of rows updated.
+     */
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("UPDATE Necesidad n SET n.estado = :destino "
+            + "WHERE n.estado IN :estados AND n.fechaVencimiento < :hoy")
+    int cambiarEstadoDeVencidas(@Param("estados") Collection<EstadoNecesidad> estados,
+                                @Param("hoy") LocalDate hoy,
+                                @Param("destino") EstadoNecesidad destino);
 }

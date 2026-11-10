@@ -1,0 +1,38 @@
+@startuml
+' Hornero — Casos de uso del Referente (contacto de la organización)
+!include _estilo.iuml
+
+actor "Referente" as Referente
+
+rectangle "Hornero" {
+  usecase "CU-03\nPublicar necesidad" as CU03
+  usecase "CU-06\nGestionar seguimiento\nde la organización" as CU06
+  usecase "CU-07\nPresentar evidencia\nde acreditación" as CU07
+  usecase "CU-12\nVerificar correo\nelectrónico" as CU12
+  usecase "CU-13\nValidar entrega con\ncódigo de un solo uso" as CU13
+  usecase "CU-10\nExportar legajo\nde acreditación" as CU10
+  usecase "CU-14\nAceptar o rechazar\ndonación recibida" as CU14
+  usecase "CU-16\nReclamar organización\nimportada" as CU16
+  usecase "CU-18\nReportar organización" as CU18
+  usecase "Devolver donación\nal fondo común" as Devolver
+  usecase "Registrar evento\nen la bitácora" as Bitacora
+  usecase "Verificar requisitos\ndel nivel" as VerificarReq
+}
+
+Referente --> CU03
+Referente --> CU06
+Referente --> CU07
+Referente --> CU12
+Referente --> CU13
+Referente --> CU10
+Referente --> CU14
+Referente --> CU16
+Referente --> CU18
+
+CU03 ..> VerificarReq : <<include>>
+CU07 ..> Bitacora : <<include>>
+CU13 ..> Bitacora : <<include>>
+CU14 ..> Bitacora : <<include>>
+Devolver ..> CU14 : <<extend>>\n(rechazo de una propuesta)
+
+@enduml

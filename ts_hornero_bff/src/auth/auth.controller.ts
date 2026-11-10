@@ -5,27 +5,41 @@ import {
   Body,
   Req,
   Res,
+  HttpCode,
+  HttpStatus,
   UnauthorizedException,
+  UseGuards,
 } from '@nestjs/common';
+import { SkipThrottle, Throttle } from '@nestjs/throttler';
 import type { Request, Response } from 'express';
 import {
   ApiTags,
   ApiOperation,
   ApiOkResponse,
+  ApiNoContentResponse,
+  ApiAcceptedResponse,
   ApiBearerAuth,
   ApiCookieAuth,
 } from '@nestjs/swagger';
 import { AuthService } from './auth.service.js';
 import { LoginDto } from './dto/login.dto.js';
 import { RegisterDto } from './dto/register.dto.js';
+import { VerifyOtpDto } from './dto/verify-otp.dto.js';
+import { ResendOtpDto } from './dto/resend-otp.dto.js';
+import { PasswordOlvidoDto } from './dto/password-olvido.dto.js';
+import { PasswordRestablecerDto } from './dto/password-restablecer.dto.js';
 import { Public } from './decorators/public.decorator.js';
+import { ClientIpThrottlerGuard } from './guards/client-ip-throttler.guard.js';
+import { AUTH_LIMITS, authThrottle } from './auth-throttler.config.js';
 
 @ApiTags('auth')
 @Controller('auth')
+@UseGuards(ClientIpThrottlerGuard)
 export class AuthController {
   constructor(private authService: AuthService) {}
 
   @Public()
+  @Throttle(authThrottle(AUTH_LIMITS.register))
   @Post('register')
   @ApiOperation({ summary: 'Register a new referente or donante account' })
   @ApiOkResponse({ description: 'Sets access_token and refresh_token cookies, returns user' })
@@ -37,6 +51,7 @@ export class AuthController {
   }
 
   @Public()
+  @Throttle(authThrottle(AUTH_LIMITS.login))
   @Post('login')
   @ApiOperation({ summary: 'Authenticate with email and password' })
   @ApiOkResponse({ description: 'Sets access_token and refresh_token cookies' })
@@ -48,6 +63,7 @@ export class AuthController {
   }
 
   @Public()
+  @Throttle(authThrottle(AUTH_LIMITS.refresh))
   @Post('refresh')
   @ApiOperation({ summary: 'Refresh access token using the refresh_token cookie' })
   @ApiCookieAuth('access_token')
@@ -62,20 +78,73 @@ export class AuthController {
   }
 
   @Public()
+  @Throttle(authThrottle(AUTH_LIMITS.verifyOtp))
+  @Post('verify-otp')
+  @ApiOperation({ summary: 'Confirm an OTP and mark the account as email-verified' })
+  @ApiOkResponse({ description: 'Sets refreshed access_token and refresh_token cookies, returns user' })
+  async verifyOtp(
+    @Body() dto: VerifyOtpDto,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    return this.authService.verifyOtp(dto, res);
+  }
+
+  @Public()
+  @Throttle(authThrottle(AUTH_LIMITS.resendOtp))
+  @Post('resend-otp')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Resend a fresh OTP (always 204, no enumeration oracle)' })
+  @ApiNoContentResponse({ description: 'A new OTP was requested, if the email exists' })
+  async resendOtp(@Body() dto: ResendOtpDto) {
+    await this.authService.resendOtp(dto);
+  }
+
+  @Public()
+  @Throttle(authThrottle(AUTH_LIMITS.passwordOlvido))
+  @Post('password/olvido')
+  @HttpCode(HttpStatus.ACCEPTED)
+  @ApiOperation({
+    summary: 'Request a password reset link (always 202, no enumeration oracle)',
+  })
+  @ApiAcceptedResponse({ description: 'Generic message; an email is sent only if the account exists' })
+  async olvidoPassword(@Body() dto: PasswordOlvidoDto) {
+    return this.authService.olvidoPassword(dto);
+  }
+
+  @Public()
+  @Throttle(authThrottle(AUTH_LIMITS.passwordRestablecer))
+  @Post('password/restablecer')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Set a new password with a single-use reset token' })
+  @ApiOkResponse({ description: 'Password updated; all sessions revoked. 400 TOKEN_INVALIDO otherwise' })
+  async restablecerPassword(@Body() dto: PasswordRestablecerDto) {
+    return this.authService.restablecerPassword(dto);
+  }
+
+  @Public()
+  @SkipThrottle()
   @Post('logout')
   @ApiOperation({ summary: 'Clear auth cookies and end the session' })
   @ApiOkResponse({ description: 'Cookies cleared' })
-  logout(@Res({ passthrough: true }) res: Response) {
-    this.authService.logout(res);
+  async logout(
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    await this.authService.logout((req as any).cookies?.['refresh_token'], res);
     return { message: 'ok' };
   }
 
+  @SkipThrottle()
   @Get('me')
   @ApiOperation({ summary: 'Return the currently authenticated user' })
   @ApiBearerAuth('access-token')
   @ApiCookieAuth('access_token')
   @ApiOkResponse({ description: 'Current user payload from the JWT' })
-  me(@Req() req: any) {
+  async me(@Req() req: any) {
+    // N9: the payload comes from the token, so ask the MS whether the user is still active.
+    const token = req.cookies?.['access_token'];
+    if (!token) throw new UnauthorizedException();
+    await this.authService.verificarSesion(token);
     return req.user;
   }
 }

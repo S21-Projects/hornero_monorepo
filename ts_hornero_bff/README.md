@@ -1,98 +1,84 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# ts_hornero_bff
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+Backend-for-frontend of Hornero (NestJS 11, Node 20). A thin proxy and aggregator between the browser
+apps and the domain microservice. It holds no database and no domain logic.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+## Role in the chain
 
-## Description
-
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
-
-## Project setup
-
-```bash
-$ npm install
+```
+ts_hornero_astro / ts_hornero_admin  ->  ts_hornero_bff :3001  ->  jar_hornero_ms :8081
 ```
 
-## Compile and run the project
+- Receives every browser request from the admin SPA (with credentials) and the public reads from Astro.
+  Routes have **no** `/api` prefix (only the MS has one).
+- Forwards to the MS at `${JAVA_MS_URL}/api/...`, copying the `access_token` cookie into a `Bearer` header
+  for writes.
+- Owns the auth cookies: `access_token` (httpOnly, 15 min), `refresh_token` (httpOnly, 7 days) and
+  `session_hint` (readable flag, no role). `sameSite` is `none` + `secure` when `NODE_ENV=production`,
+  `lax` otherwise. The role is resolved by clients through `GET /auth/me`.
+- Handles file uploads and image processing (sharp) against an S3-compatible bucket.
+
+## Main modules
+
+Source in `src/`, one NestJS module per resource, each with `*.controller.ts`, `*.service.ts` and `dto/`:
+
+| Module | Responsibility |
+|---|---|
+| `auth` | Login, register, refresh, logout, `JwtStrategy` (reads the cookie), `RolesGuard` + `@Roles(...)`, `@Public()` |
+| `organizaciones`, `reclamos`, `reportes` | Organizaciones, claims and reports |
+| `acreditacion`, `evidencia-files` | Accreditation levels, evidence upload and authenticated download |
+| `necesidades`, `articulos` | Needs and article catalogue |
+| `donaciones`, `rondas` | Donations and ronda execution (proxied to the MS) |
+| `usuarios`, `actividad` | User administration, session revocation, activity log |
+| `upload`, `images` | S3 client (`@aws-sdk/client-s3`), image processing, public image serving |
+| `common`, `app.setup.ts` | Shared pieces, Helmet, CORS, cookie parser, validation, Swagger setup |
+
+Rate limiting (`@nestjs/throttler`) applies to auth routes. Swagger UI is served at `/api/docs`
+(its Bearer scheme is not what the BFF uses; auth is the cookie).
+
+## Run
+
+Supported way: Docker from the repository root (`make up-local` or `make up`); see the
+[root README](../README.md). Directly, with a reachable MS:
 
 ```bash
-# development
-$ npm run start
-
-# watch mode
-$ npm run start:dev
-
-# production mode
-$ npm run start:prod
+npm install
+npm run start:dev      # watch mode
 ```
 
-## Run tests
+## Tests, lint, build
 
 ```bash
-# unit tests
-$ npm run test
-
-# e2e tests
-$ npm run test:e2e
-
-# test coverage
-$ npm run test:cov
+npm test                      # Jest unit tests (*.spec.ts next to the source)
+npm test -- auth.controller   # one spec by name
+npm run test:cov              # coverage
+npm run test:e2e              # BFF e2e config (test/jest-e2e.json)
+npm run lint                  # eslint --fix
+npm run build                 # nest build
+npm run start:prod            # node dist/main
 ```
 
-## Deployment
+API-level end-to-end tests of the whole stack live in [`../e2e/`](../e2e/README.md). A Bruno collection
+for manual calls is in [`../bruno/`](../bruno/README.md).
 
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
+## Environment variables (names only)
 
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+Defined in the repository `.env.example` and wired in `docker-compose.yml` (service `bff`).
 
-```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
-```
+| Variable | Purpose |
+|---|---|
+| `PORT` | Listen port (`3001` in Compose) |
+| `JAVA_MS_URL` | Base URL of the MS (`http://ms:8081` in Compose) |
+| `JWT_SECRET` | Must be identical to the MS value |
+| `NODE_ENV` | `production` makes auth cookies `sameSite=none; secure` (HTTPS required) |
+| `FRONTEND_URL`, `CORS_ORIGINS` | Allowed browser origins (credentials are sent) |
+| `AWS_ENDPOINT_URL`, `AWS_S3_BUCKET_NAME`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_DEFAULT_REGION` | S3-compatible bucket (Cloudflare R2 in production, MinIO locally) |
+| `UPLOAD_MAX_MB` | Per-file upload limit in megabytes (default 5) |
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+## Related docs
 
-## Resources
-
-Check out a few resources that may come in handy when working with NestJS:
-
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
-
-## Support
-
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
-
-## Stay in touch
-
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
-
-## License
-
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+- [`../CLAUDE.md`](../CLAUDE.md): authentication and authorization layers, how the layers talk.
+- [`../docs/security-access-token-httponly.md`](../docs/security-access-token-httponly.md): cookie posture.
+- [`../docs/tfg/seguridad-c2.md`](../docs/tfg/seguridad-c2.md): sessions.
+- [`../docs/tfg/seguridad-c3.md`](../docs/tfg/seguridad-c3.md): evidence upload and download.
+- [`../docs/pagination-rest-endpoints.md`](../docs/pagination-rest-endpoints.md): response envelope and pagination.

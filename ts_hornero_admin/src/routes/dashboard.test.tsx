@@ -1,0 +1,263 @@
+import { describe, it, expect, vi } from 'vitest';
+import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { MemoryRouter } from 'react-router-dom';
+import DashboardPage from './dashboard';
+import { useMisOrganizaciones } from '../lib/hooks/useMisOrganizaciones';
+import { useNecesidadesDeOrg } from '../lib/hooks/useNecesidadesDeOrg';
+import { useDonacionesDeMiOrg } from '../lib/hooks/useDonacionesDeMiOrg';
+import { useDecidirDonacion } from '../lib/hooks/useDecidirDonacion';
+import { makePage } from '../test/fixtures/page';
+import type { Organizacion, Necesidad, Donacion } from '../types/domain';
+
+vi.mock('../lib/hooks/useMisOrganizaciones', () => ({
+  useMisOrganizaciones: vi.fn(),
+}));
+vi.mock('../lib/hooks/useNecesidadesDeOrg', () => ({
+  useNecesidadesDeOrg: vi.fn(),
+}));
+vi.mock('../lib/hooks/useDonacionesDeMiOrg', () => ({
+  useDonacionesDeMiOrg: vi.fn(),
+}));
+vi.mock('../lib/hooks/useDecidirDonacion', () => ({
+  useDecidirDonacion: vi.fn(),
+}));
+
+function mockOrganizacion(data: Organizacion[] | undefined, overrides = {}) {
+  vi.mocked(useMisOrganizaciones).mockReturnValue({
+    data,
+    isLoading: false,
+    isError: false,
+    ...overrides,
+  } as ReturnType<typeof useMisOrganizaciones>);
+}
+
+function mockNecesidades(data: Necesidad[] | undefined, overrides = {}) {
+  vi.mocked(useNecesidadesDeOrg).mockReturnValue({
+    data: data ? makePage(data) : undefined,
+    isLoading: false,
+    isError: false,
+    ...overrides,
+  } as ReturnType<typeof useNecesidadesDeOrg>);
+}
+
+function mockDonaciones(data: Donacion[] | undefined, overrides = {}) {
+  vi.mocked(useDonacionesDeMiOrg).mockReturnValue({
+    data: data ? makePage(data) : undefined,
+    isLoading: false,
+    isError: false,
+    isFetching: false,
+    ...overrides,
+  } as ReturnType<typeof useDonacionesDeMiOrg>);
+}
+
+vi.mocked(useDecidirDonacion).mockReturnValue({
+  mutate: vi.fn(),
+  isPending: false,
+  isError: false,
+  variables: undefined,
+} as unknown as ReturnType<typeof useDecidirDonacion>);
+
+const organizacion: Organizacion = {
+  id: 7,
+  slug: 'comedor-sol',
+  nombre: 'Comedor Sol',
+  validada: true,
+  estado: 'APROBADA',
+  aceptaDonaciones: false,
+};
+
+const necesidades: Necesidad[] = [
+  { id: 1, descripcion: 'Arroz', prioridad: 'URGENTE', estado: 'ABIERTA', organizacionId: 7 },
+  { id: 2, descripcion: 'Fideos', prioridad: 'NORMAL', estado: 'CUMPLIDA', organizacionId: 7 },
+];
+
+const donaciones: Donacion[] = [
+  { id: 1, estado: 'OFRECIDA', necesidadId: 1, organizacionId: 7 },
+  { id: 2, estado: 'ENTREGADA', necesidadId: 2, organizacionId: 7 },
+];
+
+describe('DashboardPage', () => {
+  it('renders both chart sections when the org has necesidades and donaciones', () => {
+    mockOrganizacion([organizacion]);
+    mockNecesidades(necesidades);
+    mockDonaciones(donaciones);
+
+    render(<MemoryRouter><DashboardPage /></MemoryRouter>);
+
+    expect(screen.getByText('Necesidades por estado')).toBeInTheDocument();
+    expect(screen.getByText('Donaciones recibidas')).toBeInTheDocument();
+    expect(screen.queryByText(/Todavía no hay/)).not.toBeInTheDocument();
+  });
+
+  it('renders empty states when the org has no necesidades or donaciones', () => {
+    mockOrganizacion([organizacion]);
+    mockNecesidades([]);
+    mockDonaciones([]);
+
+    render(<MemoryRouter><DashboardPage /></MemoryRouter>);
+
+    expect(screen.getByText('Todavía no hay necesidades cargadas.')).toBeInTheDocument();
+    expect(screen.getByText('Todavía no hay donaciones recibidas.')).toBeInTheDocument();
+  });
+
+  it('renders the loading skeleton via AsyncSection while org is loading', () => {
+    mockOrganizacion(undefined, { isLoading: true });
+    mockNecesidades(undefined, { isLoading: true });
+    mockDonaciones(undefined, { isLoading: true });
+
+    const { container } = render(<MemoryRouter><DashboardPage /></MemoryRouter>);
+
+    expect(container.querySelectorAll('[aria-hidden="true"]').length).toBeGreaterThan(0);
+    expect(screen.queryByText('Resumen de')).not.toBeInTheDocument();
+  });
+
+  it('renders the error state via AsyncSection when a fetch fails', () => {
+    mockOrganizacion([organizacion]);
+    mockNecesidades(undefined, { isError: true });
+    mockDonaciones(undefined, { isError: true });
+
+    render(<MemoryRouter><DashboardPage /></MemoryRouter>);
+
+    expect(screen.getByText('Algo salió mal')).toBeInTheDocument();
+  });
+
+  // Task 3c.15/16 — the plain "Confirmar entrega" button is retired in favour of a link to the
+  // code-verified confirmation screen, spec `donacion-entrega-codigo`'s retirement requirement.
+  it('shows a "Confirmar entrega" link to the new screen for a donación pending the referente\'s confirmation', () => {
+    mockOrganizacion([organizacion]);
+    mockNecesidades(necesidades);
+    mockDonaciones([{ id: 3, estado: 'EN_CAMINO', necesidadId: 1, organizacionId: 7 }]);
+
+    render(<MemoryRouter><DashboardPage /></MemoryRouter>);
+
+    const link = screen.getByRole('link', { name: /confirmar entrega/i });
+    expect(link).toHaveAttribute('href', '/donaciones/3/entrega');
+  });
+
+  // T4 — fondo común offers pending decision show a badge and a rejection notice next to Rechazar.
+  it('shows a "Fondo común" badge and a rejection notice for a pending donación with modalidad FONDO_COMUN', () => {
+    mockOrganizacion([organizacion]);
+    mockNecesidades(necesidades);
+    mockDonaciones([{ id: 4, estado: 'OFRECIDA', necesidadId: 1, organizacionId: 7, modalidad: 'FONDO_COMUN' }]);
+
+    render(<MemoryRouter><DashboardPage /></MemoryRouter>);
+
+    expect(screen.getByText('Fondo común')).toBeInTheDocument();
+    expect(screen.getByText(/vuelve al fondo común y no se le volverá a ofrecer a esta organización/i)).toBeInTheDocument();
+  });
+
+  it('does not show the fondo común badge or notice for a pending donación with modalidad DIRECTA', () => {
+    mockOrganizacion([organizacion]);
+    mockNecesidades(necesidades);
+    mockDonaciones([{ id: 5, estado: 'OFRECIDA', necesidadId: 1, organizacionId: 7, modalidad: 'DIRECTA' }]);
+
+    render(<MemoryRouter><DashboardPage /></MemoryRouter>);
+
+    expect(screen.queryByText('Fondo común')).not.toBeInTheDocument();
+    expect(screen.queryByText(/vuelve al fondo común/i)).not.toBeInTheDocument();
+  });
+
+  // Work unit G (feature catalogo-articulos): a pending offer shows its articulo lines.
+  it('shows the donación lines on a pending offer when present', () => {
+    mockOrganizacion([organizacion]);
+    mockNecesidades(necesidades);
+    mockDonaciones([
+      {
+        id: 6,
+        estado: 'OFRECIDA',
+        necesidadId: 1,
+        organizacionId: 7,
+        lineas: [
+          { articuloId: 1, articuloNombre: 'Arroz', unidad: 'KG', cantidad: 5 },
+          { articuloId: 2, articuloNombre: 'Fideos', unidad: 'PAQUETE', cantidad: 6 },
+        ],
+      },
+    ]);
+
+    render(<MemoryRouter><DashboardPage /></MemoryRouter>);
+
+    expect(screen.getByText('5 kg Arroz, 6 paquetes Fideos')).toBeInTheDocument();
+  });
+
+  it('pages the donaciones: shows a pager and requests the next page', async () => {
+    const user = userEvent.setup();
+    mockOrganizacion([organizacion]);
+    mockNecesidades(necesidades);
+    vi.mocked(useDonacionesDeMiOrg).mockReturnValue({
+      data: makePage(donaciones, { totalElements: 45, size: 20 }),
+      isLoading: false,
+      isError: false,
+      isFetching: false,
+    } as ReturnType<typeof useDonacionesDeMiOrg>);
+
+    render(<MemoryRouter><DashboardPage /></MemoryRouter>);
+
+    expect(screen.getByText(/Página 1 de 3 · 45 resultados/)).toBeInTheDocument();
+    expect(screen.getByText(/de esta página \(45 en total\)/)).toBeInTheDocument();
+    expect(useDonacionesDeMiOrg).toHaveBeenCalledWith({ page: 0, size: 20 });
+
+    await user.click(screen.getByRole('button', { name: 'Página siguiente' }));
+
+    expect(useDonacionesDeMiOrg).toHaveBeenCalledWith({ page: 1, size: 20 });
+  });
+
+  it('queries the action lists server-side by estado, independent of the history page', () => {
+    mockOrganizacion([organizacion]);
+    mockNecesidades(necesidades);
+    mockDonaciones(donaciones);
+
+    render(<MemoryRouter><DashboardPage /></MemoryRouter>);
+
+    expect(useDonacionesDeMiOrg).toHaveBeenCalledWith({ page: 0, size: 100, estado: ['OFRECIDA'] });
+    expect(useDonacionesDeMiOrg).toHaveBeenCalledWith({
+      page: 0,
+      size: 100,
+      estado: expect.arrayContaining(['ACEPTADA', 'EN_CAMINO', 'PENDIENTE_CONFIRMACION']),
+    });
+  });
+
+  it('shows an actionable donación that is not on the current history page, with a "showing N of M" note', () => {
+    mockOrganizacion([organizacion]);
+    mockNecesidades(necesidades);
+    vi.mocked(useDonacionesDeMiOrg).mockImplementation(((opts?: { estado?: string[] }) => {
+      const data = opts?.estado?.includes('OFRECIDA') && opts.estado.length === 1
+        ? makePage(
+            [{ id: 90, estado: 'OFRECIDA', necesidadId: 1, organizacionId: 7, donanteName: 'Ana Pendiente' }],
+            { totalElements: 130, size: 100 },
+          )
+        : makePage([], { totalElements: 0 });
+      return { data, isLoading: false, isError: false, isFetching: false };
+    }) as unknown as typeof useDonacionesDeMiOrg);
+
+    render(<MemoryRouter><DashboardPage /></MemoryRouter>);
+
+    expect(screen.getByText('Ana Pendiente')).toBeInTheDocument();
+    expect(screen.getByText(/Mostrando 1 de 130/)).toBeInTheDocument();
+  });
+
+  it('renders the pending-validation card instead of the summary when no organización is validada', () => {
+    mockOrganizacion([{ ...organizacion, validada: false, estado: 'PENDIENTE' }], { isSuccess: true });
+    mockNecesidades([]);
+    mockDonaciones([]);
+
+    render(<MemoryRouter><DashboardPage /></MemoryRouter>);
+
+    expect(screen.getByRole('heading', { level: 1, name: 'Resumen de Comedor Sol' })).toBeInTheDocument();
+    expect(screen.getByText('Validación pendiente')).toBeInTheDocument();
+    expect(screen.getByText('Comedor Sol')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Cargar evidencia para N1' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Cerrar sesión' })).not.toBeInTheDocument();
+    expect(screen.queryByText('Necesidades por estado')).not.toBeInTheDocument();
+  });
+
+  it('renders the create-organización card when the referente has no organización', () => {
+    mockOrganizacion([], { isSuccess: true });
+    mockNecesidades([]);
+    mockDonaciones([]);
+
+    render(<MemoryRouter><DashboardPage /></MemoryRouter>);
+
+    expect(screen.getByRole('button', { name: 'Crear tu organización' })).toBeInTheDocument();
+  });
+});

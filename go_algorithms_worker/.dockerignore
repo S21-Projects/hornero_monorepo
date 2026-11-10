@@ -1,0 +1,6 @@
+testdata/
+*.md
+.git/
+.gitignore
+.atl/
+.DS_Store

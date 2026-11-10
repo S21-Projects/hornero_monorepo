@@ -1,0 +1,88 @@
+---
+import Layout from '../layouts/Layout.astro';
+import ContactForm from '../components/islands/ContactForm.tsx';
+import { TURNSTILE_SCRIPT_URL } from '../lib/turnstile';
+
+// TODO(contacto): crear esta casilla con Cloudflare Email Routing y reenviarla
+// al correo del equipo. Hoy todavía no existe.
+const EMAIL_CONTACTO = 'consultas@elhornero.org';
+// TODO(contacto): si el repositorio es privado, este enlace no le sirve a un
+// visitante — conviene quitarlo o apuntar a un repo público de issues.
+const REPO_URL = 'https://github.com/S21-Projects/hornero_monorepo';
+
+const canales = [
+  {
+    titulo: 'Sos una organización',
+    detalle:
+      '¿Tenés un comedor o una organización comunitaria y querés publicar tus necesidades? Escribinos y te acompañamos en el alta.',
+  },
+  {
+    titulo: 'Querés donar',
+    detalle:
+      'Si tenés dudas sobre cómo funciona una donación o qué pasa después, contanos y te lo explicamos.',
+  },
+  {
+    titulo: 'Encontraste un error',
+    detalle: 'Reportalo acá o abrí un issue en el repositorio. Se agradece muchísimo.',
+  },
+];
+---
+
+<Layout
+  title="Contacto — El Hornero"
+  description="Escribinos: consultas sobre la plataforma, altas de organizaciones y reportes de errores."
+>
+  <!-- Turnstile. `is:inline` keeps Astro from bundling it: it must load from
+       Cloudflare's own origin. The island renders the widget explicitly. -->
+  <script is:inline async defer src={TURNSTILE_SCRIPT_URL}></script>
+
+  <section class="mx-auto max-w-[1100px] px-4 py-12 sm:px-6 sm:py-16">
+    <div class="grid gap-10 lg:grid-cols-2 lg:items-start lg:gap-14">
+      <!-- Copy column. First in the DOM so the <h1> leads the reading order;
+           moved to the right on desktop. -->
+      <div class="lg:order-2 lg:sticky lg:top-[84px]">
+        <h1 class="text-3xl font-black tracking-tight sm:text-4xl">Hablemos</h1>
+        <p class="mt-4 max-w-[46ch] text-[15px] leading-relaxed text-[var(--ink-2)]">
+          Nos importa mantener el contacto con quienes usan El Hornero. Contanos tu consulta
+          y te respondemos al correo que nos dejes.
+        </p>
+
+        <ul class="mt-8 flex list-none flex-col gap-5 p-0">
+          {canales.map(({ titulo, detalle }) => (
+            <li class="border-l-2 border-[var(--straw)] pl-4">
+              <p class="text-[15px] font-extrabold text-[var(--earth)]">{titulo}</p>
+              <p class="mt-1 max-w-[44ch] text-[14px] leading-relaxed text-[var(--ink-2)]">
+                {detalle}
+              </p>
+            </li>
+          ))}
+        </ul>
+
+        <div class="mt-8 border-t border-[var(--line)] pt-6">
+          <p class="text-[13px] font-bold text-[var(--ink-3)]">¿Preferís los canales directos?</p>
+          <div class="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2">
+            <a
+              href={`mailto:${EMAIL_CONTACTO}`}
+              class="text-[14px] font-extrabold text-[var(--sky-tx)] no-underline hover:underline"
+            >
+              ✉️ {EMAIL_CONTACTO}
+            </a>
+            <a
+              href={REPO_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              class="text-[14px] font-extrabold text-[var(--sky-tx)] no-underline hover:underline"
+            >
+              ↗ Abrir un issue
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <!-- Form column -->
+      <div class="lg:order-1">
+        <ContactForm client:load />
+      </div>
+    </div>
+  </section>
+</Layout>

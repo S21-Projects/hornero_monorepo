@@ -1,0 +1,20 @@
+@startuml
+' Hornero — Casos de uso del Motor de asignación (servicio interno)
+!include _estilo.iuml
+
+actor "Administrador" as Admin
+actor "Planificador\n(tiempo)" as Planificador
+
+rectangle "Hornero" {
+  usecase "CU-11\nAsignar donaciones\ndel fondo común" as CU11
+  usecase "Registrar evento\nen la bitácora" as Bitacora
+}
+
+actor "Motor de asignación\n(servicio interno)" as Motor
+
+Admin --> CU11
+Planificador --> CU11
+CU11 --> Motor
+CU11 ..> Bitacora : <<include>>
+
+@enduml

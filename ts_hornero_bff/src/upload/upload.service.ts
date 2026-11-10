@@ -1,12 +1,9 @@
-import { Injectable } from '@nestjs/common';
+import { randomUUID } from 'node:crypto';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
-
-const EXT_MAP: Record<string, string> = {
-  'image/jpeg': 'jpg',
-  'image/png': 'png',
-  'image/webp': 'webp',
-};
+import { detectEvidenceType, detectImageType } from './image-type.js';
+import { sanitizeEvidenceImage } from './evidence-image.js';
 
 @Injectable()
 export class UploadService {
@@ -19,31 +16,79 @@ export class UploadService {
       endpoint: this.config.get<string>('AWS_ENDPOINT_URL'),
       credentials: {
         accessKeyId: this.config.get<string>('AWS_ACCESS_KEY_ID') as string,
-        secretAccessKey: this.config.get<string>('AWS_SECRET_ACCESS_KEY') as string,
+        secretAccessKey: this.config.get<string>(
+          'AWS_SECRET_ACCESS_KEY',
+        ) as string,
       },
       forcePathStyle: true,
     });
     this.bucket = this.config.get<string>('AWS_S3_BUCKET_NAME') as string;
   }
 
-  async uploadOrgProfile(orgId: number, file: Express.Multer.File): Promise<string> {
+  async uploadOrgProfile(
+    orgId: number,
+    file: Express.Multer.File,
+  ): Promise<string> {
     return this.upload(`org-profile/${orgId}`, file);
   }
 
-  async uploadOrgBanner(orgId: number, file: Express.Multer.File): Promise<string> {
+  async uploadOrgBanner(
+    orgId: number,
+    file: Express.Multer.File,
+  ): Promise<string> {
     return this.upload(`org-banner/${orgId}`, file);
   }
 
-  private async upload(prefix: string, file: Express.Multer.File): Promise<string> {
-    const ext = EXT_MAP[file.mimetype] ?? 'jpg';
-    const key = `${prefix}/${Date.now()}.${ext}`;
+  async uploadOrgEvidencia(
+    orgId: number,
+    file: Express.Multer.File,
+  ): Promise<string> {
+    return this.upload(`org-evidencia/${orgId}`, file, true);
+  }
+
+  /**
+   * Claim evidence is keyed by the claimant too (`reclamo-evidencia/{orgId}/{userId}/`), so a
+   * referente cannot attach another claimant's file to their own claim: the MS only accepts keys
+   * under the caller's own prefix.
+   */
+  async uploadReclamoEvidencia(
+    orgId: number,
+    userId: number,
+    file: Express.Multer.File,
+  ): Promise<string> {
+    return this.upload(`reclamo-evidencia/${orgId}/${userId}`, file);
+  }
+
+  private async upload(
+    prefix: string,
+    file: Express.Multer.File,
+    allowPdf = false,
+  ): Promise<string> {
+    // Trust the bytes, not the client-declared mimetype/filename.
+    const detected = allowPdf
+      ? detectEvidenceType(file.buffer)
+      : detectImageType(file.buffer);
+    if (!detected) {
+      throw new BadRequestException(
+        allowPdf
+          ? 'File content does not match an allowed type (jpeg, png, or pdf)'
+          : 'File content does not match an allowed image type (jpeg, png, or webp)',
+      );
+    }
+    // Accreditation evidence is re-encoded so EXIF/GPS never reach the bucket; a corrupt image
+    // throws here, before anything is stored. PDFs and the other prefixes are stored as sent.
+    const body =
+      allowPdf && (detected.ext === 'jpg' || detected.ext === 'png')
+        ? await sanitizeEvidenceImage(file.buffer, detected.ext)
+        : file.buffer;
+    const key = `${prefix}/${randomUUID()}.${detected.ext}`;
 
     await this.s3.send(
       new PutObjectCommand({
         Bucket: this.bucket,
         Key: key,
-        Body: file.buffer,
-        ContentType: file.mimetype,
+        Body: body,
+        ContentType: detected.mimetype,
       }),
     );
 

@@ -10,7 +10,6 @@ import lombok.*;
 @Getter
 @Setter
 @NoArgsConstructor
-@AllArgsConstructor
 public abstract class Usuario {
 
     @Id
@@ -28,4 +27,42 @@ public abstract class Usuario {
 
     @Column(nullable = false)
     private boolean activo = true;
+
+    /**
+     * Grandfathering: existing rows get {@code true} via the column default
+     * (see design decision #2), new rows written through this Java field get
+     * {@code false} until they confirm an OTP.
+     */
+    @Column(nullable = false, columnDefinition = "boolean not null default true")
+    private boolean emailVerificado = false;
+
+    protected Usuario(Long id, String nombre, String email, String password, boolean activo) {
+        this.id = id;
+        this.nombre = nombre;
+        this.email = email;
+        this.password = password;
+        this.activo = activo;
+    }
+
+    public static final String NOMBRE_ANONIMO = "Usuario eliminado";
+    /** RFC 2606 reserved TLD: mail to it can never be delivered. */
+    public static final String DOMINIO_ANONIMO = "anonimo.invalid";
+
+    /** True once {@link #anonimizar} ran: the email is an {@code @anonimo.invalid} placeholder. */
+    public boolean esAnonimo() {
+        return email != null && email.endsWith("@" + DOMINIO_ANONIMO);
+    }
+
+    /**
+     * N15/D12: irreversibly replaces every personal field. The caller supplies a random email
+     * placeholder and a hash of a random secret nobody knows, so neither can be derived from the
+     * original values.
+     */
+    public void anonimizar(String emailAnonimo, String passwordInutilizable) {
+        this.nombre = NOMBRE_ANONIMO;
+        this.email = emailAnonimo;
+        this.password = passwordInutilizable;
+        this.activo = false;
+        this.emailVerificado = false;
+    }
 }

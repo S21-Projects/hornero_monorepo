@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { ConfigService } from '@nestjs/config';
@@ -17,6 +17,16 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   }
 
   async validate(payload: any) {
-    return { userId: payload.sub, email: payload.email, nombre: payload.nombre, tipo: payload.tipo };
+    // Only access tokens authenticate requests; a refresh token in this cookie is rejected.
+    if (payload?.type !== 'access') {
+      throw new UnauthorizedException();
+    }
+    return {
+      userId: payload.sub,
+      email: payload.email,
+      nombre: payload.nombre,
+      tipo: payload.tipo,
+      emailVerificado: payload.emailVerificado,
+    };
   }
 }

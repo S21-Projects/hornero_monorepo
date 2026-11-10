@@ -1,0 +1,49 @@
+@startsalt
+' Hornero — Wireframe (salt): cola de auditoría del administrador.
+' Cubre CU-08 (auditar evidencia presentada). El acceso a "Elevar/reducir
+' nivel" es la puerta hacia CU-09, una pantalla y una acción distintas.
+' Boceto de baja fidelidad: no es una captura de la aplicación en ejecución;
+' el mecanismo de acreditación progresiva está diseñado en
+' openspec/changes/acreditacion-progresiva/ y no aplicado aún al código.
+
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Helvetica
+skinparam defaultFontSize 12
+
+{
+  {^"Auditoría de acreditación" | [Elevar/reducir nivel de una organización]}
+  --
+  {
+    Evidencia pendiente de primera revisión (3)
+    {#
+      Organización | Requisito | Tipo | Presentada
+      Comedor Los Horneros | Condiciones sanitarias adecuadas | Documento | hace 2 días
+      Merendero San José | Personería jurídica o aval | Documento | hace 5 horas
+      Copita de Leche Norte | No discriminación | Declaración | hace 1 día
+    }
+    [Aprobar] [Observar...]
+  }
+  --
+  {
+    Evidencia aprobada y vencida (2)
+    {#
+      Organización | Requisito | Aprobada por | Venció el
+      Comedor Los Horneros | Sin kiosco en el mismo domicilio | admin.perez | 15/08/2026
+      Ropero Comunitario Sur | Radio 50 km Banco de Alimentos | admin.gomez | 02/09/2026
+    }
+    "El nivel no baja por vencimiento: sólo se señala aquí y en el legajo."
+    [Pedir renovación]
+  }
+  --
+  {
+    Detalle de la fila seleccionada
+    {
+      Organización | ^Comedor Los Horneros^
+      Requisito | Condiciones sanitarias adecuadas
+      Evidencia | [condiciones_local.pdf]
+      Motivo de observación | "..."
+      . | [Aprobar] [Observar con motivo]
+    }
+  }
+}
+@endsalt
