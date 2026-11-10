@@ -6,6 +6,7 @@ Thumbs.db
 .env
 .env.local
 .env.desa
+.env.demo
 .env.*.local
 
 # AI / tooling internals
@@ -26,3 +27,16 @@ target/
 .idea/
 .vscode/
 *.iml
+
+# Local database dumps (make backup / make migrate) — contain user data
+backups/
+
+# Coverage outputs (make coverage)
+coverage/
+coverage.out
+
+# Census parquet cache (make mapa-datos)
+scripts/mapa/.cache/
+
+# ReNaCoM import output (make importar-renacom)
+scripts/mapa/out/

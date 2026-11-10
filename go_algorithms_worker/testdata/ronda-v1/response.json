@@ -1,0 +1,39 @@
+{
+  "version": 1,
+  "asignaciones": [
+    {
+      "donacionId": 17,
+      "necesidadId": 40,
+      "organizacionId": 8,
+      "score": 0.5326855684846372,
+      "distanciaKm": 2.1998295045373455,
+      "costoOportunidad": 0,
+      "desglose": {
+        "deficit": 0.3333333333333333,
+        "urgencia": 0.6,
+        "proximidad": 0.759588311347539,
+        "espera": 0.15555555555555556,
+        "cumplimiento": 0.888888888888889
+      },
+      "deficitFuente": "NEUTRAL",
+      "codigoRadio": ""
+    }
+  ],
+  "sinAsignar": [],
+  "scoreTotal": 0.5326855684846372,
+  "pesos": {
+    "deficit": 0.3,
+    "urgencia": 0.25,
+    "proximidad": 0.17,
+    "espera": 0.13,
+    "cumplimiento": 0.15
+  },
+  "parametros": {
+    "distanciaMediaKm": 8,
+    "distanciaMaximaKm": 30,
+    "esperaMaximaDias": 90,
+    "deficitMaximo": 3,
+    "penalizacionNoAsignar": 0.1,
+    "cumplimientoPseudoObs": 5
+  }
+}

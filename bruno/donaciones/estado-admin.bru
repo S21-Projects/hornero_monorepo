@@ -1,0 +1,35 @@
+meta {
+  name: Forzar estado donacion (admin)
+  type: http
+  seq: 9
+}
+
+patch {
+  url: {{bffUrl}}/donaciones/{{donacionId}}/estado-admin
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+  Cookie: access_token={{accessToken}}
+}
+
+body:json {
+  {
+    "estado": "ENTREGADA",
+    "motivo": "Confirmado por teléfono con ambas partes"
+  }
+}
+
+vars:pre-request {
+  donacionId: 1
+}
+
+docs {
+  Protected — administrador only. Forces `estado` to any value while the
+  donation is non-terminal, bypassing the normal transition matrix. Rejected
+  with 400 if the donation is already ENTREGADA, RECHAZADA or CANCELADA, or if
+  `motivo` is blank. `overrideMotivo`/`overrideAdminId`/`overrideEn` are
+  persisted as an audit trail.
+}

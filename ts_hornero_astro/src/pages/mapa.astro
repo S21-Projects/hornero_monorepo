@@ -1,0 +1,17 @@
+---
+import Layout from '../layouts/Layout.astro';
+import MapaVulnerabilidad from '../components/islands/MapaVulnerabilidad';
+// Only the counts are used here (disclaimer copy); the browser fetches the file itself.
+import departamentosRaw from '../../public/mapa/departamentos.geojson?raw';
+
+const features = (JSON.parse(departamentosRaw) as { features: { properties: { vulnerabilidad: number | null } }[] }).features;
+const totalDepartamentos = features.length;
+const sinComedores = features.filter((f) => f.properties.vulnerabilidad == null).length;
+---
+
+<Layout
+  title="Mapa de vulnerabilidad — El Hornero"
+  description="Zonas de Argentina con más personas por comedor y más necesidades sin cubrir."
+>
+  <MapaVulnerabilidad client:load sinComedores={sinComedores} totalDepartamentos={totalDepartamentos} />
+</Layout>

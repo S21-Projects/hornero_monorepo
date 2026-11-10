@@ -1,0 +1,57 @@
+@startuml
+!include _estilo.iuml
+
+actor "Referente" as Ref
+actor "Administrador" as Admin
+participant "Panel web" as Web
+participant "BFF" as BFF
+participant "Backend" as Back
+participant "Proceso diario\n(00:15 y al iniciar)" as Job
+database "Base de datos" as DB
+participant "Worker\n(HTTP interno)" as Worker
+
+== Rechazo de la propuesta por el referente ==
+
+Ref -> Web : Rechaza la donación propuesta
+Web -> BFF : Rechazar donación
+BFF -> Back : Rechazar donación
+activate Back
+group misma transacción: devolución al fondo
+  Back -> DB : Quitar la necesidad de la donación\n(sigue OFRECIDA, vuelve al fondo)
+  Back -> DB : Asignación pasa a RECHAZADA,\ncon fecha de resolución
+  Back -> DB : Registrar actividad\n(rechazada por la organización)
+end
+Back --> Web : Donación devuelta al fondo común
+deactivate Back
+
+== Propuesta sin respuesta ==
+
+Job -> DB : Buscar propuestas con más de 3 días\nsin respuesta
+loop por cada donación, en su propia transacción
+  Job -> Back : Expirar propuesta
+  activate Back
+  Back -> DB : Bloquear la donación y verificar\nque siga sin respuesta
+  Back -> DB : Devolución al fondo\n(mismo camino que el rechazo)
+  Back -> DB : Registrar actividad con actor SISTEMA\ny motivo "sin respuesta del referente"
+  deactivate Back
+end
+
+== Reasignación en la próxima ronda (CU-11) ==
+
+Admin -> Web : Dispara una ronda
+Web -> BFF : Ejecutar ronda
+BFF -> Back : Ejecutar ronda
+activate Back
+Back -> DB : Leer donaciones del fondo común sin asignar\n(incluye las devueltas)
+Back -> DB : Leer organizaciones que ya rechazaron\ncada donación (asignaciones RECHAZADA)
+Back -> Worker : Donaciones, candidatas y exclusiones
+activate Worker
+Worker -> Worker : Marcar como no asignables los pares\ncon organizaciones excluidas
+Worker -> Worker : Puntuar y resolver la asignación óptima;\nante empate, prioriza la donación que más esperó
+Worker --> Back : Nuevas asignaciones
+deactivate Worker
+Back -> DB : Registrar la ronda y las nuevas\nasignaciones en estado PROPUESTA
+Back --> Web : Ronda completada
+deactivate Back
+
+@enduml

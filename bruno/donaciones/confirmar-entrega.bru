@@ -1,0 +1,25 @@
+meta {
+  name: Confirmar entrega donacion
+  type: http
+  seq: 8
+}
+
+post {
+  url: {{bffUrl}}/donaciones/{{donacionId}}/confirmar-entrega
+  body: none
+  auth: none
+}
+
+headers {
+  Cookie: access_token={{accessToken}}
+}
+
+vars:pre-request {
+  donacionId: 1
+}
+
+docs {
+  Protected — donante or referente. Confirms delivery from the caller's side.
+  Idempotent: a repeat confirmation by the same actor is a no-op. `estado`
+  becomes ENTREGADA only once both sides have confirmed.
+}

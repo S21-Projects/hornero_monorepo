@@ -1,0 +1,229 @@
+# go_algorithms_worker
+
+Hornero's geographic metrics and donation-assignment solver. Two of its three subcommands
+(`metrics`, `assign`) are deliberately offline/batch jobs; the third (`serve`) is the AD-1 HTTP
+entrypoint the MS calls for a ronda.
+
+For an in-depth walkthrough of how a ronda is scored and solved, see [`docs/worker-asignacion.md`](../docs/worker-asignacion.md).
+
+`metrics` stays a batch job on purpose: census radios do not move and coverage changes slowly, so
+it is recomputed on a schedule and the MS only ever reads flat numbers. `serve` is a long-lived
+process, and it needs no dataset: the MS computes each candidate's live deficit from its database at
+ronda time and sends it (`deficitFuente` `PROVISTO`); a candidate without one resolves to `NEUTRAL`.
+The CSVs below only feed the offline `metrics` / `assign` subcommands, and `serve --data` for
+experiments. The solver itself (`internal/assign`) is unchanged either way. Keeping the
+geospatial work here means the Java MS never grows a PostGIS dependency, which matters on the
+Raspberry Pi deployment.
+
+## The dataset
+
+`data/renacom.csv` is the ReNaCoM open dataset — 2730 community comedores and
+merenderos registered and validated by the Argentine state, georeferenced by
+CONICET/Poblaciones.
+
+- Landing page: <https://ri.conicet.gov.ar/handle/11336/278030>
+- Direct CSV (no auth):
+  `https://ri.conicet.gov.ar/bitstream/handle/11336/278030/Comedores_y_merenderos__ReNaCoM_.csv?sequence=5&isAllowed=y`
+
+The column that carries the project is **`Código de radio`**: a 9-digit INDEC
+census radio code (`PP DDD FF RR` = province, department, fraction, radio),
+populated on every row. It is not Censo 2022 vintage, so the worker prefers the
+point-in-polygon radio from `data/renacom-radio-2022.csv` (see "Radio vintage" below).
+
+`Tipo de georreferenciación` is the coordinate precision, per the published
+data dictionary: 1 georeferenced by RENACOM, 2 precise via Google Maps, 3
+precise manual, 4-5 street intersection (somewhere on the block), 6 within 300
+metres, 7 could not be located at all, 9 never processed manually. Levels 1-5
+are block-accurate or better; `Comedor.PrecisionDudosa()` flags 6 and up — 193
+of 2730 rows nationally, 8 of 264 in Córdoba. `internal/geo` only uses levels
+1-5 points to resolve the AD-2 `CERCANO` deficit term.
+
+## Commands
+
+```bash
+go test ./...
+
+# Coverage per census radio. Without --poblacion it still counts comedores,
+# but leaves the deficit at zero.
+go run . metrics --provincia "Córdoba" --top 20
+go run . metrics --poblacion data/poblacion-radios.csv --json
+
+# One allocation round, offline — reads/writes the same contract `serve` answers over HTTP
+# (see contract/ronda-v1.md). --data/--poblacion resolve AD-2 the same way `serve` does.
+go run . assign --input testdata/ronda-v1/request.json
+
+# The AD-1 HTTP entrypoint: POST /v1/ronda, POST /v1/radio, GET /healthz. This is what
+# docker-compose.yml's `worker` service runs, with no CSV: candidates without a deficit from the
+# MS resolve to NEUTRAL. --data/--poblacion/--provincia are optional and restore the old
+# CSV-backed RADIO / CERCANO fallbacks (local experiments only; the image ships no CSV).
+go run . serve --addr :8090 --radios data/radios-2022.ndjson.gz
+go run . serve --addr :8090 --data data/renacom.csv [--poblacion data/poblacion-radios.csv] [--provincia "Córdoba"]
+```
+
+`serve` has no host port in `docker-compose.yml` on purpose (AD-1): only the MS reaches it, over
+the compose network at `http://worker:8090`. The MS does not `depends_on` it — the MS boots fine
+with the worker down, only `POST /api/rondas` answers `503 WORKER_NO_DISPONIBLE` while it is.
+
+`--poblacion` expects a CSV with headers `codigo_radio,habitantes,hogares`
+(hogares optional). `data/poblacion-radios.csv` is committed: Censo 2022 population
+per radio (66,502 radios, INDEC; cartography by Rodriguez & de Grande/CONICET,
+CC-BY-4.0). `hogares` is empty because the source has no households column.
+
+Regenerate it with `make mapa-datos` (needs the `duckdb` CLI; see `scripts/mapa/README.md`).
+
+**Radio vintage.** ReNaCoM's declared `Código de radio` is not Censo 2022 vintage: it
+matches the radio containing the point in only ~22% of rows, so joining it to the 2022
+population would attach the wrong figures. `make mapa-datos` also writes
+`data/renacom-radio-2022.csv` (`identificador,codigo_radio_2022`) by point-in-polygon.
+When that file sits next to `renacom.csv`, `renacom.Cargar` uses it instead of the
+declared code (matched by `Identificador`); without it the declared code is kept.
+
+**Vulnerability override.** When `data/vulnerabilidad-radios.csv` sits next to `renacom.csv`,
+`geo.Cargar` (used by `assign`, `serve --data` and the AD-2 resolver) reads its `vulnerabilidad`
+column and uses it as the per-radio number of the score's deficit term, in place of the
+ReNaCoM-only `deficit` (so it also works without `--poblacion`). The precedence is unchanged
+(request-provided value > RADIO > CERCANO > NEUTRAL) and so is the normalization
+(`min(value, deficitMaximo) / deficitMaximo`); the wire contract does not change. An empty
+`vulnerabilidad` (radio with no comedores or no population) is "unknown": that radio is skipped
+and resolution falls through to CERCANO / NEUTRAL, never to 0. Without the file the behaviour is
+the one described below. `make mapa-datos` writes it (see `scripts/mapa/README.md`); the
+vulnerability is the deficit times `(1 + necesidadesAbiertas / comedores)`, so a radio with no open
+necesidades scores exactly its deficit. `--provincia` only narrows the CERCANO points, not this file.
+
+## The metric
+
+Counting comedores per area says nothing on its own: 108 comedores in a dense,
+poor radio and 108 in a wealthy one mean opposite things. The figure that
+carries signal is coverage:
+
+```
+habitantesPorComedor = habitantes(radio) / comedores(radio)
+deficit              = habitantesPorComedor / mediana(ciudad)
+```
+
+`deficit` is a ratio against the median, so it stays comparable between cities
+of different sizes. 1.0 is typical, 2.0 is twice as underserved.
+
+## The assignment
+
+A donor can either pick a necesidad directly, or hand the donation to Hornero
+to distribute. Only the second kind reaches this worker. A direct donation is
+already assigned and must never be re-routed.
+
+Donations are **indivisible**: one donation goes whole to one necesidad, and a
+necesidad is filled by at most one donation per round.
+
+The candidate is the **necesidad, not the organizacion**. Scoring the
+organizacion would produce a ranking rather than an allocation — the same
+well-rated comedor would win every donation, including goods it never asked
+for. Keying on the necesidad also lets one organizacion receive two donations
+in a round when it has two distinct open necesidades.
+
+That one-per-necesidad constraint is the entire reason this is an assignment
+problem. If a necesidad could absorb any number of donations, each donation
+would simply pick its own best candidate and nothing would be coupled. Because
+a necesidad taken by one donation is denied to every other, the round's optimum
+is not the sum of the individual optima — so the round is solved as a whole
+with the Hungarian (Kuhn-Munkres) algorithm, Jonker-Volgenant variant, O(n²m).
+
+Pairs that break a hard filter are infeasible (cost `Inf`), never just penalized: an
+organizacion the donor already rejected, a category outside the necesidad's or the
+accreditation level's list, no shared articulo, or a distance over `distanciaMaximaKm`
+(30 km). Every feasible pair is scored in `[0, 1]` (`internal/assign/scoring.go`,
+`PesosPorDefecto` / `ParametrosPorDefecto`):
+
+```
+score = 0.30*deficit + 0.25*urgencia + 0.17*proximidad + 0.13*espera + 0.15*cumplimiento
+
+deficit      = min(deficit, 3) / 3                       (deficit 1.0 = median zone)
+urgencia     = clamp(urgencia, 0, 1)                     (computed by the MS)
+proximidad   = exp(-km / 8)
+espera       = min(diasDesdeUltimaDonacion / 90, 1)
+cumplimiento = (E + 5*p0) / (E + F + 5)                  (E delivered, F rejected,
+                                                          p0 = ronda-wide average)
+```
+
+Weights are normalized to sum 1, so a request may override them on any scale.
+`cumplimiento` is Bayesian-smoothed: an organizacion with no history scores the
+ronda average `p0`, not 0 or 1.
+
+The cost matrix is `-score` plus one private "leave unassigned" column per
+donation costing `0.10 * min(diasEnFondo / 90, 1)`: it keeps the problem
+feasible when donations outnumber candidates, and under contention it favours
+the donation that has waited longest in the pool. A donation matched to its own
+column comes back in `sinAsignar`.
+
+Every term is normalized before weighting — kilometres, ratios and days live
+on different scales, and skipping that step is the usual reason a weighted
+score behaves nothing like its weights suggest. Proximity decays exponentially
+rather than linearly, so a distant comedor in a starved radio can still win.
+
+`espera` is the anti-starvation term: it grows with days since the
+organizacion's last donation and saturates at 90. A comedor that keeps losing
+on the other three terms climbs on its own until it wins. It is deterministic
+rather than randomized on purpose — on a donation platform, being able to
+explain why a donation went where it went is worth more than squeezing out the
+last bit of optimality.
+
+`POST /v1/ronda` rejects with `400 ENTRADA_INVALIDA` any request whose numbers
+would break the score: overrides that are denominators (`distanciaMediaKm`,
+`esperaMaximaDias`, `deficitMaximo`, `cumplimientoPseudoObs`) must be `> 0`,
+`distanciaMaximaKm` and `penalizacionNoAsignar` `>= 0` (`distanciaMaximaKm = 0`
+disables the cut-off), `cumplimientoPrior` in `[0, 1]`, weights `>= 0` with at
+least one positive, `urgencia` in `[0, 1]`, no negative day counts, deficits or
+compliance counts, and no repeated donation or necesidad ids.
+
+**`espera` must count direct donations too**, even though those never pass
+through this solver. An organizacion with many direct donors would otherwise
+look starved to the algorithm and be prioritized in the pool as well,
+collecting from both channels at once — the opposite of what the term exists
+to enforce.
+
+Category mismatches and candidates beyond `distanciaMaximaKm` are hard
+filters, not penalties: they can never be matched.
+
+### Explaining a result
+
+Hungarian buys optimality at the cost of local explainability. An individual
+allocation can score lower than another option that was free, because some
+other donation needed that option more. "It had the highest score" is
+therefore not always the reason.
+
+Each `Asignacion` carries `costoOportunidad` for exactly this: the best score
+that donation could have had alone, minus what it actually got. Zero means the
+round agreed with the greedy pick; a positive value is the measurable amount
+the round asked this donation to give up, and the number to quote when someone
+asks why.
+
+Solver correctness is pinned by `internal/assign/hungarian_test.go`, which
+checks 200 random matrices against a brute-force oracle.
+
+## Radio lookup (`POST /v1/radio`)
+
+The MS asks the worker which Censo 2022 radio contains an organizacion's coordinates, so it can store
+`codigo_radio` without carrying any geometry itself. Internal only (no host port).
+
+```
+POST /v1/radio   {"latitud": -31.4167, "longitud": -64.1833}
+200  {"codigoRadio": "140145516"}
+400  ENTRADA_INVALIDA          malformed JSON, missing coordinate, latitud outside [-90,90] or longitud outside [-180,180]
+404  RADIO_NO_ENCONTRADO       no radio within 25 m of the point
+405  METODO_NO_PERMITIDO       any method but POST
+413  CUERPO_DEMASIADO_GRANDE   body over 4 KiB
+503  RADIOS_NO_DISPONIBLES     the asset is not loaded
+```
+
+Errors use the same `{"error","detalle"}` envelope as `/v1/ronda`.
+
+- **Asset**: `serve --radios data/radios-2022.ndjson.gz` (gzipped NDJSON, one `{"c":code,"g":GeoJSON}`
+  line per radio). A missing or unreadable file only logs a warning and `/v1/radio` answers 503;
+  rondas never depend on it. The Docker image ships this one file and no CSV.
+- **Regenerating it**: `make mapa-radios` (needs `duckdb`; reuses the parquet cached by
+  `make mapa-datos`). See `scripts/mapa/README.md` for the size gate and tolerance. The output is
+  deterministic.
+- **Lookup** (`internal/radios`): 0.05 degree grid over bounding boxes, even-odd ray casting over every
+  ring (holes excluded), a point on a shared edge goes to the lowest code, and a point that falls in
+  a simplification gap resolves to the nearest edge within 25 m.
+- **Cost**: loading takes about 1 s and adds about 43 MB of heap (about 77 MiB RSS in the container);
+  a lookup takes microseconds. `/healthz` turns green only after the asset is loaded.
+

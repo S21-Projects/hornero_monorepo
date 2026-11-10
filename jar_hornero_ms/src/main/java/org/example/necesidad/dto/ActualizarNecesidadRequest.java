@@ -8,6 +8,7 @@ import org.example.domain.EstadoNecesidad;
 import org.example.domain.PrioridadNecesidad;
 
 import java.time.LocalDate;
+import java.util.List;
 
 @Getter
 @Setter
@@ -19,4 +20,9 @@ public class ActualizarNecesidadRequest {
     private PrioridadNecesidad prioridad;
     private EstadoNecesidad estado;
     private LocalDate fechaVencimiento;
+
+    // Feature catalogo-articulos, decision 6: null means "leave articulos unchanged" (same
+    // convention as every other field on this partial-update DTO); a non-null list must be
+    // non-empty at the service level — a necesidad can never be left with zero articulos.
+    private List<Long> articuloIds;
 }

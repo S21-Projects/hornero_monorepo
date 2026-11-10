@@ -1,0 +1,99 @@
+@startuml
+title Despliegue en servidor propio (Raspberry Pi 5)
+skinparam shadowing false
+skinparam defaultFontName Helvetica
+skinparam dpi 150
+skinparam ArrowColor #444444
+skinparam nodesep 12
+skinparam ranksep 30
+skinparam node {
+  BackgroundColor #FFFFFF
+  BorderColor #666666
+}
+skinparam database {
+  BackgroundColor #FFFFFF
+  BorderColor #666666
+}
+skinparam cloud {
+  BackgroundColor #FAFAFA
+  BorderColor #888888
+}
+
+node "Dispositivo del usuario" as cliente {
+  artifact "Navegador web" as navegador
+}
+
+cloud "Cloudflare" as cf {
+  node "Red perimetral (edge)" as edge {
+    artifact "DNS + TLS + Tunnel\nelhornero.org\npanel.elhornero.org\napi.elhornero.org" as tunnel
+  }
+  node "Cloudflare R2" as r2 {
+    artifact "Bucket hornero-images\nprefijos: org-profile/, org-banner/,\norg-evidencia/, reclamo-evidencia/" as bucket
+    artifact "Bucket de respaldos (opcional)\nBACKUP_S3_BUCKET, copias cifradas en\nhornero/daily/, hornero/weekly/, hornero/monthly/" as bucketBk
+  }
+}
+
+cloud "Resend" as resendCloud {
+  artifact "API de correo" as mailer
+}
+
+cloud "OpenStreetMap" as osm {
+  artifact "Servidor de tiles" as tiles
+}
+
+node "Raspberry Pi 5\n<<dispositivo>>\nRaspberry Pi OS 64-bit\nalmacenamiento: microSD" as pi {
+
+  artifact "cloudflared\n<<servicio systemd del host>>" as cloudflared
+  artifact "hornero-backup.timer\n<<systemd>> 03:15 diario\n-> hornero-backup.service\n-> scripts/backup/backup.sh" as timer
+  artifact "backups/\ndumps locales (pg_dump -Fc)" as dumps
+
+  node "Docker Engine\ndocker compose (red hornero)" as docker {
+
+    node "Contenedor: astro" as cAstro {
+      artifact "Astro SSR\n127.0.0.1:4321" as astro
+    }
+    node "Contenedor: admin" as cAdmin {
+      artifact "React SPA (nginx)\n127.0.0.1:5173 -> 80" as admin
+    }
+    node "Contenedor: bff" as cBff {
+      artifact "NestJS\n127.0.0.1:3001" as bff
+    }
+    node "Contenedor: ms" as cMs {
+      artifact "Spring Boot\n127.0.0.1:8081" as ms
+    }
+    node "Contenedor: worker" as cWorker {
+      artifact "Motor de asignacion (Go)\n:8090 solo red interna,\nsin puerto publicado" as worker
+    }
+    node "Contenedor: postgres" as cPg {
+      database "PostgreSQL 16\n127.0.0.1:5432" as db
+      artifact "hornero_pgdata\n<<volumen>>" as vol
+    }
+  }
+}
+
+navegador -right-> tunnel : HTTPS 443
+navegador --> tiles : HTTPS
+tunnel --> cloudflared : tunel
+cloudflared --> astro : HTTP localhost
+cloudflared --> admin : HTTP localhost
+cloudflared --> bff : HTTP localhost
+
+astro --> bff : HTTP
+bff --> ms : HTTP + JWT
+ms --> db : JDBC
+ms --> worker : HTTP interno\n(solo lo invoca el MS)
+db --> vol : monta
+
+bff -up-> bucket : S3
+ms --> bucket : S3 (solo borrado de\nreclamo-evidencia/)
+ms --> mailer : HTTPS
+astro --> mailer : HTTPS
+
+timer ..> db : pg_dump via compose exec
+timer ..> dumps : escribe
+timer ..> bucketBk : copia cifrada (si BACKUP_S3_BUCKET)
+
+cliente -[hidden]down- cf
+cf -[hidden]down- pi
+
+@enduml

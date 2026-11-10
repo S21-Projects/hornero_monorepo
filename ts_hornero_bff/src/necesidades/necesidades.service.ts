@@ -1,7 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { HttpService } from '@nestjs/axios';
 import { ConfigService } from '@nestjs/config';
+import { buildQuery } from '../common/build-query.js';
 import { CrearNecesidadDto } from './dto/crear-necesidad.dto.js';
+import { RelanzarNecesidadDto } from './dto/relanzar-necesidad.dto.js';
 import { ActualizarNecesidadDto } from './dto/actualizar-necesidad.dto.js';
 
 @Injectable()
@@ -19,18 +21,20 @@ export class NecesidadesService {
     return { Authorization: `Bearer ${accessToken}` };
   }
 
-  async getNecesidades(organizacionId?: string) {
-    const url = organizacionId
-      ? `${this.msUrl}/api/necesidades?organizacionId=${organizacionId}`
-      : `${this.msUrl}/api/necesidades`;
-    try {
-      const { data } = await this.httpService.axiosRef.get(url);
-      return data;
-    } catch (err: any) {
-      const status = err?.response?.status;
-      const body = JSON.stringify(err?.response?.data);
-      throw new Error(`MS ${status} on GET ${url}: ${body}`);
-    }
+  // Public read: the MS hides expired needs except from their owning referente (and admins), so
+  // the session token rides along when there is one. Anonymous callers send no header.
+  async getNecesidades(
+    organizacionId?: string,
+    page?: string,
+    size?: string,
+    sort?: string,
+    accessToken?: string,
+  ) {
+    const url = `${this.msUrl}/api/necesidades${buildQuery({ organizacionId, page, size, sort })}`;
+    const { data } = await this.httpService.axiosRef.get(url, {
+      headers: accessToken ? this.authHeaders(accessToken) : {},
+    });
+    return data;
   }
 
   async crear(dto: CrearNecesidadDto, accessToken: string) {
@@ -42,16 +46,32 @@ export class NecesidadesService {
     return data;
   }
 
-  async findById(id: number) {
+  // Public route, but the session token rides along when there is one: the MS hides the
+  // necesidades of N0 organizations from everyone except the owning referente and admins (N17).
+  async findById(id: number, accessToken?: string) {
     const { data } = await this.httpService.axiosRef.get(
       `${this.msUrl}/api/necesidades/${id}`,
+      { headers: accessToken ? this.authHeaders(accessToken) : {} },
     );
     return data;
   }
 
-  async actualizar(id: number, dto: ActualizarNecesidadDto, accessToken: string) {
+  async actualizar(
+    id: number,
+    dto: ActualizarNecesidadDto,
+    accessToken: string,
+  ) {
     const { data } = await this.httpService.axiosRef.patch(
       `${this.msUrl}/api/necesidades/${id}`,
+      dto,
+      { headers: this.authHeaders(accessToken) },
+    );
+    return data;
+  }
+
+  async relanzar(id: number, dto: RelanzarNecesidadDto, accessToken: string) {
+    const { data } = await this.httpService.axiosRef.post(
+      `${this.msUrl}/api/necesidades/${id}/relanzar`,
       dto,
       { headers: this.authHeaders(accessToken) },
     );

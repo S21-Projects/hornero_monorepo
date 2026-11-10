@@ -1,0 +1,46 @@
+---
+import Layout from '../layouts/Layout.astro';
+import NeedsBoard from '../components/islands/NeedsBoard';
+import { publicFetch } from '../lib/publicFetch';
+import { Text } from '../components/ui/typography';
+import type { Necesidad, Org, PageData } from '../lib/types';
+
+let needs: Necesidad[] = [];
+let orgs: Org[] = [];
+
+try {
+  // TODO [tech-debt]: no UI pager yet, fixed size=50 ceiling
+  const page = await publicFetch<PageData<Necesidad>>('/necesidades?size=50');
+  needs = page.content;
+} catch {
+  needs = [];
+}
+
+try {
+  // TODO [tech-debt]: no UI pager yet, fixed size=50 ceiling
+  const page = await publicFetch<PageData<Org>>('/organizaciones?size=50');
+  orgs = page.content;
+} catch {
+  orgs = [];
+}
+
+const count = needs.length;
+---
+
+<Layout
+  title="Necesidades — El Hornero"
+  description="Necesidades publicadas por comedores y organizaciones de Córdoba."
+>
+  <div class="flex-1 overflow-auto px-4 py-6 sm:px-10 sm:py-7">
+    <div class="mb-5 flex flex-col gap-1 sm:mb-[22px] sm:flex-row sm:items-end sm:justify-between sm:gap-0">
+      <div>
+        <Text variant="h1">Necesidades</Text>
+        <Text variant="body" color="ink-2" style={{ marginTop: 5 }}>
+          {`${count} ${count === 1 ? 'necesidad publicada' : 'necesidades publicadas'} de comedores de Córdoba`}
+        </Text>
+      </div>
+    </div>
+
+    <NeedsBoard client:load needs={needs} orgs={orgs} />
+  </div>
+</Layout>

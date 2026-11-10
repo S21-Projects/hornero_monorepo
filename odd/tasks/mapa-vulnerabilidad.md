@@ -1,0 +1,224 @@
+# Feature: mapa-vulnerabilidad
+
+Locator: `odd/tasks/mapa-vulnerabilidad.md` · Engram mirror: `odd/mapa-vulnerabilidad/tasks`
+Branch: `feat/mapa-vulnerabilidad` (worktree `../hornero_app-mapa`, from `develop` @ `d2eed8b`)
+Design: `docs/mapa-vulnerabilidad.md`
+
+## Objective
+
+National map of Argentina that paints **coverage deficit** (inhabitants per comedor vs
+median) as the vulnerability signal, with a comedor density heatmap and Hornero
+organizaciones as context layers. Same `deficit` term the ronda score weights at 0.35.
+
+## Why
+
+The current map is Córdoba-centred markers (50 orgs max). It shows where Hornero orgs are,
+not where help is missing. Reusing the worker's coverage math makes the map explain the
+assignment algorithm.
+
+## Scope
+
+- In: worker `metrics` departamento aggregation + GeoJSON/heat output; `make mapa-datos`;
+  static data files; Astro island layers (choropleth, heatmap, markers), legend, tooltips,
+  sample-bias disclaimer.
+- Out: MS/BFF runtime endpoints; MapLibre migration; radio-level national polygons.
+
+## Constraints
+
+- Public site must not depend at runtime on the worker (internal-only, no host port).
+- Another agent works on `feat/seguridad-mejoras` in the main worktree — never touch it.
+- Commit only with explicit user permission; never push.
+
+## Decisions
+
+- 2026-10-12 — One combined dataset, not separate layers: ReNaCoM + census + Hornero data are
+  cleaned and merged. Hornero organizaciones count as coverage (dedup against ReNaCoM;
+  point-in-polygon to assign their radio). Open, uncovered necesidades raise a zone's
+  vulnerability (user: "mientras más necesidades haya, mayor es la vulnerabilidad").
+  Caveat: open necesidades are capped per accreditation level (`app.acreditacion.cap-n1..n3`
+  = 3/6/12, `AcreditacionProperties`), so raw counts are biased by level.
+- 2026-10-12 — D3 resolved: demand uses the **raw count** of open, uncovered necesidades, not
+  a cap-saturation ratio. Rationale (user): Hornero cannot judge the importance of each
+  necesidad; its knowledge is what organizaciones declare. Accepted consequence: zones with
+  higher-accredited orgs (larger caps) can show more demand; document this in the map legend.
+
+- 2026-10-12 — Scope expanded (user): ReNaCoM comedores are imported into the MS DB as
+  unclaimed organizaciones (`origen=RENACOM`, new estados `SIN_RECLAMAR`/`INACTIVA`), with a
+  claim flow (admin-approved) and a report flow. Proposed order: A model+import+map endpoint,
+  B claim, C report, D map. Visual mockup: https://claude.ai/artifact/AnDKRdd2UXLSdkpZcC6eKN
+  (pending user sign-off). Not yet re-planned into tasks.
+- 2026-10-12 — Finding (mockup data prep, DuckDB dissolve of 2022 radios): 528 departamentos
+  (excluding Antártida), only **155 have at least one ReNaCoM comedor**; 373 have none, so
+  their deficit is undefined. Median habitantes/comedor across deptos with data: 16,655.
+  The map must show "no comedores in the registry" as its own class, never as low need.
+
+## Open decisions
+
+- D1 — Median: city vs all radios with known population (code uses the latter). Pending user.
+- D2 — Publish location of generated files: `ts_hornero_astro/public/` vs R2.
+- TDD mode: unresolved (no project/session config found). Runner: `go test ./...` (worker),
+  `npm run build` (astro).
+
+## Tasks
+
+- [x] T0 — F0 data research: Censo 2022 population per radio + geometry sources (route:
+  delegated research worker; trigger: broad external research)
+  - Best source: Source Cooperative `nlebovits/censo-argentino/2022` (CC-BY-4.0, INDEC +
+    Rodriguez & de Grande/CONICET cartography): `census-data.parquet` (53.6 MB, `POB_TOT_P`,
+    `VIV_TOT_P`, no hogares) + `radios.parquet` (62 MB geometry), join `cod_2022` = `id_geo`.
+    Also `overview.pmtiles` (28 MB). https://source.coop/nlebovits/censo-argentino/2022
+  - Official INDEC radio-level 2022 CSV not found; only REDATAM bases (statistical secrecy,
+    Ley 17.622). Departamento totals published as XLSX (URLs not extracted).
+  - Risk: radio codes/boundaries differ 2010 vs 2022; ReNaCoM vintage unknown. T1 must match
+    ReNaCoM `Código de radio` against both vintages before trusting the join.
+  - Departamento geometry: not verified; fallback = dissolve radios by PROV+DEPTO.
+  - RENABAP verified: datos.gob.ar, CC-BY, CSV/GeoJSON/GPKG dated 2023-12-05.
+- [x] T1 — Acquire population CSV `data/poblacion-radios.csv` + departamento geometry
+  - Done 2026-10-12 (uncommitted): `scripts/mapa/{fetch.sh,build.sql,README.md}`,
+    `make mapa-datos`, `data/poblacion-radios.csv` (66,502 rows, ~1 MB, hogares empty),
+    `data/renacom-radio-2022.csv` (2,730 rows); `renacom.Cargar` auto-applies the 2022 radio
+    override by Identificador, falls back to the declared code. Evidence: `go test ./...` ok
+    (3 new tests), `go vet` clean, `metrics --top 10` deficit non-zero (top: La Matanza 3.29).
+    No comma-decimal coordinates in renacom.csv (no rows dropped). RDD off (default).
+    Departamento geometry deferred to T3 (dissolve radios). Commit: `8a8f452`.
+  (route: inline, DuckDB 1.5.6 + spatial in scratchpad, nothing written to the repo yet)
+  - `radios.parquet` alone suffices: 66,502 radios, `COD_2022` 9 chars, `POB_TOT_P` total
+    45,618,784, `VIV_TOT_P`, geometry (CRS84). No hogares.
+  - ReNaCoM `Código de radio` is NOT 2022 vintage. Point-in-polygon of all 2,730 ReNaCoM points
+    against 2022 radios: 100% land in a radio; vs declared code: same province 2730, same
+    departamento 2140 (78%), same fraccion 1372, same radio 594 (22%).
+  - Danger: 1,729 declared codes exist in the 2022 set, but most point elsewhere — a direct
+    join would silently attach the wrong population. Decision: ignore the declared code and
+    derive the 2022 radio by point-in-polygon for every row.
+  - 2026-10-12 decision (user): cleaning/merging runs as a **DuckDB** prep pipeline
+    (`scripts/mapa/`), producing small committed CSVs the Go worker reads. Census parquet is
+    cached and gitignored. Go keeps no parquet/geo dependency.
+  - Implementation route: delegated writer (trigger: 2+ non-trivial files — SQL, shell,
+    Makefile, Go loader + tests). TDD: no project/session config found → ordinary checks
+    (`go test ./...`, `go vet ./...`, `make mapa-datos`). No commits without user permission.
+  - Hornero data (orgs + open necesidades) enters as an optional input CSV in T2; fetching it
+    from the MS is T4.
+Re-planned 2026-10-12 after the scope expansion (unclaimed ReNaCoM organizaciones):
+
+- [x] A — Model + import + map endpoint (route: delegated writer; trigger: MS + BFF + admin
+  types + SQL + DuckDB, 2+ non-trivial files)
+  - MS: `Organizacion.origen` (`PLATAFORMA` default | `RENACOM`), `origenId` (unique),
+    `asistentesDeclarados`, `codigoRadio`; `EstadoOrganizacion` += `SIN_RECLAMAR`, `INACTIVA`;
+    `TipoEventoOrganizacion` += `IMPORTADA_RENACOM`.
+  - `scripts/sql/V007__organizacion_origen.sql` (+ `docs/db-changes.md`, `EsquemaVerificador`).
+  - `make importar-renacom`: DuckDB generates idempotent SQL (N0, no referente,
+    `aceptaDonaciones=false`, one event per inserted row), applied via psql like `migrate`.
+  - Public `GET /api/organizaciones/mapa` (APROBADA + SIN_RECLAMAR with coordinates) + BFF
+    proxy; public slug lookup also serves SIN_RECLAMAR.
+  - 2026-10-12 writer done (uncommitted): mvn test 709/0 fail; BFF 342/342 + build; admin
+    build ok, vitest 460/460 with --testTimeout=30000 (2 register.test.tsx timeouts under load
+    at default 5s, pass alone); astro build ok; ephemeral postgres: V007 x2 ok, import x2 →
+    2,730 orgs + 2,730 events, second run +0. Extra guard: aplicarTransicion refuses
+    SIN_RECLAMAR/INACTIVA. `gentle-ai review assess` returned nothing → treated high →
+    independent reviewer: 0 severe, 4 medium (asignarReferente/infoPublica unguarded,
+    authenticated slug 403s SIN_RECLAMAR, import identificador escaping, /mapa unprojected and
+    uncached). One scoped correction round sent to the writer. Deferred to B: Astro slug page
+    shows "Pendiente" pill + donate CTA for SIN_RECLAMAR.
+  - Correction round done: asignarReferente/infoPublica 409 for SIN_RECLAMAR/INACTIVA,
+    authenticated slug serves SIN_RECLAMAR, import restricted to numeric identificador +
+    escaped + deduped + 0,0 → null, /mapa DTO projection + Cache-Control max-age=300 (MS+BFF).
+    Evidence: mvn test 712/0 fail; BFF 342/342 (parent re-ran: 43/43 suites); import x2 → 2,730
+    then +0. Commit: `f89019b`.
+- [x] B — Claim flow (route: delegated writer; trigger: MS + BFF + admin + Astro). Defaults
+  chosen by parent (adjustable): only an authenticated REFERENTE claims; Astro is anonymous, so
+  its "Reclamar" CTA links to an admin-SPA route that hosts the form (login redirect);
+  several pending claims per org allowed, approving one auto-rejects the rest; referente cap
+  (3) checked on submit and on approval; evidence reuses the acreditación evidence upload;
+  approval assigns the referente via a dedicated path (not the guarded asignarReferente),
+  moves estado SIN_RECLAMAR → PENDIENTE (normal admin validation follows), logs org event +
+  actividad; no emails (out of scope).
+  - 2026-10-13 writer done (uncommitted): mvn 755/0 fail; BFF 370/370 + build (BFF lint fails
+    on baseline, 292 pre-existing errors, new files clean); admin lint/build ok, vitest 513;
+    astro build + stub smoke; V008 x2 on ephemeral pg. Writer decisions: evidence mandatory
+    1-3 images under private `reclamo-evidencia/{org}/{user}/` prefix, streamed via MS check;
+    return-to-path after login added for all protected routes; pending count in page header.
+    Security review: 0 severe, 4 medium (upload not checking org/quota, cap recheck not atomic
+    across orgs, no DB uniqueness for pending claim, Date.now() keys). One correction round
+    sent.
+  - Correction round done: MS `GET /api/reclamos/disponibilidad` pre-flight called by the BFF
+    before evidence upload + 10/min per-IP throttle; PESSIMISTIC_WRITE lock on referente before
+    cap count; V008 partial unique index `ux_reclamo_pendiente` (+ DataIntegrityViolation →
+    409); randomUUID upload keys (shared upload path). Evidence: mvn test ok; BFF 377/377
+    (parent re-ran); V008 on ephemeral pg ok. Deploy note: run `make migrate` again after the
+    new MS first boots (table must exist for the index). Awaiting commit permission (3 commits).
+  - [ ] B1 — MS + BFF: `ReclamoOrganizacion` aggregate, endpoints, guards, V008 if enum CHECKs
+    need widening, tests
+  - [ ] B2 — Admin SPA: referente claim form route + admin "Reclamos" queue
+  - [ ] B3 — Astro: unclaimed ficha (badge, ReNaCoM source, CTA, no donate CTA/"Pendiente")
+  - Commits: B1 `64990c9`, B2 `af9d962`, B3 `03cacd7`.
+- [x] C — Report flow (route: delegated writer). Defaults chosen by parent (adjustable): any
+  authenticated user (any role) reports, via an admin-SPA route linked from the Astro ficha
+  (Astro stays anonymous; avoids an unauthenticated write endpoint); only SIN_RECLAMAR orgs
+  are reportable for now; motivos INACTIVO, DATOS_INCORRECTOS, DUPLICADO (+ referenced
+  Hornero org, suggested from nearby PLATAFORMA orgs), OTRO; one pending report per user per
+  org; admin resolves with "Marcar inactiva" (org → INACTIVA, resolves all pending reports
+  on it) or "Descartar" (with nota); events + actividad logged; no emails.
+  - 2026-10-13 writer done (uncommitted): mvn 802/0 fail; BFF 391/391 (parent re-ran) + build;
+    admin lint/build ok, vitest 537; astro build; V009 x3 on ephemeral pg. Review: 0 severe,
+    4 medium (no per-user report cap, broad DataIntegrityViolation catch, pending claims left
+    open on INACTIVA, report/claim cross-closure) + verified-gate question. Correction round:
+    per-user caps, narrow constraint catch (also ReclamoService), marcarInactiva auto-rejects
+    pending claims, claim approval auto-discards pending reports, MS verified gate if a
+    pattern exists.
+  - Correction round done: per-user caps (10 pending → 409, 20/24h → 429, in-memory
+    ReporteThrottle), constraint-specific catch (`Restricciones.viola`, also ReclamoService),
+    marcarInactiva auto-rejects pending claims, claim approval auto-discards pending reports
+    (`ReporteCierre`), MS verified-email gate on report/claim POST + claim pre-flight. Evidence:
+    mvn 816/0 fail; admin 538; parent re-ran Reporte*/Reclamo* tests: exit 0.
+  - [ ] C1 — MS + BFF  · [ ] C2 — Admin SPA (report form + "Reportes" tab)  · [ ] C3 — Astro
+  - Commits: C1 `5589549`, C2 `3ba7f7b`, C3 `dd4de9f`.
+- [ ] D — Map, split by parent 2026-10-13 (sequential writers, single writer at a time):
+  - [x] D-data (delegated writer): MS `/organizaciones/mapa` DTO gains `necesidadesAbiertas`
+    (open, uncovered necesidades count) + BFF/TS types; `make mapa-datos` DuckDB pipeline reads
+    a `/organizaciones/mapa` JSON (URL param or local file; never a remote host without user
+    authorization), PIP to 2022 radios, aggregates per radio + departamento (comedores,
+    necesidadesAbiertas, habitantes, deficitCobertura, vulnerabilidad with national median,
+    "no comedores" as null), writes `go_algorithms_worker/data/vulnerabilidad-radios.csv` and
+    `ts_hornero_astro/public/mapa/departamentos.geojson` (simplified). Committed outputs are
+    generated from a ReNaCoM-only fixture (= state right after `make importar-renacom`).
+    Worker uses `vulnerabilidad-radios.csv` for the score's deficit term when present
+    (fallback to current behaviour), with tests. D2 resolved: Astro `public/` (rebuild).
+    - 2026-10-13 done (uncommitted): 2,730 orgs → 2,002 radios with comedores; 155/528 deptos
+      non-null vulnerabilidad; median 16,655 (depto) / 819.5 (radio); GeoJSON 449 KB; open =
+      ABIERTA|EN_PROGRESO not past fechaVencimiento; no dedup step (ReNaCoM now lives in the MS).
+      Evidence: go test/vet ok (parent re-ran), mvn ok, BFF 391/391, admin+astro build ok;
+      parent re-ran `make mapa-datos`: byte-identical outputs. Gap: committed outputs come
+      from the fixture (necesidadesAbiertas 0).
+  - [ ] D-front (delegated writer, after D-data): Astro `/mapa` page with a Leaflet island:
+    departamento choropleth from the GeoJSON, live pins from `/organizaciones/mapa`
+    (PLATAFORMA vs SIN_RECLAMAR styles), density heat layer, legend, disclaimer, info card;
+    nav entry. Mockup screen 1.
+    - 2026-10-13 writer partial (uncommitted): `/mapa` page + islands + nav entry; build ok,
+      astro check 0 errors; stub smoke: /mapa 200 with disclaimer "373 de 528", GeoJSON 200,
+      CSP allows OSM tiles. Not browser-tested (render, clicks, toggles, phone layout).
+      Density = translucent circleMarkers (no leaflet.heat); null deptos = muted gray dashed.
+      Docs Rendering section updated by parent.
+  - Commits: D-data `1defc09`, D-front `f7b9831`. Local preview: Astro dev against a fixture
+    stub BFF (develop's BFF has no `/organizaciones/mapa` → 404 → pins notice, expected).
+- [ ] D — Map (original line kept for history): depto aggregation + GeoJSON from DB data (former T2-T3), `make mapa-datos`
+  publish (D2), Astro Leaflet island (former T5), docs (former T6)
+
+Delivery: user rule — no PRs, commit only with permission, never push. Work-unit commits per
+task on `feat/mapa-vulnerabilidad`.
+
+## Acceptance criteria
+
+- Choropleth by departamento renders nationally with diverging scale centred on 1.0.
+- Heatmap weighted by asistentes, precision >= 6 excluded.
+- Tooltip shows deficit, habitantesPorComedor, comedores, asistentes, habitantes.
+- Visible disclaimer that the dataset is a ReNaCoM sample.
+- `go test ./...`, `go vet ./...`, astro `npm run build` pass.
+
+## Delivery
+
+Strategy: `ask-on-risk`. Forecast: ~600-900 authored lines across T2-T5 — will exceed 400,
+ask for chain strategy before crossing it.
+
+## Progress
+
+- 2026-10-12: design doc written; worktree created; T0 research launched.

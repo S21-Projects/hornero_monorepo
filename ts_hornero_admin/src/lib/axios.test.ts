@@ -1,0 +1,163 @@
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import MockAdapter from 'axios-mock-adapter';
+import { api } from './axios';
+
+// The adapter wraps the already-configured singleton `api` instance so the
+// real response interceptors (single-flight 401 refresh) are exercised.
+const mock = new MockAdapter(api, { onNoMatch: 'throwException' });
+
+beforeEach(() => {
+  mock.reset();
+  // Clear session_hint left by previous tests
+  document.cookie = 'session_hint=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/';
+});
+
+afterEach(() => {
+  mock.reset();
+  vi.restoreAllMocks();
+});
+
+describe('single-flight 401 refresh', () => {
+  it('two concurrent 401s result in exactly one /auth/refresh call and both requests retried', async () => {
+    let refreshCount = 0;
+
+    // Both data routes: 401 on first call, 200 on retry
+    mock.onGet('/data-a').replyOnce(401).onGet('/data-a').reply(200, 'ok-a');
+    mock.onGet('/data-b').replyOnce(401).onGet('/data-b').reply(200, 'ok-b');
+    mock.onPost('/auth/refresh').reply(() => {
+      refreshCount++;
+      return [204, null];
+    });
+
+    const [r1, r2] = await Promise.all([api.get('/data-a'), api.get('/data-b')]);
+
+    expect(refreshCount).toBe(1);
+    expect(r1.data).toBe('ok-a');
+    expect(r2.data).toBe('ok-b');
+  });
+
+  it('refresh failure + session_hint cookie present → queued requests reject and redirects to /login', async () => {
+    // Simulate an active session via the JS-readable session_hint cookie.
+    // access_token is httpOnly and cannot be set from JS.
+    document.cookie = 'session_hint=1; path=/';
+
+    // Capture the redirect without actually navigating
+    const originalLocation = globalThis.location;
+    const mockLocation = { href: '' };
+    Object.defineProperty(globalThis, 'location', {
+      value: mockLocation,
+      configurable: true,
+      writable: true,
+    });
+
+    try {
+      mock.onGet('/protected-a').replyOnce(401);
+      mock.onGet('/protected-b').replyOnce(401);
+      mock.onPost('/auth/refresh').reply(401);
+
+      const results = await Promise.allSettled([
+        api.get('/protected-a'),
+        api.get('/protected-b'),
+      ]);
+
+      expect(results[0].status).toBe('rejected');
+      expect(results[1].status).toBe('rejected');
+      expect(mockLocation.href).toBe('/login');
+    } finally {
+      Object.defineProperty(globalThis, 'location', {
+        value: originalLocation,
+        configurable: true,
+        writable: true,
+      });
+    }
+  });
+});
+
+describe('N9: 401 USUARIO_INACTIVO', () => {
+  const inactiveBody = {
+    status: 401,
+    message: 'USUARIO_INACTIVO',
+    timestamp: '2026-10-10T00:00:00Z',
+    data: null,
+    errors: ['USUARIO_INACTIVO'],
+  };
+
+  function withLocation(pathname: string, run: (loc: { href: string; pathname: string }) => Promise<void>) {
+    const originalLocation = globalThis.location;
+    const mockLocation = { href: '', pathname };
+    Object.defineProperty(globalThis, 'location', {
+      value: mockLocation,
+      configurable: true,
+      writable: true,
+    });
+    return run(mockLocation).finally(() => {
+      Object.defineProperty(globalThis, 'location', {
+        value: originalLocation,
+        configurable: true,
+        writable: true,
+      });
+    });
+  }
+
+  it('does not try to refresh, clears the session and goes to /login with the reason', async () => {
+    document.cookie = 'session_hint=1; path=/';
+    let refreshCount = 0;
+    let logoutCount = 0;
+    mock.onGet('/protected').reply(401, inactiveBody);
+    mock.onPost('/auth/refresh').reply(() => {
+      refreshCount++;
+      return [204, null];
+    });
+    mock.onPost('/auth/logout').reply(() => {
+      logoutCount++;
+      return [200, { message: 'ok' }];
+    });
+
+    await withLocation('/admin', async (loc) => {
+      await expect(api.get('/protected')).rejects.toBeTruthy();
+      expect(refreshCount).toBe(0);
+      expect(logoutCount).toBe(1);
+      expect(loc.href).toBe('/login?motivo=cuenta-desactivada');
+    });
+  });
+
+  it('does not redirect again when already on /login (no reload loop)', async () => {
+    mock.onGet('/auth/me').reply(401, inactiveBody);
+    mock.onPost('/auth/logout').reply(200, { message: 'ok' });
+
+    await withLocation('/login', async (loc) => {
+      await expect(api.get('/auth/me')).rejects.toBeTruthy();
+      expect(loc.href).toBe('');
+    });
+  });
+});
+
+describe('envelope unwrap', () => {
+  it('unwraps an ApiResponse-shaped body to its .data payload', async () => {
+    mock.onGet('/organizaciones').reply(200, {
+      status: 200,
+      message: 'OK',
+      timestamp: new Date().toISOString(),
+      data: { content: [{ id: 1, nombre: 'Comedor Sol' }], number: 0, size: 20, totalElements: 1, totalPages: 1 },
+    });
+
+    const res = await api.get('/organizaciones');
+
+    expect(res.data).toEqual({
+      content: [{ id: 1, nombre: 'Comedor Sol' }],
+      number: 0,
+      size: 20,
+      totalElements: 1,
+      totalPages: 1,
+    });
+  });
+
+  it('leaves an /auth/me-shaped body untouched (no status/timestamp fields)', async () => {
+    const authMeBody = { userId: 1, email: 'a@b.com', nombre: 'Ana', tipo: 'DONANTE' };
+    mock.onGet('/auth/me').reply(200, authMeBody);
+
+    const res = await api.get('/auth/me');
+
+    expect(res.data).toEqual(authMeBody);
+  });
+});

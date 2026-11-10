@@ -1,0 +1,23 @@
+# Security headers shared by every location. nginx drops server-level add_header directives in
+# any location that declares its own, so this file is included at server level AND inside
+# `location /assets/` (which sets Cache-Control). Keep it as the single source of the list.
+#
+# HSTS is intentionally NOT set here: TLS terminates at Cloudflare (this nginx only sees plain
+# HTTP behind the tunnel), so HSTS is configured at the edge (Cloudflare > SSL/TLS > Edge
+# Certificates > HSTS) where it also covers error pages served by Cloudflare itself.
+
+add_header X-Content-Type-Options "nosniff" always;
+add_header X-Frame-Options "DENY" always;
+add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+# geolocation: nearby-organization sorting; camera: delivery-code QR scanner (EscanerQr).
+add_header Permissions-Policy "geolocation=(self), camera=(self), microphone=(), payment=()" always;
+
+# Rendered by the nginx image's envsubst step at container start (see docker-entrypoint.d/).
+#  - CSP_HEADER_NAME: Content-Security-Policy-Report-Only (default) or Content-Security-Policy,
+#    chosen from the runtime env CSP_MODE (report-only | enforce). Report-only logs violations in
+#    the browser console and blocks nothing, so enforcing is a one-line env change + restart.
+#  - CSP_API_ORIGIN: origin of VITE_BFF_URL (the same build arg the bundle was compiled with):
+#    XHR and /images?key=... go there.
+#  - tile.openstreetmap.org: Leaflet tiles. blob:/data: cover QR images and the camera stream.
+#  - style-src 'unsafe-inline': React style attributes and Leaflet's inline positioning.
+add_header ${CSP_HEADER_NAME} "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: ${CSP_API_ORIGIN} https://*.tile.openstreetmap.org; connect-src 'self' ${CSP_API_ORIGIN}; font-src 'self' data:; media-src 'self' blob:; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'" always;

@@ -22,7 +22,9 @@ public class RegisterRequest {
     private String email;
 
     @NotBlank(message = "La contraseña es obligatoria")
-    @Size(min = 6, message = "La contraseña debe tener al menos 6 caracteres")
+    // Bounds and strength are enforced by PasswordPolicy (needs email/nombre context); this cap
+    // only stops oversized payloads before they reach it. UTF-16 units: 64 code points <= 128.
+    @Size(max = 128, message = "PASSWORD_DEMASIADO_LARGA")
     private String password;
 
     /**

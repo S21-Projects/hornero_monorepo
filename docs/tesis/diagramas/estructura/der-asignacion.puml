@@ -1,0 +1,101 @@
+@startuml
+hide circle
+skinparam linetype ortho
+skinparam shadowing false
+skinparam defaultFontName Helvetica
+skinparam defaultFontSize 12
+skinparam entity {
+  BackgroundColor #FFFFFF
+  BorderColor #444444
+  FontColor #111111
+}
+
+entity "rondas" as rondas {
+  * id : BIGINT <<PK>>
+  --
+  * ejecutada_en : TIMESTAMP
+  finalizada_en : TIMESTAMP (N)
+  ejecutada_por : BIGINT (N) <<id suelto, sin FK; null si es automática>>
+  * origen : VARCHAR <<MANUAL | AUTOMATICA>>
+  * estado : VARCHAR <<enum EstadoRonda>>
+  error : VARCHAR(1000) (N)
+  * version_contrato : INTEGER
+  * donaciones_consideradas : INTEGER
+  * candidatos_considerados : INTEGER
+  * asignadas : INTEGER
+  * sin_asignar : INTEGER
+  * descartadas : INTEGER
+  * score_total : DOUBLE
+  * peso_deficit : DOUBLE
+  * peso_urgencia : DOUBLE
+  * peso_proximidad : DOUBLE
+  * peso_espera : DOUBLE
+  * peso_cumplimiento : DOUBLE
+}
+
+entity "asignaciones" as asignaciones {
+  * id : BIGINT <<PK>>
+  --
+  * ronda_id : BIGINT <<FK>>
+  * donacion_id : BIGINT <<FK>>
+  * necesidad_id : BIGINT <<FK>>
+  * organizacion_id : BIGINT <<FK>>
+  * estado : VARCHAR <<enum EstadoAsignacion>>
+  * creada_en : TIMESTAMP
+  resuelta_en : TIMESTAMP (N)
+  * score : DOUBLE
+  * costo_oportunidad : DOUBLE
+  * distancia_km : DOUBLE
+  * termino_deficit : DOUBLE
+  * termino_urgencia : DOUBLE
+  * termino_proximidad : DOUBLE
+  * termino_espera : DOUBLE
+  termino_cumplimiento : DOUBLE (N)
+  deficit_fuente : VARCHAR (N) <<PROVISTO | RADIO | CERCANO | NEUTRAL>>
+  codigo_radio : VARCHAR (N)
+}
+
+entity "poblacion_radio" as poblacion {
+  * codigo_radio : VARCHAR(9) <<PK>>
+  --
+  * habitantes : INTEGER
+}
+
+entity "actividad" as actividad {
+  * id : BIGINT <<PK>>
+  --
+  * ocurrido_en : TIMESTAMP
+  actor_usuario_id : BIGINT (N) <<id suelto, sin FK>>
+  * actor_tipo : VARCHAR <<enum TipoActor>>
+  * accion : VARCHAR <<enum TipoActividad>>
+  * resultado : VARCHAR <<EXITO | FALLO>>
+  entidad_tipo : VARCHAR (N) <<p. ej. DONACION>>
+  entidad_id : BIGINT (N) <<id suelto, sin FK>>
+  detalle : VARCHAR (N)
+  antes : VARCHAR (N) <<estado anterior>>
+  despues : VARCHAR (N) <<estado posterior>>
+  motivo : VARCHAR (N)
+  ip : VARCHAR (N)
+  email_intento : VARCHAR (N)
+}
+
+entity "organizaciones" as organizaciones {
+  * id : BIGINT <<PK>>
+}
+
+entity "necesidades" as necesidades {
+  * id : BIGINT <<PK>>
+}
+
+entity "donaciones" as donaciones {
+  * id : BIGINT <<PK>>
+}
+
+rondas ||--o{ asignaciones : "resuelve"
+donaciones ||--o{ asignaciones : "es propuesta en"
+necesidades ||--o{ asignaciones : "recibe propuesta de"
+organizaciones ||--o{ asignaciones : "es candidata en"
+poblacion |o..o{ organizaciones : "habitantes del radio\n(codigo_radio, sin FK)"
+donaciones ||..o{ actividad : "historial de estados\n(entidad_tipo = DONACION, sin FK)"
+
+@enduml

@@ -1,0 +1,66 @@
+@startuml
+hide circle
+left to right direction
+skinparam linetype ortho
+skinparam shadowing false
+skinparam defaultFontName Helvetica
+skinparam defaultFontSize 12
+skinparam entity {
+  BackgroundColor #FFFFFF
+  BorderColor #444444
+  FontColor #111111
+}
+hide empty members
+
+package "Organización y acreditación" {
+  entity "usuarios" as usuarios
+  entity "organizaciones" as organizaciones
+  entity "organizacion_evidencia" as evidencia
+  entity "organizacion_evento" as evento
+  entity "reclamos_organizacion" as reclamos
+  entity "reclamo_organizacion_evidencias" as reclamoEvidencias
+  entity "reportes_organizacion" as reportes
+}
+
+package "Donación y entrega" {
+  entity "necesidades" as necesidades
+  entity "necesidad_articulos" as necesidadArticulos
+  entity "articulos" as articulos
+  entity "donaciones" as donaciones
+  entity "donacion_lineas" as donacionLineas
+  entity "codigos_entrega" as codigoEntrega
+  entity "codigos_verificacion" as otp
+}
+
+package "Asignación y trazabilidad" {
+  entity "rondas" as rondas
+  entity "asignaciones" as asignaciones
+  entity "poblacion_radio" as poblacion
+  entity "actividad" as actividad
+}
+
+usuarios ||--o{ organizaciones
+usuarios ||--o{ organizaciones
+organizaciones ||--o{ necesidades
+necesidades ||--o{ donaciones
+usuarios ||--o{ donaciones
+organizaciones ||--o{ evidencia
+organizaciones ||--o{ evento
+donaciones ||--o{ codigoEntrega
+rondas ||--o{ asignaciones
+donaciones ||--o{ asignaciones
+necesidades ||--o{ asignaciones
+organizaciones ||--o{ asignaciones
+necesidades ||--o{ necesidadArticulos
+articulos ||--o{ necesidadArticulos
+donaciones ||--o{ donacionLineas
+articulos ||--o{ donacionLineas
+poblacion |o..o{ organizaciones
+donaciones ||..o{ actividad
+organizaciones ||--o{ reclamos
+usuarios ||--o{ reclamos
+reclamos ||--o{ reclamoEvidencias
+organizaciones ||--o{ reportes
+usuarios ||--o{ reportes
+
+@enduml

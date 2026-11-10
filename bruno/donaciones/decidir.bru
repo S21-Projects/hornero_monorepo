@@ -1,0 +1,32 @@
+meta {
+  name: Decidir donacion
+  type: http
+  seq: 7
+}
+
+patch {
+  url: {{bffUrl}}/donaciones/{{donacionId}}/decision
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+  Cookie: access_token={{accessToken}}
+}
+
+body:json {
+  {
+    "estado": "ACEPTADA"
+  }
+}
+
+vars:pre-request {
+  donacionId: 1
+}
+
+docs {
+  Protected — referente only. Accepts or rejects a donation offer in OFRECIDA.
+  Legal `estado` values: ACEPTADA | RECHAZADA. A donante attempting this call
+  MUST receive 403.
+}

@@ -1,0 +1,73 @@
+@startuml
+title Diagrama de Arquitectura — Vista deseada (tesis de analista)
+
+skinparam shadowing false
+skinparam defaultFontName Helvetica
+skinparam nodesep 25
+skinparam ranksep 45
+skinparam ArrowColor #444444
+skinparam node {
+  BackgroundColor #FFFFFF
+  BorderColor #666666
+}
+skinparam database {
+  BackgroundColor #FFFFFF
+  BorderColor #666666
+}
+skinparam cloud {
+  BackgroundColor #FAFAFA
+  BorderColor #888888
+}
+
+cloud "Servicios gestionados (AWS y terceros)" as gestionados {
+  node "AWS Cognito" as cognito {
+    artifact "Identidades y credenciales" as cognitoArtifact
+  }
+  node "Google Maps Platform" as gmaps {
+    artifact "API de mapas\ny geocodificacion" as gmapsArtifact
+  }
+}
+
+node "Capa de presentación" as presentacion {
+  artifact "Cliente público\n(donantes, referentes)" as clientePublico
+  artifact "Backoffice\n(validación, supervisión)" as clienteBackoffice
+}
+
+node "Capa BFF (Backend For Frontend)" as bffLayer {
+  artifact "BFF publico" as bffPublico
+  artifact "BFF backoffice" as bffBackoffice
+}
+
+node "Capa de dominio" as dominio {
+  artifact "MS-Login\n(autenticacion, roles)" as msLogin
+  artifact "Backend monolitico\n(organizaciones, necesidades,\ndonaciones, notificaciones)" as backendMono
+}
+
+node "Cache lateral" as cacheNode {
+  database "Redis\n(sesiones, tokens,\nconsultas frecuentes)" as redis
+}
+
+node "Persistencia" as persistenciaNode {
+  database "PostgreSQL\nprimaria (escritura)" as pgPrimary
+  database "PostgreSQL\nreplica (lectura)" as pgReplica
+}
+
+clientePublico --> bffPublico : HTTPS
+clienteBackoffice --> bffBackoffice : HTTPS
+clientePublico ..> gmapsArtifact : API Google Maps\n(mapa interactivo,\nfiltros geograficos)
+
+bffPublico --> msLogin : HTTP (login, roles)
+bffPublico --> backendMono : HTTP (dominio)
+bffBackoffice --> msLogin : HTTP (login, roles)
+bffBackoffice --> backendMono : HTTP (dominio)
+
+msLogin --> cognito : delega identidades\ny credenciales
+msLogin --> redis : cache de sesiones\ny tokens
+backendMono --> redis : cache de consultas\nfrecuentes
+
+msLogin --> pgPrimary : JDBC (escritura)
+backendMono --> pgPrimary : JDBC (escritura)
+backendMono --> pgReplica : JDBC (lectura\nde menor prioridad)
+pgPrimary --> pgReplica : replicacion
+
+@enduml

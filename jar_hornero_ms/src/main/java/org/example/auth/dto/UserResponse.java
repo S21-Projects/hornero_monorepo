@@ -15,4 +15,5 @@ public class UserResponse {
     private String nombre;
     private String email;
     private String tipo;
+    private boolean emailVerificado;
 }

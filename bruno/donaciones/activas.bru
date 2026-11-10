@@ -1,0 +1,28 @@
+meta {
+  name: Donaciones activas (admin)
+  type: http
+  seq: 10
+}
+
+get {
+  url: {{bffUrl}}/donaciones/activas
+  auth: none
+}
+
+headers {
+  Cookie: access_token={{accessToken}}
+}
+
+params:query {
+  page: 0
+  size: 20
+  ~q:
+  ~estado:
+}
+
+docs {
+  Protected — administrador only. Paginated list of non-terminal donations,
+  with server-side `q` search (org name, donante name, necesidad title, or
+  donation id) and an optional `estado` filter. `size` is clamped to the
+  existing `max-page-size` ceiling.
+}

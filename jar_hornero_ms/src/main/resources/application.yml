@@ -2,6 +2,12 @@ server:
   port: ${PORT:${SERVER_PORT:8081}}
 
 spring:
+  data:
+    web:
+      pageable:
+        default-page-size: 20
+        max-page-size: 100
+        one-indexed-parameters: false
   datasource:
     url: jdbc:postgresql://${DB_HOST}:${DB_PORT}/${DB_NAME}
     username: ${DB_USERNAME}
@@ -13,11 +19,149 @@ spring:
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
-    show-sql: true
+    show-sql: ${SHOW_SQL:false}
     open-in-view: false
 
 app:
   jwt:
-    secret: ${JWT_SECRET:dev-hornero-secret-must-be-at-least-32-chars}
+    secret: ${JWT_SECRET}
     expiration-access: 900000
     expiration-refresh: 604800000
+  mail:
+    resend-api-key: ${RESEND_API_KEY:}
+    # MAIL_FROM_EMAIL wins; OTP_FROM_EMAIL is the pre-N14 name, kept so existing deploys keep working.
+    from-email: ${MAIL_FROM_EMAIL:${OTP_FROM_EMAIL:}}
+    log-only: ${MAIL_LOG_ONLY:false}
+    async: true
+  # N14: base URL of the admin SPA (where /restablecer lives); the reset link is built from it,
+  # never from request headers.
+  panel-url: ${APP_PANEL_URL:http://localhost:5173}
+  # N13/D6: event emails (after commit, async) and the admin daily digest. The switch turns both off.
+  notificaciones:
+    enabled: ${NOTIFICACIONES_ENABLED:true}
+    digest-cron: ${NOTIFICACIONES_DIGEST_CRON:0 0 8 * * *}
+  password-reset:
+    ttl-minutos: ${PASSWORD_RESET_TTL_MINUTOS:30}
+  otp:
+    ttl-minutes: 15
+    max-attempts: 5
+    resend-max: 3
+    resend-window-minutes: 15
+    resend-cooldown-seconds: 60
+  donaciones:
+    # D5: donor identity on public donation reads. Off = only admin, the donor and the
+    # receiving organization's referente see it.
+    donante-publico: ${DONANTE_PUBLICO:false}
+    # N12/D4: stale-donations job. Unanswered DIRECTA offers / pool proposals are auto-resolved
+    # after their window; accepted/en-camino and pending-confirmation donations are only flagged.
+    oferta-sin-respuesta-dias: ${DONACIONES_OFERTA_SIN_RESPUESTA_DIAS:7}
+    propuesta-sin-respuesta-dias: ${DONACIONES_PROPUESTA_SIN_RESPUESTA_DIAS:3}
+    en-curso-estancada-dias: ${DONACIONES_EN_CURSO_ESTANCADA_DIAS:14}
+    confirmacion-estancada-dias: ${DONACIONES_CONFIRMACION_ESTANCADA_DIAS:7}
+    estancadas-cron: ${DONACIONES_ESTANCADAS_CRON:0 15 0 * * *}
+  acreditacion:
+    cap-n0: 0
+    cap-n1: 3
+    cap-n2: 6
+    cap-n3: 12
+  # Anti-spam limits derived from persisted rows (any state counts toward the window).
+  # Concurrent submissions may overshoot a cap by a few rows (check-then-insert, no lock).
+  reclamo:
+    pendientes-max: 5
+    diario-max: 5
+    window-hours: 24
+  # Server-side TTL cache of the public GET /organizaciones/mapa payload.
+  mapa:
+    cache-ttl-seconds: ${APP_MAPA_CACHE_TTL_SECONDS:300}
+  reporte:
+    diario-max: 20
+    window-hours: 24
+  entrega:
+    ttl-minutes: 10
+    max-attempts: 5
+    generar-max: 5
+    generar-window-minutes: 15
+    generar-cooldown-seconds: 30
+  actividad:
+    # N10: activity-log retention. Provisional default until D12 (PII retention) is decided.
+    retencion-dias: ${ACTIVIDAD_RETENCION_DIAS:365}
+    # N15/D12: the email typed in failed logins is cleared after this many days (row kept).
+    # Needs scripts/sql/V006 on PostgreSQL.
+    email-intento-dias: ${ACTIVIDAD_EMAIL_INTENTO_DIAS:90}
+    email-intento-cron: ${ACTIVIDAD_EMAIL_INTENTO_CRON:0 20 3 * * *}
+  datos:
+    # N15/D12: coordinates of terminal donations are rounded to 2 decimals after this many days.
+    coordenadas-precisas-dias: ${DATOS_COORDENADAS_PRECISAS_DIAS:30}
+    coordenadas-cron: ${DATOS_COORDENADAS_CRON:0 30 0 * * *}
+  idempotencia:
+    # N11: Idempotency-Key retention. A repeated key within the TTL replays the original response;
+    # after it the key is a new operation. An EN_PROCESO key older than en-proceso-max-minutos is
+    # treated as abandoned (crashed request) and can be taken over.
+    ttl-horas: ${IDEMPOTENCIA_TTL_HORAS:24}
+    en-proceso-max-minutos: 2
+  rondas:
+    # N7/D7: optional scheduled ronda. Off by default (rondas are manual).
+    auto:
+      enabled: ${RONDAS_AUTO_ENABLED:false}
+      cron: ${RONDAS_AUTO_CRON:0 0 6 * * *}
+  evidencia:
+    # Claim evidence deletion (after anonymization + nightly orphan sweep). Same bucket and
+    # credentials as the BFF; only reclamo-evidencia/ is ever listed or deleted. With any of
+    # endpoint/bucket/keys blank the MS uses a no-op store and logs one startup warning.
+    # Opt-in master switch: local stacks share the production bucket, so only the Pi sets
+    # EVIDENCIA_BORRADO_ENABLED=true. Anything else keeps the no-op store (no listing, no deletion).
+    borrado-habilitado: ${EVIDENCIA_BORRADO_ENABLED:false}
+    async: true
+    s3:
+      endpoint: ${AWS_ENDPOINT_URL:}
+      bucket: ${AWS_S3_BUCKET_NAME:}
+      region: ${AWS_DEFAULT_REGION:auto}
+      access-key-id: ${AWS_ACCESS_KEY_ID:}
+      secret-access-key: ${AWS_SECRET_ACCESS_KEY:}
+    barrido:
+      # Kill switch: EVIDENCIA_BARRIDO_ENABLED=false and restart ms (e.g. after restoring a DB).
+      enabled: ${EVIDENCIA_BARRIDO_ENABLED:true}
+      gracia-dias: ${EVIDENCIA_BARRIDO_GRACIA_DIAS:7}
+      max-por-corrida: ${EVIDENCIA_BARRIDO_MAX:500}
+      cron: ${EVIDENCIA_BARRIDO_CRON:0 50 3 * * *}
+    vigencia:
+      # RN-04: an approval stays valid this many months (an earlier date already on the row is kept).
+      meses: ${EVIDENCIA_VIGENCIA_MESES:12}
+      # Days after expiry in which nothing changes except the elevation block. No automatic level change ever.
+      gracia-dias: ${EVIDENCIA_VIGENCIA_GRACIA_DIAS:30}
+      # One reminder this many days before expiry (0 disables it).
+      recordatorio-dias: ${EVIDENCIA_VIGENCIA_RECORDATORIO_DIAS:30}
+      cron: ${EVIDENCIA_VIGENCIA_CRON:0 20 0 * * *}
+    retencion:
+      # Accreditation evidence (org-evidencia/) file retention. OFF by default and separate from
+      # EVIDENCIA_BORRADO_ENABLED (which is on in production for claim evidence): local stacks share
+      # the production bucket, so only an explicit EVIDENCIA_RETENCION_ENABLED=true can ever build a
+      # store that deletes these files. Rows and events are kept; only the bucket object goes.
+      habilitada: ${EVIDENCIA_RETENCION_ENABLED:false}
+      meses: ${EVIDENCIA_RETENCION_MESES:12}
+      max-por-corrida: ${EVIDENCIA_RETENCION_MAX:100}
+      cron: ${EVIDENCIA_RETENCION_CRON:0 30 4 * * *}
+  auditoria:
+    cadena:
+      # Daily verification of the accreditation event hash chain (also runs once at startup).
+      cron: ${AUDITORIA_CADENA_CRON:0 40 3 * * *}
+    ancla:
+      # Publishes the daily anchor to <bucket>/audit/anchors/YYYY-MM-DD.txt. OFF by default and
+      # separate from every other flag: local stacks share the production bucket, so only an
+      # explicit AUDITORIA_ANCLA_ENABLED=true (the Pi) builds an S3 client for it. Write-only.
+      habilitada: ${AUDITORIA_ANCLA_ENABLED:false}
+  worker:
+    url: ${WORKER_URL:}
+  radios:
+    # Hourly backfill of organizaciones.codigo_radio through the worker (POST /v1/radio).
+    backfill:
+      enabled: ${RADIOS_BACKFILL_ENABLED:true}
+      cron: ${RADIOS_BACKFILL_CRON:0 15 * * * *}
+      max-por-corrida: ${RADIOS_BACKFILL_MAX:500}
+  seed:
+    # Production creates no demo data. SEED_DEMO_DATA=true (local/e2e only) adds demo users, orgs,
+    # necesidades and donaciones. With it off, SUPER_ADMIN_EMAIL/SUPER_ADMIN_PASSWORD are required
+    # (no defaults; empty = missing) and the password must pass the N8 policy.
+    demo: ${SEED_DEMO_DATA:false}
+    super-admin-email: ${SUPER_ADMIN_EMAIL:}
+    super-admin-password: ${SUPER_ADMIN_PASSWORD:}
