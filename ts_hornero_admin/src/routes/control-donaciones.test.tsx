@@ -92,8 +92,8 @@ describe('ControlDonacionesPage — T5 (modalidad + fase)', () => {
           modalidad: 'DIRECTA',
           fase: 'ACEPTADA',
           lineas: [
-            { articuloId: 1, nombre: 'Arroz', unidad: 'KG', cantidad: 5 },
-            { articuloId: 2, nombre: 'Fideos', unidad: 'PAQUETE', cantidad: 6 },
+            { articuloId: 1, articuloNombre: 'Arroz', unidad: 'KG', cantidad: 5 },
+            { articuloId: 2, articuloNombre: 'Fideos', unidad: 'PAQUETE', cantidad: 6 },
           ],
         } as DonacionActiva,
       ]) as ReturnType<typeof useDonacionesActivas>,
@@ -174,7 +174,7 @@ describe('ControlDonacionesPage — drawer', () => {
           overrideEn: '2026-10-01T10:00:00Z',
           overrideAdminId: 3,
           overrideMotivo: 'Corrección manual',
-          lineas: [{ articuloId: 1, nombre: 'Arroz', unidad: 'KG', cantidad: 5 }],
+          lineas: [{ articuloId: 1, articuloNombre: 'Arroz', unidad: 'KG', cantidad: 5 }],
         } as DonacionActiva,
       ]) as ReturnType<typeof useDonacionesActivas>,
     );
