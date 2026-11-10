@@ -12,22 +12,22 @@ describe('formatLineas', () => {
 
   it('formats a single línea with its unit', () => {
     const lineas: DonacionLinea[] = [
-      { articuloId: 1, nombre: 'Arroz', unidad: 'KG', cantidad: 5 },
+      { articuloId: 1, articuloNombre: 'Arroz', unidad: 'KG', cantidad: 5 },
     ];
     expect(formatLineas(lineas)).toBe('5 kg Arroz');
   });
 
   it('pluralizes paquete/unidad units and joins multiple lines with a comma', () => {
     const lineas: DonacionLinea[] = [
-      { articuloId: 1, nombre: 'Arroz', unidad: 'KG', cantidad: 5 },
-      { articuloId: 2, nombre: 'Fideos', unidad: 'PAQUETE', cantidad: 6 },
+      { articuloId: 1, articuloNombre: 'Arroz', unidad: 'KG', cantidad: 5 },
+      { articuloId: 2, articuloNombre: 'Fideos', unidad: 'PAQUETE', cantidad: 6 },
     ];
     expect(formatLineas(lineas)).toBe('5 kg Arroz, 6 paquetes Fideos');
   });
 
   it('keeps a singular paquete when cantidad is 1', () => {
     const lineas: DonacionLinea[] = [
-      { articuloId: 1, nombre: 'Fideos', unidad: 'PAQUETE', cantidad: 1 },
+      { articuloId: 1, articuloNombre: 'Fideos', unidad: 'PAQUETE', cantidad: 1 },
     ];
     expect(formatLineas(lineas)).toBe('1 paquete Fideos');
   });

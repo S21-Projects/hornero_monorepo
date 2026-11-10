@@ -90,8 +90,8 @@ describe('MisDonacionesPage — confirm-entrega retirement', () => {
         {
           ...donacionConfirmable,
           lineas: [
-            { articuloId: 1, nombre: 'Arroz', unidad: 'KG', cantidad: 5 },
-            { articuloId: 2, nombre: 'Fideos', unidad: 'PAQUETE', cantidad: 6 },
+            { articuloId: 1, articuloNombre: 'Arroz', unidad: 'KG', cantidad: 5 },
+            { articuloId: 2, articuloNombre: 'Fideos', unidad: 'PAQUETE', cantidad: 6 },
           ],
         },
       ]),

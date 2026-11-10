@@ -41,7 +41,7 @@ export function formatLineas(lineas?: DonacionLinea[]): string {
       const base = UNIDAD_ARTICULO[l.unidad] ?? l.unidad;
       const invariable = l.unidad === 'KG' || l.unidad === 'LITRO';
       const unidad = invariable || l.cantidad === 1 ? base : `${base}s`;
-      return `${l.cantidad} ${unidad} ${l.nombre}`;
+      return `${l.cantidad} ${unidad} ${l.articuloNombre}`;
     })
     .join(', ');
 }

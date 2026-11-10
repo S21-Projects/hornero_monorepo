@@ -114,7 +114,7 @@ export interface DonacionLineaInput {
 /** Mirrors MS `DonacionResponse`/`DonacionActivaResponse`'s `lineas` component (work unit E). */
 export interface DonacionLinea {
   articuloId: number;
-  nombre: string;
+  articuloNombre: string;
   unidad: UnidadArticulo;
   cantidad: number;
 }
