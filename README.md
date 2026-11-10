@@ -62,7 +62,6 @@ Las versiones provienen de `pom.xml`, `package.json`, `go.mod` y los `Dockerfile
 | Ruta | Contenido |
 |---|---|
 | `jar_hornero_ms/`, `ts_hornero_bff/`, `ts_hornero_admin/`, `ts_hornero_astro/`, `go_algorithms_worker/` | Los cinco servicios de aplicación |
-| `ts_hornero_app/` | **En desuso**: frontend original en Next.js. El código sigue en el repositorio pero no está referenciado por el `Makefile` ni por `docker-compose.yml`. No se desarrolla sobre él |
 | `e2e/` | Pruebas de extremo a extremo a nivel API, escenarios manuales y datos de demostración ([README](e2e/README.md)) |
 | `scripts/` | `demo/` (stack de demostración), `sql/` (cambios de esquema idempotentes), `backup/` (respaldo y simulacro de restauración), `mapa/` (datos del mapa de vulnerabilidad), `seed.ts` |
 | `deploy/systemd/` | Unidades systemd de respaldo y copia de evidencias para la Raspberry Pi |
