@@ -23,9 +23,8 @@ The worker is only called when an ADMINISTRADOR triggers a ronda (`POST /api/ron
 starts and serves everything else when it is down (the ronda answers 503). Its `metrics` and
 `assign` CLI subcommands still exist for offline batch runs.
 
-`ts_hornero_app` (the original Next.js frontend) is **deprecated**: code is still in the repo
-but unreferenced by the Makefile and `docker-compose.yml`. Do not build on it; new frontend work
-goes into `ts_hornero_astro` (public) or `ts_hornero_admin` (authenticated).
+The original Next.js frontend (`ts_hornero_app`) was removed on 2026-11-10. Frontend work goes
+into `ts_hornero_astro` (public) or `ts_hornero_admin` (authenticated).
 
 The services were originally separate git repos, merged into this monorepo on 2026-06-08
 (histories not migrated). Production runs self-hosted on a Raspberry Pi behind a Cloudflare
@@ -98,8 +97,6 @@ go run . serve --addr :8090 --data data/renacom.csv   # the HTTP mode compose ru
 
 There is no root-level aggregate lint/test command — run them per service.
 
-`ts_hornero_app` still exists but is dead code (no dev/build commands listed above apply to it).
-
 ## Authentication & authorization (the core cross-cutting concern)
 
 JWT is issued by the **MS** (`JwtService`, HS256). The `JWT_SECRET` env var **must be identical
@@ -123,8 +120,7 @@ the discriminator value becomes the JWT `tipo` claim (see `JwtService.resolveDis
    `src/app/ProtectedRoute.tsx` (`ProtectedRoute` / `PublicOnlyRoute`) drives route access off
    `useAuthStore` (`src/store/auth.store.ts`), which is populated by `GET /auth/me` — never by
    decoding the cookie, since `access_token` is httpOnly and unreadable from JS. UX redirects
-   only, never trusted for security. (`ts_hornero_app/src/proxy.ts` had an equivalent guard for
-   the deprecated Next.js app; it's no longer live.)
+   only, never trusted for security.
 
 **Cookie model (set by the BFF in `auth.service.ts` `setCookies`):**
 - `access_token` — `httpOnly: true`, 15 min. NOT readable in JS.

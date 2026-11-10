@@ -6,7 +6,7 @@ context: |
   React/Vite admin SPA (:5173, all authenticated roles) -> NestJS BFF (:3001,
   auth proxy) -> Spring Boot MS (:8081, domain + JWT issuer) -> PostgreSQL.
   New: go_algorithms_worker (offline batch, not a live service).
-  ts_hornero_app (Next.js) is deprecated, do not build on it.
+  The original Next.js frontend (ts_hornero_app) was removed.
   Domain terms in Spanish (organizaciones, necesidades, donaciones,
   referentes, donantes); code/comments/docs in English.
   No root aggregate lint/test command; run per service directory.
@@ -57,7 +57,6 @@ rules:
   tasks:
     - Group by phase/service, use hierarchical numbering
     - Keep tasks completable in one session
-    - Never plan work against ts_hornero_app (deprecated)
   apply:
     - Follow existing code patterns per service
     tdd: true

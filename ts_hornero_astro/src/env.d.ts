@@ -5,7 +5,7 @@ interface ImportMetaEnv {
   readonly BFF_BASE_URL: string;
   /** Client-exposed: browser-reachable BFF origin (for image GETs). */
   readonly PUBLIC_BFF_URL: string;
-  /** Client-exposed: ts_hornero_app (SPA) origin for login/donate CTA deep-links. */
+  /** Client-exposed: ts_hornero_admin (SPA) origin for login/donate CTA deep-links. */
   readonly PUBLIC_SPA_URL: string;
   /** Server-only: mail provider key. Absent => contact form only logs to stdout. */
   readonly RESEND_API_KEY?: string;
