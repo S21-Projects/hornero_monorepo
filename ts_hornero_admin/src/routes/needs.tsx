@@ -3,6 +3,7 @@ import { AsyncSection } from '../components/AsyncSection';
 import { Badge } from '../components/Badge';
 import { PendingValidationCard } from '../components/PendingValidationCard';
 import { Button } from '../components/ui/Button';
+import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { Pager } from '../components/ui/Pager';
 import { Text } from '../components/ui/Typography';
 import { PageHeader } from '../components/ui/PageHeader';
@@ -454,6 +455,7 @@ export default function NeedsPage() {
 
   // List view
   const needs = needsContent;
+  const pendingDelete = needs.find((n) => n.id === pendingDeleteId);
 
   return (
     <div>
@@ -485,7 +487,6 @@ export default function NeedsPage() {
           {needs.map((need) => {
             const prioConfig = PRIORIDAD[need.prioridad] ?? FALLBACK_BADGE;
             const estadoConfig = ESTADO_NECESIDAD[need.estado] ?? FALLBACK_BADGE;
-            const isPendingDelete = pendingDeleteId === need.id;
 
             return (
               <div
@@ -522,43 +523,23 @@ export default function NeedsPage() {
                 </div>
 
                 <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
-                  {!isPendingDelete ? (
-                    <>
-                      {need.estado === 'VENCIDA' && relanzandoId !== need.id && (
-                        <Button variant="primary" onClick={() => { clearDelete(); setRelanzandoId(need.id); }}>
-                          Relanzar
-                        </Button>
-                      )}
-                      <Button
-                        variant="ghost"
-                        onClick={() => { clearDelete(); goToEdit(need.id); }}
-                      >
-                        Editar
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        onClick={() => armDelete(need.id)}
-                      >
-                        Eliminar
-                      </Button>
-                    </>
-                  ) : (
-                    <>
-                      <Text variant="caption" color="urgent" style={{ alignSelf: 'center' }}>
-                        ¿Confirmar eliminación?
-                      </Text>
-                      <Button
-                        variant="primary"
-                        onClick={() => handleConfirmDelete(need.id)}
-                        disabled={eliminarMutation.isPending}
-                      >
-                        Sí, eliminar
-                      </Button>
-                      <Button variant="ghost" onClick={clearDelete}>
-                        Cancelar
-                      </Button>
-                    </>
+                  {need.estado === 'VENCIDA' && relanzandoId !== need.id && (
+                    <Button variant="primary" onClick={() => { clearDelete(); setRelanzandoId(need.id); }}>
+                      Relanzar
+                    </Button>
                   )}
+                  <Button
+                    variant="ghost"
+                    onClick={() => { clearDelete(); goToEdit(need.id); }}
+                  >
+                    Editar
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    onClick={() => armDelete(need.id)}
+                  >
+                    Eliminar
+                  </Button>
                 </div>
               </div>
             );
@@ -569,6 +550,23 @@ export default function NeedsPage() {
           <Pager page={needsQuery.data} onPageChange={setPage} disabled={needsQuery.isFetching} />
         )}
       </AsyncSection>
+
+      <ConfirmDialog
+        open={pendingDelete !== undefined}
+        title="¿Eliminar esta necesidad?"
+        description={
+          pendingDelete && (
+            <>
+              “{pendingDelete.descripcion}” deja de verse en el sitio público y no recibe nuevas
+              donaciones. No se puede deshacer.
+            </>
+          )
+        }
+        confirmLabel="Sí, eliminar"
+        loading={eliminarMutation.isPending}
+        onConfirm={() => { if (pendingDelete) void handleConfirmDelete(pendingDelete.id); }}
+        onCancel={clearDelete}
+      />
     </div>
   );
 }

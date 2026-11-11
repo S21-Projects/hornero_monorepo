@@ -181,3 +181,53 @@ p {
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
+
+/* ── ConfirmDialog ─────────────────────────────────────────── */
+.confirm-dialog {
+  position: fixed;
+  inset: 0;
+  z-index: 950;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+.confirm-dialog__scrim {
+  position: absolute;
+  inset: 0;
+  background: rgba(43, 33, 27, 0.32);
+}
+.confirm-dialog__panel {
+  position: relative;
+  width: 100%;
+  max-width: 440px;
+  padding: 24px;
+  background: var(--card);
+  border-radius: var(--r-card);
+  box-shadow: var(--sh-pop);
+  outline: none;
+}
+.confirm-dialog__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  margin-bottom: 14px;
+  border-radius: 12px;
+  background: var(--bad-bg);
+  color: var(--bad-tx);
+}
+.confirm-dialog__title {
+  margin: 0 0 8px;
+}
+.confirm-dialog__body {
+  margin: 0;
+}
+.confirm-dialog__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 24px;
+}

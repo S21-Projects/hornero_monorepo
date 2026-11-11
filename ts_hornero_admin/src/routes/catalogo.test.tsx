@@ -192,9 +192,9 @@ describe('CatalogoPage', () => {
     fireEvent.click(within(row).getByRole('button', { name: 'Desactivar' }));
 
     expect((desactivar as { mutate: (...a: unknown[]) => void }).mutate).not.toHaveBeenCalled();
-    expect(within(row).getByRole('button', { name: 'Confirmar' })).toBeInTheDocument();
+    const dialog = screen.getByRole('alertdialog', { name: '¿Desactivar este artículo?' });
 
-    fireEvent.click(within(row).getByRole('button', { name: 'Confirmar' }));
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Sí, desactivar' }));
     expect((desactivar as { mutate: (...a: unknown[]) => void }).mutate).toHaveBeenCalledWith(1);
   });
 
