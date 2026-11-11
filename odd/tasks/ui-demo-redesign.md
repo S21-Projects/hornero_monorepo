@@ -45,7 +45,7 @@ screens. Destructive actions (delete, cancel) confirm in a modal.
       (necesidad, artículos + cantidades via `LineaArticuloEditor`, nota + confirm) with a summary
       aside, reusing `Stepper` and `useCrearDonacion`; lands on the detail with `?nueva=1`.
       Route: delegated writer.
-- [ ] T6 Astro map panel: layer chips, horizontal legend, department card top-right, sources in a
+- [x] T6 Astro map panel: layer chips, horizontal legend, department card top-right, sources in a
       "Sobre los datos" disclosure, using `components/ui` atoms. Route: delegated writer.
 
 ## Progress
@@ -57,3 +57,5 @@ screens. Destructive actions (delete, cancel) confirm in a modal.
 - T2 done (delegated writer): needs list cards, form cards, ArticuloPicker chips. Admin npm test 723 passed, lint 0 errors, build ok; parent re-ran needs + necesidad tests. Not checked in a browser yet.
 - T3+T4 done (one delegated writer, shared status sentences/progress/cancel flow): admin npm test 744 passed, lint 0 errors, build ok; parent re-ran tsc -b + donor tests (60 passed). Stats/tab counts cover the loaded page only (server-side pagination), with a caption when there is more than one page. DesgloseScore only used by donacion-detalle, so no admin variant. ~1230 changed lines, over the 400 heuristic: list, detail and shared helpers are one behaviour.
 - T5 done (delegated writer): /donar/directa wizard (Stepper fullWidth), necesidad-detalle inline form replaced by a CTA so creation has one path; 7-day note verified against DonacionesEstancadasJob (constant mirrors the default). Search/priority filters are client-side on the loaded page (useNecesidades only has page/size). admin npm test 747 passed, lint 0 errors, build ok; parent re-ran wizard/nueva/necesidad-detalle tests.
+- T6 done (delegated writer): map panel chips, horizontal legend (tick labels derived from BREAKS lower bounds), top-right department card, sources in a details. astro build ok (parent re-ran), astro check 0 errors. Not checked in a browser.
+- Next: visual check of all screens in the browser (make up-local), then the user decides push/PR. Branch carries ~2.5k changed lines; PR split pending user choice.

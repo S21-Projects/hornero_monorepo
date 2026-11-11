@@ -1,8 +1,9 @@
 import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import type { OrgMapa } from '../../lib/types';
+import { Text } from '../ui/typography';
 import { isApiEnvelope } from '../../lib/publicFetch';
 import {
-  BREAK_LABELS,
+  BREAKS,
   COLORS,
   NULL_FILL,
   NULL_STROKE,
@@ -26,36 +27,21 @@ interface Props {
 type PinsState = 'loading' | 'ok' | 'error';
 type GeoState = 'loading' | 'ok' | 'error';
 
-function Check({ id, label, checked, onChange, swatch }: {
-  id: string;
+function LayerChip({ label, on, onToggle, swatch, count }: {
   label: string;
-  checked: boolean;
-  onChange: (v: boolean) => void;
-  swatch?: React.ReactNode;
+  on: boolean;
+  onToggle: () => void;
+  swatch: React.ReactNode;
+  count?: number;
 }) {
   return (
-    <label
-      htmlFor={id}
-      className="flex min-h-[44px] cursor-pointer items-center gap-3 rounded-lg px-2 text-sm font-bold text-[var(--ink)] hover:bg-[var(--card-2)] focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-[var(--sky-tx)]"
-    >
-      <input
-        id={id}
-        type="checkbox"
-        checked={checked}
-        onChange={(e) => onChange(e.target.checked)}
-        className="h-5 w-5 flex-shrink-0 accent-[var(--horn)]"
-      />
-      {swatch}
-      <span>{label}</span>
-    </label>
-  );
-}
-
-function Dot({ filled }: { filled: boolean }) {
-  return filled ? (
-    <span aria-hidden="true" className="inline-block h-4 w-4 flex-shrink-0 rounded-full border-2 border-white bg-[var(--horn)] shadow-[0_0_0_1px_var(--line)]" />
-  ) : (
-    <span aria-hidden="true" className="inline-block h-3 w-3 flex-shrink-0 rounded-full border border-[var(--ink)] bg-white" />
+    <li>
+      <button type="button" aria-pressed={on} onClick={onToggle} className={`mapa-chip${on ? ' mapa-chip--on' : ''}`}>
+        {swatch}
+        <span>{label}</span>
+        {count != null && <span className="mapa-chip__count">{fmtInt(count)}</span>}
+      </button>
+    </li>
   );
 }
 
@@ -98,7 +84,17 @@ export default function MapaVulnerabilidad({ sinComedores, totalDepartamentos }:
     return () => ctrl.abort();
   }, []);
 
-  const set = (k: keyof Layers) => (v: boolean) => setLayers((l) => ({ ...l, [k]: v }));
+  const toggle = (k: keyof Layers) => () => setLayers((l) => ({ ...l, [k]: !l[k] }));
+
+  // Counts only once the pins have loaded; no extra fetches.
+  const counts = useMemo(() => {
+    if (pinsState !== 'ok') return null;
+    const plataforma = pins.filter((o) => o.origen === 'PLATAFORMA').length;
+    return { plataforma, sinReclamar: pins.length - plataforma, total: pins.length };
+  }, [pins, pinsState]);
+
+  // Lower bound of each legend cell, derived from BREAKS: "<0,5×", "0,5×", ..., "4×+".
+  const ticks = COLORS.map((_, i) => (i === 0 ? `<${fmtRatio(BREAKS[0])}×` : `${fmtRatio(BREAKS[i - 1])}×${i === COLORS.length - 1 ? '+' : ''}`));
 
   const options = useMemo(() => {
     if (!geo) return [];
@@ -115,115 +111,125 @@ export default function MapaVulnerabilidad({ sinComedores, totalDepartamentos }:
 
   return (
     <div className="flex flex-col lg:h-[calc(100dvh-60px)] lg:flex-row">
-      <aside
-        aria-label="Controles y referencias del mapa"
-        className="flex flex-col gap-5 border-b border-[var(--line)] bg-[var(--card)] p-4 sm:p-6 lg:w-[380px] lg:flex-shrink-0 lg:overflow-y-auto lg:border-b-0 lg:border-r"
-      >
-        <div>
-          <h1 className="m-0 text-2xl font-black text-[var(--earth)]">Mapa de vulnerabilidad</h1>
-          <p className="mt-2 text-sm font-semibold leading-relaxed text-[var(--ink-2)]">
-            Zonas con más personas por comedor y más necesidades sin cubrir. Es el mismo índice que usa Hornero para
-            repartir las donaciones al fondo común.
-          </p>
+      <aside aria-label="Controles y referencias del mapa" className="mapa-panel">
+        <div className="flex flex-col gap-2">
+          <Text as="h1" variant="h2">Mapa de vulnerabilidad</Text>
+          <Text variant="body-sm" color="ink-2">
+            Dónde hay más personas por comedor y más necesidades sin cubrir. Es el índice que usa Hornero para repartir el
+            fondo común.
+          </Text>
+          <a href="#sobre-los-datos" className="mapa-link self-start" onClick={() => {
+            const d = document.getElementById('sobre-los-datos');
+            if (d instanceof HTMLDetailsElement) d.open = true;
+          }}>
+            ¿Cómo se calcula?
+          </a>
         </div>
 
-        <fieldset className="m-0 border-0 p-0">
-          <legend className="mb-1 text-xs font-extrabold uppercase tracking-wide text-[var(--ink-3)]">Capas</legend>
-          <Check id="capa-vuln" label="Vulnerabilidad por departamento" checked={layers.vulnerabilidad} onChange={set('vulnerabilidad')} />
-          <Check id="capa-dens" label="Densidad de comedores" checked={layers.densidad} onChange={set('densidad')} />
-          <Check id="capa-plat" label="Organizaciones en Hornero" checked={layers.plataforma} onChange={set('plataforma')} swatch={<Dot filled />} />
-          <Check id="capa-sin" label="Comedores sin reclamar (ReNaCoM)" checked={layers.sinReclamar} onChange={set('sinReclamar')} swatch={<Dot filled={false} />} />
-        </fieldset>
+        <div>
+          <label htmlFor="sel-depto" className="mapa-label">Ir a un departamento</label>
+          <select
+            id="sel-depto"
+            disabled={geoState !== 'ok'}
+            value={selected?.codigo ?? ''}
+            onChange={(e) => {
+              const codigo = e.target.value;
+              const p = options.flatMap(([, d]) => d).find((d) => d.codigo === codigo) ?? null;
+              setSelected(p);
+              if (p) setFocus((f) => ({ codigo: p.codigo, n: (f?.n ?? 0) + 1 }));
+            }}
+            className="mapa-select"
+          >
+            <option value="">{geoState === 'ok' ? 'Elegí un departamento' : 'Cargando departamentos…'}</option>
+            {options.map(([prov, deps]) => (
+              <optgroup key={prov} label={prov}>
+                {deps.map((d) => (
+                  <option key={d.codigo} value={d.codigo}>
+                    {d.nombre ?? `Departamento ${d.codigo}`}
+                  </option>
+                ))}
+              </optgroup>
+            ))}
+          </select>
+        </div>
 
-        <section aria-labelledby="leyenda-titulo">
-          <h2 id="leyenda-titulo" className="m-0 mb-2 text-xs font-extrabold uppercase tracking-wide text-[var(--ink-3)]">
-            Leyenda: veces la mediana del país
-          </h2>
-          <div className="flex overflow-hidden rounded-md border border-[var(--line)]" aria-hidden="true">
-            {COLORS.map((c) => (
-              <span key={c} className="h-3 flex-1" style={{ background: c }} />
-            ))}
-          </div>
-          <div className="mt-1 flex justify-between text-xs font-bold text-[var(--ink-2)]">
-            <span>Mejor cubierto</span>
-            <span>Mediana país (1.0)</span>
-            <span>Más vulnerable</span>
-          </div>
-          <ul className="m-0 mt-3 grid list-none grid-cols-2 gap-x-3 gap-y-1 p-0 text-xs font-semibold text-[var(--ink-2)]">
-            {COLORS.map((c, i) => (
-              <li key={c} className="flex items-center gap-2">
-                <span aria-hidden="true" className="inline-block h-3 w-3 flex-shrink-0 rounded-sm border border-[var(--line)]" style={{ background: c }} />
-                {BREAK_LABELS[i]}
-              </li>
-            ))}
-            <li className="col-span-2 flex items-center gap-2">
-              <span
-                aria-hidden="true"
-                className="inline-block h-3 w-3 flex-shrink-0 rounded-sm"
-                style={{
-                  background: `repeating-linear-gradient(45deg, ${NULL_FILL}, ${NULL_FILL} 2px, #fff 2px, #fff 4px)`,
-                  border: `1px dashed ${NULL_STROKE}`,
-                }}
-              />
-              Sin comedores en el registro
-            </li>
+        <section aria-labelledby="capas-titulo">
+          <h2 id="capas-titulo" className="mapa-label">Capas</h2>
+          <ul className="mapa-chips">
+            <LayerChip
+              label="Vulnerabilidad"
+              on={layers.vulnerabilidad}
+              onToggle={toggle('vulnerabilidad')}
+              swatch={
+                <span aria-hidden="true" className="mapa-swatch-scale">
+                  {COLORS.map((c) => (
+                    <span key={c} style={{ background: c }} />
+                  ))}
+                </span>
+              }
+            />
+            <LayerChip label="Densidad" on={layers.densidad} onToggle={toggle('densidad')} swatch={<span aria-hidden="true" className="mapa-dot mapa-dot--dens" />} count={counts?.total} />
+            <LayerChip label="Organizaciones en Hornero" on={layers.plataforma} onToggle={toggle('plataforma')} swatch={<span aria-hidden="true" className="mapa-dot mapa-dot--plat" />} count={counts?.plataforma} />
+            <LayerChip label="Comedores sin reclamar" on={layers.sinReclamar} onToggle={toggle('sinReclamar')} swatch={<span aria-hidden="true" className="mapa-dot mapa-dot--sin" />} count={counts?.sinReclamar} />
           </ul>
         </section>
 
-        {geoState === 'ok' && (
-          <div>
-            <label htmlFor="sel-depto" className="mb-1 block text-xs font-extrabold uppercase tracking-wide text-[var(--ink-3)]">
-              Ir a un departamento
-            </label>
-            <select
-              id="sel-depto"
-              value={selected?.codigo ?? ''}
-              onChange={(e) => {
-                const codigo = e.target.value;
-                const p = options.flatMap(([, d]) => d).find((d) => d.codigo === codigo) ?? null;
-                setSelected(p);
-                if (p) setFocus((f) => ({ codigo: p.codigo, n: (f?.n ?? 0) + 1 }));
-              }}
-              className="min-h-[44px] w-full rounded-[var(--r-input)] border border-[var(--line)] bg-white px-3 text-sm font-bold text-[var(--ink)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--sky-tx)]"
-            >
-              <option value="">Elegí un departamento</option>
-              {options.map(([prov, deps]) => (
-                <optgroup key={prov} label={prov}>
-                  {deps.map((d) => (
-                    <option key={d.codigo} value={d.codigo}>
-                      {d.nombre ?? `Departamento ${d.codigo}`}
-                    </option>
-                  ))}
-                </optgroup>
-              ))}
-            </select>
+        <section aria-labelledby="leyenda-titulo">
+          <h2 id="leyenda-titulo" className="mapa-label">Veces la mediana del país</h2>
+          <div className="mapa-legend__bar" aria-hidden="true">
+            {COLORS.map((c) => (
+              <span key={c} className="mapa-legend__cell" style={{ background: c }} />
+            ))}
           </div>
-        )}
+          <ul className="mapa-legend__ticks">
+            {ticks.map((t) => (
+              <li key={t}>{t}</li>
+            ))}
+          </ul>
+          <div className="mapa-legend__ends" aria-hidden="true">
+            <span>Mejor cubierto</span>
+            <span>Más vulnerable</span>
+          </div>
+          <div className="mapa-legend__null">
+            <span
+              aria-hidden="true"
+              className="mapa-legend__null-swatch"
+              style={{
+                background: `repeating-linear-gradient(45deg, ${NULL_FILL}, ${NULL_FILL} 2px, #fff 2px, #fff 4px)`,
+                border: `1px dashed ${NULL_STROKE}`,
+              }}
+            />
+            Sin comedores en el registro
+          </div>
+        </section>
 
-        <div className="flex flex-col gap-2 text-xs font-semibold leading-relaxed text-[var(--ink-2)]">
-          <p className="m-0">
-            Datos del Registro Nacional de Comedores (ReNaCoM), el Censo 2022 y Hornero. El registro es una muestra:{' '}
-            {fmtInt(sinComedores)} de {fmtInt(totalDepartamentos)} departamentos no tienen comedores cargados, y eso no
-            significa que no haya necesidad.
-          </p>
-          <p className="m-0">
-            Las zonas con organizaciones de mayor nivel de acreditación pueden mostrar más necesidades, porque su tope de
-            necesidades abiertas es más alto. El índice cuenta las necesidades tal como las declaran las organizaciones.
-          </p>
-          {/* CC-BY-4.0 requires crediting the census authors and naming the license (scripts/mapa/README.md). */}
-          <p className="m-0">
-            Fuentes: Censo Nacional de Población, Hogares y Viviendas 2022 (INDEC), cartografía de radios de Rodriguez
-            &amp; de Grande (CONICET), bajo licencia{' '}
-            <a className="underline" href="https://creativecommons.org/licenses/by/4.0/deed.es" target="_blank" rel="noopener noreferrer">
-              CC BY 4.0
-            </a>
-            ; Registro Nacional de Comedores y Merenderos (ReNaCoM), publicado por CONICET en su{' '}
-            <a className="underline" href="https://ri.conicet.gov.ar/handle/11336/278030" target="_blank" rel="noopener noreferrer">
-              repositorio institucional
-            </a>
-            . Datos procesados por Hornero.
-          </p>
-        </div>
+        <details id="sobre-los-datos" className="mapa-details">
+          <summary>Sobre los datos</summary>
+          <div className="mapa-details__body">
+            <p>
+              Datos del Registro Nacional de Comedores (ReNaCoM), el Censo 2022 y Hornero. El registro es una muestra:{' '}
+              {fmtInt(sinComedores)} de {fmtInt(totalDepartamentos)} departamentos no tienen comedores cargados, y eso no
+              significa que no haya necesidad.
+            </p>
+            <p>
+              Las zonas con organizaciones de mayor nivel de acreditación pueden mostrar más necesidades, porque su tope de
+              necesidades abiertas es más alto. El índice cuenta las necesidades tal como las declaran las organizaciones.
+            </p>
+            {/* CC-BY-4.0 requires crediting the census authors and naming the license (scripts/mapa/README.md). Keep this text and links. */}
+            <p>
+              Fuentes: Censo Nacional de Población, Hogares y Viviendas 2022 (INDEC), cartografía de radios de Rodriguez
+              &amp; de Grande (CONICET), bajo licencia{' '}
+              <a href="https://creativecommons.org/licenses/by/4.0/deed.es" target="_blank" rel="noopener noreferrer">
+                CC BY 4.0
+              </a>
+              ; Registro Nacional de Comedores y Merenderos (ReNaCoM), publicado por CONICET en su{' '}
+              <a href="https://ri.conicet.gov.ar/handle/11336/278030" target="_blank" rel="noopener noreferrer">
+                repositorio institucional
+              </a>
+              . Datos procesados por Hornero.
+            </p>
+          </div>
+        </details>
       </aside>
 
       <div className="relative h-[70dvh] min-h-[420px] flex-1 bg-[var(--adobe)] lg:h-auto">
@@ -262,41 +268,47 @@ export default function MapaVulnerabilidad({ sinComedores, totalDepartamentos }:
         </Suspense>
 
         {selected && (
-          <section
-            aria-label="Detalle del departamento"
-            className="absolute bottom-3 left-3 right-3 z-[1000] rounded-[var(--r-card)] border border-[var(--line)] bg-[var(--card)] p-4 shadow-[var(--sh-pop)] sm:right-auto sm:w-[340px]"
-          >
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <h2 className="m-0 text-lg font-black text-[var(--earth)]">
-                  {selected.nombre ?? `Departamento ${selected.codigo}`}
-                </h2>
-                {selected.provincia && <div className="text-sm font-bold text-[var(--ink-2)]">{selected.provincia}</div>}
+          <section aria-label="Detalle del departamento" className="mapa-depto-card">
+            <div>
+              <div className="mapa-depto-card__head">
+                <div>
+                  <div className="mapa-depto-card__eyebrow">Departamento</div>
+                  <h2 className="mapa-depto-card__name">{selected.nombre ?? `Departamento ${selected.codigo}`}</h2>
+                  {selected.provincia && <div className="mapa-depto-card__prov">{selected.provincia}</div>}
+                </div>
+                <button type="button" onClick={() => setSelected(null)} aria-label="Cerrar detalle" className="mapa-depto-card__close">
+                  <span aria-hidden="true">✕</span>
+                </button>
               </div>
-              <button
-                type="button"
-                onClick={() => setSelected(null)}
-                aria-label="Cerrar detalle"
-                className="-mr-2 -mt-2 flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-lg text-xl text-[var(--ink-2)] hover:bg-[var(--card-2)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--sky-tx)]"
-              >
-                <span aria-hidden="true">✕</span>
-              </button>
+              <p className="mapa-depto-card__ratio">
+                {selected.vulnerabilidad == null ? (
+                  'Sin comedores en el registro. No podemos estimar la cobertura.'
+                ) : (
+                  <>
+                    <strong>{fmtRatio(selected.vulnerabilidad)}×</strong>
+                    <span>personas por comedor que la mediana del país</span>
+                  </>
+                )}
+              </p>
+              <dl className="mapa-depto-card__stats">
+                <div>
+                  <dt>Habitantes (Censo 2022)</dt>
+                  <dd>{fmtInt(selected.habitantes)}</dd>
+                </div>
+                <div>
+                  <dt>Comedores registrados</dt>
+                  <dd>{fmtInt(selected.comedores)}</dd>
+                </div>
+                <div>
+                  <dt>Habitantes por comedor</dt>
+                  <dd>{fmtInt(selected.habitantesPorComedor)}</dd>
+                </div>
+                <div>
+                  <dt>Necesidades sin cubrir</dt>
+                  <dd>{fmtInt(selected.necesidadesAbiertas)}</dd>
+                </div>
+              </dl>
             </div>
-            <p className="mb-3 mt-2 text-sm font-extrabold text-[var(--ink)]">
-              {selected.vulnerabilidad == null
-                ? 'Sin comedores en el registro. No podemos estimar la cobertura.'
-                : `${fmtRatio(selected.vulnerabilidad)} veces la mediana del país`}
-            </p>
-            <dl className="m-0 grid grid-cols-[1fr_auto] gap-x-4 gap-y-1 text-sm">
-              <dt className="font-semibold text-[var(--ink-2)]">Habitantes (Censo 2022)</dt>
-              <dd className="m-0 text-right font-extrabold">{fmtInt(selected.habitantes)}</dd>
-              <dt className="font-semibold text-[var(--ink-2)]">Comedores registrados</dt>
-              <dd className="m-0 text-right font-extrabold">{fmtInt(selected.comedores)}</dd>
-              <dt className="font-semibold text-[var(--ink-2)]">Habitantes por comedor</dt>
-              <dd className="m-0 text-right font-extrabold">{fmtInt(selected.habitantesPorComedor)}</dd>
-              <dt className="font-semibold text-[var(--ink-2)]">Necesidades sin cubrir</dt>
-              <dd className="m-0 text-right font-extrabold">{fmtInt(selected.necesidadesAbiertas)}</dd>
-            </dl>
           </section>
         )}
       </div>
