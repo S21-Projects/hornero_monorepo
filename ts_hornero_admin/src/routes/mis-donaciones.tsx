@@ -11,6 +11,7 @@ import { BarraProgreso } from '../components/donacion/BarraProgreso';
 import { useCancelarConConfirmacion } from '../components/donacion/useCancelarConConfirmacion';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
+import { StatCard } from '../components/ui/StatCard';
 import { OverflowMenu, type OverflowMenuItem } from '../components/ui/OverflowMenu';
 import { Pager } from '../components/ui/Pager';
 import { Text } from '../components/ui/Typography';
@@ -82,20 +83,6 @@ function DonacionRow({ donacion: d }: DonacionRowProps) {
   );
 }
 
-interface StatCardProps {
-  value: number;
-  label: string;
-  accent?: boolean;
-}
-
-function StatCard({ value, label, accent }: StatCardProps) {
-  return (
-    <Card className={`stat-card${accent && value > 0 ? ' stat-card--accent' : ''}`}>
-      <Text variant="stat" as="p">{value}</Text>
-      <Text variant="label" color="ink-2" as="p">{label}</Text>
-    </Card>
-  );
-}
 
 export default function MisDonacionesPage() {
   const [page, setPage] = useState(0);
