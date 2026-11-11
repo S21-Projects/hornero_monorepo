@@ -34,7 +34,7 @@ screens. Destructive actions (delete, cancel) confirm in a modal.
 - [x] T1 `ConfirmDialog` atom (modal alertdialog, focus on safe action, Escape closes) + replace inline
       confirms: needs delete (`routes/needs.tsx`), donation cancel in `mis-donaciones.tsx` (today has
       no confirm) and donation detail, `panel.tsx`, `catalogo.tsx`. Route: delegated writer.
-- [ ] T2 Referente needs: list items as `Card` with background, icon delete button; edit/create forms
+- [x] T2 Referente needs: list items as `Card` with background, icon delete button; edit/create forms
       inside a `Card`; `ArticuloPicker` as chip toggles per category. Route: delegated writer.
 - [ ] T3 Mis donaciones: summary counts, Activas/Historial tabs, per-row status line + single primary
       action, cancel in an overflow menu → ConfirmDialog. Route: delegated writer.
@@ -54,3 +54,4 @@ screens. Destructive actions (delete, cancel) confirm in a modal.
 - T1 done (delegated writer). Admin `npm test` 721 passed, `npm run lint` 0 errors (3 warnings in
   generated coverage/), `npm run build` ok; parent re-ran ConfirmDialog + mis-donaciones tests (13 passed).
   donacion-detalle has no cancel action, skipped. Commit: see git log "feat(admin): confirm destructive actions in a modal dialog".
+- T2 done (delegated writer): needs list cards, form cards, ArticuloPicker chips. Admin npm test 723 passed, lint 0 errors, build ok; parent re-ran needs + necesidad tests. Not checked in a browser yet.
