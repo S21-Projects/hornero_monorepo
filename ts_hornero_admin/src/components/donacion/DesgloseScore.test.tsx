@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { DesgloseScore } from './DesgloseScore';
+import { nivelCriterio } from '../../lib/score-nivel';
 import type { AsignacionHistorial } from '../../types/domain';
 
 // Task 5f.2 / spec `ronda-asignacion` "Assignment persists full explainability data": renders
@@ -28,32 +30,60 @@ const asignacion: AsignacionHistorial = {
   resueltaEn: null,
 };
 
+describe('nivelCriterio', () => {
+  it('maps a 0..1 term onto Baja / Media / Alta thresholds', () => {
+    expect(nivelCriterio(0.1)).toBe('Baja');
+    expect(nivelCriterio(0.34)).toBe('Media');
+    expect(nivelCriterio(0.66)).toBe('Media');
+    expect(nivelCriterio(0.67)).toBe('Alta');
+  });
+});
+
 describe('DesgloseScore', () => {
-  it('renders the total score', () => {
+  it('labels each criterion in donor words with a qualitative level', () => {
     render(<DesgloseScore asignacion={asignacion} />);
 
-    expect(screen.getByText(/puntaje total/i)).toBeInTheDocument();
-    expect(screen.getByText('0.71')).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: 'Necesidad de la zona: Baja' })).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: 'Urgencia del pedido: Media' })).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: 'Cercanía: Alta' })).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: 'Tiempo sin recibir: Baja' })).toBeInTheDocument();
+    expect(screen.queryByText(/d[eé]ficit de cobertura/i)).not.toBeInTheDocument();
   });
 
-  it('renders each of the four criteria with a text contribution value', () => {
+  it('names the criteria that weighed most in an intro sentence', () => {
     render(<DesgloseScore asignacion={asignacion} />);
 
-    expect(screen.getByText(/d[eé]ficit de cobertura/i)).toBeInTheDocument();
-    expect(screen.getByText(/urgencia/i)).toBeInTheDocument();
-    expect(screen.getByText(/proximidad/i)).toBeInTheDocument();
-    expect(screen.getByText(/tiempo de espera/i)).toBeInTheDocument();
+    // contributions: deficit .12, urgencia .18, proximidad .15, espera .02
+    expect(screen.getByText(/se eligió sobre todo por urgencia del pedido y cercanía/i)).toBeInTheDocument();
+  });
 
-    // Every bar must surface a numeric text value (not color-only).
+  it('explains a NEUTRAL deficit source in plain language instead of the raw code', () => {
+    render(<DesgloseScore asignacion={asignacion} />);
+
+    expect(screen.getByText(/sin datos censales para esta zona: la necesidad se tomó como promedio/i)).toBeInTheDocument();
+    expect(screen.queryByText(/fuente del déficit/i)).not.toBeInTheDocument();
+  });
+
+  it('omits the note for an unknown deficit source', () => {
+    render(<DesgloseScore asignacion={{ ...asignacion, deficitFuente: 'OTRA' }} />);
+
+    expect(screen.queryByText(/sin datos censales/i)).not.toBeInTheDocument();
+  });
+
+  it('keeps the numeric calculation inside a collapsed "Ver el cálculo" section', async () => {
+    const { container } = render(<DesgloseScore asignacion={asignacion} />);
+    const details = container.querySelector('details') as HTMLDetailsElement;
+    const user = userEvent.setup();
+
+    expect(details.open).toBe(false);
+    await user.click(screen.getByText('Ver el cálculo'));
+    expect(details.open).toBe(true);
+
+    expect(screen.getByText(/puntaje total/i)).toBeInTheDocument();
+    expect(screen.getByText('0,71')).toBeInTheDocument();
     const values = screen.getAllByTestId('desglose-valor');
     expect(values.length).toBe(4);
     values.forEach((v) => expect(v.textContent).toMatch(/\d/));
-  });
-
-  it('renders deficitFuente', () => {
-    render(<DesgloseScore asignacion={asignacion} />);
-
-    expect(screen.getByText(/neutral/i)).toBeInTheDocument();
   });
 
   it('omits the 5th criterion when terminoCumplimiento is null', () => {
@@ -65,7 +95,7 @@ describe('DesgloseScore', () => {
   it('renders the 5th criterion when terminoCumplimiento is present', () => {
     render(<DesgloseScore asignacion={{ ...asignacion, terminoCumplimiento: 0.85 }} />);
 
-    expect(screen.getByText(/cumplimiento/i)).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: 'Cumplimiento: Alta' })).toBeInTheDocument();
   });
 
   // Task 5f.15: once a ronda snapshot carries its applied weights, the breakdown must use them
@@ -78,14 +108,14 @@ describe('DesgloseScore', () => {
     );
 
     // deficit: 0.33 × 0.5 = 0.17 (default would have been 0.33 × 0.35 = 0.12)
-    expect(screen.getByText(/0\.33 × 0\.50 = 0\.17/)).toBeInTheDocument();
+    expect(screen.getByText(/0,33 × 0,50 = 0,17/)).toBeInTheDocument();
   });
 
   it('falls back to the hardcoded default weights when the ronda snapshot has none (older rows)', () => {
     render(<DesgloseScore asignacion={asignacion} />);
 
     // deficit: 0.33 × 0.35 = 0.12 (pre-AD-9 default, unchanged behaviour)
-    expect(screen.getByText(/0\.33 × 0\.35 = 0\.12/)).toBeInTheDocument();
+    expect(screen.getByText(/0,33 × 0,35 = 0,12/)).toBeInTheDocument();
   });
 
   it('uses the ronda-applied cumplimiento weight when both it and the term are present', () => {
@@ -95,6 +125,6 @@ describe('DesgloseScore', () => {
       />,
     );
 
-    expect(screen.getByText(/0\.80 × 0\.20 = 0\.16/)).toBeInTheDocument();
+    expect(screen.getByText(/0,80 × 0,20 = 0,16/)).toBeInTheDocument();
   });
 });

@@ -1,9 +1,11 @@
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import DonacionDetallePage from './donacion-detalle';
 import { useDonacion } from '../lib/hooks/useDonacion';
 import { useAsignaciones } from '../lib/hooks/useAsignaciones';
+import { useCancelarDonacion } from '../lib/hooks/useCancelarDonacion';
 import type { Donacion, AsignacionHistorial } from '../types/domain';
 
 // Task 5f.7 / design's `/mis-donaciones/:id` mockup: progress strip, modalidad badge, assigned
@@ -11,6 +13,15 @@ import type { Donacion, AsignacionHistorial } from '../types/domain';
 // "Esperando ronda"; `?nueva=1` shows a success banner.
 vi.mock('../lib/hooks/useDonacion', () => ({ useDonacion: vi.fn() }));
 vi.mock('../lib/hooks/useAsignaciones', () => ({ useAsignaciones: vi.fn() }));
+vi.mock('../lib/hooks/useCancelarDonacion', () => ({ useCancelarDonacion: vi.fn() }));
+
+const mutate = vi.fn();
+vi.mocked(useCancelarDonacion).mockReturnValue({
+  mutate,
+  isPending: false,
+  isError: false,
+  variables: undefined,
+} as unknown as ReturnType<typeof useCancelarDonacion>);
 
 const asignacion: AsignacionHistorial = {
   id: 1,
@@ -80,7 +91,7 @@ describe('DonacionDetallePage', () => {
 
     expect(screen.getAllByText(/comedor sol/i).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/20\/09\/2026/).length).toBeGreaterThan(0);
-    expect(screen.getByText(/puntaje total/i)).toBeInTheDocument();
+    expect(screen.getByText(/¿por qué este destino\?/i)).toBeInTheDocument();
   });
 
   it('shows "Esperando ronda" when there is no organizacion yet', () => {
@@ -115,7 +126,11 @@ describe('DonacionDetallePage', () => {
 
     renderPage();
 
-    expect(screen.getByText('5 kg Arroz, 6 paquetes Fideos')).toBeInTheDocument();
+    expect(screen.getByText('5 kg Arroz')).toBeInTheDocument();
+    expect(screen.getByText('6 paquetes Fideos')).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { name: '5 kg Arroz, 6 paquetes Fideos para Comedor Sol' }),
+    ).toBeInTheDocument();
   });
 
   it('does not show a success banner without the query param', () => {
@@ -125,5 +140,84 @@ describe('DonacionDetallePage', () => {
     renderPage();
 
     expect(screen.queryByText(/donaci[oó]n registrada/i)).not.toBeInTheDocument();
+  });
+
+  it('links back to Mis donaciones', () => {
+    mockDonacion({ fase: 'ASIGNADA' });
+    mockAsignaciones([asignacion]);
+
+    renderPage();
+
+    expect(screen.getByRole('link', { name: '← Mis donaciones' })).toHaveAttribute('href', '/mis-donaciones');
+  });
+
+  it('shows the next step with a single confirm action when the donación is confirmable', () => {
+    mockDonacion({ estado: 'ACEPTADA', fase: 'ACEPTADA' });
+    mockAsignaciones([asignacion]);
+
+    renderPage();
+
+    expect(screen.getByText('Próximo paso')).toBeInTheDocument();
+    expect(screen.getByText(/llevá la donación y confirmá la entrega con el código/i)).toBeInTheDocument();
+    expect(screen.getAllByRole('link', { name: 'Confirmar entrega' })).toHaveLength(1);
+    expect(screen.getByRole('link', { name: 'Confirmar entrega' })).toHaveAttribute('href', '/donaciones/1/entrega');
+  });
+
+  it('shows no confirm action when waiting for a ronda', () => {
+    mockDonacion({ estado: 'OFRECIDA', modalidad: 'FONDO_COMUN', fase: 'EN_FONDO', organizacionId: null });
+    mockAsignaciones([]);
+
+    renderPage();
+
+    expect(screen.getByText(/no tenés que hacer nada por ahora/i)).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Confirmar entrega' })).not.toBeInTheDocument();
+  });
+
+  it('cancels through a confirmation dialog', async () => {
+    mockDonacion({ estado: 'OFRECIDA', fase: 'OFRECIDA' });
+    mockAsignaciones([]);
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(screen.getByRole('button', { name: 'Cancelar donación…' }));
+    expect(mutate).not.toHaveBeenCalled();
+    const dialog = screen.getByRole('alertdialog', { name: '¿Cancelar esta donación?' });
+    await user.click(within(dialog).getByRole('button', { name: 'Sí, cancelar' }));
+
+    expect(mutate).toHaveBeenCalledWith(1, expect.objectContaining({ onSettled: expect.any(Function) }));
+  });
+
+  it('offers no cancel for a delivered donación', () => {
+    mockDonacion({ estado: 'ENTREGADA', fase: 'ENTREGADA' });
+    mockAsignaciones([asignacion]);
+
+    renderPage();
+
+    expect(screen.queryByRole('button', { name: /cancelar donación/i })).not.toBeInTheDocument();
+  });
+
+  it('lists the assignment history newest first as a timeline', () => {
+    mockDonacion({ fase: 'ASIGNADA' });
+    mockAsignaciones([
+      { ...asignacion, id: 1, rondaFecha: '2026-09-10', organizacionNombre: 'Comedor Luna', estado: 'RECHAZADA' },
+      { ...asignacion, id: 2, rondaFecha: '2026-09-20', organizacionNombre: 'Comedor Sol', estado: 'PROPUESTA' },
+    ]);
+
+    renderPage();
+
+    const items = within(screen.getByRole('heading', { name: 'Historial de asignaciones' }).parentElement!).getAllByRole('listitem');
+    expect(items[0]).toHaveTextContent('Propuesta a Comedor Sol');
+    expect(items[0]).toHaveTextContent('20/09/2026');
+    expect(items[1]).toHaveTextContent('Comedor Luna rechazó la donación');
+  });
+
+  it('shows plain-language criteria in the aside and hides the numbers until expanded', () => {
+    mockDonacion({ fase: 'ASIGNADA' });
+    mockAsignaciones([asignacion]);
+
+    renderPage();
+
+    expect(screen.getByRole('img', { name: /necesidad de la zona/i })).toBeInTheDocument();
+    expect(screen.getByText('Ver el cálculo')).toBeInTheDocument();
   });
 });
