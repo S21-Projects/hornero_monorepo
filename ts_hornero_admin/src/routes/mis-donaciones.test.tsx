@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import MisDonacionesPage from './mis-donaciones';
 import { useMisDonaciones } from '../lib/hooks/useMisDonaciones';
@@ -116,5 +117,58 @@ describe('MisDonacionesPage — confirm-entrega retirement', () => {
     renderPage();
 
     expect(screen.queryByRole('link', { name: /confirmar entrega/i })).not.toBeInTheDocument();
+  });
+});
+
+describe('MisDonacionesPage — cancel requires confirmation', () => {
+  it('opens a confirmation dialog first and only cancels once confirmed', async () => {
+    const mutate = vi.fn();
+    vi.mocked(useCancelarDonacion).mockReturnValue({
+      mutate,
+      isPending: false,
+      isError: false,
+      variables: undefined,
+    } as unknown as ReturnType<typeof useCancelarDonacion>);
+    vi.mocked(useMisDonaciones).mockReturnValue({
+      data: makePage([{ ...donacionConfirmable, estado: 'OFRECIDA' }]),
+      isLoading: false,
+      isError: false,
+      isFetching: false,
+    } as unknown as ReturnType<typeof useMisDonaciones>);
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(screen.getByRole('button', { name: 'Cancelar donación' }));
+
+    expect(mutate).not.toHaveBeenCalled();
+    const dialog = screen.getByRole('alertdialog', { name: '¿Cancelar esta donación?' });
+
+    await user.click(within(dialog).getByRole('button', { name: 'Sí, cancelar' }));
+
+    expect(mutate).toHaveBeenCalledWith(1, expect.objectContaining({ onSettled: expect.any(Function) }));
+  });
+
+  it('keeps the donation when the dialog is dismissed with "Volver"', async () => {
+    const mutate = vi.fn();
+    vi.mocked(useCancelarDonacion).mockReturnValue({
+      mutate,
+      isPending: false,
+      isError: false,
+      variables: undefined,
+    } as unknown as ReturnType<typeof useCancelarDonacion>);
+    vi.mocked(useMisDonaciones).mockReturnValue({
+      data: makePage([{ ...donacionConfirmable, estado: 'OFRECIDA' }]),
+      isLoading: false,
+      isError: false,
+      isFetching: false,
+    } as unknown as ReturnType<typeof useMisDonaciones>);
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(screen.getByRole('button', { name: 'Cancelar donación' }));
+    await user.click(screen.getByRole('button', { name: 'Volver' }));
+
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+    expect(mutate).not.toHaveBeenCalled();
   });
 });

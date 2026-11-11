@@ -67,8 +67,10 @@ describe('PanelPage', () => {
     expect(validarMutate).toHaveBeenCalledWith(4);
 
     await user.click(within(row).getByRole('button', { name: 'Rechazar' }));
-    expect(within(row).getByText('Esta acción no se puede deshacer.')).toBeInTheDocument();
-    await user.click(within(row).getByRole('button', { name: 'Confirmar' }));
+    expect(rechazarMutate).not.toHaveBeenCalled();
+    const dialog = screen.getByRole('alertdialog', { name: '¿Rechazar esta organización?' });
+    expect(within(dialog).getByText(/Esta acción no se puede deshacer/)).toBeInTheDocument();
+    await user.click(within(dialog).getByRole('button', { name: 'Sí, rechazar' }));
     expect(rechazarMutate).toHaveBeenCalledWith(4, expect.anything());
   });
 });

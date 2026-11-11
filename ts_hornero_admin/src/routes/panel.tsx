@@ -3,6 +3,7 @@ import { Badge } from '../components/Badge';
 import { Text } from '../components/ui/Typography';
 import { PageHeader } from '../components/ui/PageHeader';
 import { Button } from '../components/ui/Button';
+import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { PaginatedTable } from '../components/ui/PaginatedTable';
 import type { Column } from '../components/ui/PaginatedTable';
 import { useOrganizacionesPendientes } from '../lib/hooks/useOrganizacionesPendientes';
@@ -63,6 +64,8 @@ export default function PanelPage() {
     },
   ];
 
+  const confirmingOrg = data?.content.find((o) => o.id === confirmingId);
+
   function acciones(org: OrgPendiente) {
     if (org.estado !== 'PENDIENTE') return null;
     const isValidarError = validar.isError && validar.variables === org.id;
@@ -70,42 +73,19 @@ export default function PanelPage() {
 
     return (
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
-        {confirmingId === org.id ? (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-            <Text color="urgent" variant="body-sm">Esta acción no se puede deshacer.</Text>
-            <Button
-              variant="danger"
-              size="sm"
-              loading={rechazar.isPending && rechazar.variables === org.id}
-              onClick={() => {
-                // Close the confirmation only after the rejection succeeds, so the
-                // pending state is visible and a 409 keeps it open with the error.
-                rechazar.mutate(org.id, {
-                  onSuccess: () => { setConfirmingId(null); },
-                });
-              }}
-            >
-              Confirmar
-            </Button>
-            <Button variant="ghost" size="sm" onClick={() => { setConfirmingId(null); }}>
-              Cancelar
-            </Button>
-          </div>
-        ) : (
-          <div style={{ display: 'flex', gap: 8 }}>
-            <Button
-              variant="ok"
-              size="sm"
-              loading={validar.isPending && validar.variables === org.id}
-              onClick={() => { validar.mutate(org.id); }}
-            >
-              Validar
-            </Button>
-            <Button variant="danger" size="sm" onClick={() => { setConfirmingId(org.id); }}>
-              Rechazar
-            </Button>
-          </div>
-        )}
+        <div style={{ display: 'flex', gap: 8 }}>
+          <Button
+            variant="ok"
+            size="sm"
+            loading={validar.isPending && validar.variables === org.id}
+            onClick={() => { validar.mutate(org.id); }}
+          >
+            Validar
+          </Button>
+          <Button variant="danger" size="sm" onClick={() => { setConfirmingId(org.id); }}>
+            Rechazar
+          </Button>
+        </div>
         {isValidarError && (
           <Text color="urgent" variant="micro">{mapOrganizacionError(validar.error)}</Text>
         )}
@@ -137,6 +117,30 @@ export default function PanelPage() {
         onPageChange={setPage}
         pageSize={pageSize}
         onPageSizeChange={(n) => { setPageSize(n); setPage(0); }}
+      />
+
+      <ConfirmDialog
+        open={confirmingOrg !== undefined}
+        title="¿Rechazar esta organización?"
+        description={
+          <>
+            {confirmingOrg && <>{confirmingOrg.nombre} no podrá publicar necesidades. </>}
+            Esta acción no se puede deshacer.
+            {confirmingOrg && rechazar.isError && rechazar.variables === confirmingOrg.id && (
+              <Text color="urgent" variant="body-sm" as="div" style={{ marginTop: 8 }}>
+                {mapOrganizacionError(rechazar.error)}
+              </Text>
+            )}
+          </>
+        }
+        confirmLabel="Sí, rechazar"
+        loading={rechazar.isPending && rechazar.variables === confirmingId}
+        onConfirm={() => {
+          if (confirmingOrg === undefined) return;
+          // Close only after the rejection succeeds, so a 409 keeps the dialog open with the error.
+          rechazar.mutate(confirmingOrg.id, { onSuccess: () => { setConfirmingId(null); } });
+        }}
+        onCancel={() => { setConfirmingId(null); }}
       />
     </div>
   );

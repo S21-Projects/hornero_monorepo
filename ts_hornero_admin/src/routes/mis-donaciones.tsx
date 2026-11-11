@@ -9,6 +9,7 @@ import { AsyncSection } from '../components/AsyncSection';
 import { Badge } from '../components/Badge';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
+import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { Pager } from '../components/ui/Pager';
 import { Text } from '../components/ui/Typography';
 import { PageHeader } from '../components/ui/PageHeader';
@@ -31,6 +32,7 @@ function DonacionRow({ donacion: d }: DonacionRowProps) {
   const estadoCfg = ESTADO_DONACION[d.estado] ?? FALLBACK_BADGE;
   const modalidadCfg = d.modalidad ? (MODALIDAD_DONACION[d.modalidad] ?? FALLBACK_BADGE) : undefined;
   const cancelar = useCancelarDonacion();
+  const [confirmingCancel, setConfirmingCancel] = useState(false);
 
   const canCancel = CANCELABLE_ESTADOS.has(d.estado);
   const canConfirm = CONFIRMABLE_ESTADOS.has(d.estado) && !d.confirmadaDonanteEn;
@@ -87,9 +89,8 @@ function DonacionRow({ donacion: d }: DonacionRowProps) {
               type="button"
               variant="ghost"
               size="sm"
-              loading={isCancelingThis}
               disabled={cancelar.isPending}
-              onClick={() => cancelar.mutate(d.id)}
+              onClick={() => setConfirmingCancel(true)}
             >
               Cancelar donación
             </Button>
@@ -102,6 +103,17 @@ function DonacionRow({ donacion: d }: DonacionRowProps) {
           No se pudo cancelar la donación. Intentá de nuevo.
         </Text>
       )}
+
+      <ConfirmDialog
+        open={confirmingCancel}
+        title="¿Cancelar esta donación?"
+        description="La donación deja de ofrecerse y de asignarse a una necesidad. No se puede deshacer."
+        confirmLabel="Sí, cancelar"
+        cancelLabel="Volver"
+        loading={isCancelingThis}
+        onConfirm={() => cancelar.mutate(d.id, { onSettled: () => setConfirmingCancel(false) })}
+        onCancel={() => setConfirmingCancel(false)}
+      />
     </Card>
   );
 }
