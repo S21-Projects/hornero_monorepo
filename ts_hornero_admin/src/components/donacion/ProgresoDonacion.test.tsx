@@ -53,4 +53,18 @@ describe('ProgresoDonacion', () => {
     expect(screen.getByText(/cancelada/i)).toBeInTheDocument();
     expect(screen.queryByText('Entregada')).not.toHaveAttribute('aria-current', 'step');
   });
+
+  it('shows a date under a step only when real data is provided', () => {
+    render(<ProgresoDonacion fase={FaseDonacion.ASIGNADA} fechas={{ ofrecida: '2026-09-18', asignacion: '2026-09-20' }} />);
+
+    expect(screen.getByText('18/09/2026')).toBeInTheDocument();
+    expect(screen.getByText('20/09/2026')).toBeInTheDocument();
+    expect(screen.queryByText('—')).not.toBeInTheDocument();
+  });
+
+  it('renders no dates when none are provided', () => {
+    render(<ProgresoDonacion fase={FaseDonacion.ASIGNADA} />);
+
+    expect(screen.queryByText(/\d{2}\/\d{2}\/\d{4}/)).not.toBeInTheDocument();
+  });
 });

@@ -36,9 +36,9 @@ screens. Destructive actions (delete, cancel) confirm in a modal.
       no confirm) and donation detail, `panel.tsx`, `catalogo.tsx`. Route: delegated writer.
 - [x] T2 Referente needs: list items as `Card` with background, icon delete button; edit/create forms
       inside a `Card`; `ArticuloPicker` as chip toggles per category. Route: delegated writer.
-- [ ] T3 Mis donaciones: summary counts, Activas/Historial tabs, per-row status line + single primary
+- [x] T3 Mis donaciones: summary counts, Activas/Historial tabs, per-row status line + single primary
       action, cancel in an overflow menu → ConfirmDialog. Route: delegated writer.
-- [ ] T4 Donation detail: next-step card, two-column layout, plain-language `DesgloseScore` (raw
+- [x] T4 Donation detail: next-step card, two-column layout, plain-language `DesgloseScore` (raw
       "Fuente del déficit: NEUTRAL" replaced by a sentence; numbers behind a disclosure), history
       as timeline. Route: delegated writer.
 - [ ] T5 Direct donation wizard: `/donar` DIRECTA no longer redirects to `/explorar`; 3 steps
@@ -55,3 +55,4 @@ screens. Destructive actions (delete, cancel) confirm in a modal.
   generated coverage/), `npm run build` ok; parent re-ran ConfirmDialog + mis-donaciones tests (13 passed).
   donacion-detalle has no cancel action, skipped. Commit: see git log "feat(admin): confirm destructive actions in a modal dialog".
 - T2 done (delegated writer): needs list cards, form cards, ArticuloPicker chips. Admin npm test 723 passed, lint 0 errors, build ok; parent re-ran needs + necesidad tests. Not checked in a browser yet.
+- T3+T4 done (one delegated writer, shared status sentences/progress/cancel flow): admin npm test 744 passed, lint 0 errors, build ok; parent re-ran tsc -b + donor tests (60 passed). Stats/tab counts cover the loaded page only (server-side pagination), with a caption when there is more than one page. DesgloseScore only used by donacion-detalle, so no admin variant. ~1230 changed lines, over the 400 heuristic: list, detail and shared helpers are one behaviour.

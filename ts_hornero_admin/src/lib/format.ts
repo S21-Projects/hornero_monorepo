@@ -65,3 +65,8 @@ export function formatFechaHora(iso?: string): string {
   const p = Object.fromEntries(FECHA_HORA.formatToParts(date).map((x) => [x.type, x.value]));
   return `${p.day}/${p.month}/${p.year} ${p.hour}:${p.minute}:${p.second}`;
 }
+
+/** Formats a number with 2 decimals and an es-AR decimal comma ("0,33"). */
+export function formatDecimal(n: number): string {
+  return n.toFixed(2).replace('.', ',');
+}
