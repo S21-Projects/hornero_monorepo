@@ -57,6 +57,14 @@ describe('ArticuloPicker', () => {
     expect(screen.getAllByText('Refrigerado').length).toBeGreaterThan(0);
   });
 
+  it('reflects the selection on the checkboxes and allows mixing categories', () => {
+    render(<ArticuloPicker selectedIds={[1, 2]} onChange={vi.fn()} />);
+
+    expect(screen.getByRole('checkbox', { name: 'Arroz' })).toBeChecked();
+    expect(screen.getByRole('checkbox', { name: 'Yogur' })).toBeChecked();
+    expect(screen.getByRole('checkbox', { name: 'Arroz' })).toBeEnabled();
+  });
+
   it('shows an error message when provided', () => {
     render(<ArticuloPicker selectedIds={[]} onChange={vi.fn()} error="Elegí al menos un artículo." />);
 

@@ -80,6 +80,22 @@ describe('NeedsPage — create form articulo picker', () => {
     });
   });
 
+  it('shows the heading and a back link to the list on the create form', async () => {
+    const goToList = vi.fn();
+    vi.mocked(useNeedsViewState).mockReturnValue({
+      view: 'create', pendingDeleteId: null, goToList, goToCreate: vi.fn(),
+      goToEdit: vi.fn(), armDelete: vi.fn(), clearDelete: vi.fn(),
+    });
+    const user = userEvent.setup();
+    render(<NeedsPage />);
+
+    expect(screen.getByRole('heading', { name: 'Nueva necesidad' })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /mis necesidades/i }));
+    expect(goToList).toHaveBeenCalled();
+    await user.click(screen.getByRole('button', { name: 'Cancelar' }));
+    expect(goToList).toHaveBeenCalledTimes(2);
+  });
+
   it('requires at least one articulo before submitting', async () => {
     const user = userEvent.setup();
     render(<NeedsPage />);
@@ -271,7 +287,7 @@ describe('NeedsPage — delete confirmation dialog', () => {
     render(<NeedsPage />);
 
     expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: 'Eliminar' }));
+    await user.click(screen.getByRole('button', { name: 'Eliminar necesidad' }));
 
     expect(armDelete).toHaveBeenCalledWith(21);
     expect(eliminar).not.toHaveBeenCalled();
