@@ -13,6 +13,7 @@ import PrefsPage from '../routes/prefs';
 import MisDonacionesPage from '../routes/mis-donaciones';
 import DonacionDetallePage from '../routes/donacion-detalle';
 import NuevaDonacionPage from '../routes/nueva-donacion';
+import DonarDirectaPage from '../routes/donar-directa';
 import ExplorarPage from '../routes/explorar';
 import NecesidadDetallePage from '../routes/necesidad-detalle';
 import PanelPage from '../routes/panel';
@@ -238,6 +239,7 @@ export const router = createBrowserRouter([
           { path: '/mis-donaciones',    element: <MisDonacionesPage /> },
           { path: '/mis-donaciones/:id', element: <DonacionDetallePage /> },
           { path: '/donar',             element: <NuevaDonacionPage /> },
+          { path: '/donar/directa',     element: <DonarDirectaPage /> },
           { path: '/explorar',          element: <ExplorarPage /> },
           { path: '/necesidades/:id',   element: <NecesidadDetallePage /> },
         ],

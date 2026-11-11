@@ -8,7 +8,7 @@ import { useArticulos } from '../lib/hooks/useArticulos';
 import type { Articulo } from '../types/domain';
 
 // Spec `donacion-fondo-comun` — "Nueva Donación Screen" + decision 14 (nueva-donacion entry
-// point): choosing DIRECTA navigates straight to /explorar without embedding a necesidad picker
+// point): choosing DIRECTA navigates to the /donar/directa wizard without embedding a necesidad picker
 // here; choosing FONDO_COMUN reveals the articulo línea editor + map + observaciones before
 // submit is possible, and submits the FONDO_COMUN payload shape (no necesidadId, no client-chosen
 // categoria — feature catalogo-articulos, decision 4/5: categoria is derived from `lineas`).
@@ -31,7 +31,7 @@ function buildRouter() {
   return createMemoryRouter(
     [
       { path: '/donar', element: <NuevaDonacionPage /> },
-      { path: '/explorar', element: <div>Explorar Page</div> },
+      { path: '/donar/directa', element: <div>Wizard Page</div> },
       { path: '/mis-donaciones', element: <div>Mis Donaciones Page</div> },
       { path: '/mis-donaciones/:id', element: <div>Donación Detalle Page</div> },
     ],
@@ -72,14 +72,14 @@ describe('NuevaDonacionPage', () => {
     expect(screen.queryByLabelText(/categoría/i)).not.toBeInTheDocument();
   });
 
-  it('navigates to /explorar without a picker when DIRECTA is chosen', async () => {
+  it('navigates to the direct-donation wizard when DIRECTA is chosen', async () => {
     const user = userEvent.setup();
     const router = renderPage();
 
     await user.click(screen.getByRole('radio', { name: /donación directa/i }));
     await user.click(screen.getByRole('button', { name: /continuar/i }));
 
-    await waitFor(() => expect(router.state.location.pathname).toBe('/explorar'));
+    await waitFor(() => expect(router.state.location.pathname).toBe('/donar/directa'));
     expect(mutateAsync).not.toHaveBeenCalled();
   });
 
