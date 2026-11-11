@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { FormEvent } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useCrearDonacion } from '../lib/hooks/useCrearDonacion';
 import { useGeolocation } from '../lib/hooks/useGeolocation';
 import { useAuthStore } from '../store/auth.store';
@@ -53,8 +53,8 @@ function ModalidadCard({ value, checked, onChange, titulo, descripcion }: Modali
 
 /**
  * "Nueva donación — modalidad" screen (`/donar`, DONANTE). Spec `donacion-fondo-comun`'s
- * "Nueva Donación Screen" + decision 14: choosing DIRECTA routes to the existing `/explorar`
- * necesidad picker (no picker embedded here); FONDO_COMUN requires categoria + pickup location
+ * "Nueva Donación Screen" + decision 14: choosing DIRECTA routes to the direct-donation
+ * wizard (`/donar/directa`, which owns the necesidad picker); FONDO_COMUN requires categoria + pickup location
  * before it can be offered to the pool.
  */
 export default function NuevaDonacionPage() {
@@ -63,7 +63,10 @@ export default function NuevaDonacionPage() {
   const crear = useCrearDonacion();
   const { position, hasUserPosition, fixCount, request } = useGeolocation();
 
-  const [modalidad, setModalidad] = useState<ModalidadDonacionType | null>(null);
+  const [searchParams] = useSearchParams();
+  const [modalidad, setModalidad] = useState<ModalidadDonacionType | null>(
+    searchParams.get('modalidad') === 'fondo-comun' ? ModalidadDonacion.FONDO_COMUN : null,
+  );
   const [lineas, setLineas] = useState<DonacionLineaInput[]>([]);
   const [coords, setCoords] = useState<LatLng | null>(null);
   const [observaciones, setObservaciones] = useState('');
@@ -73,7 +76,7 @@ export default function NuevaDonacionPage() {
   const canSubmitFondoComun = lineasValidas && coords !== null;
 
   function handleDirectaContinuar() {
-    navigate('/explorar');
+    navigate('/donar/directa');
   }
 
   async function handleFondoComunSubmit(e: FormEvent) {

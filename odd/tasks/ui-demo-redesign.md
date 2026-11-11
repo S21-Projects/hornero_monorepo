@@ -41,7 +41,7 @@ screens. Destructive actions (delete, cancel) confirm in a modal.
 - [x] T4 Donation detail: next-step card, two-column layout, plain-language `DesgloseScore` (raw
       "Fuente del déficit: NEUTRAL" replaced by a sentence; numbers behind a disclosure), history
       as timeline. Route: delegated writer.
-- [ ] T5 Direct donation wizard: `/donar` DIRECTA no longer redirects to `/explorar`; 3 steps
+- [x] T5 Direct donation wizard: `/donar` DIRECTA no longer redirects to `/explorar`; 3 steps
       (necesidad, artículos + cantidades via `LineaArticuloEditor`, nota + confirm) with a summary
       aside, reusing `Stepper` and `useCrearDonacion`; lands on the detail with `?nueva=1`.
       Route: delegated writer.
@@ -56,3 +56,4 @@ screens. Destructive actions (delete, cancel) confirm in a modal.
   donacion-detalle has no cancel action, skipped. Commit: see git log "feat(admin): confirm destructive actions in a modal dialog".
 - T2 done (delegated writer): needs list cards, form cards, ArticuloPicker chips. Admin npm test 723 passed, lint 0 errors, build ok; parent re-ran needs + necesidad tests. Not checked in a browser yet.
 - T3+T4 done (one delegated writer, shared status sentences/progress/cancel flow): admin npm test 744 passed, lint 0 errors, build ok; parent re-ran tsc -b + donor tests (60 passed). Stats/tab counts cover the loaded page only (server-side pagination), with a caption when there is more than one page. DesgloseScore only used by donacion-detalle, so no admin variant. ~1230 changed lines, over the 400 heuristic: list, detail and shared helpers are one behaviour.
+- T5 done (delegated writer): /donar/directa wizard (Stepper fullWidth), necesidad-detalle inline form replaced by a CTA so creation has one path; 7-day note verified against DonacionesEstancadasJob (constant mirrors the default). Search/priority filters are client-side on the loaded page (useNecesidades only has page/size). admin npm test 747 passed, lint 0 errors, build ok; parent re-ran wizard/nueva/necesidad-detalle tests.

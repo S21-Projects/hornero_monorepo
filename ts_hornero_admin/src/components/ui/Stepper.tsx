@@ -6,12 +6,14 @@ interface StepperProps {
   current: number;
   /** Marks every step as completed (e.g. a success screen). */
   allDone?: boolean;
+  /** Fill the available width instead of the compact 480px default. */
+  fullWidth?: boolean;
 }
 
 const CIRCLE = 30;
 
 /** Horizontal numbered stepper with progress connectors. Presentational only. */
-export function Stepper({ steps, current, allDone = false }: StepperProps) {
+export function Stepper({ steps, current, allDone = false, fullWidth = false }: StepperProps) {
   return (
     <ol
       style={{
@@ -20,7 +22,7 @@ export function Stepper({ steps, current, allDone = false }: StepperProps) {
         padding: 0,
         margin: '0 0 24px',
         width: '100%',
-        maxWidth: 480,
+        maxWidth: fullWidth ? undefined : 480,
       }}
     >
       {steps.map((label, i) => {
