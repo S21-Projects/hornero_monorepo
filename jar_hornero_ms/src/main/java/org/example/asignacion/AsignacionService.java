@@ -2,6 +2,10 @@ package org.example.asignacion;
 
 import lombok.RequiredArgsConstructor;
 import org.example.asignacion.dto.AsignacionResponse;
+import org.example.asignacion.dto.AsignacionRondaResponse;
+import org.example.domain.DonacionLinea;
+import org.example.domain.Necesidad;
+import org.example.domain.RondaRepository;
 import org.example.domain.Asignacion;
 import org.example.domain.Donacion;
 import org.example.domain.DonacionRepository;
@@ -27,6 +31,7 @@ public class AsignacionService {
 
     private final DonacionRepository donacionRepository;
     private final AsignacionRepository asignacionRepository;
+    private final RondaRepository rondaRepository;
 
     public List<AsignacionResponse> historial(Long donacionId, Long actorId, boolean esAdmin) {
         Donacion donacion = donacionRepository.findByIdWithRelations(donacionId)
@@ -38,6 +43,35 @@ public class AsignacionService {
         }
 
         return asignaciones.stream().map(this::toResponse).toList();
+    }
+
+    /**
+     * {@code GET /api/rondas/{id}/asignaciones}: every assignment of the ronda, best score first
+     * (ties by id). 404 when the ronda does not exist; an existing ronda without assignments yields [].
+     */
+    public List<AsignacionRondaResponse> porRonda(Long rondaId) {
+        if (!rondaRepository.existsById(rondaId)) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Ronda not found");
+        }
+        return asignacionRepository.findByRondaIdConRelaciones(rondaId).stream().map(a -> {
+            Donacion d = a.getDonacion();
+            Necesidad n = a.getNecesidad();
+            return new AsignacionRondaResponse(
+                    toResponse(a),
+                    d.getId(),
+                    describir(d),
+                    n != null ? n.getDescripcion() : null);
+        }).toList();
+    }
+
+    private static String describir(Donacion d) {
+        if (d.getLineas() == null || d.getLineas().isEmpty()) {
+            return null;
+        }
+        return d.getLineas().stream()
+                .map((DonacionLinea l) -> l.getArticulo().getNombre() + " x"
+                        + l.getCantidad().stripTrailingZeros().toPlainString())
+                .collect(java.util.stream.Collectors.joining(", "));
     }
 
     private boolean esDonanteDueno(Donacion donacion, Long actorId) {

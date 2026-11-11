@@ -23,6 +23,11 @@ public interface AsignacionRepository extends JpaRepository<Asignacion, Long> {
 
     List<Asignacion> findByDonacion_IdOrderByCreadaEnDesc(Long donacionId);
 
+    /** All assignments of one ronda, best score first (ties by id), with their relations fetched. */
+    @Query("SELECT a FROM Asignacion a JOIN FETCH a.ronda JOIN FETCH a.donacion JOIN FETCH a.organizacion "
+            + "LEFT JOIN FETCH a.necesidad WHERE a.ronda.id = :rondaId ORDER BY a.score DESC, a.id ASC")
+    List<Asignacion> findByRondaIdConRelaciones(@Param("rondaId") Long rondaId);
+
     /**
      * The vigente (still-{@code PROPUESTA}) assignment for a donación, if any — resolved to
      * ACEPTADA/RECHAZADA/CANCELADA by {@code DonacionService} (slice 5c-ii, AD-3).

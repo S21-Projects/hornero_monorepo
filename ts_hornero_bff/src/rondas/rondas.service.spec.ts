@@ -103,6 +103,21 @@ describe('RondasService', () => {
     });
   });
 
+  describe('asignaciones', () => {
+    it('GETs the MS /rondas/{id}/asignaciones endpoint with a Bearer header', async () => {
+      const data = [{ donacionId: 7, asignacion: { id: 1, score: 3 } }];
+      httpService.axiosRef.get.mockResolvedValue({ data });
+
+      const result = await service.asignaciones(4, 'token-123');
+
+      expect(httpService.axiosRef.get).toHaveBeenCalledWith(
+        'http://ms:8081/api/rondas/4/asignaciones',
+        { headers: { Authorization: 'Bearer token-123' } },
+      );
+      expect(result).toEqual(data);
+    });
+  });
+
   describe('fondo', () => {
     it('GETs the MS /rondas/fondo endpoint with a Bearer header', async () => {
       const data = { pendientes: 3, masAntiguaDesde: '2026-09-01' };
