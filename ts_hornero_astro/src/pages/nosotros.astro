@@ -3,6 +3,13 @@ import Layout from '../layouts/Layout.astro';
 import { Avatar } from '../components/ui/avatar.tsx';
 import { DESARROLLADORES, DISENO } from '../data/equipo';
 import { PROCESO } from '../data/proceso';
+import { nosotrosHabilitado } from '../lib/features';
+
+// Hidden until NOSOTROS_ENABLED=true (see lib/features.ts): answer as if the page did not exist.
+if (!nosotrosHabilitado()) {
+  Astro.response.status = 404;
+  return Astro.rewrite('/404');
+}
 
 // TODO(tesis): completar con los datos reales de la tesis.
 const FICHA = [
