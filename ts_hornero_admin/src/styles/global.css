@@ -726,6 +726,57 @@ p {
   gap: 8px;
 }
 
+/* ── Rondas screen ─────────────────────────────────────────── */
+.fondo-card {
+  display: flex;
+  margin-bottom: 16px;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+.fondo-card__action {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+}
+.section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  margin: 28px 0 12px;
+}
+.banner-bad {
+  margin-bottom: 16px;
+  padding: 14px 20px;
+  border-radius: var(--r-card);
+  background: var(--bad-bg);
+  color: var(--bad-tx);
+}
+.banner-bad p {
+  margin: 0;
+}
+.list-card__toggle {
+  align-self: flex-start;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--horn);
+  font: inherit;
+  font-size: var(--fs-label);
+  font-weight: var(--fw-bold);
+  cursor: pointer;
+}
+.list-card__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+}
+
 /* ── Direct donation wizard ────────────────────────────────── */
 .wizard {
   max-width: 1040px;

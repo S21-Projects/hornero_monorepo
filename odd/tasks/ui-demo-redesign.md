@@ -51,7 +51,7 @@ screens. Destructive actions (delete, cancel) confirm in a modal.
 - [x] T7 Ronda assignments endpoint (user chose option 2, 2026-11-11): MS `GET /api/rondas/{id}/asignaciones`
       (ADMINISTRADOR) returning each assignment of the ronda (donación, organización/necesidad, estado,
       score + terms + weights), BFF proxy `GET /rondas/:id/asignaciones`, tests in both. Route: delegated writer.
-- [ ] T8 Rondas admin UI: run confirmation in `ConfirmDialog` with pool size, last result as stat cards,
+- [x] T8 Rondas admin UI: run confirmation in `ConfirmDialog` with pool size, last result as stat cards,
       history with origen/considerados/error, clickable rows opening a `Drawer` with summary, applied
       weights and the ronda's assignment list (from T7). Route: delegated writer.
 
@@ -67,3 +67,5 @@ screens. Destructive actions (delete, cancel) confirm in a modal.
 - T6 done (delegated writer): map panel chips, horizontal legend (tick labels derived from BREAKS lower bounds), top-right department card, sources in a details. astro build ok (parent re-ran), astro check 0 errors. Not checked in a browser.
 - Next: visual check of all screens in the browser (make up-local), then the user decides push/PR. Branch carries ~2.5k changed lines; PR split pending user choice.
 - T7 done (delegated writer): MS GET /api/rondas/{id}/asignaciones (admin, list ordered by score desc, 404 unknown) wrapping AsignacionResponse in AsignacionRondaResponse; BFF proxy; admin type + useAsignacionesRonda. MS full mvn test 1285 passed (8 skipped); BFF npm test -- rondas 18 passed; admin useRondas 7 passed, admin build ok. BFF build fails locally only because node_modules lacks sharp (declared in package.json, environmental, untouched code); BFF lint has 460 pre-existing problems, the new methods follow the same pattern. Query tested on H2, not Postgres.
+- T8 done (delegated writer + parent): rondas page with Fondo común card, ConfirmDialog run, stat cards, clickable history (PaginatedTable onRowClick) opening RondaDrawer (Asignaciones with DesgloseScore toggle, Resumen with applied weights). Parent extracted the duplicated StatCard into components/ui/StatCard.tsx (mis-donaciones + rondas). Admin npm test 754 passed, lint 0 errors on touched files, build ok. No admin donation detail route, so no "Ver donación" link.
+- Next: browser check of every screen on make up-local (also validates the T7 query on Postgres); then the user decides push/PR (branch ~3.5k changed lines, PR split pending).
