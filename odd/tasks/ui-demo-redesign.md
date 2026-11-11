@@ -48,6 +48,13 @@ screens. Destructive actions (delete, cancel) confirm in a modal.
 - [x] T6 Astro map panel: layer chips, horizontal legend, department card top-right, sources in a
       "Sobre los datos" disclosure, using `components/ui` atoms. Route: delegated writer.
 
+- [x] T7 Ronda assignments endpoint (user chose option 2, 2026-11-11): MS `GET /api/rondas/{id}/asignaciones`
+      (ADMINISTRADOR) returning each assignment of the ronda (donación, organización/necesidad, estado,
+      score + terms + weights), BFF proxy `GET /rondas/:id/asignaciones`, tests in both. Route: delegated writer.
+- [ ] T8 Rondas admin UI: run confirmation in `ConfirmDialog` with pool size, last result as stat cards,
+      history with origen/considerados/error, clickable rows opening a `Drawer` with summary, applied
+      weights and the ronda's assignment list (from T7). Route: delegated writer.
+
 ## Progress
 
 - 2026-11-11: doc created; Nosotros flag committed separately (bdc74ca).
@@ -59,3 +66,4 @@ screens. Destructive actions (delete, cancel) confirm in a modal.
 - T5 done (delegated writer): /donar/directa wizard (Stepper fullWidth), necesidad-detalle inline form replaced by a CTA so creation has one path; 7-day note verified against DonacionesEstancadasJob (constant mirrors the default). Search/priority filters are client-side on the loaded page (useNecesidades only has page/size). admin npm test 747 passed, lint 0 errors, build ok; parent re-ran wizard/nueva/necesidad-detalle tests.
 - T6 done (delegated writer): map panel chips, horizontal legend (tick labels derived from BREAKS lower bounds), top-right department card, sources in a details. astro build ok (parent re-ran), astro check 0 errors. Not checked in a browser.
 - Next: visual check of all screens in the browser (make up-local), then the user decides push/PR. Branch carries ~2.5k changed lines; PR split pending user choice.
+- T7 done (delegated writer): MS GET /api/rondas/{id}/asignaciones (admin, list ordered by score desc, 404 unknown) wrapping AsignacionResponse in AsignacionRondaResponse; BFF proxy; admin type + useAsignacionesRonda. MS full mvn test 1285 passed (8 skipped); BFF npm test -- rondas 18 passed; admin useRondas 7 passed, admin build ok. BFF build fails locally only because node_modules lacks sharp (declared in package.json, environmental, untouched code); BFF lint has 460 pre-existing problems, the new methods follow the same pattern. Query tested on H2, not Postgres.

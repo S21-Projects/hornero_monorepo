@@ -4,9 +4,11 @@ import org.example.idempotencia.Idempotente;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import org.example.asignacion.dto.AsignacionRondaResponse;
 import org.example.asignacion.dto.RondaFondoResponse;
 import org.example.asignacion.dto.RondaResponse;
 import org.example.common.PageData;
+import java.util.List;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
@@ -32,6 +34,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class RondaController {
 
     private final RondaService rondaService;
+    private final AsignacionService asignacionService;
 
     @Operation(summary = "Trigger a ronda (admin only — AD-9)")
     @PostMapping
@@ -55,6 +58,13 @@ public class RondaController {
     @PreAuthorize("hasRole('ADMINISTRADOR')")
     public RondaResponse detalle(@PathVariable Long id) {
         return rondaService.detalle(id);
+    }
+
+    @Operation(summary = "Assignments produced by one ronda, best score first (plain list, not paged)")
+    @GetMapping("/{id}/asignaciones")
+    @PreAuthorize("hasRole('ADMINISTRADOR')")
+    public List<AsignacionRondaResponse> asignaciones(@PathVariable Long id) {
+        return asignacionService.porRonda(id);
     }
 
     @Operation(summary = "Pool size and the oldest waiting donación, before triggering a ronda")

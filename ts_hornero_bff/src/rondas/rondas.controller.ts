@@ -69,4 +69,13 @@ export class RondasController {
   detalle(@Param('id', ParseIntPipe) id: number, @Req() req: Request) {
     return this.rondasService.detalle(id, this.getToken(req));
   }
+
+  @Roles(Role.ADMINISTRADOR)
+  @Get(':id/asignaciones')
+  @ApiOperation({
+    summary: 'Assignments produced by one ronda, best score first (admin only)',
+  })
+  asignaciones(@Param('id', ParseIntPipe) id: number, @Req() req: Request) {
+    return this.rondasService.asignaciones(id, this.getToken(req));
+  }
 }

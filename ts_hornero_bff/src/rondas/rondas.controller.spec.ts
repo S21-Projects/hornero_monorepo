@@ -12,6 +12,7 @@ describe('RondasController', () => {
     listar: jest.Mock;
     detalle: jest.Mock;
     fondo: jest.Mock;
+    asignaciones: jest.Mock;
   };
 
   const requestWithToken = (token?: string) =>
@@ -23,6 +24,7 @@ describe('RondasController', () => {
       listar: jest.fn(),
       detalle: jest.fn(),
       fondo: jest.fn(),
+      asignaciones: jest.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -92,6 +94,25 @@ describe('RondasController', () => {
 
     it('is restricted to ADMINISTRADOR, matching the MS @PreAuthorize', () => {
       expect(rolesOf('detalle')).toEqual([Role.ADMINISTRADOR]);
+    });
+  });
+
+  describe('asignaciones', () => {
+    it('reads the access_token cookie and forwards id to the service', async () => {
+      const items = [{ donacionId: 7 }];
+      service.asignaciones.mockResolvedValue(items);
+
+      const result = await controller.asignaciones(
+        4,
+        requestWithToken('token-123'),
+      );
+
+      expect(service.asignaciones).toHaveBeenCalledWith(4, 'token-123');
+      expect(result).toBe(items);
+    });
+
+    it('is restricted to ADMINISTRADOR, matching the MS @PreAuthorize', () => {
+      expect(rolesOf('asignaciones')).toEqual([Role.ADMINISTRADOR]);
     });
   });
 

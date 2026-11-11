@@ -247,6 +247,19 @@ export interface AsignacionHistorial {
 }
 
 /**
+ * Mirrors MS `AsignacionRondaResponse` (`GET /rondas/{id}/asignaciones`, ADMINISTRADOR-only): one
+ * assignment of a ronda — the shared `AsignacionResponse` row plus the donación/necesidad context.
+ * The list is plain (not paged) and ordered best score first.
+ */
+export interface AsignacionRonda {
+  asignacion: AsignacionHistorial;
+  donacionId: number;
+  /** Short summary of the donación's lines ("Arroz x5, Leche x2"); null when it has none. */
+  donacionDescripcion: string | null;
+  necesidadDescripcion: string | null;
+}
+
+/**
  * Mirrors MS `RondaResponse` (AD-9, spec `ronda-asignacion`): one triggered ronda, including a
  * `FALLIDA` one (worker error/timeout — `error` carries the reason, every counter stays 0).
  * `pesoCumplimiento` is null until slice 6b/6a populate the fifth criterion end to end.
