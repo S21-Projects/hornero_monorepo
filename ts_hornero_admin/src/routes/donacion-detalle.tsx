@@ -22,6 +22,15 @@ const EVENTO_ASIGNACION: Record<AsignacionHistorial['estado'], (org: string) => 
   CANCELADA: (org) => `Asignación a ${org} cancelada`,
 };
 
+/** Success banner copy: only FONDO_COMUN waits for a ronda; DIRECTA waits for the organización's answer. */
+function mensajeNueva(modalidad: string | undefined, asignada: boolean): string {
+  if (!modalidad) return 'Donación registrada.';
+  if (modalidad === 'FONDO_COMUN') {
+    return `Donación registrada. ${asignada ? 'Ya fue asignada.' : 'Va a entrar a la próxima ronda.'}`;
+  }
+  return 'Donación registrada. La organización tiene que aceptarla; te avisamos cuando responda.';
+}
+
 /**
  * `/mis-donaciones/:id` (DONANTE) — donación progress and assignment detail: header with badges
  * and cancel, "Próximo paso" card, progress strip (`ProgresoDonacion`), articles + destination,
@@ -57,10 +66,8 @@ export default function DonacionDetallePage() {
       <Link to="/mis-donaciones" className="detail-page__back">← Mis donaciones</Link>
 
       {esNueva && (
-        <Card className="banner-ok" style={{ background: 'var(--ok)' }}>
-          <Text variant="body-sm" style={{ color: '#fff' }}>
-            Donación registrada. {vigente ? 'Ya fue asignada.' : 'Va a entrar a la próxima ronda.'}
-          </Text>
+        <Card className="banner-ok">
+          <Text variant="body-sm" className="banner-ok__text">{mensajeNueva(d?.modalidad, Boolean(vigente))}</Text>
         </Card>
       )}
 

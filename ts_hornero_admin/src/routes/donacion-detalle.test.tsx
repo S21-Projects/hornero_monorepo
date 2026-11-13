@@ -112,6 +112,25 @@ describe('DonacionDetallePage', () => {
     expect(screen.getByText(/donaci[oó]n registrada/i)).toBeInTheDocument();
   });
 
+  it('tells DIRECTA donors the organización has to accept, not that a ronda is next', () => {
+    mockDonacion({ modalidad: 'DIRECTA', fase: 'ASIGNADA', organizacionNombre: 'Comedor Sol' });
+    mockAsignaciones([]);
+
+    renderPage('/mis-donaciones/1?nueva=1');
+
+    expect(screen.getByText(/la organización tiene que aceptarla/i)).toBeInTheDocument();
+    expect(screen.queryByText(/próxima ronda/i)).not.toBeInTheDocument();
+  });
+
+  it('keeps the próxima ronda copy for FONDO_COMUN in the banner', () => {
+    mockDonacion({ modalidad: 'FONDO_COMUN', fase: 'EN_FONDO', organizacionId: null, organizacionNombre: undefined });
+    mockAsignaciones([]);
+
+    renderPage('/mis-donaciones/1?nueva=1');
+
+    expect(screen.getByText(/va a entrar a la próxima ronda/i)).toBeInTheDocument();
+  });
+
   it('shows the donación lines when present (feature catalogo-articulos)', () => {
     mockDonacion({
       modalidad: 'FONDO_COMUN',
