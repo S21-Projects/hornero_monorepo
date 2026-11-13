@@ -57,14 +57,14 @@ screens. Destructive actions (delete, cancel) confirm in a modal.
 
 Review round 2 (user, 2026-11-12):
 
-- [ ] T9 Map: replace the ~530-option native department `<select>` (renders as a huge mostly-empty
+- [x] T9 Map: replace the ~530-option native department `<select>` (renders as a huge mostly-empty
       menu on macOS) with a searchable combobox; Córdoba first. Route: delegated writer.
-- [ ] T10 Necesidad delete returned 409 from a raw FK violation (`asignaciones.necesidad_id`, also
+- [x] T10 Necesidad delete returned 409 from a raw FK violation (`asignaciones.necesidad_id`, also
       `donaciones`): MS answers a clear 409 `NECESIDAD_CON_DONACIONES` before deleting, admin shows a
       helpful message instead of "Ocurrió un error". Route: delegated writer.
-- [ ] T11 Donation detail "nueva" banner told DIRECTA donors it enters the next ronda; copy per
+- [x] T11 Donation detail "nueva" banner told DIRECTA donors it enters the next ronda; copy per
       modalidad, banner styling via classes. Route: delegated writer.
-- [ ] T12 Pi deploy guide with ReNaCoM/map data loaded. Route: mapper + parent.
+- [x] T12 Pi deploy guide with ReNaCoM/map data loaded. Route: mapper + parent.
 
 Ronda finding (no code change): pooled donation #1 (8 kg Carne, CONGELADO) was rejected by Los
 Naranjos, the only N3 org; the worker excludes orgs that rejected a donation (`OrganizacionesExcluidas`)
@@ -85,3 +85,9 @@ and N1/N2 orgs cannot take CONGELADO, so every ronda leaves it unassigned by des
 - T8 done (delegated writer + parent): rondas page with Fondo común card, ConfirmDialog run, stat cards, clickable history (PaginatedTable onRowClick) opening RondaDrawer (Asignaciones with DesgloseScore toggle, Resumen with applied weights). Parent extracted the duplicated StatCard into components/ui/StatCard.tsx (mis-donaciones + rondas). Admin npm test 754 passed, lint 0 errors on touched files, build ok. No admin donation detail route, so no "Ver donación" link.
 - Next: browser check of every screen on make up-local (also validates the T7 query on Postgres); then the user decides push/PR (branch ~3.5k changed lines, PR split pending).
 - 2026-11-11 demo stack rebuilt (make demo-up) on the branch: API checks ok — /rondas/{id}/asignaciones returns data on Postgres (ronda 4: "Arroz x20 -> Copa de Leche El Molino", PROPUESTA, 0.53), unknown ronda 404; astro /mapa 200, /nosotros 404 (flag off), admin /, /donar/directa, /rondas 200. Visual review: user (no Playwright by user preference).
+- 2026-11-12 review round 2 (T9-T12): DepartamentoCombobox (ARIA combobox, Córdoba first) replaces
+  the native select; MS rejects deleting a necesidad referenced by asignaciones/donaciones with 409
+  NECESIDAD_CON_DONACIONES and the admin explains it; donation banner copy per modalidad; Pi map
+  guide in docs/deploy-mapa-rpi.md. Commits bda6a8a, fc5a565, f353efb, d42f9e2. Checks: MS
+  `mvn test -Dtest='Necesidad*'` passed; admin npm test 758 passed, lint 0 errors, build ok; astro
+  build ok (parent re-ran), astro check 0 errors. Not checked in a browser (user reviews).
