@@ -19,6 +19,16 @@ describe('mapNecesidadError', () => {
     expect(mapNecesidadError(makeAxiosError(403))).toBe('No sos dueño de esta necesidad');
   });
 
+  it('explains that a necesidad with donaciones cannot be deleted (409)', () => {
+    expect(
+      mapNecesidadError(
+        makeAxiosError(409, 'NECESIDAD_CON_DONACIONES: la necesidad tiene donaciones asociadas y no se puede eliminar'),
+      ),
+    ).toBe(
+      'No se puede eliminar porque ya recibió donaciones. Si no la necesitás más, editala y marcala como cumplida.',
+    );
+  });
+
   it('returns generic message for 500', () => {
     expect(mapNecesidadError(makeAxiosError(500))).toBe(
       'Ocurrió un error. Intentá de nuevo más tarde.',

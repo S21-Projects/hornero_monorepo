@@ -8,7 +8,9 @@ import org.example.auth.VerificacionService;
 import org.example.config.AcreditacionProperties;
 import org.example.domain.Articulo;
 import org.example.domain.ArticuloRepository;
+import org.example.domain.AsignacionRepository;
 import org.example.domain.CategoriaAlimento;
+import org.example.domain.DonacionRepository;
 import org.example.domain.EstadoNecesidad;
 import org.example.domain.Necesidad;
 import org.example.domain.NecesidadArticulo;
@@ -51,6 +53,8 @@ public class NecesidadService {
     private final ArticuloRepository articuloRepository;
     private final Clock clock;
     private final ActividadService actividadService;
+    private final AsignacionRepository asignacionRepository;
+    private final DonacionRepository donacionRepository;
 
     @Transactional
     public NecesidadResponse crear(CrearNecesidadRequest dto, Long referenteId) {
@@ -241,6 +245,11 @@ public class NecesidadService {
         Necesidad n = necesidadRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Necesidad not found"));
         checkOwnership(n, referenteId);
+        // The FKs from asignaciones/donaciones would reject the delete anyway; answer a clear 409.
+        if (asignacionRepository.existsByNecesidad_Id(id) || donacionRepository.existsByNecesidad_Id(id)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "NECESIDAD_CON_DONACIONES: la necesidad tiene donaciones asociadas y no se puede eliminar");
+        }
         necesidadRepository.delete(n);
         actividadService.registrar(Registro.de(TipoActividad.NECESIDAD_ELIMINADA)
                 .entidad("NECESIDAD", id).cambio(n.getEstado(), null));
