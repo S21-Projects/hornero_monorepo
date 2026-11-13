@@ -171,6 +171,17 @@ p {
 
 .mapa-select { min-height: 44px; width: 100%; border: 1px solid var(--line); border-radius: var(--r-input); background: #fff; padding: 0 12px; font: inherit; font-size: var(--fs-body-sm); font-weight: var(--fw-bold); color: var(--ink); }
 .mapa-select:disabled { opacity: .6; }
+.mapa-combobox { position: relative; }
+.mapa-combobox__input { min-height: 44px; width: 100%; border: 1px solid var(--line); border-radius: var(--r-input); background: #fff; padding: 0 12px; font: inherit; font-size: var(--fs-body-sm); font-weight: var(--fw-bold); color: var(--ink); }
+.mapa-combobox__input:disabled { opacity: .6; }
+.mapa-combobox__input:focus-visible { outline: 2px solid var(--sky-tx); outline-offset: 2px; }
+.mapa-combobox__list { position: absolute; z-index: 1000; top: calc(100% + 4px); left: 0; right: 0; margin: 0; padding: 4px; list-style: none; max-height: 320px; overflow-y: auto; border: 1px solid var(--line); border-radius: var(--r-input); background: #fff; box-shadow: 0 8px 24px rgba(0, 0, 0, .12); }
+.mapa-combobox__option { display: flex; flex-direction: column; gap: 1px; padding: 8px 10px; border-radius: 8px; cursor: pointer; }
+.mapa-combobox__option--active { background: var(--card-2); }
+.mapa-combobox__option[aria-selected="true"] .mapa-combobox__name { color: var(--earth); }
+.mapa-combobox__name { font-size: var(--fs-body-sm); font-weight: var(--fw-bold); color: var(--ink); }
+.mapa-combobox__prov { font-size: var(--fs-caption); color: var(--ink-3); }
+.mapa-combobox__empty { padding: 8px 10px; font-size: var(--fs-caption); color: var(--ink-3); }
 
 .mapa-chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; padding: 0; list-style: none; }
 .mapa-chip { display: inline-flex; min-height: 44px; align-items: center; gap: 8px; border: 1.5px solid var(--line); border-radius: var(--r-pill); background: var(--card); padding: 0 14px; font: inherit; font-size: var(--fs-label); font-weight: var(--fw-bolder); color: var(--ink-2); cursor: pointer; }

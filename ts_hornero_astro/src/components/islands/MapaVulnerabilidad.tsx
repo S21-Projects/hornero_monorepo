@@ -11,6 +11,7 @@ import {
   fmtRatio,
   type DepartamentoProps,
 } from '../../lib/vulnerabilidad';
+import DepartamentoCombobox from './DepartamentoCombobox';
 import type { DepartamentoCollection, Layers } from './MapaVulnerabilidadMap';
 
 // Leaflet touches `window` at import time, so the map is only loaded in the browser.
@@ -96,18 +97,7 @@ export default function MapaVulnerabilidad({ sinComedores, totalDepartamentos }:
   // Lower bound of each legend cell, derived from BREAKS: "<0,5×", "0,5×", ..., "4×+".
   const ticks = COLORS.map((_, i) => (i === 0 ? `<${fmtRatio(BREAKS[0])}×` : `${fmtRatio(BREAKS[i - 1])}×${i === COLORS.length - 1 ? '+' : ''}`));
 
-  const options = useMemo(() => {
-    if (!geo) return [];
-    const byProv = new Map<string, DepartamentoProps[]>();
-    for (const f of geo.features) {
-      const p = f.properties;
-      const prov = p.provincia ?? 'Sin provincia';
-      byProv.set(prov, [...(byProv.get(prov) ?? []), p]);
-    }
-    return [...byProv.entries()]
-      .sort(([a], [b]) => a.localeCompare(b, 'es'))
-      .map(([prov, deps]) => [prov, deps.sort((a, b) => (a.nombre ?? '').localeCompare(b.nombre ?? '', 'es'))] as const);
-  }, [geo]);
+  const departamentos = useMemo(() => geo?.features.map((f) => f.properties) ?? [], [geo]);
 
   return (
     <div className="flex flex-col lg:h-[calc(100dvh-60px)] lg:flex-row">
@@ -128,29 +118,16 @@ export default function MapaVulnerabilidad({ sinComedores, totalDepartamentos }:
 
         <div>
           <label htmlFor="sel-depto" className="mapa-label">Ir a un departamento</label>
-          <select
+          <DepartamentoCombobox
             id="sel-depto"
+            departamentos={departamentos}
+            selected={selected}
             disabled={geoState !== 'ok'}
-            value={selected?.codigo ?? ''}
-            onChange={(e) => {
-              const codigo = e.target.value;
-              const p = options.flatMap(([, d]) => d).find((d) => d.codigo === codigo) ?? null;
+            onSelect={(p) => {
               setSelected(p);
-              if (p) setFocus((f) => ({ codigo: p.codigo, n: (f?.n ?? 0) + 1 }));
+              setFocus((f) => ({ codigo: p.codigo, n: (f?.n ?? 0) + 1 }));
             }}
-            className="mapa-select"
-          >
-            <option value="">{geoState === 'ok' ? 'Elegí un departamento' : 'Cargando departamentos…'}</option>
-            {options.map(([prov, deps]) => (
-              <optgroup key={prov} label={prov}>
-                {deps.map((d) => (
-                  <option key={d.codigo} value={d.codigo}>
-                    {d.nombre ?? `Departamento ${d.codigo}`}
-                  </option>
-                ))}
-              </optgroup>
-            ))}
-          </select>
+          />
         </div>
 
         <section aria-labelledby="capas-titulo">
