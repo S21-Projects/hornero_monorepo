@@ -55,6 +55,21 @@ screens. Destructive actions (delete, cancel) confirm in a modal.
       history with origen/considerados/error, clickable rows opening a `Drawer` with summary, applied
       weights and the ronda's assignment list (from T7). Route: delegated writer.
 
+Review round 2 (user, 2026-11-12):
+
+- [ ] T9 Map: replace the ~530-option native department `<select>` (renders as a huge mostly-empty
+      menu on macOS) with a searchable combobox; Córdoba first. Route: delegated writer.
+- [ ] T10 Necesidad delete returned 409 from a raw FK violation (`asignaciones.necesidad_id`, also
+      `donaciones`): MS answers a clear 409 `NECESIDAD_CON_DONACIONES` before deleting, admin shows a
+      helpful message instead of "Ocurrió un error". Route: delegated writer.
+- [ ] T11 Donation detail "nueva" banner told DIRECTA donors it enters the next ronda; copy per
+      modalidad, banner styling via classes. Route: delegated writer.
+- [ ] T12 Pi deploy guide with ReNaCoM/map data loaded. Route: mapper + parent.
+
+Ronda finding (no code change): pooled donation #1 (8 kg Carne, CONGELADO) was rejected by Los
+Naranjos, the only N3 org; the worker excludes orgs that rejected a donation (`OrganizacionesExcluidas`)
+and N1/N2 orgs cannot take CONGELADO, so every ronda leaves it unassigned by design.
+
 ## Progress
 
 - 2026-11-11: doc created; Nosotros flag committed separately (bdc74ca).
