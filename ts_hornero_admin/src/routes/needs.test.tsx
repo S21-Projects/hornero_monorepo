@@ -308,6 +308,19 @@ describe('NeedsPage — delete confirmation dialog', () => {
     await vi.waitFor(() => expect(clearDelete).toHaveBeenCalled());
   });
 
+  it('shows the helpful message when the MS refuses the delete with NECESIDAD_CON_DONACIONES', async () => {
+    const { eliminar } = setup(21);
+    eliminar.mockRejectedValue(Object.assign(new Error('Request failed'), {
+      response: { status: 409, data: { message: 'NECESIDAD_CON_DONACIONES: la necesidad tiene donaciones asociadas' } },
+    }));
+    const user = userEvent.setup();
+    render(<NeedsPage />);
+
+    await user.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Sí, eliminar' }));
+
+    expect(await screen.findByText(/ya recibió donaciones/i)).toBeInTheDocument();
+  });
+
   it('dismisses the dialog with "Volver"', async () => {
     const { eliminar, clearDelete } = setup(21);
     const user = userEvent.setup();

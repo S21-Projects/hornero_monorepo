@@ -11,6 +11,8 @@ import java.util.Optional;
 
 @Repository
 public interface AsignacionRepository extends JpaRepository<Asignacion, Long> {
+    boolean existsByNecesidad_Id(Long necesidadId);
+
 
     /**
      * Orgs the ronda must exclude for this donación (AD-9): a rejected/devuelta assignment
