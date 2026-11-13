@@ -589,6 +589,10 @@ p {
 .banner-ok {
   margin-bottom: 16px;
   padding: 14px 20px;
+  background: var(--ok);
+}
+.banner-ok__text {
+  color: #fff;
 }
 .detail-header {
   display: flex;
