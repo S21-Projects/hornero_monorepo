@@ -39,6 +39,24 @@ export const ESTADO_DONACION: Record<string, BadgeConfig> = {
   CANCELADA:               { tone: 'danger',  label: 'Cancelada' },
 };
 
+export const ESTADO_RONDA: Record<string, BadgeConfig> = {
+  COMPLETADA: { tone: 'ok',     label: 'Completada' },
+  FALLIDA:    { tone: 'danger', label: 'Fallida' },
+};
+
+export const ORIGEN_RONDA: Record<string, BadgeConfig> = {
+  MANUAL:     { tone: 'sky',     label: 'Manual' },
+  AUTOMATICA: { tone: 'neutral', label: 'Automática' },
+};
+
+/** State of an assignment proposed by a ronda (`Asignacion.estado`). */
+export const ESTADO_ASIGNACION: Record<string, BadgeConfig> = {
+  PROPUESTA: { tone: 'sky',     label: 'Propuesta' },
+  ACEPTADA:  { tone: 'ok',      label: 'Aceptada' },
+  RECHAZADA: { tone: 'danger',  label: 'Rechazada' },
+  CANCELADA: { tone: 'neutral', label: 'Cancelada' },
+};
+
 /** Fallback for any unknown enum value. Never throws. */
 export const FALLBACK_BADGE: BadgeConfig = { tone: 'neutral', label: '—' };
 

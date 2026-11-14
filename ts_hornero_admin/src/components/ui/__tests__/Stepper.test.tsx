@@ -21,4 +21,11 @@ describe('Stepper', () => {
     expect(states()).toEqual(['done', 'done', 'done']);
     expect(document.querySelector('[aria-current="step"]')).toBeNull();
   });
+
+  it('drops the compact max width when fullWidth', () => {
+    const { rerender } = render(<Stepper steps={STEPS} current={0} />);
+    expect(screen.getByRole('list').style.maxWidth).toBe('480px');
+    rerender(<Stepper steps={STEPS} current={0} fullWidth />);
+    expect(screen.getByRole('list').style.maxWidth).toBe('');
+  });
 });

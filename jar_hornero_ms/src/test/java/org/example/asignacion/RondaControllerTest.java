@@ -42,6 +42,9 @@ class RondaControllerTest {
     private RondaService rondaService;
 
     @MockBean
+    private AsignacionService asignacionService;
+
+    @MockBean
     private JwtService jwtService;
 
     @MockBean
@@ -132,5 +135,43 @@ class RondaControllerTest {
 
         mockMvc.perform(get("/api/rondas/fondo").with(authentication(auth(2L, "ADMINISTRADOR"))))
                 .andExpect(status().isOk());
+    }
+
+    // --- GET /api/rondas/{id}/asignaciones ---
+
+    @Test
+    void getAsignacionesDeRonda_anonymous_isDenied() throws Exception {
+        mockMvc.perform(get("/api/rondas/1/asignaciones")).andExpect(status().isForbidden());
+    }
+
+    @Test
+    void getAsignacionesDeRonda_referente_isForbidden() throws Exception {
+        mockMvc.perform(get("/api/rondas/1/asignaciones").with(authentication(auth(5L, "REFERENTE"))))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void getAsignacionesDeRonda_donante_isForbidden() throws Exception {
+        mockMvc.perform(get("/api/rondas/1/asignaciones").with(authentication(auth(9L, "DONANTE"))))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void getAsignacionesDeRonda_admin_succeeds() throws Exception {
+        when(asignacionService.porRonda(1L)).thenReturn(List.of(
+                new org.example.asignacion.dto.AsignacionRondaResponse(null, 7L, "Arroz x5", "Necesidad")));
+
+        mockMvc.perform(get("/api/rondas/1/asignaciones").with(authentication(auth(2L, "ADMINISTRADOR"))))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void getAsignacionesDeRonda_unknownRonda_is404() throws Exception {
+        when(asignacionService.porRonda(99L)).thenThrow(
+                new org.springframework.web.server.ResponseStatusException(
+                        org.springframework.http.HttpStatus.NOT_FOUND, "Ronda not found"));
+
+        mockMvc.perform(get("/api/rondas/99/asignaciones").with(authentication(auth(2L, "ADMINISTRADOR"))))
+                .andExpect(status().isNotFound());
     }
 }

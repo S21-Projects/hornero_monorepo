@@ -281,6 +281,8 @@ docker compose up --build          # = make up
 3. `https://panel.elhornero.org` carga el login del panel.
 4. Login con un usuario admin → el panel resuelve el rol (`GET /auth/me`).
 5. Una organización con imagen muestra el banner (valida el bucket).
+6. `https://elhornero.org/mapa` muestra comedores y coropletas. Si no, cargar los datos del
+   ReNaCoM y la población: ver `docs/deploy-mapa-rpi.md`.
 
 ---
 

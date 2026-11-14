@@ -204,6 +204,8 @@ services:
       # Content-Security-Policy: report-only (default, logs violations in the browser console) or
       # enforce (blocks). Runtime-only: change it and recreate the container, no rebuild.
       CSP_MODE: "${CSP_MODE:-report-only}"
+      # "Nosotros" page and its nav/footer links. Hidden unless "true". Runtime-only, like CSP_MODE.
+      NOSOTROS_ENABLED: "${NOSOTROS_ENABLED:-false}"
       # Turnstile secret for the contact form's siteverify call. Runtime-only:
       # the site key is public and baked into the bundle, this one never is.
       # When empty the bot gate is inert — the form itself keeps working.

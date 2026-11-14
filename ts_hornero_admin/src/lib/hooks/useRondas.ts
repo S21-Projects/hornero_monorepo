@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../axios';
 import { idempotencyHeaders, useIdempotencyKey } from '../idempotency';
-import type { RondaFondoResponse, RondaResponse } from '../../types/domain';
+import type { AsignacionRonda, RondaFondoResponse, RondaResponse } from '../../types/domain';
 import type { PageData, PageParams } from '../../types/api';
 
 const FONDO_KEY = ['rondas', 'fondo'] as const;
@@ -24,6 +24,18 @@ export function useHistorialRondas(params?: PageParams) {
     queryKey: HISTORIAL_KEY(params),
     queryFn: () =>
       api.get<PageData<RondaResponse>>('/rondas', { params }).then((r) => r.data),
+  });
+}
+
+/**
+ * Assignments produced by one ronda, best score first (`GET /rondas/{id}/asignaciones`,
+ * ADMINISTRADOR-only). Disabled while `id` is null.
+ */
+export function useAsignacionesRonda(id: number | null) {
+  return useQuery<AsignacionRonda[]>({
+    queryKey: ['rondas', 'asignaciones', id] as const,
+    queryFn: () => api.get<AsignacionRonda[]>(`/rondas/${id}/asignaciones`).then((r) => r.data),
+    enabled: id != null,
   });
 }
 

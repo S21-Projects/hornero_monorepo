@@ -11,6 +11,8 @@ import java.util.Optional;
 
 @Repository
 public interface AsignacionRepository extends JpaRepository<Asignacion, Long> {
+    boolean existsByNecesidad_Id(Long necesidadId);
+
 
     /**
      * Orgs the ronda must exclude for this donación (AD-9): a rejected/devuelta assignment
@@ -22,6 +24,11 @@ public interface AsignacionRepository extends JpaRepository<Asignacion, Long> {
                                                           @Param("estado") EstadoAsignacion estado);
 
     List<Asignacion> findByDonacion_IdOrderByCreadaEnDesc(Long donacionId);
+
+    /** All assignments of one ronda, best score first (ties by id), with their relations fetched. */
+    @Query("SELECT a FROM Asignacion a JOIN FETCH a.ronda JOIN FETCH a.donacion JOIN FETCH a.organizacion "
+            + "LEFT JOIN FETCH a.necesidad WHERE a.ronda.id = :rondaId ORDER BY a.score DESC, a.id ASC")
+    List<Asignacion> findByRondaIdConRelaciones(@Param("rondaId") Long rondaId);
 
     /**
      * The vigente (still-{@code PROPUESTA}) assignment for a donación, if any — resolved to

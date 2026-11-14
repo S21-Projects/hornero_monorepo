@@ -40,25 +40,27 @@ export function ArticuloPicker({ selectedIds, onChange, error }: ArticuloPickerP
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+    <div className="chip-picker">
       {[...grupos.entries()].map(([categoria, items]) => (
-        <fieldset key={categoria} style={{ border: '1px solid var(--line)', borderRadius: 8, padding: '8px 12px' }}>
-          <legend>
-            <Text variant="caption" color="ink-3">
-              {CATEGORIA_ALIMENTO[categoria]?.label ?? categoria}
-            </Text>
+        <fieldset key={categoria} className="chip-group">
+          <legend className="chip-group__label">
+            {CATEGORIA_ALIMENTO[categoria]?.label ?? categoria}
           </legend>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-            {items.map((a) => (
-              <label key={a.id} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <input
-                  type="checkbox"
-                  checked={selectedIds.includes(a.id)}
-                  onChange={() => { toggle(a.id); }}
-                />
-                <Text variant="body-sm">{a.nombre}</Text>
-              </label>
-            ))}
+          <div className="chip-group__items">
+            {items.map((a) => {
+              const selected = selectedIds.includes(a.id);
+              return (
+                <label key={a.id} className={`chip${selected ? ' chip--selected' : ''}`}>
+                  <input
+                    type="checkbox"
+                    className="chip__input"
+                    checked={selected}
+                    onChange={() => { toggle(a.id); }}
+                  />
+                  {a.nombre}
+                </label>
+              );
+            })}
           </div>
         </fieldset>
       ))}

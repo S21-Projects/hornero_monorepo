@@ -42,6 +42,9 @@ class AsignacionServiceTest {
     @Mock
     private AsignacionRepository asignacionRepository;
 
+    @Mock
+    private org.example.domain.RondaRepository rondaRepository;
+
     private AsignacionService asignacionService;
 
     private Donacion donacion;
@@ -50,7 +53,7 @@ class AsignacionServiceTest {
 
     @BeforeEach
     void setUp() {
-        asignacionService = new AsignacionService(donacionRepository, asignacionRepository);
+        asignacionService = new AsignacionService(donacionRepository, asignacionRepository, rondaRepository);
 
         Donante donante = new Donante(7L, "Dueño", "dueno@test.com", "x", true);
         donacion = new Donacion();

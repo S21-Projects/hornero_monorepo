@@ -1,4 +1,6 @@
 ---
+import { nosotrosHabilitado } from '../lib/features';
+
 const spaUrl = import.meta.env.PUBLIC_SPA_URL ?? '#';
 const currentPath = Astro.url.pathname;
 
@@ -7,7 +9,7 @@ const links = [
   { href: '/organizaciones', label: 'Organizaciones' },
   { href: '/necesidades', label: 'Necesidades' },
   { href: '/mapa', label: 'Mapa' },
-  { href: '/nosotros', label: 'Nosotros' },
+  ...(nosotrosHabilitado() ? [{ href: '/nosotros', label: 'Nosotros' }] : []),
   { href: '/contacto', label: 'Contacto' },
 ];
 

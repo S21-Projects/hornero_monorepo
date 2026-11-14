@@ -68,6 +68,8 @@ class NecesidadServiceRelanzarTest {
     @Mock private AcreditacionProperties acreditacionProperties;
     @Mock private ArticuloRepository articuloRepository;
     @Mock private ActividadService actividadService;
+    @Mock private org.example.domain.AsignacionRepository asignacionRepository;
+    @Mock private org.example.domain.DonacionRepository donacionRepository;
 
     private NecesidadService service;
     private Organizacion org;
@@ -78,7 +80,7 @@ class NecesidadServiceRelanzarTest {
     void setUp() {
         Clock clock = Clock.fixed(HOY.atTime(12, 0).atZone(BA).toInstant(), BA);
         service = new NecesidadService(necesidadRepository, organizacionRepository, verificacionService,
-                acreditacionProperties, articuloRepository, clock, actividadService);
+                acreditacionProperties, articuloRepository, clock, actividadService, asignacionRepository, donacionRepository);
         referente = new Referente(1L, "Ref", "ref@test.com", "x", true);
         org = new Organizacion();
         org.setId(1L);

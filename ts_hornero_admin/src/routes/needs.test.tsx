@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import NeedsPage from './needs';
@@ -78,6 +78,22 @@ describe('NeedsPage — create form articulo picker', () => {
       armDelete: vi.fn(),
       clearDelete: vi.fn(),
     });
+  });
+
+  it('shows the heading and a back link to the list on the create form', async () => {
+    const goToList = vi.fn();
+    vi.mocked(useNeedsViewState).mockReturnValue({
+      view: 'create', pendingDeleteId: null, goToList, goToCreate: vi.fn(),
+      goToEdit: vi.fn(), armDelete: vi.fn(), clearDelete: vi.fn(),
+    });
+    const user = userEvent.setup();
+    render(<NeedsPage />);
+
+    expect(screen.getByRole('heading', { name: 'Nueva necesidad' })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /mis necesidades/i }));
+    expect(goToList).toHaveBeenCalled();
+    await user.click(screen.getByRole('button', { name: 'Cancelar' }));
+    expect(goToList).toHaveBeenCalledTimes(2);
   });
 
   it('requires at least one articulo before submitting', async () => {
@@ -232,5 +248,87 @@ describe('NeedsPage — selected organización pending validation', () => {
 
     expect(screen.getByText('Validación pendiente')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /crear tu organización/i })).toBeInTheDocument();
+  });
+});
+
+describe('NeedsPage — delete confirmation dialog', () => {
+  const necesidad = {
+    id: 21, descripcion: 'Arroz para el comedor', estado: 'ABIERTA', prioridad: 'MEDIA',
+    organizacionId: 3, articulos: [{ id: 1, nombre: 'Arroz' }], fechaVencimiento: '2099-01-01',
+  };
+
+  function setup(pendingDeleteId: number | null) {
+    const eliminar = vi.fn().mockResolvedValue(undefined);
+    const clearDelete = vi.fn();
+    const armDelete = vi.fn();
+    vi.mocked(useMisOrganizaciones).mockReturnValue({
+      data: [{ id: 3, nombre: 'Comedor Sol' }], isLoading: false, isError: false,
+    } as unknown as ReturnType<typeof useMisOrganizaciones>);
+    vi.mocked(useNecesidadesDeOrg).mockReturnValue({
+      data: { content: [necesidad], totalPages: 1 }, isLoading: false, isError: false,
+    } as unknown as ReturnType<typeof useNecesidadesDeOrg>);
+    vi.mocked(useEliminarNecesidad).mockReturnValue({
+      mutateAsync: eliminar, isPending: false,
+    } as unknown as ReturnType<typeof useEliminarNecesidad>);
+    vi.mocked(useArticulos).mockReturnValue({ data: [ARROZ], isLoading: false, isError: false } as ReturnType<typeof useArticulos>);
+    vi.mocked(useRelanzarNecesidad).mockReturnValue({
+      mutateAsync: vi.fn(), isPending: false, isError: false, error: null,
+    } as unknown as ReturnType<typeof useRelanzarNecesidad>);
+    vi.mocked(useNeedsViewState).mockReturnValue({
+      view: 'list', pendingDeleteId, goToList: vi.fn(), goToCreate: vi.fn(),
+      goToEdit: vi.fn(), armDelete, clearDelete,
+    });
+    return { eliminar, clearDelete, armDelete };
+  }
+
+  it('arms the delete from the row button without deleting', async () => {
+    const { eliminar, armDelete } = setup(null);
+    const user = userEvent.setup();
+    render(<NeedsPage />);
+
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Eliminar necesidad' }));
+
+    expect(armDelete).toHaveBeenCalledWith(21);
+    expect(eliminar).not.toHaveBeenCalled();
+  });
+
+  it('names the necesidad in the dialog and deletes only on confirm', async () => {
+    const { eliminar, clearDelete } = setup(21);
+    const user = userEvent.setup();
+    render(<NeedsPage />);
+
+    const dialog = screen.getByRole('alertdialog', { name: '¿Eliminar esta necesidad?' });
+    expect(dialog).toHaveTextContent('Arroz para el comedor');
+    expect(eliminar).not.toHaveBeenCalled();
+
+    await user.click(within(dialog).getByRole('button', { name: 'Sí, eliminar' }));
+
+    expect(eliminar).toHaveBeenCalledWith(21);
+    await vi.waitFor(() => expect(clearDelete).toHaveBeenCalled());
+  });
+
+  it('shows the helpful message when the MS refuses the delete with NECESIDAD_CON_DONACIONES', async () => {
+    const { eliminar } = setup(21);
+    eliminar.mockRejectedValue(Object.assign(new Error('Request failed'), {
+      response: { status: 409, data: { message: 'NECESIDAD_CON_DONACIONES: la necesidad tiene donaciones asociadas' } },
+    }));
+    const user = userEvent.setup();
+    render(<NeedsPage />);
+
+    await user.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Sí, eliminar' }));
+
+    expect(await screen.findByText(/ya recibió donaciones/i)).toBeInTheDocument();
+  });
+
+  it('dismisses the dialog with "Volver"', async () => {
+    const { eliminar, clearDelete } = setup(21);
+    const user = userEvent.setup();
+    render(<NeedsPage />);
+
+    await user.click(screen.getByRole('button', { name: 'Volver' }));
+
+    expect(clearDelete).toHaveBeenCalled();
+    expect(eliminar).not.toHaveBeenCalled();
   });
 });

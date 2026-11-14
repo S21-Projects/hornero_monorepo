@@ -1,8 +1,11 @@
 import { useState } from 'react';
+import { Trash } from 'iconsax-reactjs';
 import { AsyncSection } from '../components/AsyncSection';
 import { Badge } from '../components/Badge';
 import { PendingValidationCard } from '../components/PendingValidationCard';
 import { Button } from '../components/ui/Button';
+import { Card } from '../components/ui/Card';
+import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { Pager } from '../components/ui/Pager';
 import { Text } from '../components/ui/Typography';
 import { PageHeader } from '../components/ui/PageHeader';
@@ -22,6 +25,21 @@ import { useNeedsViewState } from './needs-view-state';
 import { useAuthStore } from '../store/auth.store';
 
 const PAGE_SIZE = 20;
+
+// ---------------------------------------------------------------------------
+// Form page shell: back link, heading and the form body inside a Card
+// ---------------------------------------------------------------------------
+function FormPage({ title, onBack, children }: { title: string; onBack(): void; children: React.ReactNode }) {
+  return (
+    <div className="form-page">
+      <button type="button" className="form-page__back" onClick={onBack}>
+        ← Mis necesidades
+      </button>
+      <Text variant="h3" style={{ display: 'block', marginBottom: 16 }}>{title}</Text>
+      <Card className="form-card">{children}</Card>
+    </div>
+  );
+}
 
 // ---------------------------------------------------------------------------
 // Create form
@@ -74,25 +92,23 @@ function CreateForm({ orgId, onSuccess, onCancel }: CreateFormProps) {
     crearMutation.isError ? mapNecesidadError(crearMutation.error) : null;
 
   return (
-    <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <Text variant="h3">Nueva necesidad</Text>
-
-      <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+    <form onSubmit={handleSubmit} className="form-card__form">
+      <label className="field">
         <Text variant="label">Descripción *</Text>
         <textarea
           value={descripcion}
           onChange={(e) => setDescripcion(e.target.value)}
           rows={3}
-          style={{ resize: 'vertical', padding: '8px 12px', borderRadius: 8, border: '1px solid var(--line)', fontSize: 'var(--fs-body)' }}
+          className="field__control field__control--area"
         />
       </label>
 
-      <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+      <label className="field">
         <Text variant="label">Prioridad *</Text>
         <select
           value={prioridad}
           onChange={(e) => setPrioridad(e.target.value as PrioridadNecesidad)}
-          style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid var(--line)', fontSize: 'var(--fs-body)' }}
+          className="field__control"
         >
           <option value="">Seleccioná una prioridad</option>
           <option value="URGENTE">Urgente</option>
@@ -101,13 +117,13 @@ function CreateForm({ orgId, onSuccess, onCancel }: CreateFormProps) {
         </select>
       </label>
 
-      <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+      <label className="field">
         <Text variant="label">Fecha de vencimiento (opcional)</Text>
         <input
           type="date"
           value={fechaVencimiento}
           onChange={(e) => setFechaVencimiento(e.target.value)}
-          style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid var(--line)', fontSize: 'var(--fs-body)' }}
+          className="field__control"
         />
       </label>
 
@@ -123,12 +139,12 @@ function CreateForm({ orgId, onSuccess, onCancel }: CreateFormProps) {
         <Text variant="body" color="urgent">{mutationError}</Text>
       )}
 
-      <div style={{ display: 'flex', gap: 8 }}>
+      <div className="form-card__actions">
+        <Button type="button" variant="secondary" onClick={onCancel}>
+          Cancelar
+        </Button>
         <Button type="submit" variant="primary" disabled={crearMutation.isPending}>
           {crearMutation.isPending ? 'Guardando…' : 'Crear necesidad'}
-        </Button>
-        <Button type="button" variant="ghost" onClick={onCancel}>
-          Cancelar
         </Button>
       </div>
     </form>
@@ -184,25 +200,23 @@ function EditForm({ need, orgId, onSuccess, onCancel }: EditFormProps) {
     actualizarMutation.isError ? mapNecesidadError(actualizarMutation.error) : null;
 
   return (
-    <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <Text variant="h3">Editar necesidad</Text>
-
-      <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+    <form onSubmit={handleSubmit} className="form-card__form">
+      <label className="field">
         <Text variant="label">Descripción</Text>
         <textarea
           value={descripcion}
           onChange={(e) => setDescripcion(e.target.value)}
           rows={3}
-          style={{ resize: 'vertical', padding: '8px 12px', borderRadius: 8, border: '1px solid var(--line)', fontSize: 'var(--fs-body)' }}
+          className="field__control field__control--area"
         />
       </label>
 
-      <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+      <label className="field">
         <Text variant="label">Prioridad</Text>
         <select
           value={prioridad}
           onChange={(e) => setPrioridad(e.target.value as PrioridadNecesidad)}
-          style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid var(--line)', fontSize: 'var(--fs-body)' }}
+          className="field__control"
         >
           <option value="URGENTE">Urgente</option>
           <option value="MEDIA">Media</option>
@@ -215,12 +229,12 @@ function EditForm({ need, orgId, onSuccess, onCancel }: EditFormProps) {
           Esta necesidad está vencida. Para reabrirla usá «Relanzar» desde la lista.
         </Text>
       ) : (
-        <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+        <label className="field">
           <Text variant="label">Estado</Text>
           <select
             value={estado}
             onChange={(e) => setEstado(e.target.value as EstadoNecesidad)}
-            style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid var(--line)', fontSize: 'var(--fs-body)' }}
+            className="field__control"
           >
             <option value="ABIERTA">Abierta</option>
             <option value="EN_PROGRESO">En progreso</option>
@@ -230,13 +244,13 @@ function EditForm({ need, orgId, onSuccess, onCancel }: EditFormProps) {
         </label>
       )}
 
-      <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+      <label className="field">
         <Text variant="label">Fecha de vencimiento (opcional)</Text>
         <input
           type="date"
           value={fechaVencimiento}
           onChange={(e) => setFechaVencimiento(e.target.value)}
-          style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid var(--line)', fontSize: 'var(--fs-body)' }}
+          className="field__control"
         />
       </label>
 
@@ -252,12 +266,12 @@ function EditForm({ need, orgId, onSuccess, onCancel }: EditFormProps) {
         <Text variant="body" color="urgent">{mutationError}</Text>
       )}
 
-      <div style={{ display: 'flex', gap: 8 }}>
+      <div className="form-card__actions">
+        <Button type="button" variant="secondary" onClick={onCancel}>
+          Cancelar
+        </Button>
         <Button type="submit" variant="primary" disabled={actualizarMutation.isPending}>
           {actualizarMutation.isPending ? 'Guardando…' : 'Guardar cambios'}
-        </Button>
-        <Button type="button" variant="ghost" onClick={onCancel}>
-          Cancelar
         </Button>
       </div>
     </form>
@@ -296,24 +310,24 @@ function RelaunchForm({ needId, orgId, onDone }: RelaunchFormProps) {
   const mutationError = relanzarMutation.isError ? mapNecesidadError(relanzarMutation.error) : null;
 
   return (
-    <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 4 }}>
-      <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+    <form onSubmit={handleSubmit} className="form-card__form" style={{ gap: 10, marginTop: 4 }}>
+      <label className="field">
         <Text variant="label">Nueva fecha de vencimiento *</Text>
         <input
           type="date"
           value={fecha}
           onChange={(e) => setFecha(e.target.value)}
-          style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid var(--line)', fontSize: 'var(--fs-body)', maxWidth: 220 }}
+          className="field__control" style={{ maxWidth: 220 }}
         />
       </label>
       {fieldError && <Text variant="caption" color="urgent">{fieldError}</Text>}
       {mutationError && <Text variant="caption" color="urgent">{mutationError}</Text>}
-      <div style={{ display: 'flex', gap: 8 }}>
-        <Button type="submit" variant="primary" disabled={relanzarMutation.isPending}>
-          {relanzarMutation.isPending ? 'Relanzando…' : 'Confirmar relanzamiento'}
-        </Button>
-        <Button type="button" variant="ghost" onClick={onDone}>
+      <div className="form-card__actions">
+        <Button type="button" variant="secondary" size="sm" onClick={onDone}>
           Cancelar
+        </Button>
+        <Button type="submit" variant="primary" size="sm" disabled={relanzarMutation.isPending}>
+          {relanzarMutation.isPending ? 'Relanzando…' : 'Confirmar relanzamiento'}
         </Button>
       </div>
     </form>
@@ -410,7 +424,7 @@ export default function NeedsPage() {
       <select
         value={orgId}
         onChange={(e) => setExplicitOrgId(Number(e.target.value))}
-        style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid var(--line)', fontSize: 'var(--fs-body)', maxWidth: 320 }}
+        className="field__control" style={{ maxWidth: 320 }}
       >
         {orgs.map((o) => (
           <option key={o.id} value={o.id}>{o.nombre}</option>
@@ -431,9 +445,9 @@ export default function NeedsPage() {
 
   if (view === 'create') {
     return (
-      <div style={{ maxWidth: 600 }}>
+      <FormPage title="Nueva necesidad" onBack={goToList}>
         <CreateForm orgId={orgId} onSuccess={goToList} onCancel={goToList} />
-      </div>
+      </FormPage>
     );
   }
 
@@ -446,14 +460,15 @@ export default function NeedsPage() {
       );
     }
     return (
-      <div style={{ maxWidth: 600 }}>
+      <FormPage title="Editar necesidad" onBack={goToList}>
         <EditForm need={editingNeed} orgId={orgId} onSuccess={goToList} onCancel={goToList} />
-      </div>
+      </FormPage>
     );
   }
 
   // List view
   const needs = needsContent;
+  const pendingDelete = needs.find((n) => n.id === pendingDeleteId);
 
   return (
     <div>
@@ -485,32 +500,20 @@ export default function NeedsPage() {
           {needs.map((need) => {
             const prioConfig = PRIORIDAD[need.prioridad] ?? FALLBACK_BADGE;
             const estadoConfig = ESTADO_NECESIDAD[need.estado] ?? FALLBACK_BADGE;
-            const isPendingDelete = pendingDeleteId === need.id;
 
             return (
-              <div
-                key={need.id}
-                style={{
-                  display: 'flex',
-                  alignItems: 'flex-start',
-                  justifyContent: 'space-between',
-                  padding: '16px',
-                  border: '1px solid var(--line)',
-                  borderRadius: 12,
-                  gap: 12,
-                }}
-              >
-                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  <Text variant="body">{need.descripcion}</Text>
-                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+              <Card as="article" key={need.id} className="list-card">
+                <div className="list-card__body">
+                  <Text variant="title" as="h3">{need.descripcion}</Text>
+                  <div className="list-card__badges">
                     <Badge tone={prioConfig.tone} label={prioConfig.label} />
                     <Badge tone={estadoConfig.tone} label={estadoConfig.label} />
-                    {need.fechaVencimiento && (
-                      <Text variant="caption" color="ink-3">
-                        Vence: {formatFecha(need.fechaVencimiento)}
-                      </Text>
-                    )}
                   </div>
+                  {need.fechaVencimiento && (
+                    <Text variant="caption" color="ink-3">
+                      Vence: {formatFecha(need.fechaVencimiento)}
+                    </Text>
+                  )}
                   {need.articulos && need.articulos.length > 0 && (
                     <Text variant="caption" color="ink-3">
                       Artículos: {need.articulos.map((a) => a.nombre).join(', ')}
@@ -521,46 +524,29 @@ export default function NeedsPage() {
                   )}
                 </div>
 
-                <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
-                  {!isPendingDelete ? (
-                    <>
-                      {need.estado === 'VENCIDA' && relanzandoId !== need.id && (
-                        <Button variant="primary" onClick={() => { clearDelete(); setRelanzandoId(need.id); }}>
-                          Relanzar
-                        </Button>
-                      )}
-                      <Button
-                        variant="ghost"
-                        onClick={() => { clearDelete(); goToEdit(need.id); }}
-                      >
-                        Editar
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        onClick={() => armDelete(need.id)}
-                      >
-                        Eliminar
-                      </Button>
-                    </>
-                  ) : (
-                    <>
-                      <Text variant="caption" color="urgent" style={{ alignSelf: 'center' }}>
-                        ¿Confirmar eliminación?
-                      </Text>
-                      <Button
-                        variant="primary"
-                        onClick={() => handleConfirmDelete(need.id)}
-                        disabled={eliminarMutation.isPending}
-                      >
-                        Sí, eliminar
-                      </Button>
-                      <Button variant="ghost" onClick={clearDelete}>
-                        Cancelar
-                      </Button>
-                    </>
+                <div className="list-card__actions">
+                  {need.estado === 'VENCIDA' && relanzandoId !== need.id && (
+                    <Button variant="primary" size="sm" onClick={() => { clearDelete(); setRelanzandoId(need.id); }}>
+                      Relanzar
+                    </Button>
                   )}
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => { clearDelete(); goToEdit(need.id); }}
+                  >
+                    Editar
+                  </Button>
+                  <button
+                    type="button"
+                    className="icon-btn icon-btn--danger"
+                    aria-label="Eliminar necesidad"
+                    onClick={() => armDelete(need.id)}
+                  >
+                    <Trash size={20} aria-hidden="true" />
+                  </button>
                 </div>
-              </div>
+              </Card>
             );
           })}
         </div>
@@ -569,6 +555,23 @@ export default function NeedsPage() {
           <Pager page={needsQuery.data} onPageChange={setPage} disabled={needsQuery.isFetching} />
         )}
       </AsyncSection>
+
+      <ConfirmDialog
+        open={pendingDelete !== undefined}
+        title="¿Eliminar esta necesidad?"
+        description={
+          pendingDelete && (
+            <>
+              “{pendingDelete.descripcion}” deja de verse en el sitio público y no recibe nuevas
+              donaciones. No se puede deshacer.
+            </>
+          )
+        }
+        confirmLabel="Sí, eliminar"
+        loading={eliminarMutation.isPending}
+        onConfirm={() => { if (pendingDelete) void handleConfirmDelete(pendingDelete.id); }}
+        onCancel={clearDelete}
+      />
     </div>
   );
 }
