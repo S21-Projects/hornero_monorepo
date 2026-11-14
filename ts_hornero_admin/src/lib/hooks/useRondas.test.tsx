@@ -4,7 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import MockAdapter from 'axios-mock-adapter';
 import { api } from '../axios';
-import { useFondoRonda, useHistorialRondas, useEjecutarRonda } from './useRondas';
+import { useFondoRonda, useHistorialRondas, useEjecutarRonda, useAsignacionesRonda } from './useRondas';
 
 const mock = new MockAdapter(api, { onNoMatch: 'throwException' });
 
@@ -53,6 +53,25 @@ describe('useHistorialRondas', () => {
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(result.current.data).toEqual(page);
     expect(mock.history.get[0].params).toEqual({ page: 0, size: 20 });
+  });
+});
+
+describe('useAsignacionesRonda', () => {
+  it('GETs /rondas/{id}/asignaciones', async () => {
+    const items = [{ donacionId: 7, donacionDescripcion: 'Arroz x5', necesidadDescripcion: null, asignacion: { id: 1 } }];
+    mock.onGet('/rondas/4/asignaciones').reply(200, items);
+
+    const { result } = renderHook(() => useAsignacionesRonda(4), { wrapper: createWrapper() });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(result.current.data).toEqual(items);
+  });
+
+  it('does not fetch while id is null', () => {
+    const { result } = renderHook(() => useAsignacionesRonda(null), { wrapper: createWrapper() });
+
+    expect(result.current.fetchStatus).toBe('idle');
+    expect(mock.history.get).toHaveLength(0);
   });
 });
 

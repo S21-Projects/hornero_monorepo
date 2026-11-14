@@ -52,6 +52,14 @@ export class RondasService {
     return data;
   }
 
+  async asignaciones(id: number, accessToken: string) {
+    const { data } = await this.httpService.axiosRef.get(
+      `${this.msUrl}/api/rondas/${id}/asignaciones`,
+      { headers: this.authHeaders(accessToken) },
+    );
+    return data;
+  }
+
   async fondo(accessToken: string) {
     const { data } = await this.httpService.axiosRef.get(
       `${this.msUrl}/api/rondas/fondo`,

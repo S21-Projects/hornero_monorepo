@@ -65,6 +65,12 @@ class NecesidadServiceTest {
     @Mock
     private ActividadService actividadService;
 
+    @Mock
+    private org.example.domain.AsignacionRepository asignacionRepository;
+
+    @Mock
+    private org.example.domain.DonacionRepository donacionRepository;
+
     @InjectMocks
     private NecesidadService necesidadService;
 
@@ -390,5 +396,43 @@ class NecesidadServiceTest {
         assertThatThrownBy(() -> necesidadService.actualizar(1L, new org.example.necesidad.dto.ActualizarNecesidadRequest(), 1L))
                 .isInstanceOf(ResponseStatusException.class)
                 .hasMessageContaining("403");
+    }
+
+    // --- eliminar — a necesidad already referenced by asignaciones/donaciones cannot be deleted ---
+
+    @Test
+    void eliminar_withDonaciones_throwsConflict() {
+        when(necesidadRepository.findById(1L)).thenReturn(Optional.of(buildNecesidad(1L)));
+        when(asignacionRepository.existsByNecesidad_Id(1L)).thenReturn(false);
+        when(donacionRepository.existsByNecesidad_Id(1L)).thenReturn(true);
+
+        assertThatThrownBy(() -> necesidadService.eliminar(1L, 1L))
+                .isInstanceOfSatisfying(ResponseStatusException.class, e -> {
+                    assertThat(e.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
+                    assertThat(e.getReason()).startsWith("NECESIDAD_CON_DONACIONES");
+                });
+        org.mockito.Mockito.verify(necesidadRepository, org.mockito.Mockito.never()).delete(org.mockito.ArgumentMatchers.any());
+    }
+
+    @Test
+    void eliminar_withAsignaciones_throwsConflict() {
+        when(necesidadRepository.findById(1L)).thenReturn(Optional.of(buildNecesidad(1L)));
+        when(asignacionRepository.existsByNecesidad_Id(1L)).thenReturn(true);
+
+        assertThatThrownBy(() -> necesidadService.eliminar(1L, 1L))
+                .isInstanceOfSatisfying(ResponseStatusException.class,
+                        e -> assertThat(e.getStatusCode()).isEqualTo(HttpStatus.CONFLICT));
+    }
+
+    @Test
+    void eliminar_withoutReferences_deletes() {
+        Necesidad n = buildNecesidad(1L);
+        when(necesidadRepository.findById(1L)).thenReturn(Optional.of(n));
+        when(asignacionRepository.existsByNecesidad_Id(1L)).thenReturn(false);
+        when(donacionRepository.existsByNecesidad_Id(1L)).thenReturn(false);
+
+        necesidadService.eliminar(1L, 1L);
+
+        verify(necesidadRepository).delete(n);
     }
 }

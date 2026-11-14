@@ -5,6 +5,7 @@ import type { AxiosError } from 'axios';
  * - 400: the referente has no organization associated yet.
  * - 403: the referente doesn't own this need.
  * - 400/409 with an MS error code (past date, not expired, cap reached): specific messages.
+ * - 409 NECESIDAD_CON_DONACIONES: delete refused because donaciones/asignaciones reference it.
  * - anything else: generic fallback.
  */
 export function mapNecesidadError(error: unknown): string {
@@ -19,6 +20,9 @@ export function mapNecesidadError(error: unknown): string {
   }
   if (status === 409 && message.includes('NECESIDAD_VENCIDA_USAR_RELANZAR')) {
     return 'Una necesidad vencida solo se reabre con el botón «Relanzar».';
+  }
+  if (status === 409 && message.includes('NECESIDAD_CON_DONACIONES')) {
+    return 'No se puede eliminar porque ya recibió donaciones. Si no la necesitás más, editala y marcala como cumplida.';
   }
   if (status === 409 && message.includes('Alcanzaste el máximo')) {
     return 'Alcanzaste el máximo de necesidades abiertas de tu nivel. Cerrá alguna antes de publicar o relanzar.';

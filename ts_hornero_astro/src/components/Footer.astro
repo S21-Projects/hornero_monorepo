@@ -1,9 +1,11 @@
 ---
+import { nosotrosHabilitado } from '../lib/features';
+
 const links = [
   { href: '/', label: 'Inicio' },
   { href: '/organizaciones', label: 'Organizaciones' },
   { href: '/necesidades', label: 'Necesidades' },
-  { href: '/nosotros', label: 'Nosotros' },
+  ...(nosotrosHabilitado() ? [{ href: '/nosotros', label: 'Nosotros' }] : []),
   { href: '/contacto', label: 'Contacto' },
 ];
 ---

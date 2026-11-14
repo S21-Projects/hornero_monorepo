@@ -17,6 +17,8 @@ import java.util.Optional;
 
 @Repository
 public interface DonacionRepository extends JpaRepository<Donacion, Long> {
+    boolean existsByNecesidad_Id(Long necesidadId);
+
 
     /**
      * Unassigned pool donations at ronda-trigger time (AD-9): {@code FONDO_COMUN}, still

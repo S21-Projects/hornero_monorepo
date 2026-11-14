@@ -3,6 +3,7 @@ import type { FormEvent } from 'react';
 import { Badge } from '../components/Badge';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
+import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { Input } from '../components/ui/Input';
 import { PaginatedTable } from '../components/ui/PaginatedTable';
 import type { Column } from '../components/ui/PaginatedTable';
@@ -174,11 +175,11 @@ export default function CatalogoPage() {
     editar.mutate({ id, input }, { onSuccess: () => setEditingId(null) });
   }
 
-  function handleDesactivarClick(id: number) {
-    if (confirmandoId !== id) {
-      setConfirmandoId(id);
-      return;
-    }
+  const confirmandoArticulo = articulos.find((a) => a.id === confirmandoId);
+
+  function handleConfirmarDesactivar() {
+    if (confirmandoId === null) return;
+    const id = confirmandoId;
     setConfirmandoId(null);
     desactivar.mutate(id);
   }
@@ -305,26 +306,15 @@ export default function CatalogoPage() {
                   >
                     {editingId === a.id ? 'Cerrar' : 'Editar'}
                   </Button>
-                  {confirmandoId === a.id ? (
-                    <>
-                      <Button type="button" variant="danger" size="sm" onClick={() => handleDesactivarClick(a.id)}>
-                        Confirmar
-                      </Button>
-                      <Button type="button" variant="ghost" size="sm" onClick={() => setConfirmandoId(null)}>
-                        Cancelar
-                      </Button>
-                    </>
-                  ) : (
-                    <Button
-                      type="button"
-                      variant="danger"
-                      size="sm"
-                      disabled={desactivar.isPending && desactivar.variables === a.id}
-                      onClick={() => handleDesactivarClick(a.id)}
-                    >
-                      Desactivar
-                    </Button>
-                  )}
+                  <Button
+                    type="button"
+                    variant="danger"
+                    size="sm"
+                    disabled={desactivar.isPending && desactivar.variables === a.id}
+                    onClick={() => setConfirmandoId(a.id)}
+                  >
+                    Desactivar
+                  </Button>
                 </div>
               ) : (
                 <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
@@ -343,6 +333,20 @@ export default function CatalogoPage() {
           />
         </div>
       </>
+
+      <ConfirmDialog
+        open={confirmandoArticulo !== undefined}
+        title="¿Desactivar este artículo?"
+        description={
+          <>
+            {confirmandoArticulo && <>“{confirmandoArticulo.nombre}” </>}deja de poder elegirse para nuevas
+            donaciones y necesidades. Las existentes lo siguen mostrando y podés reactivarlo cuando quieras.
+          </>
+        }
+        confirmLabel="Sí, desactivar"
+        onConfirm={handleConfirmarDesactivar}
+        onCancel={() => setConfirmandoId(null)}
+      />
     </div>
   );
 }
