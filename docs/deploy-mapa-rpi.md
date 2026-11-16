@@ -43,7 +43,7 @@ backup (`make backup`, a `backups/`) y usa el `.env` raíz por defecto.
 1. **Actualizar el código y levantar.**
 
    ```bash
-   cd ~/hornero_app
+   cd ~/projects/hornero_monorepo
    git pull
    docker compose up --build -d
    docker compose ps          # postgres, ms, bff, astro, admin, worker en healthy/running
@@ -69,7 +69,7 @@ backup (`make backup`, a `backups/`) y usa el `.env` raíz por defecto.
    ```bash
    # laptop
    mkdir -p scripts/mapa/out && duckdb < scripts/mapa/importar-renacom.sql
-   scp scripts/mapa/out/importar-renacom.sql pi@<pi>:~/hornero_app/scripts/mapa/out/
+   scp scripts/mapa/out/importar-renacom.sql uziano@<pi>:~/projects/hornero_monorepo/scripts/mapa/out/
    # Pi
    make backup
    docker compose exec -T postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v ON_ERROR_STOP=1' \
