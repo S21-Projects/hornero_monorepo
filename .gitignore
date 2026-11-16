@@ -40,3 +40,7 @@ scripts/mapa/.cache/
 
 # ReNaCoM import output (make importar-renacom)
 scripts/mapa/out/
+
+# AI workflow artifacts (local only)
+odd/
+openspec/
